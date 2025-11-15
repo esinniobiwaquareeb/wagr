@@ -97,30 +97,7 @@ export function generateEntertainmentWagers(events: EntertainmentEvent[]): Enter
   return wagers;
 }
 
-// Mock entertainment events generator
-export function getMockEntertainmentEvents(): EntertainmentEvent[] {
-  const now = new Date();
-  const events: EntertainmentEvent[] = [];
-
-  // Add some upcoming events
-  const movieDate = new Date(now);
-  movieDate.setDate(movieDate.getDate() + 30);
-  events.push({
-    type: 'movie',
-    name: 'Upcoming Blockbuster',
-    date: movieDate.toISOString(),
-    description: 'Highly anticipated movie release',
-  });
-
-  const awardsDate = new Date(now);
-  awardsDate.setDate(awardsDate.getDate() + 60);
-  events.push({
-    type: 'awards',
-    name: 'Best Picture',
-    date: awardsDate.toISOString(),
-    options: ['Movie A', 'Movie B', 'Movie C'],
-  });
-
-  return events;
-}
+// Note: Entertainment events should be fetched from real APIs (e.g., TMDB, IMDB, etc.)
+// This function is kept for type reference but should not be used in production
+// Implement real API integration in the cron job route
 

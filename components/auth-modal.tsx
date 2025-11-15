@@ -26,9 +26,45 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setError(null);
 
     try {
+      // Validate email
+      const trimmedEmail = email.trim();
+      if (!trimmedEmail) {
+        setError("Email is required");
+        setIsLoading(false);
+        return;
+      }
+
+      // Basic email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(trimmedEmail)) {
+        setError("Please enter a valid email address");
+        setIsLoading(false);
+        return;
+      }
+
+      // Validate password
+      if (!password) {
+        setError("Password is required");
+        setIsLoading(false);
+        return;
+      }
+
       if (isSignUp) {
+        // Password strength validation for sign up
+        if (password.length < 6) {
+          setError("Password must be at least 6 characters long");
+          setIsLoading(false);
+          return;
+        }
+
+        if (password.length > 72) {
+          setError("Password must not exceed 72 characters");
+          setIsLoading(false);
+          return;
+        }
+
         const { error } = await supabase.auth.signUp({
-          email,
+          email: trimmedEmail,
           password,
           options: {
             emailRedirectTo: `${window.location.origin}`,
@@ -42,8 +78,15 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           description: "Please check your email to confirm your account.",
         });
       } else {
+        // Login validation
+        if (password.length < 1) {
+          setError("Password is required");
+          setIsLoading(false);
+          return;
+        }
+
         const { error } = await supabase.auth.signInWithPassword({
-          email,
+          email: trimmedEmail,
           password,
         });
         if (error) throw error;

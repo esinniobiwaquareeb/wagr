@@ -18,10 +18,9 @@ export interface NewsResponse {
   totalResults: number;
 }
 
-export async function fetchPoliticalNews(apiKey?: string, country: string = 'us'): Promise<NewsArticle[]> {
+export async function fetchPoliticalNews(apiKey: string, country: string = 'us'): Promise<NewsArticle[]> {
   if (!apiKey) {
-    console.warn('News API key not provided, using mock data');
-    return getMockPoliticalNews();
+    throw new Error('News API key is required');
   }
 
   try {
@@ -40,13 +39,13 @@ export async function fetchPoliticalNews(apiKey?: string, country: string = 'us'
     return data.articles || [];
   } catch (error) {
     console.error('Error fetching political news:', error);
-    return getMockPoliticalNews();
+    throw error;
   }
 }
 
-export async function fetchGeneralNews(apiKey?: string, query: string = 'election'): Promise<NewsArticle[]> {
+export async function fetchGeneralNews(apiKey: string, query: string = 'election'): Promise<NewsArticle[]> {
   if (!apiKey) {
-    return getMockPoliticalNews();
+    throw new Error('News API key is required');
   }
 
   try {
@@ -65,26 +64,7 @@ export async function fetchGeneralNews(apiKey?: string, query: string = 'electio
     return data.articles || [];
   } catch (error) {
     console.error('Error fetching news:', error);
-    return getMockPoliticalNews();
+    throw error;
   }
-}
-
-function getMockPoliticalNews(): NewsArticle[] {
-  return [
-    {
-      title: 'Upcoming Presidential Election',
-      description: 'Presidential election scheduled for next month',
-      publishedAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      url: '#',
-      source: { name: 'Mock News' },
-    },
-    {
-      title: 'Senate Vote on New Bill',
-      description: 'Important bill to be voted on next week',
-      publishedAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      url: '#',
-      source: { name: 'Mock News' },
-    },
-  ];
 }
 

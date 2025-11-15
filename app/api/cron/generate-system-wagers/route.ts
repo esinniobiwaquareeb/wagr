@@ -10,8 +10,22 @@ export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
   
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret) {
+    return NextResponse.json(
+      { error: "CRON_SECRET is not configured" },
+      { status: 500 }
+    );
+  }
+  
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  
+  if (!process.env.SYSTEM_WAGER_API_SECRET) {
+    return NextResponse.json(
+      { error: "SYSTEM_WAGER_API_SECRET is not configured" },
+      { status: 500 }
+    );
   }
 
   try {
@@ -39,7 +53,7 @@ export async function GET(request: Request) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.SYSTEM_WAGER_API_SECRET || 'dev-secret'}`,
+            'Authorization': `Bearer ${process.env.SYSTEM_WAGER_API_SECRET}`,
           },
           body: JSON.stringify(wager),
         });
@@ -63,6 +77,9 @@ export async function GET(request: Request) {
       const { generateFinanceWagers } = await import("@/lib/wager-generators/finance");
       
       // Fetch real stock and forex data
+      if (!process.env.ALPHA_VANTAGE_API_KEY) {
+        throw new Error('ALPHA_VANTAGE_API_KEY is required for finance wagers');
+      }
       const stockIndices = await fetchStockQuotes(['SPY', 'QQQ', 'DIA'], process.env.ALPHA_VANTAGE_API_KEY);
       const forexRates = await fetchForexRates(['EURUSD', 'GBPUSD'], process.env.ALPHA_VANTAGE_API_KEY);
       
@@ -76,7 +93,7 @@ export async function GET(request: Request) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.SYSTEM_WAGER_API_SECRET || 'dev-secret'}`,
+            'Authorization': `Bearer ${process.env.SYSTEM_WAGER_API_SECRET}`,
           },
           body: JSON.stringify(wager),
         });
@@ -100,6 +117,9 @@ export async function GET(request: Request) {
       const { generatePoliticsWagers } = await import("@/lib/wager-generators/politics");
       
       // Fetch real political news
+      if (!process.env.NEWS_API_KEY) {
+        throw new Error('NEWS_API_KEY is required for politics wagers');
+      }
       const newsArticles = await fetchPoliticalNews(process.env.NEWS_API_KEY);
       
       // Convert news articles to events
@@ -116,7 +136,7 @@ export async function GET(request: Request) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.SYSTEM_WAGER_API_SECRET || 'dev-secret'}`,
+            'Authorization': `Bearer ${process.env.SYSTEM_WAGER_API_SECRET}`,
           },
           body: JSON.stringify(wager),
         });
@@ -135,17 +155,21 @@ export async function GET(request: Request) {
     }
 
     // Generate sports wagers
+    // Note: Requires real sports API integration (e.g., TheSportsDB, SportRadar)
+    // Skipping until API integration is implemented
     try {
-      const { generateSportsWagers, getMockSportsEvents } = await import("@/lib/wager-generators/sports");
-      const sportsEvents = getMockSportsEvents();
-      const sportsWagers = generateSportsWagers(sportsEvents);
+      // TODO: Implement real sports API integration
+      // const { generateSportsWagers } = await import("@/lib/wager-generators/sports");
+      // const sportsEvents = await fetchSportsEvents(SPORTS_API_KEY);
+      // const sportsWagers = generateSportsWagers(sportsEvents);
+      const sportsWagers: any[] = [];
 
       for (const wager of sportsWagers) {
         const response = await fetch(`${request.url.replace('/api/cron/generate-system-wagers', '/api/wagers/create-system')}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.SYSTEM_WAGER_API_SECRET || 'dev-secret'}`,
+            'Authorization': `Bearer ${process.env.SYSTEM_WAGER_API_SECRET}`,
           },
           body: JSON.stringify(wager),
         });
@@ -164,17 +188,21 @@ export async function GET(request: Request) {
     }
 
     // Generate weather wagers
+    // Note: Requires real weather API integration (e.g., OpenWeatherMap, WeatherAPI)
+    // Skipping until API integration is implemented
     try {
-      const { generateWeatherWagers, getMockWeatherEvents } = await import("@/lib/wager-generators/weather");
-      const weatherEvents = getMockWeatherEvents();
-      const weatherWagers = generateWeatherWagers(weatherEvents);
+      // TODO: Implement real weather API integration
+      // const { generateWeatherWagers } = await import("@/lib/wager-generators/weather");
+      // const weatherEvents = await fetchWeatherEvents(WEATHER_API_KEY);
+      // const weatherWagers = generateWeatherWagers(weatherEvents);
+      const weatherWagers: any[] = [];
 
       for (const wager of weatherWagers) {
         const response = await fetch(`${request.url.replace('/api/cron/generate-system-wagers', '/api/wagers/create-system')}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.SYSTEM_WAGER_API_SECRET || 'dev-secret'}`,
+            'Authorization': `Bearer ${process.env.SYSTEM_WAGER_API_SECRET}`,
           },
           body: JSON.stringify(wager),
         });
@@ -193,17 +221,21 @@ export async function GET(request: Request) {
     }
 
     // Generate entertainment wagers
+    // Note: Requires real entertainment API integration (e.g., TMDB, IMDB)
+    // Skipping until API integration is implemented
     try {
-      const { generateEntertainmentWagers, getMockEntertainmentEvents } = await import("@/lib/wager-generators/entertainment");
-      const entertainmentEvents = getMockEntertainmentEvents();
-      const entertainmentWagers = generateEntertainmentWagers(entertainmentEvents);
+      // TODO: Implement real entertainment API integration
+      // const { generateEntertainmentWagers } = await import("@/lib/wager-generators/entertainment");
+      // const entertainmentEvents = await fetchEntertainmentEvents(ENTERTAINMENT_API_KEY);
+      // const entertainmentWagers = generateEntertainmentWagers(entertainmentEvents);
+      const entertainmentWagers: any[] = [];
 
       for (const wager of entertainmentWagers) {
         const response = await fetch(`${request.url.replace('/api/cron/generate-system-wagers', '/api/wagers/create-system')}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.SYSTEM_WAGER_API_SECRET || 'dev-secret'}`,
+            'Authorization': `Bearer ${process.env.SYSTEM_WAGER_API_SECRET}`,
           },
           body: JSON.stringify(wager),
         });

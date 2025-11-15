@@ -22,7 +22,14 @@ export async function POST(request: Request) {
   const authHeader = request.headers.get("authorization");
   const apiSecret = process.env.SYSTEM_WAGER_API_SECRET;
   
-  if (apiSecret && authHeader !== `Bearer ${apiSecret}`) {
+  if (!apiSecret) {
+    return NextResponse.json(
+      { error: "SYSTEM_WAGER_API_SECRET is not configured" },
+      { status: 500 }
+    );
+  }
+  
+  if (authHeader !== `Bearer ${apiSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

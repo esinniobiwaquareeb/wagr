@@ -123,10 +123,50 @@ export default function Profile() {
   }, [user, supabase, fetchProfile]);
 
   const handleSave = async () => {
-    if (!user || !username.trim()) {
+    if (!user) {
       toast({
         title: "Error",
+        description: "You must be logged in to update your profile",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const trimmedUsername = username.trim();
+    
+    if (!trimmedUsername) {
+      toast({
+        title: "Username required",
         description: "Username cannot be empty",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (trimmedUsername.length < 3) {
+      toast({
+        title: "Username too short",
+        description: "Username must be at least 3 characters long",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (trimmedUsername.length > 30) {
+      toast({
+        title: "Username too long",
+        description: "Username must not exceed 30 characters",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate username format (alphanumeric and underscores only)
+    const usernameRegex = /^[a-zA-Z0-9_]+$/;
+    if (!usernameRegex.test(trimmedUsername)) {
+      toast({
+        title: "Invalid username",
+        description: "Username can only contain letters, numbers, and underscores",
         variant: "destructive",
       });
       return;
@@ -134,15 +174,24 @@ export default function Profile() {
 
     const { error } = await supabase
       .from("profiles")
-      .update({ username: username.trim() })
+      .update({ username: trimmedUsername })
       .eq("id", user.id);
 
     if (error) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      // Check for unique constraint violation
+      if (error.code === '23505') {
+        toast({
+          title: "Username taken",
+          description: "This username is already taken. Please choose another.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to update profile",
+          variant: "destructive",
+        });
+      }
     } else {
       toast({
         title: "Success!",

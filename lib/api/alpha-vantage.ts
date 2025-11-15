@@ -9,15 +9,9 @@ export interface StockQuote {
   changePercent: string;
 }
 
-export async function fetchStockQuotes(symbols: string[] = ['SPY', 'QQQ', 'DIA'], apiKey?: string): Promise<Record<string, number>> {
-  // If no API key, return mock data
+export async function fetchStockQuotes(symbols: string[] = ['SPY', 'QQQ', 'DIA'], apiKey: string): Promise<Record<string, number>> {
   if (!apiKey) {
-    console.warn('Alpha Vantage API key not provided, using mock data');
-    return {
-      'SPY': 4500,
-      'QQQ': 14000,
-      'DIA': 35000,
-    };
+    throw new Error('Alpha Vantage API key is required');
   }
 
   const prices: Record<string, number> = {};
@@ -52,28 +46,19 @@ export async function fetchStockQuotes(symbols: string[] = ['SPY', 'QQQ', 'DIA']
     }
   } catch (error) {
     console.error('Error fetching stock quotes:', error);
+    throw error;
   }
 
-  // Return mock data if no prices fetched
   if (Object.keys(prices).length === 0) {
-    return {
-      'SPY': 4500,
-      'QQQ': 14000,
-      'DIA': 35000,
-    };
+    throw new Error('No stock prices fetched');
   }
 
   return prices;
 }
 
-export async function fetchForexRates(pairs: string[] = ['EURUSD', 'GBPUSD', 'JPYUSD'], apiKey?: string): Promise<Record<string, number>> {
+export async function fetchForexRates(pairs: string[] = ['EURUSD', 'GBPUSD', 'JPYUSD'], apiKey: string): Promise<Record<string, number>> {
   if (!apiKey) {
-    console.warn('Alpha Vantage API key not provided, using mock data');
-    return {
-      'EUR/USD': 0.92,
-      'GBP/USD': 1.25,
-      'JPY/USD': 0.0067,
-    };
+    throw new Error('Alpha Vantage API key is required');
   }
 
   const rates: Record<string, number> = {};
@@ -107,14 +92,11 @@ export async function fetchForexRates(pairs: string[] = ['EURUSD', 'GBPUSD', 'JP
     }
   } catch (error) {
     console.error('Error fetching forex rates:', error);
+    throw error;
   }
 
   if (Object.keys(rates).length === 0) {
-    return {
-      'EUR/USD': 0.92,
-      'GBP/USD': 1.25,
-      'JPY/USD': 0.0067,
-    };
+    throw new Error('No forex rates fetched');
   }
 
   return rates;

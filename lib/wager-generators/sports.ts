@@ -54,26 +54,7 @@ export function generateSportsWagers(events: SportsEvent[]): SportsWagerTemplate
   return wagers;
 }
 
-// Mock sports events generator
-export function getMockSportsEvents(): SportsEvent[] {
-  const now = new Date();
-  const events: SportsEvent[] = [];
-
-  // Generate events for next 7 days
-  for (let i = 1; i <= 7; i++) {
-    const date = new Date(now);
-    date.setDate(date.getDate() + i);
-
-    events.push({
-      sport: 'Soccer',
-      league: 'Premier League',
-      teamA: 'Team A',
-      teamB: 'Team B',
-      date: date.toISOString(),
-      description: `Premier League match on ${date.toLocaleDateString()}`,
-    });
-  }
-
-  return events;
-}
+// Note: Sports events should be fetched from a real API (e.g., TheSportsDB, SportRadar, etc.)
+// This function is kept for type reference but should not be used in production
+// Implement real API integration in the cron job route
 

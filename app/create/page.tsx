@@ -97,13 +97,155 @@ export default function CreateWager() {
     setSubmitting(true);
 
     try {
+      // Validate title
+      const trimmedTitle = formData.title.trim();
+      if (!trimmedTitle) {
+        toast({
+          title: "Title required",
+          description: "Please enter a wager title.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+      if (trimmedTitle.length < 5) {
+        toast({
+          title: "Title too short",
+          description: "Title must be at least 5 characters long.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+      if (trimmedTitle.length > 200) {
+        toast({
+          title: "Title too long",
+          description: "Title must not exceed 200 characters.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      // Validate sides
+      const trimmedSideA = formData.sideA.trim();
+      const trimmedSideB = formData.sideB.trim();
+      
+      if (!trimmedSideA || !trimmedSideB) {
+        toast({
+          title: "Sides required",
+          description: "Please enter both Side A and Side B.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      if (trimmedSideA.length < 2 || trimmedSideB.length < 2) {
+        toast({
+          title: "Sides too short",
+          description: "Each side must be at least 2 characters long.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      if (trimmedSideA.length > 100 || trimmedSideB.length > 100) {
+        toast({
+          title: "Sides too long",
+          description: "Each side must not exceed 100 characters.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      if (trimmedSideA.toLowerCase() === trimmedSideB.toLowerCase()) {
+        toast({
+          title: "Sides must be different",
+          description: "Side A and Side B cannot be the same.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      // Validate amount
+      if (!formData.amount || formData.amount.trim() === '') {
+        toast({
+          title: "Amount required",
+          description: "Please enter an entry amount.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      const amount = parseFloat(formData.amount);
+      if (isNaN(amount)) {
+        toast({
+          title: "Invalid amount",
+          description: "Please enter a valid number for the entry amount.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      if (amount <= 0) {
+        toast({
+          title: "Invalid amount",
+          description: "Entry amount must be greater than zero.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      if (amount < 1) {
+        toast({
+          title: "Minimum amount",
+          description: "Minimum entry amount is 1.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      // Validate deadline if provided
+      if (formData.deadline) {
+        const deadlineDate = new Date(formData.deadline);
+        const now = new Date();
+        if (deadlineDate <= now) {
+          toast({
+            title: "Invalid deadline",
+            description: "Deadline must be in the future.",
+            variant: "destructive",
+          });
+          setSubmitting(false);
+          return;
+        }
+      }
+
+      // Validate description length if provided
+      if (formData.description.trim() && formData.description.trim().length > 1000) {
+        toast({
+          title: "Description too long",
+          description: "Description must not exceed 1000 characters.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
       const { error } = await supabase.from("wagers").insert({
         creator_id: user.id,
-        title: formData.title.trim(),
+        title: trimmedTitle,
         description: formData.description.trim() || null,
-        amount: parseFloat(formData.amount),
-        side_a: formData.sideA.trim(),
-        side_b: formData.sideB.trim(),
+        amount: amount,
+        side_a: trimmedSideA,
+        side_b: trimmedSideB,
         deadline: formData.deadline || null,
         fee_percentage: 0.01, // Platform fee is fixed at 1%
         currency: formData.currency,

@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
+import { Loader2 } from "lucide-react";
 
 interface Profile {
   balance: number;
@@ -22,11 +23,13 @@ interface Transaction {
 export default function Wallet() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [depositAmount, setDepositAmount] = useState("");
+  const [processingPayment, setProcessingPayment] = useState(false);
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
 
@@ -94,6 +97,42 @@ export default function Wallet() {
     }
   }, [user, fetchWalletData]);
 
+  // Handle payment callback
+  useEffect(() => {
+    const success = searchParams.get('success');
+    const error = searchParams.get('error');
+    const amount = searchParams.get('amount');
+
+    if (success === 'true' && amount) {
+      toast({
+        title: "Payment successful!",
+        description: `Successfully deposited ${formatCurrency(parseFloat(amount), currency)}.`,
+      });
+      fetchWalletData();
+      // Clean URL
+      router.replace('/wallet');
+    } else if (error) {
+      const errorMessages: Record<string, string> = {
+        missing_reference: "Payment reference is missing.",
+        config_error: "Payment service is not configured.",
+        verification_failed: "Payment verification failed.",
+        invalid_transaction: "Invalid transaction data.",
+        payment_failed: "Payment was not successful.",
+        balance_update_failed: "Payment received but balance update failed. Please contact support.",
+        verification_error: "Error verifying payment. Please check your transaction history.",
+        already_processed: "This payment has already been processed.",
+      };
+      
+      toast({
+        title: "Payment error",
+        description: errorMessages[error] || "An error occurred during payment.",
+        variant: "destructive",
+      });
+      // Clean URL
+      router.replace('/wallet');
+    }
+  }, [searchParams, toast, currency, router, fetchWalletData]);
+
   // Real-time subscription for profile balance updates
   useEffect(() => {
     if (!user) return;
@@ -138,47 +177,82 @@ export default function Wallet() {
   }, [user, supabase, fetchWalletData]);
 
   const handleDeposit = async () => {
-    if (!depositAmount || isNaN(parseFloat(depositAmount)) || parseFloat(depositAmount) <= 0) {
+    // Validate amount
+    const trimmedAmount = depositAmount.trim();
+    if (!trimmedAmount) {
       toast({
-        title: "Invalid amount",
-        description: "Please enter a valid positive number.",
+        title: "Amount required",
+        description: "Please enter an amount to deposit.",
         variant: "destructive",
       });
       return;
     }
 
-    const amount = parseFloat(depositAmount);
-
-    // Add balance
-    await supabase.rpc("increment_balance", {
-      user_id: user.id,
-      amt: amount,
-    });
-
-    // Add transaction
-    await supabase.from("transactions").insert({
-      user_id: user.id,
-      type: "deposit",
-      amount: amount,
-      reference: "manual_deposit",
-    });
-
-    setDepositAmount("");
-    // Refresh profile
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("balance")
-      .eq("id", user.id)
-      .single();
-
-    if (profileData) {
-      setProfile(profileData);
+    const amount = parseFloat(trimmedAmount);
+    
+    if (isNaN(amount)) {
+      toast({
+        title: "Invalid amount",
+        description: "Please enter a valid number.",
+        variant: "destructive",
+      });
+      return;
     }
 
-    toast({
-      title: "Success!",
-      description: `Successfully deposited ${amount.toFixed(2)}.`,
-    });
+    if (amount <= 0) {
+      toast({
+        title: "Invalid amount",
+        description: "Deposit amount must be greater than zero.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (amount < 100) {
+      toast({
+        title: "Minimum amount",
+        description: "Minimum deposit amount is ₦100.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Initialize Paystack payment
+    setProcessingPayment(true);
+    try {
+      const response = await fetch('/api/payments/initialize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: amount * 100, // Convert to kobo (Paystack uses smallest currency unit)
+          email: user.email,
+          userId: user.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to initialize payment');
+      }
+
+      // Open Paystack checkout
+      if (data.authorization_url && typeof window !== 'undefined') {
+        window.location.href = data.authorization_url;
+      } else {
+        throw new Error('Payment URL not received');
+      }
+    } catch (error) {
+      console.error("Error initializing payment:", error);
+      toast({
+        title: "Payment error",
+        description: error instanceof Error ? error.message : "Failed to initialize payment. Please try again.",
+        variant: "destructive",
+      });
+      setProcessingPayment(false);
+    }
   };
 
   if (loading) {
@@ -217,21 +291,42 @@ export default function Wallet() {
 
         <div className="bg-card border border-border rounded-lg p-3 md:p-5 mb-3 md:mb-6">
           <h3 className="text-sm md:text-lg font-semibold mb-2 md:mb-3">Add Funds</h3>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <input
-              type="number"
-              value={depositAmount}
-              onChange={(e) => setDepositAmount(e.target.value)}
-              placeholder="Amount"
-              className="flex-1 px-3 md:px-4 py-2 md:py-2.5 border border-input rounded-lg md:rounded-md bg-background text-foreground text-sm md:text-base"
-              min="1"
-            />
-            <button
-              onClick={handleDeposit}
-              className="px-4 md:px-6 py-2 md:py-2.5 bg-primary text-primary-foreground rounded-lg md:rounded-md font-medium hover:opacity-90 transition active:scale-[0.98] touch-manipulation text-sm md:text-base whitespace-nowrap"
-            >
-              Deposit
-            </button>
+          <div className="space-y-2">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="number"
+                value={depositAmount}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Allow only positive numbers
+                  if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
+                    setDepositAmount(value);
+                  }
+                }}
+                placeholder="Enter amount (minimum ₦100)"
+                className="flex-1 px-3 md:px-4 py-2 md:py-2.5 border border-input rounded-lg md:rounded-md bg-background text-foreground text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
+                min="100"
+                step="0.01"
+                disabled={processingPayment}
+              />
+              <button
+                onClick={handleDeposit}
+                disabled={processingPayment || !depositAmount.trim()}
+                className="px-4 md:px-6 py-2 md:py-2.5 bg-primary text-primary-foreground rounded-lg md:rounded-md font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.98] touch-manipulation text-sm md:text-base whitespace-nowrap flex items-center justify-center gap-2"
+              >
+                {processingPayment ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  'Deposit'
+                )}
+              </button>
+            </div>
+            <p className="text-[10px] md:text-xs text-muted-foreground">
+              Minimum deposit: ₦100. Secure payment powered by Paystack.
+            </p>
           </div>
         </div>
 

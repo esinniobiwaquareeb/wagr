@@ -18,16 +18,159 @@ export default function ContactPage() {
     e.preventDefault();
     setSubmitting(true);
 
-    // In a real application, you would send this to your backend
-    // For now, we'll just show a success message
-    setTimeout(() => {
+    try {
+      // Validate name
+      const trimmedName = formData.name.trim();
+      if (!trimmedName) {
+        toast({
+          title: "Name required",
+          description: "Please enter your name.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      if (trimmedName.length < 2) {
+        toast({
+          title: "Name too short",
+          description: "Name must be at least 2 characters long.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      if (trimmedName.length > 100) {
+        toast({
+          title: "Name too long",
+          description: "Name must not exceed 100 characters.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      // Validate email
+      const trimmedEmail = formData.email.trim();
+      if (!trimmedEmail) {
+        toast({
+          title: "Email required",
+          description: "Please enter your email address.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(trimmedEmail)) {
+        toast({
+          title: "Invalid email",
+          description: "Please enter a valid email address.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      // Validate subject
+      const trimmedSubject = formData.subject.trim();
+      if (!trimmedSubject) {
+        toast({
+          title: "Subject required",
+          description: "Please enter a subject.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      if (trimmedSubject.length < 3) {
+        toast({
+          title: "Subject too short",
+          description: "Subject must be at least 3 characters long.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      if (trimmedSubject.length > 200) {
+        toast({
+          title: "Subject too long",
+          description: "Subject must not exceed 200 characters.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      // Validate message
+      const trimmedMessage = formData.message.trim();
+      if (!trimmedMessage) {
+        toast({
+          title: "Message required",
+          description: "Please enter your message.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      if (trimmedMessage.length < 10) {
+        toast({
+          title: "Message too short",
+          description: "Message must be at least 10 characters long.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      if (trimmedMessage.length > 2000) {
+        toast({
+          title: "Message too long",
+          description: "Message must not exceed 2000 characters.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      // Send message to backend
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: trimmedName,
+          email: trimmedEmail,
+          subject: trimmedSubject,
+          message: trimmedMessage,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to send message');
+      }
+
       toast({
         title: "Message sent!",
         description: "We'll get back to you as soon as possible.",
       });
       setFormData({ name: "", email: "", subject: "", message: "" });
       setSubmitting(false);
-    }, 1000);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please try again.",
+        variant: "destructive",
+      });
+      setSubmitting(false);
+    }
   };
 
   return (

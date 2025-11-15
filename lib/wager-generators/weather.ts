@@ -73,29 +73,7 @@ export function generateWeatherWagers(events: WeatherEvent[]): WeatherWagerTempl
   return wagers;
 }
 
-// Mock weather events generator
-export function getMockWeatherEvents(): WeatherEvent[] {
-  const now = new Date();
-  const events: WeatherEvent[] = [];
-  const locations = ['New York', 'London', 'Tokyo', 'Sydney', 'Los Angeles'];
-
-  // Generate events for next 5 days
-  for (let i = 1; i <= 5; i++) {
-    const date = new Date(now);
-    date.setDate(date.getDate() + i);
-    const location = locations[i % locations.length];
-
-    events.push({
-      location,
-      date: date.toISOString(),
-      prediction: {
-        type: i % 2 === 0 ? 'rain' : 'temperature',
-        threshold: i % 2 === 0 ? 0 : 25,
-        unit: i % 2 === 0 ? 'mm' : 'C',
-      },
-    });
-  }
-
-  return events;
-}
+// Note: Weather events should be fetched from a real API (e.g., OpenWeatherMap, WeatherAPI, etc.)
+// This function is kept for type reference but should not be used in production
+// Implement real API integration in the cron job route
 
