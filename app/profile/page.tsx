@@ -31,7 +31,10 @@ export default function Profile() {
   const getUser = useCallback(async () => {
     const { data } = await supabase.auth.getUser();
     if (!data?.user) {
+      setUser(null);
+      setProfile(null);
       router.push("/");
+      router.refresh();
       return;
     }
     setUser(data.user);
@@ -72,14 +75,21 @@ export default function Profile() {
   useEffect(() => {
     getUser();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(() => {
-      getUser();
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        setUser(null);
+        setProfile(null);
+        router.push("/");
+        router.refresh();
+      } else {
+        getUser();
+      }
     });
 
     return () => {
       authListener?.subscription?.unsubscribe?.();
     };
-  }, [getUser, supabase]);
+  }, [getUser, supabase, router]);
 
   useEffect(() => {
     if (user) {
@@ -144,13 +154,24 @@ export default function Profile() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push("/");
-    router.refresh();
-    toast({
-      title: "Logged out",
-      description: "You have been logged out successfully",
-    });
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      setProfile(null);
+      toast({
+        title: "Logged out",
+        description: "You have been logged out successfully",
+      });
+      router.push("/");
+      router.refresh();
+    } catch (error) {
+      console.error("Error logging out:", error);
+      toast({
+        title: "Error",
+        description: "Failed to log out. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (loading) {

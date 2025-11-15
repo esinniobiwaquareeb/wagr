@@ -6,11 +6,13 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from "react";
 import { Home, Plus, Wallet, Trophy, User, Settings } from "lucide-react";
+import { AuthModal } from "@/components/auth-modal";
 
 export function MobileNav() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -114,14 +116,14 @@ export function MobileNav() {
               <span className="text-[10px] mt-0.5 font-medium">{isActive("/profile") ? "Profile" : ""}</span>
             </Link>
           ) : (
-            <Link
-              href="/"
+            <button
+              onClick={() => setShowAuthModal(true)}
               className="flex flex-col items-center justify-center flex-1 py-2 rounded-lg text-muted-foreground hover:text-foreground transition-all duration-200"
               title="Login"
             >
               <User className="h-6 w-6" />
               <span className="text-[10px] mt-0.5 font-medium">Login</span>
-            </Link>
+            </button>
           )}
         </div>
       </nav>
@@ -185,15 +187,23 @@ export function MobileNav() {
             <span className="text-sm font-medium">Profile</span>
           </Link>
         ) : (
-          <Link
-            href="/"
-            className="flex items-center gap-3 py-2 px-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition"
+          <button
+            onClick={() => setShowAuthModal(true)}
+            className="flex items-center gap-3 py-2 px-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition w-full text-left"
           >
             <User className="h-5 w-5" />
             <span className="text-sm font-medium">Login</span>
-          </Link>
+          </button>
         )}
       </nav>
+
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => {
+          setShowAuthModal(false);
+          router.refresh();
+        }}
+      />
     </>
   );
 }
