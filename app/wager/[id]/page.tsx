@@ -350,9 +350,15 @@ export default function WagerDetail() {
       });
     } catch (error) {
       console.error("Error joining wager:", error);
+      const errorMessage = error instanceof Error 
+        ? (error.message || "An unexpected error occurred")
+        : typeof error === 'object' && error !== null && 'message' in error
+        ? String(error.message) || "An unexpected error occurred"
+        : "Failed to join wager. Please try again.";
+      
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to join wager. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -442,9 +448,15 @@ export default function WagerDetail() {
       router.refresh();
     } catch (error) {
       console.error("Error deleting wager:", error);
+      const errorMessage = error instanceof Error 
+        ? (error.message || "An unexpected error occurred")
+        : typeof error === 'object' && error !== null && 'message' in error
+        ? String(error.message) || "An unexpected error occurred"
+        : "Failed to delete wager. Please try again.";
+      
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete wager. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

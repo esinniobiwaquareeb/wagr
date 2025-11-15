@@ -16,17 +16,24 @@ export function Toaster() {
   return (
     <ToastProvider>
       {toasts.map(function ({ id, title, description, action, ...props }) {
-        // Don't render toast if it has no content
-        if (!title && !description && !action) {
+        // Always render if there's a title or description (even if empty string, show something)
+        // Only skip if both are explicitly null/undefined
+        const hasContent = title != null || description != null || action != null;
+        
+        if (!hasContent) {
           return null;
         }
+        
+        // Ensure at least title or description exists for display
+        const displayTitle = title || "Notification";
+        const displayDescription = description || (title ? undefined : "An error occurred");
         
         return (
           <Toast key={id} {...props}>
             <div className="grid gap-1">
-              {title && <ToastTitle>{title}</ToastTitle>}
-              {description && (
-                <ToastDescription>{description}</ToastDescription>
+              {displayTitle && <ToastTitle>{displayTitle}</ToastTitle>}
+              {displayDescription && (
+                <ToastDescription>{displayDescription}</ToastDescription>
               )}
             </div>
             {action}
