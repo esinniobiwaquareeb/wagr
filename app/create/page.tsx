@@ -264,10 +264,16 @@ export default function CreateWager() {
         has_category: !!formData.category,
       });
       
-      // Invalidate cache
+      // Invalidate cache to ensure new wager shows up immediately
       if (typeof window !== 'undefined') {
         try {
           sessionStorage.removeItem('wagers_cache');
+          // Also clear any individual wager caches
+          Object.keys(sessionStorage).forEach(key => {
+            if (key.startsWith('wager_')) {
+              sessionStorage.removeItem(key);
+            }
+          });
         } catch (e) {
           // Ignore
         }
@@ -277,7 +283,12 @@ export default function CreateWager() {
         title: "Success!",
         description: `Wager created successfully! ${formData.isPublic ? 'It\'s now visible to everyone.' : 'It\'s private and only visible to you.'}`,
       });
-      router.push("/");
+      
+      // Small delay to ensure database is updated, then redirect
+      setTimeout(() => {
+        router.push("/");
+        router.refresh(); // Force refresh to show new wager
+      }, 100);
     } catch (error) {
       console.error("Error creating wager:", error);
       toast({

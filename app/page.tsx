@@ -166,20 +166,20 @@ export default function Home() {
   useEffect(() => {
     let filtered = [...allWagers];
 
-    // Filter by selected category
+    // Filter by selected category (explicit selection takes priority)
     if (selectedCategory) {
       filtered = filtered.filter(w => w.category === selectedCategory);
-    } else if (userPreferences.length > 0) {
-      // Filter by user preferences if no category selected
-      filtered = filtered.filter(w => 
-        !w.category || userPreferences.includes(w.category)
-      );
     }
+    // Note: User preferences are not used as filters - they're just for sorting/display
+    // All public wagers should be visible unless a category is explicitly selected
 
     // Filter by tags if user has tag preferences
+    // Only filter if wager has tags - wagers without tags should always show
     if (tagPreferences.length > 0) {
       filtered = filtered.filter(w => {
+        // If wager has no tags, always show it
         if (!w.tags || w.tags.length === 0) return true;
+        // If wager has tags, only show if at least one tag matches preferences
         return w.tags.some(tag => tagPreferences.includes(tag));
       });
     }
@@ -195,8 +195,21 @@ export default function Home() {
       .channel("wagers-list")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "wagers" },
-        () => {
+        { 
+          event: "*", 
+          schema: "public", 
+          table: "wagers",
+          filter: "is_public=eq.true" // Only listen to public wagers
+        },
+        (payload) => {
+          // Clear cache when wagers change to ensure fresh data
+          if (typeof window !== 'undefined') {
+            try {
+              sessionStorage.removeItem('wagers_cache');
+            } catch (e) {
+              // Ignore
+            }
+          }
           fetchWagers();
         }
       )

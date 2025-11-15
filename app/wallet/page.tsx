@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { format } from "date-fns";
@@ -20,7 +20,7 @@ interface Transaction {
   reference: string | null;
 }
 
-export default function Wallet() {
+function WalletContent() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -366,5 +366,19 @@ export default function Wallet() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function Wallet() {
+  return (
+    <Suspense fallback={
+      <main className="flex-1 pb-24 md:pb-0">
+        <div className="max-w-6xl mx-auto p-4 md:p-6 py-12 text-center">
+          <p className="text-muted-foreground">Loading wallet...</p>
+        </div>
+      </main>
+    }>
+      <WalletContent />
+    </Suspense>
   );
 }
