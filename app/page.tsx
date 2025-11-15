@@ -299,6 +299,7 @@ export default function Home() {
                 entriesCount={wager.entries_count}
                 deadline={wager.deadline}
                 currency={wager.currency}
+                category={wager.category}
                 isSystemGenerated={wager.is_system_generated || false}
                 onClick={() => trackABTestEvent(AB_TESTS.HOME_LAYOUT, layoutVariant, 'wager_clicked', { wager_id: wager.id })}
               />

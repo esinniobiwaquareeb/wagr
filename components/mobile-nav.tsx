@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from "react";
-import { Home, Plus, Wallet, Trophy, User, Settings } from "lucide-react";
+import { Home, Plus, Wallet, Trophy, User, Settings, Bell } from "lucide-react";
 import { AuthModal } from "@/components/auth-modal";
 
 export function MobileNav() {
@@ -13,6 +13,7 @@ export function MobileNav() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const supabase = createClient();
 
   useEffect(() => {
@@ -40,13 +41,59 @@ export function MobileNav() {
     };
   }, [supabase]);
 
+  // Fetch unread notification count
+  useEffect(() => {
+    if (!user) {
+      setUnreadCount(0);
+      return;
+    }
+
+    const fetchUnreadCount = async () => {
+      try {
+        const { count, error } = await supabase
+          .from("notifications")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .eq("read", false);
+
+        if (error) throw error;
+        setUnreadCount(count || 0);
+      } catch (error) {
+        console.error("Error fetching unread count:", error);
+      }
+    };
+
+    fetchUnreadCount();
+
+    // Subscribe to real-time updates
+    const channel = supabase
+      .channel(`nav-notifications:${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchUnreadCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [user, supabase]);
+
   const isActive = (path: string) => pathname === path;
 
   return (
     <>
       {/* Mobile Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-lg border-t border-border md:hidden z-50 safe-area-inset-bottom">
-        <div className="flex justify-around items-center h-16 px-2">
+        <div className="flex justify-around items-center h-16 px-1">
           <Link
             href="/"
             className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
@@ -105,14 +152,21 @@ export function MobileNav() {
           {user ? (
             <Link
               href="/profile"
-              className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
+              className={`relative flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
                 isActive("/profile")
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"
               }`}
               title="Profile"
             >
-              <User className={`h-6 w-6 transition-transform ${isActive("/profile") ? "scale-110" : ""}`} />
+              <div className="relative">
+                <User className={`h-6 w-6 transition-transform ${isActive("/profile") ? "scale-110" : ""}`} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[8px] font-bold rounded-full w-4 h-4 flex items-center justify-center min-w-[16px] leading-none">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </div>
               <span className="text-[10px] mt-0.5 font-medium">{isActive("/profile") ? "Profile" : ""}</span>
             </Link>
           ) : (
@@ -129,7 +183,7 @@ export function MobileNav() {
       </nav>
 
       {/* Desktop Sidebar */}
-      <nav className="hidden md:flex md:flex-col md:w-64 md:border-r md:border-border md:bg-card md:p-4 md:gap-2">
+      <nav className="hidden md:flex md:flex-col md:w-64 md:border-r md:border-border md:bg-card md:p-4 md:gap-2 md:sticky md:top-0 md:h-screen md:overflow-y-auto">
         <Link
           href="/"
           className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
@@ -152,6 +206,24 @@ export function MobileNav() {
           <Trophy className="h-5 w-5" />
           <span className="text-sm font-medium">Leaderboard</span>
         </Link>
+        {user && (
+          <Link
+            href="/notifications"
+            className={`relative flex items-center gap-3 py-2 px-3 rounded-lg transition ${
+              isActive("/notifications")
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            <Bell className="h-5 w-5" />
+            <span className="text-sm font-medium">Notifications</span>
+            {unreadCount > 0 && (
+              <span className="ml-auto bg-primary text-primary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center min-w-[20px]">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </Link>
+        )}
         <Link
           href="/wallet"
           className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
