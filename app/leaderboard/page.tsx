@@ -84,24 +84,27 @@ export default function Leaderboard() {
           });
         }
 
-        // Combine profile data with stats
-        const leaderboardData: LeaderboardUser[] = (profiles || []).map((profile) => {
-          const stats = userStats.get(profile.id) || { total_wagers: 0, wins: 0 };
-          const winRate = stats.total_wagers > 0 
-            ? (stats.wins / stats.total_wagers) * 100 
-            : 0;
+        // Combine profile data with stats - only include users who have won
+        const leaderboardData: LeaderboardUser[] = (profiles || [])
+          .map((profile) => {
+            const stats = userStats.get(profile.id) || { total_wagers: 0, wins: 0 };
+            const winRate = stats.total_wagers > 0 
+              ? (stats.wins / stats.total_wagers) * 100 
+              : 0;
 
-          return {
-            id: profile.id,
-            email: "", // We'll fetch this separately if needed
-            username: profile.username || `User ${profile.id.slice(0, 8)}`,
-            balance: Number(profile.balance) || 0,
-            total_wagers: stats.total_wagers,
-            wins: stats.wins,
-            win_rate: winRate,
-            rank: 0, // Will be set after sorting
-          };
-        });
+            return {
+              id: profile.id,
+              email: "", // We'll fetch this separately if needed
+              username: profile.username || `User ${profile.id.slice(0, 8)}`,
+              balance: Number(profile.balance) || 0,
+              total_wagers: stats.total_wagers,
+              wins: stats.wins,
+              win_rate: winRate,
+              rank: 0, // Will be set after sorting
+            };
+          })
+          // Filter to only show users who have won at least one wager
+          .filter((user) => user.wins > 0);
 
         // Sort by selected criteria
         leaderboardData.sort((a, b) => {
@@ -207,7 +210,7 @@ export default function Leaderboard() {
         <div className="mb-4 md:mb-6">
           <h1 className="text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2">Leaderboard</h1>
           <p className="text-xs md:text-base text-muted-foreground">
-            Top performers on wagr
+            Top winners and successful bettors on wagr
           </p>
         </div>
 
@@ -254,7 +257,8 @@ export default function Leaderboard() {
         ) : users.length === 0 ? (
           <div className="text-center py-12 bg-card border border-border rounded-lg">
             <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">No users found</p>
+            <p className="text-muted-foreground mb-2">No winners yet</p>
+            <p className="text-xs md:text-sm text-muted-foreground">Be the first to win a wager!</p>
           </div>
         ) : (
           <div className="space-y-2 md:space-y-3">

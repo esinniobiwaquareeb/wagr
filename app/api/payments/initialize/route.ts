@@ -81,22 +81,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Store pending transaction in database
-    const { error: dbError } = await supabase
-      .from('transactions')
-      .insert({
-        user_id: userId,
-        type: 'deposit_pending',
-        amount: amount / 100, // Convert back to main currency unit
-        reference: reference,
-        created_at: new Date().toISOString(),
-      });
-
-    if (dbError) {
-      console.error('Error storing transaction:', dbError);
-      // Continue anyway, payment can still proceed
-    }
-
+    // Don't create pending transaction - only create successful deposit when payment is verified
     return NextResponse.json({
       authorization_url: paystackData.data.authorization_url,
       access_code: paystackData.data.access_code,

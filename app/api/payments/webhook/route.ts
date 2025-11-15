@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Delete pending transaction
+      // Delete any pending transaction if exists (cleanup from old code)
       await supabase
         .from('transactions')
         .delete()

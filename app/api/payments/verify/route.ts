@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/wallet?error=balance_update_failed', request.url));
     }
 
-    // Delete pending transaction if exists
+    // Delete any pending transaction if exists (cleanup from old code)
     await supabase
       .from('transactions')
       .delete()
