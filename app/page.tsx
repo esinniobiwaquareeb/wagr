@@ -22,10 +22,15 @@ interface Wager {
   tags?: string[];
   is_system_generated?: boolean;
   is_public?: boolean;
+  fee_percentage?: number;
 }
 
 interface WagerWithEntries extends Wager {
   entries_count: number;
+  side_a_count?: number;
+  side_b_count?: number;
+  side_a_total?: number; // Total amount bet on side A
+  side_b_total?: number; // Total amount bet on side B
 }
 
 export default function Home() {
@@ -81,15 +86,41 @@ export default function Home() {
           .select("wager_id")
           .in("wager_id", wagerIds);
 
-        // Count entries per wager
+        // Count entries per wager and per side
         const counts = new Map<string, number>();
+        const sideACounts = new Map<string, number>();
+        const sideBCounts = new Map<string, number>();
+        
         entriesData?.forEach(entry => {
           counts.set(entry.wager_id, (counts.get(entry.wager_id) || 0) + 1);
+        });
+
+        // Fetch side counts and amounts
+        const { data: allEntriesData } = await supabase
+          .from("wager_entries")
+          .select("wager_id, side, amount")
+          .in("wager_id", wagerIds);
+
+        const sideATotals = new Map<string, number>();
+        const sideBTotals = new Map<string, number>();
+
+        allEntriesData?.forEach(entry => {
+          if (entry.side === "a") {
+            sideACounts.set(entry.wager_id, (sideACounts.get(entry.wager_id) || 0) + 1);
+            sideATotals.set(entry.wager_id, (sideATotals.get(entry.wager_id) || 0) + Number(entry.amount));
+          } else if (entry.side === "b") {
+            sideBCounts.set(entry.wager_id, (sideBCounts.get(entry.wager_id) || 0) + 1);
+            sideBTotals.set(entry.wager_id, (sideBTotals.get(entry.wager_id) || 0) + Number(entry.amount));
+          }
         });
 
         const wagersWithCounts = wagersData.map((wager: Wager) => ({
           ...wager,
           entries_count: counts.get(wager.id) || 0,
+          side_a_count: sideACounts.get(wager.id) || 0,
+          side_b_count: sideBCounts.get(wager.id) || 0,
+          side_a_total: sideATotals.get(wager.id) || 0,
+          side_b_total: sideBTotals.get(wager.id) || 0,
         }));
         
         setAllWagers(wagersWithCounts);
@@ -300,6 +331,11 @@ export default function Home() {
                 deadline={wager.deadline}
                 currency={wager.currency}
                 category={wager.category}
+                sideACount={wager.side_a_count || 0}
+                sideBCount={wager.side_b_count || 0}
+                sideATotal={wager.side_a_total || 0}
+                sideBTotal={wager.side_b_total || 0}
+                feePercentage={wager.fee_percentage || 0.01}
                 isSystemGenerated={wager.is_system_generated || false}
                 onClick={() => trackABTestEvent(AB_TESTS.HOME_LAYOUT, layoutVariant, 'wager_clicked', { wager_id: wager.id })}
               />

@@ -152,21 +152,14 @@ export function MobileNav() {
           {user ? (
             <Link
               href="/profile"
-              className={`relative flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
+              className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
                 isActive("/profile")
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"
               }`}
               title="Profile"
             >
-              <div className="relative">
-                <User className={`h-6 w-6 transition-transform ${isActive("/profile") ? "scale-110" : ""}`} />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[8px] font-bold rounded-full w-4 h-4 flex items-center justify-center min-w-[16px] leading-none">
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </span>
-                )}
-              </div>
+              <User className={`h-6 w-6 transition-transform ${isActive("/profile") ? "scale-110" : ""}`} />
               <span className="text-[10px] mt-0.5 font-medium">{isActive("/profile") ? "Profile" : ""}</span>
             </Link>
           ) : (
@@ -181,6 +174,26 @@ export function MobileNav() {
           )}
         </div>
       </nav>
+
+      {/* Floating Notification Button - Mobile Only */}
+      {user && (
+        <Link
+          href="/notifications"
+          className={`fixed bottom-20 right-4 md:hidden z-40 w-12 h-12 rounded-full shadow-lg transition-all duration-300 active:scale-95 touch-manipulation flex items-center justify-center ${
+            isActive("/notifications")
+              ? "bg-primary text-primary-foreground shadow-primary/50"
+              : "bg-card border-2 border-border text-foreground hover:border-primary hover:shadow-xl"
+          }`}
+          title="Notifications"
+        >
+          <Bell className="h-5 w-5" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[9px] font-bold rounded-full w-5 h-5 flex items-center justify-center min-w-[20px] leading-none border-2 border-background">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
+        </Link>
+      )}
 
       {/* Desktop Sidebar */}
       <nav className="hidden md:flex md:flex-col md:w-64 md:border-r md:border-border md:bg-card md:p-4 md:gap-2 md:sticky md:top-0 md:h-screen md:overflow-y-auto">

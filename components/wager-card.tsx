@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
-import { Sparkles, User, Users, Clock, TrendingUp } from "lucide-react";
+import { Sparkles, User, Users, Clock, TrendingUp, Coins } from "lucide-react";
+import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
 
 interface WagerCardProps {
   id: string;
@@ -18,6 +19,11 @@ interface WagerCardProps {
   currency?: string;
   isSystemGenerated?: boolean;
   category?: string;
+  sideACount?: number;
+  sideBCount?: number;
+  sideATotal?: number; // Total amount bet on side A
+  sideBTotal?: number; // Total amount bet on side B
+  feePercentage?: number;
   onClick?: () => void;
 }
 
@@ -34,12 +40,29 @@ export function WagerCard({
   currency = DEFAULT_CURRENCY,
   isSystemGenerated = false,
   category,
+  sideACount = 0,
+  sideBCount = 0,
+  sideATotal = 0,
+  sideBTotal = 0,
+  feePercentage = 0.01,
   onClick,
 }: WagerCardProps) {
   const isOpen = status === "OPEN";
   const timeLeft = deadline ? formatDistanceToNow(new Date(deadline), { addSuffix: true }) : null;
   const formattedAmount = formatCurrency(amount, currency as Currency);
   const isUrgent = deadline && new Date(deadline).getTime() - Date.now() < 24 * 60 * 60 * 1000; // Less than 24 hours
+
+  // Calculate potential returns using actual amounts
+  const returns = calculatePotentialReturns({
+    entryAmount: amount,
+    sideATotal: sideATotal || 0,
+    sideBTotal: sideBTotal || 0,
+    feePercentage: feePercentage || 0.01,
+  });
+
+  // Get the better return (higher potential)
+  const bestReturn = Math.max(returns.sideAReturnMultiplier, returns.sideBReturnMultiplier);
+  const bestReturnPercentage = Math.max(returns.sideAReturnPercentage, returns.sideBReturnPercentage);
 
   // Category icons mapping
   const categoryIcons: Record<string, string> = {
@@ -141,6 +164,24 @@ export function WagerCard({
             </div>
             <span className="font-bold text-foreground text-sm md:text-base">{formattedAmount}</span>
           </div>
+
+          {/* Potential Return - New Feature */}
+          {isOpen && entriesCount > 0 && (
+            <div className="flex items-center justify-between bg-primary/5 rounded-lg p-2 border border-primary/20">
+              <div className="flex items-center gap-1.5">
+                <Coins className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
+                <span className="text-[9px] md:text-[10px] text-muted-foreground">Potential Return</span>
+              </div>
+              <div className="text-right">
+                <span className="font-bold text-primary text-xs md:text-sm">
+                  {formatReturnMultiplier(bestReturn)}
+                </span>
+                <span className="text-[9px] md:text-[10px] text-green-600 dark:text-green-400 ml-1.5">
+                  {formatReturnPercentage(bestReturnPercentage)}
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Stats row */}
           <div className="flex items-center justify-between text-[9px] md:text-[10px]">

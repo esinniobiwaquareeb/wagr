@@ -18,6 +18,7 @@ interface Transaction {
   amount: number;
   created_at: string;
   reference: string | null;
+  description?: string | null;
 }
 
 function WalletContent() {
@@ -339,18 +340,29 @@ function WalletContent() {
               {transactions.map((trans) => (
                 <div
                   key={trans.id}
-                  className="flex justify-between items-center pb-2 md:pb-3 border-b border-border last:border-b-0"
+                  className="flex justify-between items-start pb-2 md:pb-3 border-b border-border last:border-b-0 gap-2 md:gap-3"
                 >
                   <div className="flex-1 min-w-0 pr-2">
-                    <p className="font-medium capitalize text-foreground text-xs md:text-sm truncate">
+                    <p className="font-medium capitalize text-foreground text-xs md:text-sm">
                       {trans.type.replace("_", " ")}
                     </p>
-                    <p className="text-[10px] md:text-sm text-muted-foreground">
-                      {format(new Date(trans.created_at), "MMM d, yyyy h:mm a")}
-                    </p>
+                    {trans.description ? (
+                      <>
+                        <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                          {trans.description}
+                        </p>
+                        <p className="text-[9px] md:text-[10px] text-muted-foreground/70 mt-0.5">
+                          {format(new Date(trans.created_at), "MMM d, yyyy h:mm a")}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5">
+                        {format(new Date(trans.created_at), "MMM d, yyyy h:mm a")}
+                      </p>
+                    )}
                   </div>
                   <p
-                    className={`font-semibold text-xs md:text-base whitespace-nowrap ${
+                    className={`font-semibold text-xs md:text-base whitespace-nowrap flex-shrink-0 ${
                       trans.amount > 0
                         ? "text-green-600 dark:text-green-400"
                         : "text-red-600 dark:text-red-400"

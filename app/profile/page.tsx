@@ -8,6 +8,7 @@ import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency"
 import { User, Mail, Calendar, LogOut, Settings, Edit2, Save, X, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 interface Profile {
   id: string;
@@ -25,6 +26,7 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [username, setUsername] = useState("");
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
 
@@ -202,7 +204,11 @@ export default function Profile() {
     }
   };
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
+    setShowLogoutDialog(true);
+  };
+
+  const confirmLogout = async () => {
     try {
       await supabase.auth.signOut();
       setUser(null);
@@ -245,6 +251,16 @@ export default function Profile() {
 
   return (
     <main className="flex-1 pb-24 md:pb-0">
+      <ConfirmDialog
+        open={showLogoutDialog}
+        onOpenChange={setShowLogoutDialog}
+        title="Logout"
+        description="Are you sure you want to log out?"
+        confirmText="Logout"
+        cancelText="Cancel"
+        variant="default"
+        onConfirm={confirmLogout}
+      />
       <div className="max-w-6xl mx-auto p-3 md:p-6">
         <div className="mb-4 md:mb-6">
           <h1 className="text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2">Profile</h1>
