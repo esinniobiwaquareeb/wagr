@@ -5,8 +5,9 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
-import { User, Mail, Calendar, LogOut, Settings, Edit2, Save, X } from "lucide-react";
+import { User, Mail, Calendar, LogOut, Settings, Edit2, Save, X, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
+import Link from "next/link";
 
 interface Profile {
   id: string;
@@ -154,7 +155,7 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <main className="flex-1 pb-20 md:pb-0">
+      <main className="flex-1 pb-24 md:pb-0">
         <div className="max-w-6xl mx-auto p-4 md:p-6 py-12 text-center">
           <p className="text-muted-foreground">Loading profile...</p>
         </div>
@@ -164,7 +165,7 @@ export default function Profile() {
 
   if (!user || !profile) {
     return (
-      <main className="flex-1 pb-20 md:pb-0">
+      <main className="flex-1 pb-24 md:pb-0">
         <div className="max-w-6xl mx-auto p-4 md:p-6 py-12 text-center">
           <p className="text-muted-foreground">Please log in to view profile</p>
         </div>
@@ -173,117 +174,129 @@ export default function Profile() {
   }
 
   return (
-    <main className="flex-1 pb-20 md:pb-0">
-      <div className="max-w-6xl mx-auto p-4 md:p-6">
-        <div className="mb-6">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">Profile</h1>
-          <p className="text-muted-foreground">Manage your account and preferences</p>
+    <main className="flex-1 pb-24 md:pb-0">
+      <div className="max-w-6xl mx-auto p-3 md:p-6">
+        <div className="mb-4 md:mb-6">
+          <h1 className="text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2">Profile</h1>
+          <p className="text-xs md:text-base text-muted-foreground">Manage your account and preferences</p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-4 md:gap-6">
+        <div className="flex flex-col md:grid md:grid-cols-3 gap-3 md:gap-6">
           {/* Profile Card */}
-          <div className="md:col-span-2 space-y-4 md:space-y-6">
-            <div className="bg-card border border-border rounded-lg p-4 md:p-6">
-              <div className="flex items-start justify-between mb-4 md:mb-6">
-                <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
-                  <div className="h-16 w-16 md:h-20 md:w-20 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <User className="h-8 w-8 md:h-10 md:w-10 text-primary" />
+          <div className="md:col-span-2 space-y-3 md:space-y-6 order-2 md:order-1">
+            <div className="bg-card border border-border rounded-lg p-3 md:p-6">
+              <div className="flex items-start justify-between gap-2 mb-3 md:mb-6">
+                <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
+                  <div className="h-12 w-12 md:h-20 md:w-20 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <User className="h-6 w-6 md:h-10 md:w-10 text-primary" />
                   </div>
-                  <div>
-                    <h2 className="text-xl md:text-2xl font-bold truncate">
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-base md:text-2xl font-bold truncate">
                       {editing ? (
                         <input
                           type="text"
                           value={username}
                           onChange={(e) => setUsername(e.target.value)}
-                          className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground text-lg md:text-2xl"
+                          className="w-full px-2 py-1.5 md:px-3 md:py-2 border border-input rounded-md bg-background text-foreground text-sm md:text-2xl"
                           placeholder="Username"
+                          autoFocus
                         />
                       ) : (
                         profile.username || user.email?.split("@")[0] || "User"
                       )}
                     </h2>
-                    <p className="text-muted-foreground flex items-center gap-2 mt-1">
-                      <Mail className="h-4 w-4" />
-                      {user.email}
+                    <p className="text-[9px] md:text-sm text-muted-foreground mt-0.5 md:mt-1 break-all leading-tight">
+                      <Mail className="h-2.5 w-2.5 md:h-4 md:w-4 inline mr-0.5 md:mr-1 align-middle" />
+                      <span className="align-middle">{user.email}</span>
                     </p>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-1.5 md:gap-2 flex-shrink-0">
                   {editing ? (
                     <>
                       <button
                         onClick={handleSave}
-                        className="p-2 md:p-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition active:scale-[0.95] touch-manipulation"
+                        className="p-1.5 md:p-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition active:scale-[0.95] touch-manipulation"
                         title="Save"
                       >
-                        <Save className="h-4 w-4" />
+                        <Save className="h-3.5 w-3.5 md:h-4 md:w-4" />
                       </button>
                       <button
                         onClick={() => {
                           setEditing(false);
                           setUsername(profile.username || "");
                         }}
-                        className="p-2 md:p-2 bg-muted text-muted-foreground rounded-md hover:bg-muted/80 transition active:scale-[0.95] touch-manipulation"
+                        className="p-1.5 md:p-2 bg-muted text-muted-foreground rounded-md hover:bg-muted/80 transition active:scale-[0.95] touch-manipulation"
                         title="Cancel"
                       >
-                        <X className="h-4 w-4" />
+                        <X className="h-3.5 w-3.5 md:h-4 md:w-4" />
                       </button>
                     </>
                   ) : (
                     <button
                       onClick={() => setEditing(true)}
-                      className="p-2 md:p-2 bg-muted text-muted-foreground rounded-md hover:bg-muted/80 transition active:scale-[0.95] touch-manipulation"
+                      className="p-1.5 md:p-2 bg-muted text-muted-foreground rounded-md hover:bg-muted/80 transition active:scale-[0.95] touch-manipulation"
                       title="Edit"
                     >
-                      <Edit2 className="h-4 w-4" />
+                      <Edit2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
                     </button>
                   )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
+              <div className="grid grid-cols-2 gap-2 md:gap-4 pt-3 md:pt-4 border-t border-border">
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Member Since</p>
-                  <p className="font-medium flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    {format(new Date(profile.created_at), "MMM d, yyyy")}
+                  <p className="text-[10px] md:text-sm text-muted-foreground mb-0.5 md:mb-1">Member Since</p>
+                  <p className="font-medium text-xs md:text-base flex items-center gap-1 md:gap-2">
+                    <Calendar className="h-3 w-3 md:h-4 md:w-4" />
+                    <span className="truncate">{format(new Date(profile.created_at), "MMM d, yyyy")}</span>
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Account Balance</p>
-                  <p className="font-medium text-lg">{formatCurrency(profile.balance, currency)}</p>
+                  <p className="text-[10px] md:text-sm text-muted-foreground mb-0.5 md:mb-1">Balance</p>
+                  <p className="font-medium text-sm md:text-lg truncate">{formatCurrency(profile.balance, currency)}</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-card border border-border rounded-lg p-4 md:p-6">
-              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <Settings className="h-5 w-5" />
+            <div className="bg-card border border-border rounded-lg p-3 md:p-6">
+              <h3 className="text-sm md:text-lg font-semibold mb-3 md:mb-4 flex items-center gap-2">
+                <Settings className="h-4 w-4 md:h-5 md:w-5" />
                 Settings
               </h3>
-              <div className="space-y-3">
+              <div className="space-y-2">
+                <Link
+                  href="/preferences"
+                  className="w-full flex items-center justify-between p-2.5 md:p-4 bg-muted/50 hover:bg-muted rounded-lg transition active:scale-[0.98] touch-manipulation"
+                >
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <Settings className="h-4 w-4 md:h-5 md:w-5" />
+                    <span className="font-medium text-xs md:text-base">Preferences</span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
+                </Link>
                 <button
                   onClick={handleLogout}
-                  className="w-full flex items-center justify-between p-4 bg-destructive/10 text-destructive rounded-lg hover:bg-destructive/20 transition active:scale-[0.98] touch-manipulation"
+                  className="w-full flex items-center justify-between p-2.5 md:p-4 bg-destructive/10 text-destructive rounded-lg hover:bg-destructive/20 transition active:scale-[0.98] touch-manipulation"
                 >
-                  <div className="flex items-center gap-3">
-                    <LogOut className="h-5 w-5" />
-                    <span className="font-medium">Logout</span>
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <LogOut className="h-4 w-4 md:h-5 md:w-5" />
+                    <span className="font-medium text-xs md:text-base">Logout</span>
                   </div>
+                  <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-destructive/50" />
                 </button>
               </div>
             </div>
           </div>
 
           {/* Stats Card */}
-          <div className="space-y-4 md:space-y-6">
-            <div className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-lg p-4 md:p-6">
-              <p className="text-sm opacity-90 mb-2">Total Balance</p>
-              <h2 className="text-2xl md:text-3xl font-bold mb-4">{formatCurrency(profile.balance, currency)}</h2>
+          <div className="space-y-3 md:space-y-6 order-1 md:order-2">
+            <div className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-lg p-3 md:p-6">
+              <p className="text-[10px] md:text-sm opacity-90 mb-1 md:mb-2">Total Balance</p>
+              <h2 className="text-lg md:text-3xl font-bold mb-2 md:mb-4">{formatCurrency(profile.balance, currency)}</h2>
               <button
                 onClick={() => router.push("/wallet")}
-                className="text-sm underline opacity-90 hover:opacity-100 active:opacity-100 touch-manipulation"
+                className="text-[10px] md:text-sm underline opacity-90 hover:opacity-100 active:opacity-100 touch-manipulation"
               >
                 View Wallet →
               </button>

@@ -180,7 +180,7 @@ export default function Leaderboard() {
 
   if (loading) {
     return (
-      <main className="flex-1 pb-20 md:pb-0">
+      <main className="flex-1 pb-24 md:pb-0">
         <div className="max-w-6xl mx-auto p-4 md:p-6">
           <Skeleton className="h-10 w-64 mb-6" />
           <div className="space-y-3">
@@ -202,23 +202,20 @@ export default function Leaderboard() {
   }
 
   return (
-    <main className="flex-1 pb-20 md:pb-0">
-      <div className="max-w-6xl mx-auto p-4 md:p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <Trophy className="h-8 w-8 text-primary" />
-          <div>
-            <h1 className="text-3xl md:text-4xl font-bold">Leaderboard</h1>
-            <p className="text-muted-foreground">
-              Top performers on wagr
-            </p>
-          </div>
+    <main className="flex-1 pb-24 md:pb-0">
+      <div className="max-w-6xl mx-auto p-3 md:p-6">
+        <div className="mb-4 md:mb-6">
+          <h1 className="text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2">Leaderboard</h1>
+          <p className="text-xs md:text-base text-muted-foreground">
+            Top performers on wagr
+          </p>
         </div>
 
-        <div className="bg-card border border-border rounded-lg p-4 md:p-5 mb-6">
-          <div className="flex flex-wrap gap-2">
+        <div className="bg-card border border-border rounded-lg p-3 md:p-5 mb-3 md:mb-6">
+          <div className="flex flex-wrap gap-1.5 md:gap-2">
             <button
               onClick={() => setSortBy("balance")}
-              className={`px-3 py-2 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-medium transition active:scale-[0.95] touch-manipulation ${
+              className={`px-2 py-1 md:px-4 md:py-2 rounded-md text-[10px] md:text-sm font-medium transition active:scale-[0.95] touch-manipulation ${
                 sortBy === "balance"
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -228,7 +225,7 @@ export default function Leaderboard() {
             </button>
             <button
               onClick={() => setSortBy("wins")}
-              className={`px-3 py-2 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-medium transition active:scale-[0.95] touch-manipulation ${
+              className={`px-2 py-1 md:px-4 md:py-2 rounded-md text-[10px] md:text-sm font-medium transition active:scale-[0.95] touch-manipulation ${
                 sortBy === "wins"
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -238,7 +235,7 @@ export default function Leaderboard() {
             </button>
             <button
               onClick={() => setSortBy("win_rate")}
-              className={`px-3 py-2 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-medium transition active:scale-[0.95] touch-manipulation ${
+              className={`px-2 py-1 md:px-4 md:py-2 rounded-md text-[10px] md:text-sm font-medium transition active:scale-[0.95] touch-manipulation ${
                 sortBy === "win_rate"
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -260,26 +257,26 @@ export default function Leaderboard() {
             <p className="text-muted-foreground">No users found</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2 md:space-y-3">
             {users.map((user) => (
               <div
                 key={user.id}
-                className={`bg-card border border-border rounded-lg p-4 md:p-5 transition hover:border-primary active:scale-[0.99] touch-manipulation ${
+                className={`bg-card border border-border rounded-lg p-2.5 md:p-5 transition hover:border-primary active:scale-[0.99] touch-manipulation ${
                   user.rank <= 3 ? "ring-2 ring-primary/20" : ""
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4 flex-1">
-                    <div className="flex-shrink-0 w-12 flex items-center justify-center">
+                  <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
+                    <div className="flex-shrink-0 w-6 md:w-12 flex items-center justify-center">
                       {getRankIcon(user.rank)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-base md:text-lg truncate">
+                      <h3 className="font-semibold text-xs md:text-lg truncate">
                         {user.username}
                       </h3>
-                      <div className="flex flex-wrap gap-3 md:gap-4 mt-2 text-xs md:text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <TrendingUp className="h-3 w-3 md:h-4 md:w-4" />
+                      <div className="flex flex-wrap gap-1.5 md:gap-4 mt-1 md:mt-2 text-[9px] md:text-sm text-muted-foreground">
+                        <span className="flex items-center gap-0.5 md:gap-1">
+                          <TrendingUp className="h-2.5 w-2.5 md:h-4 md:w-4" />
                           Balance: <span className="font-semibold text-foreground">{user.balance.toFixed(2)}</span>
                         </span>
                         <span>

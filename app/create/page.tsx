@@ -5,8 +5,33 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { DEFAULT_CURRENCY, type Currency, CURRENCY_SYMBOLS } from "@/lib/currency";
-import { Sparkles } from "lucide-react";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
+import { Globe, Lock, Tag } from "lucide-react";
+
+// Available categories
+const CATEGORIES = [
+  { id: "crypto", label: "Cryptocurrency", icon: "₿" },
+  { id: "finance", label: "Finance & Stocks", icon: "📈" },
+  { id: "politics", label: "Politics", icon: "🏛️" },
+  { id: "sports", label: "Sports", icon: "⚽" },
+  { id: "entertainment", label: "Entertainment", icon: "🎬" },
+  { id: "technology", label: "Technology", icon: "💻" },
+  { id: "religion", label: "Religion", icon: "🙏" },
+  { id: "weather", label: "Weather", icon: "🌤️" },
+];
+
+// Common side options for quick selection
+const COMMON_SIDES = [
+  { label: "Yes / No", value: { sideA: "Yes", sideB: "No" } },
+  { label: "Win / Lose", value: { sideA: "Win", sideB: "Lose" } },
+  { label: "Over / Under", value: { sideA: "Over", sideB: "Under" } },
+  { label: "True / False", value: { sideA: "True", sideB: "False" } },
+  { label: "Higher / Lower", value: { sideA: "Higher", sideB: "Lower" } },
+  { label: "Custom", value: null },
+];
+
+// Common amount presets
+const AMOUNT_PRESETS = [10, 25, 50, 100, 250, 500, 1000];
 
 export default function CreateWager() {
   const supabase = useMemo(() => createClient(), []);
@@ -27,6 +52,10 @@ export default function CreateWager() {
     sideB: "",
     deadline: "",
     currency: DEFAULT_CURRENCY,
+    isPublic: true,
+    category: "",
+    tags: [] as string[],
+    selectedSideTemplate: null as { sideA: string; sideB: string } | null,
   });
 
   const getUser = useCallback(async () => {
@@ -51,6 +80,18 @@ export default function CreateWager() {
     };
   }, [getUser]);
 
+  const handleSideTemplateSelect = (template: { sideA: string; sideB: string } | null) => {
+    if (template) {
+      setFormData({ ...formData, selectedSideTemplate: template, sideA: template.sideA, sideB: template.sideB });
+    } else {
+      setFormData({ ...formData, selectedSideTemplate: null, sideA: "", sideB: "" });
+    }
+  };
+
+  const handleAmountPreset = (amount: number) => {
+    setFormData({ ...formData, amount: amount.toString() });
+  };
+
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -67,6 +108,9 @@ export default function CreateWager() {
         fee_percentage: 0.01, // Platform fee is fixed at 1%
         currency: formData.currency,
         is_system_generated: false,
+        is_public: formData.isPublic,
+        category: formData.category || null,
+        tags: formData.tags.length > 0 ? formData.tags : [],
       });
 
       if (error) throw error;
@@ -74,11 +118,22 @@ export default function CreateWager() {
       trackABTestEvent(AB_TESTS.CREATE_FORM_LAYOUT, formVariant, 'wager_created', {
         has_deadline: !!formData.deadline,
         currency: formData.currency,
+        is_public: formData.isPublic,
+        has_category: !!formData.category,
       });
+      
+      // Invalidate cache
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.removeItem('wagers_cache');
+        } catch (e) {
+          // Ignore
+        }
+      }
       
       toast({
         title: "Success!",
-        description: "Wager created successfully!",
+        description: `Wager created successfully! ${formData.isPublic ? 'It\'s now visible to everyone.' : 'It\'s private and only visible to you.'}`,
       });
       router.push("/");
     } catch (error) {
@@ -91,11 +146,11 @@ export default function CreateWager() {
     } finally {
       setSubmitting(false);
     }
-  }, [formData, user, supabase, toast, router]);
+  }, [formData, user, supabase, toast, router, formVariant]);
 
   if (loading || !user) {
     return (
-      <main className="flex-1 pb-20 md:pb-0">
+      <main className="flex-1 pb-24 md:pb-0">
         <div className="max-w-6xl mx-auto p-4 py-12 text-center">
           <p className="text-muted-foreground">Loading...</p>
         </div>
@@ -104,72 +159,103 @@ export default function CreateWager() {
   }
 
   return (
-    <main className="flex-1 pb-20 md:pb-0">
-      <div className="max-w-6xl mx-auto p-4 md:p-6">
-        <div className="mb-6 md:mb-8">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Sparkles className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-            </div>
-            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold">Create Wager</h1>
-          </div>
-          <p className="text-sm md:text-base text-muted-foreground ml-11 md:ml-0">Start a new betting opportunity</p>
+    <main className="flex-1 pb-24 md:pb-0">
+      <div className="max-w-6xl mx-auto p-3 md:p-6">
+        <div className="mb-4 md:mb-8">
+          <h1 className="text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2">Create Wager</h1>
+          <p className="text-xs md:text-base text-muted-foreground">Start a new betting opportunity</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-card border border-border rounded-lg p-4 md:p-6 lg:p-8 space-y-4 md:space-y-6">
+        <form onSubmit={handleSubmit} className="bg-card border border-border rounded-lg p-3 md:p-6 lg:p-8 space-y-4 md:space-y-6">
+          {/* Title */}
           <div>
-            <label className="block text-sm font-medium mb-2">Wager Title *</label>
+            <label className="block text-xs md:text-sm font-medium mb-1.5 md:mb-2">Wager Title *</label>
             <input
               type="text"
               required
               value={formData.title}
-              onChange={(e) =>
-                setFormData({ ...formData, title: e.target.value })
-              }
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               placeholder="e.g., Will it rain tomorrow?"
-              className="w-full px-4 py-3 text-base border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
+              className="w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
+              maxLength={200}
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Side A *</label>
-              <input
-                type="text"
-                required
-                value={formData.sideA}
-                onChange={(e) =>
-                  setFormData({ ...formData, sideA: e.target.value })
-                }
-                placeholder="e.g., Yes"
-                className="w-full px-4 py-3 text-base border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
-              />
+          {/* Side Selection - Radio Options */}
+          <div>
+            <label className="block text-xs md:text-sm font-medium mb-2 md:mb-3">Choose Sides *</label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 md:gap-2 mb-3 md:mb-4">
+              {COMMON_SIDES.map((option) => (
+                <button
+                  key={option.label}
+                  type="button"
+                  onClick={() => handleSideTemplateSelect(option.value)}
+                  className={`p-2 md:p-3 rounded-lg border-2 transition text-xs md:text-sm font-medium ${
+                    formData.selectedSideTemplate === option.value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Side B *</label>
-              <input
-                type="text"
-                required
-                value={formData.sideB}
-                onChange={(e) =>
-                  setFormData({ ...formData, sideB: e.target.value })
-                }
-                placeholder="e.g., No"
-                className="w-full px-4 py-3 text-base border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
-              />
+            
+            {/* Custom Side Inputs */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-4">
+              <div>
+                <label className="block text-[10px] md:text-xs text-muted-foreground mb-1">Side A *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.sideA}
+                  onChange={(e) => setFormData({ ...formData, sideA: e.target.value })}
+                  placeholder="e.g., Yes"
+                  className="w-full px-3 md:px-4 py-2 md:py-2.5 text-sm md:text-base border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
+                  maxLength={100}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] md:text-xs text-muted-foreground mb-1">Side B *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.sideB}
+                  onChange={(e) => setFormData({ ...formData, sideB: e.target.value })}
+                  placeholder="e.g., No"
+                  className="w-full px-3 md:px-4 py-2 md:py-2.5 text-sm md:text-base border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
+                  maxLength={100}
+                />
+              </div>
             </div>
           </div>
 
+          {/* Entry Amount - Presets */}
           <div>
-            <label className="block text-sm font-medium mb-2">Entry Amount *</label>
+            <label className="block text-xs md:text-sm font-medium mb-2 md:mb-3">Entry Amount *</label>
+            <div className="flex flex-wrap gap-1.5 md:gap-2 mb-2 md:mb-3">
+              {AMOUNT_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => handleAmountPreset(preset)}
+                  className={`px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg border-2 transition text-xs md:text-sm font-medium ${
+                    formData.amount === preset.toString()
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  {CURRENCY_SYMBOLS[formData.currency]} {preset}
+                </button>
+              ))}
+            </div>
             <div className="flex flex-col sm:flex-row gap-2">
               <select
                 value={formData.currency}
                 onChange={(e) =>
                   setFormData({ ...formData, currency: e.target.value as Currency })
                 }
-                className="px-3 py-3 text-base border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="px-2 md:px-3 py-2 md:py-2.5 text-sm md:text-base border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 {Object.entries(CURRENCY_SYMBOLS).map(([code, symbol]) => (
                   <option key={code} value={code}>
@@ -181,29 +267,108 @@ export default function CreateWager() {
                 type="number"
                 required
                 value={formData.amount}
-                onChange={(e) =>
-                  setFormData({ ...formData, amount: e.target.value })
-                }
-                placeholder="100"
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                placeholder="Or enter custom amount"
                 min="1"
                 step="0.01"
-                className="flex-1 px-4 py-3 text-base border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
+                className="flex-1 px-3 md:px-4 py-2 md:py-2.5 text-sm md:text-base border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
               />
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
+            <p className="text-[10px] md:text-xs text-muted-foreground mt-1.5 md:mt-2">
               Platform fee: 1% (automatically applied)
             </p>
           </div>
 
+          {/* Category Selection */}
           <div>
-            <label className="block text-sm font-medium mb-2">Deadline (Optional)</label>
+            <label className="block text-xs md:text-sm font-medium mb-2 md:mb-3 flex items-center gap-1.5 md:gap-2">
+              <Tag className="h-3.5 w-3.5 md:h-4 md:w-4" />
+              Category (Optional)
+            </label>
+            <p className="text-[10px] md:text-xs text-muted-foreground mb-2 md:mb-3">
+              Help others find your wager by selecting a category
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 md:gap-3">
+              {CATEGORIES.map((category) => (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, category: formData.category === category.id ? "" : category.id })}
+                  className={`p-2.5 md:p-3 rounded-lg border-2 transition text-xs md:text-sm font-medium ${
+                    formData.category === category.id
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <div className="text-lg md:text-xl mb-1">{category.icon}</div>
+                  <div className="text-[10px] md:text-xs">{category.label}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Visibility Toggle */}
+          <div>
+            <label className="block text-xs md:text-sm font-medium mb-2 md:mb-3">Visibility</label>
+            <div className="flex gap-2 md:gap-4">
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, isPublic: true })}
+                className={`flex-1 flex items-center justify-center gap-1.5 md:gap-2 p-2.5 md:p-4 rounded-lg border-2 transition ${
+                  formData.isPublic
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border hover:border-primary/50"
+                }`}
+              >
+                <Globe className="h-4 w-4 md:h-5 md:w-5" />
+                <div className="text-left">
+                  <div className="font-medium text-xs md:text-base">Public</div>
+                  <div className="text-[10px] md:text-xs text-muted-foreground">Everyone can see and join</div>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, isPublic: false })}
+                className={`flex-1 flex items-center justify-center gap-1.5 md:gap-2 p-2.5 md:p-4 rounded-lg border-2 transition ${
+                  !formData.isPublic
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border hover:border-primary/50"
+                }`}
+              >
+                <Lock className="h-4 w-4 md:h-5 md:w-5" />
+                <div className="text-left">
+                  <div className="font-medium text-xs md:text-base">Private</div>
+                  <div className="text-[10px] md:text-xs text-muted-foreground">Only you can see it</div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Description - Optional */}
+          <div>
+            <label className="block text-xs md:text-sm font-medium mb-1.5 md:mb-2">Description (Optional)</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Add more details about your wager..."
+              rows={2}
+              className="w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition resize-none"
+              maxLength={500}
+            />
+            <p className="text-[10px] md:text-xs text-muted-foreground mt-1">
+              {formData.description.length}/500 characters
+            </p>
+          </div>
+
+          {/* Deadline - Optional */}
+          <div>
+            <label className="block text-xs md:text-sm font-medium mb-1.5 md:mb-2">Deadline (Optional)</label>
             <input
               type="datetime-local"
               value={formData.deadline}
-              onChange={(e) =>
-                setFormData({ ...formData, deadline: e.target.value })
-              }
-              className="w-full px-4 py-3 text-base border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
+              onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+              min={new Date().toISOString().slice(0, 16)}
+              className="w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
             />
           </div>
 

@@ -140,4 +140,9 @@
     user-select: none;
     -webkit-user-select: none;
   }
+  
+  /* Safe area insets for mobile */
+  .safe-area-inset-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }

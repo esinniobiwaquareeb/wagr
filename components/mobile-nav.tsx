@@ -38,96 +38,162 @@ export function MobileNav() {
     };
   }, [supabase]);
 
-
   const isActive = (path: string) => pathname === path;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border md:static md:border-t-0 z-50">
-      <div className="flex justify-around md:flex-col md:gap-2 md:p-4">
+    <>
+      {/* Mobile Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-lg border-t border-border md:hidden z-50 safe-area-inset-bottom">
+        <div className="flex justify-around items-center h-16 px-2">
+          <Link
+            href="/"
+            className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
+              isActive("/")
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            title="Wagers"
+          >
+            <Home className={`h-6 w-6 transition-transform ${isActive("/") ? "scale-110" : ""}`} />
+            <span className="text-[10px] mt-0.5 font-medium">{isActive("/") ? "Home" : ""}</span>
+          </Link>
+          
+          <Link
+            href="/leaderboard"
+            className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
+              isActive("/leaderboard")
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            title="Leaderboard"
+          >
+            <Trophy className={`h-6 w-6 transition-transform ${isActive("/leaderboard") ? "scale-110" : ""}`} />
+            <span className="text-[10px] mt-0.5 font-medium">{isActive("/leaderboard") ? "Top" : ""}</span>
+          </Link>
+
+          {/* Floating Create Button */}
+          <Link
+            href="/create"
+            className={`relative flex items-center justify-center w-14 h-14 -mt-6 rounded-full shadow-lg transition-all duration-300 active:scale-95 touch-manipulation ${
+              isActive("/create")
+                ? "bg-primary text-primary-foreground shadow-primary/50"
+                : "bg-primary text-primary-foreground hover:shadow-xl hover:scale-105"
+            }`}
+            title="Create Wager"
+          >
+            <Plus className="h-7 w-7" strokeWidth={2.5} />
+            {isActive("/create") && (
+              <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary-foreground" />
+            )}
+          </Link>
+
+          <Link
+            href="/wallet"
+            className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
+              isActive("/wallet")
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            title="Wallet"
+          >
+            <Wallet className={`h-6 w-6 transition-transform ${isActive("/wallet") ? "scale-110" : ""}`} />
+            <span className="text-[10px] mt-0.5 font-medium">{isActive("/wallet") ? "Wallet" : ""}</span>
+          </Link>
+
+          {user ? (
+            <Link
+              href="/profile"
+              className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
+                isActive("/profile")
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="Profile"
+            >
+              <User className={`h-6 w-6 transition-transform ${isActive("/profile") ? "scale-110" : ""}`} />
+              <span className="text-[10px] mt-0.5 font-medium">{isActive("/profile") ? "Profile" : ""}</span>
+            </Link>
+          ) : (
+            <Link
+              href="/"
+              className="flex flex-col items-center justify-center flex-1 py-2 rounded-lg text-muted-foreground hover:text-foreground transition-all duration-200"
+              title="Login"
+            >
+              <User className="h-6 w-6" />
+              <span className="text-[10px] mt-0.5 font-medium">Login</span>
+            </Link>
+          )}
+        </div>
+      </nav>
+
+      {/* Desktop Sidebar */}
+      <nav className="hidden md:flex md:flex-col md:w-64 md:border-r md:border-border md:bg-card md:p-4 md:gap-2">
         <Link
           href="/"
-          className={`flex flex-col items-center justify-center flex-1 py-2 md:py-2 md:px-3 rounded-md transition ${
+          className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
             isActive("/")
               ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
           }`}
-          title="Wagers"
         >
-          <Home className="h-5 w-5 md:h-4 md:w-4" />
-          <span className="text-xs mt-1 md:mt-0 md:text-sm hidden md:inline">Wagers</span>
-        </Link>
-        <Link
-          href="/create"
-          className={`flex flex-col items-center justify-center flex-1 py-2 md:py-2 md:px-3 rounded-md transition ${
-            isActive("/create")
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-          title="Create"
-        >
-          <Plus className="h-5 w-5 md:h-4 md:w-4" />
-          <span className="text-xs mt-1 md:mt-0 md:text-sm hidden md:inline">Create</span>
+          <Home className="h-5 w-5" />
+          <span className="text-sm font-medium">Wagers</span>
         </Link>
         <Link
           href="/leaderboard"
-          className={`flex flex-col items-center justify-center flex-1 py-2 md:py-2 md:px-3 rounded-md transition ${
+          className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
             isActive("/leaderboard")
               ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
           }`}
-          title="Leaderboard"
         >
-          <Trophy className="h-5 w-5 md:h-4 md:w-4" />
-          <span className="text-xs mt-1 md:mt-0 md:text-sm hidden md:inline">Leaderboard</span>
+          <Trophy className="h-5 w-5" />
+          <span className="text-sm font-medium">Leaderboard</span>
         </Link>
         <Link
           href="/wallet"
-          className={`flex flex-col items-center justify-center flex-1 py-2 md:py-2 md:px-3 rounded-md transition ${
+          className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
             isActive("/wallet")
               ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
           }`}
-          title="Wallet"
         >
-          <Wallet className="h-5 w-5 md:h-4 md:w-4" />
-          <span className="text-xs mt-1 md:mt-0 md:text-sm hidden md:inline">Wallet</span>
+          <Wallet className="h-5 w-5" />
+          <span className="text-sm font-medium">Wallet</span>
         </Link>
         <Link
           href="/preferences"
-          className={`flex flex-col items-center justify-center flex-1 py-2 md:py-2 md:px-3 rounded-md transition ${
+          className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
             isActive("/preferences")
               ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
           }`}
-          title="Preferences"
         >
-          <Settings className="h-5 w-5 md:h-4 md:w-4" />
-          <span className="text-xs mt-1 md:mt-0 md:text-sm hidden md:inline">Preferences</span>
+          <Settings className="h-5 w-5" />
+          <span className="text-sm font-medium">Preferences</span>
         </Link>
         {user ? (
           <Link
             href="/profile"
-            className={`flex flex-col items-center justify-center flex-1 py-2 md:py-2 md:px-3 rounded-md transition ${
+            className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
               isActive("/profile")
                 ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
             }`}
-            title="Profile"
           >
-            <User className="h-5 w-5 md:h-4 md:w-4" />
-            <span className="text-xs mt-1 md:mt-0 md:text-sm hidden md:inline">Profile</span>
+            <User className="h-5 w-5" />
+            <span className="text-sm font-medium">Profile</span>
           </Link>
         ) : (
           <Link
             href="/"
-            className="flex flex-col items-center justify-center flex-1 py-2 md:py-2 md:px-3 text-muted-foreground hover:text-foreground rounded-md transition"
-            title="Login"
+            className="flex items-center gap-3 py-2 px-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition"
           >
-            <User className="h-5 w-5 md:h-4 md:w-4" />
-            <span className="text-xs mt-1 md:mt-0 md:text-sm hidden md:inline">Login</span>
+            <User className="h-5 w-5" />
+            <span className="text-sm font-medium">Login</span>
           </Link>
         )}
-      </div>
-    </nav>
+      </nav>
+    </>
   );
 }
