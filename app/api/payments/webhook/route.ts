@@ -102,6 +102,102 @@ export async function POST(request: NextRequest) {
         });
     }
 
+    // Handle transfer events (withdrawals)
+    if (event.event === 'transfer.success') {
+      const transfer = event.data;
+      const reference = transfer.reference;
+
+      if (!reference) {
+        return NextResponse.json(
+          { error: 'Invalid transfer data' },
+          { status: 400 }
+        );
+      }
+
+      const supabase = await createClient();
+
+      // Find withdrawal by reference
+      const { data: withdrawal, error: withdrawalError } = await supabase
+        .from('withdrawals')
+        .select('*')
+        .eq('reference', reference)
+        .single();
+
+      if (withdrawalError || !withdrawal) {
+        console.error('Withdrawal not found:', withdrawalError);
+        return NextResponse.json({ status: 'withdrawal_not_found' });
+      }
+
+      // Update withdrawal status
+      await supabase
+        .from('withdrawals')
+        .update({
+          status: 'completed',
+          processed_at: new Date().toISOString(),
+        })
+        .eq('id', withdrawal.id);
+
+      // Update transaction description
+      await supabase
+        .from('transactions')
+        .update({
+          description: `Withdrawal completed: ₦${withdrawal.amount.toLocaleString()} to ${withdrawal.bank_account?.account_name || 'bank account'}`,
+        })
+        .eq('reference', reference)
+        .eq('type', 'withdrawal');
+    }
+
+    // Handle failed transfers
+    if (event.event === 'transfer.failed') {
+      const transfer = event.data;
+      const reference = transfer.reference;
+
+      if (!reference) {
+        return NextResponse.json(
+          { error: 'Invalid transfer data' },
+          { status: 400 }
+        );
+      }
+
+      const supabase = await createClient();
+
+      // Find withdrawal by reference
+      const { data: withdrawal, error: withdrawalError } = await supabase
+        .from('withdrawals')
+        .select('*')
+        .eq('reference', reference)
+        .single();
+
+      if (withdrawalError || !withdrawal) {
+        console.error('Withdrawal not found:', withdrawalError);
+        return NextResponse.json({ status: 'withdrawal_not_found' });
+      }
+
+      // Refund the balance
+      await supabase.rpc('increment_balance', {
+        user_id: withdrawal.user_id,
+        amt: withdrawal.amount,
+      });
+
+      // Update withdrawal status
+      await supabase
+        .from('withdrawals')
+        .update({
+          status: 'failed',
+          failure_reason: transfer.reason || 'Transfer failed',
+        })
+        .eq('id', withdrawal.id);
+
+      // Update transaction
+      await supabase
+        .from('transactions')
+        .update({
+          description: `Withdrawal failed: ₦${withdrawal.amount.toLocaleString()} - ${transfer.reason || 'Transfer failed'}. Amount refunded.`,
+        })
+        .eq('reference', reference)
+        .eq('type', 'withdrawal');
+    }
+
     return NextResponse.json({ status: 'success' });
   } catch (error) {
     console.error('Error processing webhook:', error);

@@ -31,6 +31,13 @@ function WalletContent() {
   const [loading, setLoading] = useState(true);
   const [depositAmount, setDepositAmount] = useState("");
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [bankCode, setBankCode] = useState("");
+  const [accountName, setAccountName] = useState("");
+  const [banks, setBanks] = useState<Array<{ code: string; name: string }>>([]);
+  const [loadingBanks, setLoadingBanks] = useState(false);
+  const [processingWithdrawal, setProcessingWithdrawal] = useState(false);
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
 
@@ -130,8 +137,76 @@ function WalletContent() {
   useEffect(() => {
     if (user) {
       fetchWalletData();
+      fetchBanks();
     }
   }, [user, fetchWalletData]);
+
+  const fetchBanks = useCallback(async () => {
+    setLoadingBanks(true);
+    try {
+      const response = await fetch('/api/payments/banks');
+      const data = await response.json();
+      if (data.success && data.banks) {
+        // Remove duplicates by bank code (in case Paystack returns duplicates)
+        const bankMap = new Map<string, { code: string; name: string }>();
+        data.banks.forEach((bank: { code: string; name: string }) => {
+          // Use code as key, but also check if we should keep the first or last occurrence
+          if (!bankMap.has(bank.code)) {
+            bankMap.set(bank.code, bank);
+          }
+        });
+        const uniqueBanks = Array.from(bankMap.values());
+        // Sort alphabetically by name
+        uniqueBanks.sort((a, b) => a.name.localeCompare(b.name));
+        // Double-check for duplicates and log if found
+        const codes = uniqueBanks.map(b => b.code);
+        const duplicates = codes.filter((code, index) => codes.indexOf(code) !== index);
+        if (duplicates.length > 0) {
+          console.warn('Duplicate bank codes found after deduplication:', duplicates);
+        }
+        setBanks(uniqueBanks);
+      }
+    } catch (error) {
+      console.error('Error fetching banks:', error);
+    } finally {
+      setLoadingBanks(false);
+    }
+  }, []);
+
+  const verifyAccount = useCallback(async (accountNumber: string, bankCode: string) => {
+    if (!accountNumber || !bankCode) return;
+
+    try {
+      const response = await fetch('/api/payments/verify-account', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ accountNumber, bankCode }),
+      });
+
+      const data = await response.json();
+      if (data.success && data.accountName) {
+        setAccountName(data.accountName);
+      } else {
+        setAccountName('');
+      }
+    } catch (error) {
+      console.error('Error verifying account:', error);
+      setAccountName('');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (accountNumber && bankCode && accountNumber.length === 10) {
+      const timeoutId = setTimeout(() => {
+        verifyAccount(accountNumber, bankCode);
+      }, 500);
+      return () => clearTimeout(timeoutId);
+    } else {
+      setAccountName('');
+    }
+  }, [accountNumber, bankCode, verifyAccount]);
 
   // Handle payment callback
   useEffect(() => {
@@ -211,6 +286,112 @@ function WalletContent() {
       transactionsChannel.unsubscribe();
     };
   }, [user, supabase, fetchWalletData]);
+
+  const handleWithdraw = async () => {
+    // Validate amount
+    const trimmedAmount = withdrawAmount.trim();
+    if (!trimmedAmount) {
+      toast({
+        title: "Amount required",
+        description: "Please enter an amount to withdraw.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const amount = parseFloat(trimmedAmount);
+    
+    if (isNaN(amount)) {
+      toast({
+        title: "Invalid amount",
+        description: "Please enter a valid number.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (amount <= 0) {
+      toast({
+        title: "Invalid amount",
+        description: "Withdrawal amount must be greater than zero.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (amount < 100) {
+      toast({
+        title: "Minimum amount",
+        description: "Minimum withdrawal amount is ₦100.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!profile || profile.balance < amount) {
+      toast({
+        title: "Insufficient balance",
+        description: "You don't have enough balance to withdraw this amount.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!accountNumber || !bankCode || !accountName) {
+      toast({
+        title: "Account details required",
+        description: "Please provide valid bank account details.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Process withdrawal
+    setProcessingWithdrawal(true);
+    try {
+      const response = await fetch('/api/payments/withdraw', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: amount,
+          accountNumber: accountNumber,
+          bankCode: bankCode,
+          accountName: accountName,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to process withdrawal');
+      }
+
+      toast({
+        title: "Withdrawal submitted",
+        description: `Withdrawal request of ${formatCurrency(amount, currency)} has been submitted. It will be processed shortly.`,
+      });
+
+      // Reset form
+      setWithdrawAmount("");
+      setAccountNumber("");
+      setBankCode("");
+      setAccountName("");
+      
+      // Refresh wallet data
+      fetchWalletData(true);
+    } catch (error) {
+      console.error("Error processing withdrawal:", error);
+      toast({
+        title: "Withdrawal error",
+        description: error instanceof Error ? error.message : "Failed to process withdrawal. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingWithdrawal(false);
+    }
+  };
 
   const handleDeposit = async () => {
     // Validate amount
@@ -325,44 +506,120 @@ function WalletContent() {
           <p className="text-[9px] md:text-sm opacity-75 break-all leading-tight">User: {user.email}</p>
         </div>
 
-        <div className="bg-card border border-border rounded-lg p-3 md:p-5 mb-3 md:mb-6">
-          <h3 className="text-sm md:text-lg font-semibold mb-2 md:mb-3">Add Funds</h3>
-          <div className="space-y-2">
-            <div className="flex flex-col sm:flex-row gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6 mb-3 md:mb-6">
+          {/* Deposit Section */}
+          <div className="bg-card border border-border rounded-lg p-3 md:p-5">
+            <h3 className="text-sm md:text-lg font-semibold mb-2 md:mb-3">Add Funds</h3>
+            <div className="space-y-2">
+              <div className="flex flex-col gap-2">
+                <input
+                  type="number"
+                  value={depositAmount}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Allow only positive numbers
+                    if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
+                      setDepositAmount(value);
+                    }
+                  }}
+                  placeholder="Enter amount (minimum ₦100)"
+                  className="w-full px-3 md:px-4 py-2 md:py-2.5 border border-input rounded-lg md:rounded-md bg-background text-foreground text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  min="100"
+                  step="0.01"
+                  disabled={processingPayment}
+                />
+                <button
+                  onClick={handleDeposit}
+                  disabled={processingPayment || !depositAmount.trim()}
+                  className="w-full px-4 md:px-6 py-2 md:py-2.5 bg-primary text-primary-foreground rounded-lg md:rounded-md font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.98] touch-manipulation text-sm md:text-base flex items-center justify-center gap-2"
+                >
+                  {processingPayment ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    'Deposit'
+                  )}
+                </button>
+              </div>
+              <p className="text-[10px] md:text-xs text-muted-foreground">
+                Minimum deposit: ₦100. Secure payment powered by Paystack.
+              </p>
+            </div>
+          </div>
+
+          {/* Withdrawal Section */}
+          <div className="bg-card border border-border rounded-lg p-3 md:p-5">
+            <h3 className="text-sm md:text-lg font-semibold mb-2 md:mb-3">Withdraw Funds</h3>
+            <div className="space-y-2">
               <input
                 type="number"
-                value={depositAmount}
+                value={withdrawAmount}
                 onChange={(e) => {
                   const value = e.target.value;
-                  // Allow only positive numbers
                   if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
-                    setDepositAmount(value);
+                    setWithdrawAmount(value);
                   }
                 }}
                 placeholder="Enter amount (minimum ₦100)"
-                className="flex-1 px-3 md:px-4 py-2 md:py-2.5 border border-input rounded-lg md:rounded-md bg-background text-foreground text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full px-3 md:px-4 py-2 md:py-2.5 border border-input rounded-lg md:rounded-md bg-background text-foreground text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
                 min="100"
                 step="0.01"
-                disabled={processingPayment}
+                disabled={processingWithdrawal}
               />
-              <button
-                onClick={handleDeposit}
-                disabled={processingPayment || !depositAmount.trim()}
-                className="px-4 md:px-6 py-2 md:py-2.5 bg-primary text-primary-foreground rounded-lg md:rounded-md font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.98] touch-manipulation text-sm md:text-base whitespace-nowrap flex items-center justify-center gap-2"
+              <select
+                value={bankCode}
+                onChange={(e) => setBankCode(e.target.value)}
+                className="w-full px-3 md:px-4 py-2 md:py-2.5 border border-input rounded-lg md:rounded-md bg-background text-foreground text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
+                disabled={processingWithdrawal || loadingBanks}
               >
-                {processingPayment ? (
+                <option value="">Select Bank</option>
+                {banks.map((bank) => {
+                  // Use a combination of code and name to ensure uniqueness
+                  const uniqueKey = `${bank.code}-${bank.name}`;
+                  return (
+                    <option key={uniqueKey} value={bank.code}>
+                      {bank.name}
+                    </option>
+                  );
+                })}
+              </select>
+              <input
+                type="text"
+                value={accountNumber}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  setAccountNumber(value);
+                }}
+                placeholder="Account Number (10 digits)"
+                className="w-full px-3 md:px-4 py-2 md:py-2.5 border border-input rounded-lg md:rounded-md bg-background text-foreground text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
+                maxLength={10}
+                disabled={processingWithdrawal}
+              />
+              {accountName && (
+                <p className="text-[10px] md:text-xs text-green-600 dark:text-green-400">
+                  Account Name: {accountName}
+                </p>
+              )}
+              <button
+                onClick={handleWithdraw}
+                disabled={processingWithdrawal || !withdrawAmount.trim() || !accountNumber || !bankCode || !accountName}
+                className="w-full px-4 md:px-6 py-2 md:py-2.5 bg-primary text-primary-foreground rounded-lg md:rounded-md font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.98] touch-manipulation text-sm md:text-base flex items-center justify-center gap-2"
+              >
+                {processingWithdrawal ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Processing...
                   </>
                 ) : (
-                  'Deposit'
+                  'Withdraw'
                 )}
               </button>
+              <p className="text-[10px] md:text-xs text-muted-foreground">
+                Minimum withdrawal: ₦100. Funds will be transferred to your bank account.
+              </p>
             </div>
-            <p className="text-[10px] md:text-xs text-muted-foreground">
-              Minimum deposit: ₦100. Secure payment powered by Paystack.
-            </p>
           </div>
         </div>
 

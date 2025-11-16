@@ -5,10 +5,11 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
-import { User, Mail, Calendar, LogOut, Settings, Edit2, Save, X, ChevronRight } from "lucide-react";
+import { User, Mail, Calendar, LogOut, Settings, Edit2, Save, X, ChevronRight, Shield, ShieldCheck } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { TwoFactorSetup } from "@/components/two-factor-setup";
 
 interface Profile {
   id: string;
@@ -16,6 +17,7 @@ interface Profile {
   avatar_url: string | null;
   balance: number;
   created_at: string;
+  two_factor_enabled?: boolean;
 }
 
 export default function Profile() {
@@ -27,6 +29,7 @@ export default function Profile() {
   const [editing, setEditing] = useState(false);
   const [username, setUsername] = useState("");
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [show2FASetup, setShow2FASetup] = useState(false);
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
 
@@ -73,7 +76,7 @@ export default function Profile() {
     // No cache or forced refresh - fetch from API
     const { data: profileData, error } = await supabase
       .from("profiles")
-      .select("*")
+      .select("*, two_factor_enabled")
       .eq("id", user.id)
       .single();
 
@@ -396,6 +399,25 @@ export default function Profile() {
                   <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
                 </Link>
                 <button
+                  onClick={() => setShow2FASetup(true)}
+                  className="w-full flex items-center justify-between p-2.5 md:p-4 bg-muted/50 hover:bg-muted rounded-lg transition active:scale-[0.98] touch-manipulation"
+                >
+                  <div className="flex items-center gap-2 md:gap-3">
+                    {profile.two_factor_enabled ? (
+                      <ShieldCheck className="h-4 w-4 md:h-5 md:w-5 text-green-600 dark:text-green-400" />
+                    ) : (
+                      <Shield className="h-4 w-4 md:h-5 md:w-5" />
+                    )}
+                    <div className="flex flex-col items-start">
+                      <span className="font-medium text-xs md:text-base">Two-Factor Authentication</span>
+                      <span className="text-[10px] md:text-xs text-muted-foreground">
+                        {profile.two_factor_enabled ? "Enabled" : "Not enabled"}
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
+                </button>
+                <button
                   onClick={handleLogout}
                   className="w-full flex items-center justify-between p-2.5 md:p-4 bg-destructive/10 text-destructive rounded-lg hover:bg-destructive/20 transition active:scale-[0.98] touch-manipulation"
                 >
@@ -407,6 +429,15 @@ export default function Profile() {
                 </button>
               </div>
             </div>
+
+            <TwoFactorSetup
+              isOpen={show2FASetup}
+              onClose={() => setShow2FASetup(false)}
+              onComplete={() => {
+                fetchProfile(true);
+                setShow2FASetup(false);
+              }}
+            />
           </div>
 
           {/* Stats Card */}

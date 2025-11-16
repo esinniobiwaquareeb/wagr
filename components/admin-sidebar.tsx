@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from 'next/navigation';
-import { BarChart3, Home, Users, CreditCard, Settings, Shield, LogOut } from "lucide-react";
+import { BarChart3, Home, Users, CreditCard, Settings, Shield, LogOut, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from "react";
@@ -81,6 +81,18 @@ export function AdminSidebar() {
             <CreditCard className={`h-6 w-6 transition-transform ${isActive("/admin/transactions") ? "scale-110" : ""}`} />
             <span className="text-[10px] mt-0.5 font-medium">{isActive("/admin/transactions") ? "Transactions" : ""}</span>
           </Link>
+          <Link
+            href="/admin/withdrawals"
+            className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
+              isActive("/admin/withdrawals")
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            title="Withdrawals"
+          >
+            <Wallet className={`h-6 w-6 transition-transform ${isActive("/admin/withdrawals") ? "scale-110" : ""}`} />
+            <span className="text-[10px] mt-0.5 font-medium">{isActive("/admin/withdrawals") ? "Withdrawals" : ""}</span>
+          </Link>
           {user && (
             <button
               onClick={handleLogout}
@@ -147,6 +159,18 @@ export function AdminSidebar() {
         >
           <CreditCard className="h-5 w-5" />
           <span className="text-sm font-medium">Transactions</span>
+        </Link>
+        
+        <Link
+          href="/admin/withdrawals"
+          className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
+            isActive("/admin/withdrawals")
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          }`}
+        >
+          <Wallet className="h-5 w-5" />
+          <span className="text-sm font-medium">Withdrawals</span>
         </Link>
 
         <div className="mt-auto pt-4 border-t border-border">

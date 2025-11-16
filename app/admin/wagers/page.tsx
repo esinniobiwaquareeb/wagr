@@ -115,21 +115,20 @@ export default function AdminWagersPage() {
 
     setResolving(wagerId);
     try {
+      // Only set the winning side - cron job will handle settlement
       const { error } = await supabase
         .from("wagers")
         .update({ 
           winning_side: winningSide,
-          status: "OPEN"
+          status: "OPEN" // Keep as OPEN so cron can settle it
         })
         .eq("id", wagerId);
 
       if (error) throw error;
 
-      await supabase.rpc("settle_wager", { wager_id_param: wagerId });
-
       toast({
-        title: "Wager resolved",
-        description: "Wager has been resolved and settled.",
+        title: "Winning side set",
+        description: "Winning side has been set. The wager will be automatically settled by the system when the deadline passes.",
       });
 
       // Invalidate cache and refresh
@@ -140,7 +139,7 @@ export default function AdminWagersPage() {
       console.error("Error resolving wager:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to resolve wager.",
+        description: error instanceof Error ? error.message : "Failed to set winning side.",
         variant: "destructive",
       });
     } finally {

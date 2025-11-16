@@ -264,12 +264,13 @@ export default function AdminPage() {
 
       if (error) throw error;
 
-      // Trigger settlement
-      await supabase.rpc("settle_wager", { wager_id_param: wagerId });
+      // Only set the winning side - cron job will handle settlement
+      // If deadline has passed, settlement will happen on next cron run
+      // If deadline hasn't passed, settlement will happen when deadline passes
 
       toast({
-        title: "Wager resolved",
-        description: "Wager has been resolved and settled.",
+        title: "Winning side set",
+        description: "Winning side has been set. The wager will be automatically settled by the system when the deadline passes.",
       });
 
       // Invalidate cache and refresh

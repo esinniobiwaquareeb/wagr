@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { AppError, formatErrorResponse, logError } from '@/lib/error-handler';
+import { ErrorCode } from '@/lib/error-handler';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,7 +15,7 @@ export async function GET(request: NextRequest) {
     // Verify payment with Paystack
     const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
     if (!paystackSecretKey) {
-      console.error('PAYSTACK_SECRET_KEY is not set');
+      logError(new Error('PAYSTACK_SECRET_KEY is not set'));
       return NextResponse.redirect(new URL('/wallet?error=config_error', request.url));
     }
 
@@ -30,7 +32,7 @@ export async function GET(request: NextRequest) {
     const paystackData = await paystackResponse.json();
 
     if (!paystackResponse.ok || !paystackData.status) {
-      console.error('Paystack verification error:', paystackData);
+      logError(new Error(`Paystack verification error: ${paystackData.message}`), { paystackData });
       return NextResponse.redirect(new URL('/wallet?error=verification_failed', request.url));
     }
 
@@ -71,7 +73,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (balanceError) {
-      console.error('Error updating balance:', balanceError);
+      logError(new Error(`Error updating balance: ${balanceError.message}`), { balanceError });
       return NextResponse.redirect(new URL('/wallet?error=balance_update_failed', request.url));
     }
 
@@ -94,13 +96,13 @@ export async function GET(request: NextRequest) {
       });
 
     if (transactionError) {
-      console.error('Error creating transaction record:', transactionError);
+      logError(new Error(`Error creating transaction record: ${transactionError.message}`), { transactionError });
       // Balance was updated, so continue anyway
     }
 
     return NextResponse.redirect(new URL(`/wallet?success=true&amount=${amount}`, request.url));
   } catch (error) {
-    console.error('Error in payment verification:', error);
+    logError(error as Error);
     return NextResponse.redirect(new URL('/wallet?error=verification_error', request.url));
   }
 }
