@@ -1,13 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting to prevent hitting Paystack's rate limits
+    const clientIP = getClientIP(request);
+    const rateLimit = await checkRateLimit({
+      identifier: clientIP,
+      endpoint: '/api/payments/verify-account',
+      limit: 20, // 20 verifications per minute to stay under Paystack limits
+      window: 60, // 1 minute
+    });
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Too many verification requests. Please wait a moment and try again.',
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': Math.ceil((rateLimit.resetAt.getTime() - Date.now()) / 1000).toString(),
+            'X-RateLimit-Limit': '20',
+            'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+            'X-RateLimit-Reset': rateLimit.resetAt.toISOString(),
+          },
+        }
+      );
+    }
+
     const body = await request.json();
     const { accountNumber, bankCode } = body;
 
     if (!accountNumber || !bankCode) {
       return NextResponse.json(
-        { error: 'Account number and bank code are required' },
+        { success: false, error: 'Account number and bank code are required' },
         { status: 400 }
       );
     }
@@ -16,7 +44,7 @@ export async function POST(request: NextRequest) {
     const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
     if (!paystackSecretKey) {
       return NextResponse.json(
-        { error: 'Payment service not configured' },
+        { success: false, error: 'Payment service not configured' },
         { status: 500 }
       );
     }
@@ -34,9 +62,23 @@ export async function POST(request: NextRequest) {
 
     const data = await resolveResponse.json();
 
+    // Handle Paystack rate limiting (429)
+    if (resolveResponse.status === 429) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: data.message || 'Payment service is temporarily unavailable. Please try again in a moment.',
+        },
+        { status: 429 }
+      );
+    }
+
     if (!resolveResponse.ok || !data.status) {
       return NextResponse.json(
-        { success: false, error: data.message || 'Failed to verify account' },
+        {
+          success: false,
+          error: data.message || 'Failed to verify account. Please check the account details and try again.',
+        },
         { status: resolveResponse.status || 500 }
       );
     }
