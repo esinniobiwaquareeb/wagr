@@ -38,7 +38,7 @@ export async function checkRateLimit(
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   const now = new Date();
-  const windowStart = new Date(now.getTime() - window * 1000);
+  const queryWindowStart = new Date(now.getTime() - window * 1000);
 
   // Clean old records (async, don't wait)
   void supabase.rpc('clean_old_rate_limits');
@@ -49,7 +49,7 @@ export async function checkRateLimit(
     .select('count, window_start')
     .eq('identifier', identifier)
     .eq('endpoint', endpoint)
-    .gte('window_start', windowStart.toISOString())
+    .gte('window_start', queryWindowStart.toISOString())
     .order('window_start', { ascending: false })
     .limit(1);
 
@@ -80,8 +80,10 @@ export async function checkRateLimit(
   }
 
   // Increment count or create new record
-  const windowStartStr = now.toISOString().split('T')[0] + 'T' + 
-    Math.floor(now.getTime() / (window * 1000)) * (window * 1000);
+  // Calculate window start by rounding down to the nearest window boundary
+  const windowStartMs = Math.floor(now.getTime() / (window * 1000)) * (window * 1000);
+  const recordWindowStart = new Date(windowStartMs);
+  const windowStartStr = recordWindowStart.toISOString();
   
   const { error: upsertError } = await supabase
     .from('rate_limits')

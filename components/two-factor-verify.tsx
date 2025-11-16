@@ -21,10 +21,10 @@ export function TwoFactorVerify({ isOpen, onVerify }: TwoFactorVerifyProps) {
   const handleVerify = async () => {
     if (!code || (isBackupCode ? code.length < 8 : code.length !== 6)) {
       toast({
-        title: "Invalid code",
+        title: "Code format issue",
         description: isBackupCode 
-          ? "Backup code must be at least 8 characters"
-          : "Please enter a 6-digit code",
+          ? "Backup codes need to be at least 8 characters"
+          : "Enter the 6-digit code from your authenticator app",
         variant: "destructive",
       });
       return;
@@ -37,8 +37,8 @@ export function TwoFactorVerify({ isOpen, onVerify }: TwoFactorVerifyProps) {
       setIsBackupCode(false);
     } catch (error) {
       toast({
-        title: "Verification failed",
-        description: error instanceof Error ? error.message : "Invalid code. Please try again.",
+        title: "Verification didn't work",
+        description: error instanceof Error ? error.message : "That code didn't work. Double-check and try again.",
         variant: "destructive",
       });
     } finally {
@@ -52,10 +52,10 @@ export function TwoFactorVerify({ isOpen, onVerify }: TwoFactorVerifyProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5" />
-            Two-Factor Authentication Required
+            Security Check Required
           </DialogTitle>
           <DialogDescription>
-            Enter the code from your authenticator app
+            Open your authenticator app and enter the code shown
           </DialogDescription>
         </DialogHeader>
 

@@ -98,15 +98,15 @@ export function getUserFriendlyMessage(error: Error | AppError): string {
 
   // Handle common error types
   if (error.message.includes('network') || error.message.includes('fetch')) {
-    return 'Network error. Please check your connection and try again.';
+    return "Looks like there's a connection issue. Check your internet and try again.";
   }
 
   if (error.message.includes('timeout')) {
-    return 'Request timed out. Please try again.';
+    return "This is taking longer than expected. Give it another shot.";
   }
 
   // Generic fallback
-  return 'An unexpected error occurred. Please try again.';
+  return "Something went wrong on our end. Please try again in a moment.";
 }
 
 /**

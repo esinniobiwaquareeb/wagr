@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
         const { email, password, twoFactorCode, isBackupCode } = body;
 
         if (!email || !password) {
-          throw new AppError(ErrorCode.INVALID_INPUT, 'Email and password are required');
+          throw new AppError(ErrorCode.INVALID_INPUT, 'Please enter both your email and password');
         }
 
         const supabase = await createClient();
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
         });
 
         if (authError || !authData.user) {
-          throw new AppError(ErrorCode.INVALID_CREDENTIALS, 'Invalid email or password');
+          throw new AppError(ErrorCode.INVALID_CREDENTIALS, "The email or password you entered doesn't match our records");
         }
 
         // Check if user has 2FA enabled
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
           .single();
 
         if (profileError) {
-          throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch user profile');
+          throw new AppError(ErrorCode.DATABASE_ERROR, "We couldn't load your account info. Please try again");
         }
 
         // If 2FA is enabled, ALWAYS require verification on login
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(
               {
                 requires2FA: true,
-                message: 'Two-factor authentication is required',
+                message: 'Please enter the code from your authenticator app to continue',
               },
               { status: 200 }
             );
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
           if (isBackupCode) {
             if (!profile.two_factor_backup_codes || profile.two_factor_backup_codes.length === 0) {
               await supabase.auth.signOut();
-              throw new AppError(ErrorCode.TWO_FACTOR_INVALID, 'Invalid backup code');
+              throw new AppError(ErrorCode.TWO_FACTOR_INVALID, "That backup code doesn't look right. Please check and try again");
             }
             isValid = verifyBackupCode(profile.two_factor_backup_codes, twoFactorCode);
             
@@ -82,14 +82,14 @@ export async function POST(request: NextRequest) {
           } else {
             if (!profile.two_factor_secret) {
               await supabase.auth.signOut();
-              throw new AppError(ErrorCode.TWO_FACTOR_INVALID, '2FA secret not found');
+              throw new AppError(ErrorCode.TWO_FACTOR_INVALID, "We couldn't verify your security settings. Please contact support");
             }
             isValid = verify2FACode(profile.two_factor_secret, twoFactorCode);
           }
 
           if (!isValid) {
             await supabase.auth.signOut();
-            throw new AppError(ErrorCode.TWO_FACTOR_INVALID, 'Invalid verification code');
+            throw new AppError(ErrorCode.TWO_FACTOR_INVALID, "That code doesn't match. Make sure you're using the latest code from your authenticator app");
           }
           
           // Mark that 2FA was verified for this login session
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json(formatErrorResponse(error), { status: error.statusCode });
         }
         return NextResponse.json(
-          formatErrorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 'Login failed')),
+          formatErrorResponse(new AppError(ErrorCode.INTERNAL_ERROR, "We're having trouble signing you in. Please try again in a moment")),
           { status: 500 }
         );
       }

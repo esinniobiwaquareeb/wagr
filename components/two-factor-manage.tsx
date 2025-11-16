@@ -31,8 +31,8 @@ export function TwoFactorManage({ isOpen, onClose, onComplete }: TwoFactorManage
   const handleDisable = async () => {
     if (!password) {
       toast({
-        title: "Password required",
-        description: "Please enter your password to disable 2FA",
+        title: "Password needed",
+        description: "Enter your password to confirm you want to disable 2FA",
         variant: "destructive",
       });
       return;
@@ -57,8 +57,8 @@ export function TwoFactorManage({ isOpen, onClose, onComplete }: TwoFactorManage
       }
 
       toast({
-        title: "2FA Disabled",
-        description: "Two-factor authentication has been successfully disabled.",
+        title: "2FA has been turned off",
+        description: "Your account is no longer protected with two-factor authentication.",
       });
 
       // Reset state
@@ -69,8 +69,8 @@ export function TwoFactorManage({ isOpen, onClose, onComplete }: TwoFactorManage
       handleClose();
     } catch (error) {
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to disable 2FA",
+        title: "Couldn't disable 2FA",
+        description: error instanceof Error ? error.message : "Something went wrong. Please try again",
         variant: "destructive",
       });
     } finally {
@@ -109,7 +109,7 @@ export function TwoFactorManage({ isOpen, onClose, onComplete }: TwoFactorManage
 
             <div className="space-y-2">
               <label className="text-sm font-medium">
-                Enter your password to disable 2FA
+                Enter your password to confirm
               </label>
               <Input
                 type="password"
@@ -120,7 +120,7 @@ export function TwoFactorManage({ isOpen, onClose, onComplete }: TwoFactorManage
                 disabled={loading}
               />
               <p className="text-xs text-muted-foreground">
-                You'll need to enter your password to confirm disabling 2FA.
+                We need your password to make sure it's really you.
               </p>
             </div>
 
@@ -128,7 +128,7 @@ export function TwoFactorManage({ isOpen, onClose, onComplete }: TwoFactorManage
               <div className="flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 mt-0.5" />
                 <p className="text-xs text-muted-foreground">
-                  Disabling 2FA will reduce your account security. Make sure you understand the risks before proceeding.
+                  Turning off 2FA makes your account less secure. Only do this if you're sure.
                 </p>
               </div>
             </div>

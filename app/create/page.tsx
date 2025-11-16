@@ -101,8 +101,8 @@ export default function CreateWager() {
       const trimmedTitle = formData.title.trim();
       if (!trimmedTitle) {
         toast({
-          title: "Title required",
-          description: "Please enter a wager title.",
+          title: "What's your wager about?",
+          description: "Give your wager a title so people know what they're betting on.",
           variant: "destructive",
         });
         setSubmitting(false);
@@ -110,8 +110,8 @@ export default function CreateWager() {
       }
       if (trimmedTitle.length < 5) {
         toast({
-          title: "Title too short",
-          description: "Title must be at least 5 characters long.",
+          title: "Title is too short",
+          description: "Make it at least 5 characters so it's clear what the wager is about.",
           variant: "destructive",
         });
         setSubmitting(false);
@@ -119,8 +119,8 @@ export default function CreateWager() {
       }
       if (trimmedTitle.length > 200) {
         toast({
-          title: "Title too long",
-          description: "Title must not exceed 200 characters.",
+          title: "Title is too long",
+          description: "Keep it under 200 characters to keep it concise.",
           variant: "destructive",
         });
         setSubmitting(false);
@@ -133,8 +133,8 @@ export default function CreateWager() {
       
       if (!trimmedSideA || !trimmedSideB) {
         toast({
-          title: "Sides required",
-          description: "Please enter both Side A and Side B.",
+          title: "Need both options",
+          description: "Enter what people can bet on for each side.",
           variant: "destructive",
         });
         setSubmitting(false);
@@ -143,8 +143,8 @@ export default function CreateWager() {
 
       if (trimmedSideA.length < 2 || trimmedSideB.length < 2) {
         toast({
-          title: "Sides too short",
-          description: "Each side must be at least 2 characters long.",
+          title: "Options are too short",
+          description: "Each option needs to be at least 2 characters.",
           variant: "destructive",
         });
         setSubmitting(false);
@@ -153,8 +153,8 @@ export default function CreateWager() {
 
       if (trimmedSideA.length > 100 || trimmedSideB.length > 100) {
         toast({
-          title: "Sides too long",
-          description: "Each side must not exceed 100 characters.",
+          title: "Options are too long",
+          description: "Keep each option under 100 characters.",
           variant: "destructive",
         });
         setSubmitting(false);
@@ -163,8 +163,8 @@ export default function CreateWager() {
 
       if (trimmedSideA.toLowerCase() === trimmedSideB.toLowerCase()) {
         toast({
-          title: "Sides must be different",
-          description: "Side A and Side B cannot be the same.",
+          title: "Options need to be different",
+          description: "The two options can't be the same thing.",
           variant: "destructive",
         });
         setSubmitting(false);
@@ -174,8 +174,8 @@ export default function CreateWager() {
       // Validate amount
       if (!formData.amount || formData.amount.trim() === '') {
         toast({
-          title: "Amount required",
-          description: "Please enter an entry amount.",
+          title: "How much to bet?",
+          description: "Set the amount people need to place a bet.",
           variant: "destructive",
         });
         setSubmitting(false);
@@ -185,8 +185,8 @@ export default function CreateWager() {
       const amount = parseFloat(formData.amount);
       if (isNaN(amount)) {
         toast({
-          title: "Invalid amount",
-          description: "Please enter a valid number for the entry amount.",
+          title: "That's not a valid amount",
+          description: "Enter a number for how much each bet costs.",
           variant: "destructive",
         });
         setSubmitting(false);
@@ -195,8 +195,8 @@ export default function CreateWager() {
 
       if (amount <= 0) {
         toast({
-          title: "Invalid amount",
-          description: "Entry amount must be greater than zero.",
+          title: "Amount needs to be more than zero",
+          description: "The bet amount has to be at least ₦1.",
           variant: "destructive",
         });
         setSubmitting(false);
@@ -205,8 +205,8 @@ export default function CreateWager() {
 
       if (amount < 1) {
         toast({
-          title: "Minimum amount",
-          description: "Minimum entry amount is 1.",
+          title: "Minimum bet is ₦1",
+          description: "The smallest bet amount is ₦1.",
           variant: "destructive",
         });
         setSubmitting(false);
@@ -219,8 +219,8 @@ export default function CreateWager() {
         const now = new Date();
         if (deadlineDate <= now) {
           toast({
-            title: "Invalid deadline",
-            description: "Deadline must be in the future.",
+            title: "Deadline needs to be later",
+            description: "Pick a date and time that hasn't passed yet.",
             variant: "destructive",
           });
           setSubmitting(false);
@@ -231,8 +231,8 @@ export default function CreateWager() {
       // Validate description length if provided
       if (formData.description.trim() && formData.description.trim().length > 1000) {
         toast({
-          title: "Description too long",
-          description: "Description must not exceed 1000 characters.",
+          title: "Description is too long",
+          description: "Keep it under 1000 characters.",
           variant: "destructive",
         });
         setSubmitting(false);
@@ -280,8 +280,8 @@ export default function CreateWager() {
       }
       
       toast({
-        title: "Success!",
-        description: `Wager created successfully! ${formData.isPublic ? 'It\'s now visible to everyone.' : 'It\'s private and only visible to you.'}`,
+        title: "Your wager is live!",
+        description: `${formData.isPublic ? 'Everyone can see it now and start betting.' : 'It\'s private for now - only you can see it.'}`,
       });
       
       // Small delay to ensure database is updated, then redirect
@@ -292,8 +292,8 @@ export default function CreateWager() {
     } catch (error) {
       console.error("Error creating wager:", error);
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create wager. Please try again.",
+        title: "Couldn't create wager",
+        description: error instanceof Error ? error.message : "Something went wrong. Give it another try.",
         variant: "destructive",
       });
     } finally {

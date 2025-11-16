@@ -216,8 +216,8 @@ function WalletContent() {
 
     if (success === 'true' && amount) {
       toast({
-        title: "Payment successful!",
-        description: `Successfully deposited ${formatCurrency(parseFloat(amount), currency)}.`,
+        title: "Money added!",
+        description: `${formatCurrency(parseFloat(amount), currency)} has been added to your wallet.`,
       });
       fetchWalletData();
       // Clean URL
@@ -235,8 +235,8 @@ function WalletContent() {
       };
       
       toast({
-        title: "Payment error",
-        description: errorMessages[error] || "An error occurred during payment.",
+        title: "Payment didn't go through",
+        description: errorMessages[error] || "Something went wrong with the payment. Please try again.",
         variant: "destructive",
       });
       // Clean URL
@@ -292,8 +292,8 @@ function WalletContent() {
     const trimmedAmount = withdrawAmount.trim();
     if (!trimmedAmount) {
       toast({
-        title: "Amount required",
-        description: "Please enter an amount to withdraw.",
+        title: "How much to withdraw?",
+        description: "Enter the amount you want to take out.",
         variant: "destructive",
       });
       return;
@@ -312,8 +312,8 @@ function WalletContent() {
 
     if (amount <= 0) {
       toast({
-        title: "Invalid amount",
-        description: "Withdrawal amount must be greater than zero.",
+        title: "Amount needs to be more than zero",
+        description: "You can only withdraw amounts greater than ₦0.",
         variant: "destructive",
       });
       return;
@@ -321,8 +321,8 @@ function WalletContent() {
 
     if (amount < 100) {
       toast({
-        title: "Minimum amount",
-        description: "Minimum withdrawal amount is ₦100.",
+        title: "Minimum withdrawal is ₦100",
+        description: "You need to withdraw at least ₦100.",
         variant: "destructive",
       });
       return;
@@ -330,8 +330,8 @@ function WalletContent() {
 
     if (!profile || profile.balance < amount) {
       toast({
-        title: "Insufficient balance",
-        description: "You don't have enough balance to withdraw this amount.",
+        title: "Not enough in your wallet",
+        description: "You don't have enough money to withdraw that amount.",
         variant: "destructive",
       });
       return;
@@ -339,8 +339,8 @@ function WalletContent() {
 
     if (!accountNumber || !bankCode || !accountName) {
       toast({
-        title: "Account details required",
-        description: "Please provide valid bank account details.",
+        title: "Bank details needed",
+        description: "We need your bank account information to send the money.",
         variant: "destructive",
       });
       return;
@@ -369,8 +369,8 @@ function WalletContent() {
       }
 
       toast({
-        title: "Withdrawal submitted",
-        description: `Withdrawal request of ${formatCurrency(amount, currency)} has been submitted. It will be processed shortly.`,
+        title: "Withdrawal on the way!",
+        description: `We've received your request for ${formatCurrency(amount, currency)}. It should be in your bank account soon.`,
       });
 
       // Reset form
@@ -384,8 +384,8 @@ function WalletContent() {
     } catch (error) {
       console.error("Error processing withdrawal:", error);
       toast({
-        title: "Withdrawal error",
-        description: error instanceof Error ? error.message : "Failed to process withdrawal. Please try again.",
+        title: "Withdrawal didn't work",
+        description: error instanceof Error ? error.message : "Something went wrong. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -398,8 +398,8 @@ function WalletContent() {
     const trimmedAmount = depositAmount.trim();
     if (!trimmedAmount) {
       toast({
-        title: "Amount required",
-        description: "Please enter an amount to deposit.",
+        title: "How much to add?",
+        description: "Enter the amount you want to add to your wallet.",
         variant: "destructive",
       });
       return;
@@ -418,8 +418,8 @@ function WalletContent() {
 
     if (amount <= 0) {
       toast({
-        title: "Invalid amount",
-        description: "Deposit amount must be greater than zero.",
+        title: "Amount needs to be more than zero",
+        description: "You can only deposit amounts greater than ₦0.",
         variant: "destructive",
       });
       return;
@@ -427,8 +427,8 @@ function WalletContent() {
 
     if (amount < 100) {
       toast({
-        title: "Minimum amount",
-        description: "Minimum deposit amount is ₦100.",
+        title: "Minimum deposit is ₦100",
+        description: "You need to deposit at least ₦100.",
         variant: "destructive",
       });
       return;
@@ -464,8 +464,8 @@ function WalletContent() {
     } catch (error) {
       console.error("Error initializing payment:", error);
       toast({
-        title: "Payment error",
-        description: error instanceof Error ? error.message : "Failed to initialize payment. Please try again.",
+        title: "Payment setup failed",
+        description: error instanceof Error ? error.message : "We couldn't start the payment process. Please try again.",
         variant: "destructive",
       });
       setProcessingPayment(false);

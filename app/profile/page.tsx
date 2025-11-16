@@ -167,8 +167,8 @@ export default function Profile() {
   const handleSave = async () => {
     if (!user) {
       toast({
-        title: "Error",
-        description: "You must be logged in to update your profile",
+        title: "Please log in",
+        description: "You need to be signed in to update your profile",
         variant: "destructive",
       });
       return;
@@ -178,8 +178,8 @@ export default function Profile() {
     
     if (!trimmedUsername) {
       toast({
-        title: "Username required",
-        description: "Username cannot be empty",
+        title: "Username needed",
+        description: "Pick a username so people know who you are",
         variant: "destructive",
       });
       return;
@@ -187,8 +187,8 @@ export default function Profile() {
 
     if (trimmedUsername.length < 3) {
       toast({
-        title: "Username too short",
-        description: "Username must be at least 3 characters long",
+        title: "Username is too short",
+        description: "Make it at least 3 characters long",
         variant: "destructive",
       });
       return;
@@ -196,8 +196,8 @@ export default function Profile() {
 
     if (trimmedUsername.length > 30) {
       toast({
-        title: "Username too long",
-        description: "Username must not exceed 30 characters",
+        title: "Username is too long",
+        description: "Keep it under 30 characters",
         variant: "destructive",
       });
       return;
@@ -207,8 +207,8 @@ export default function Profile() {
     const usernameRegex = /^[a-zA-Z0-9_]+$/;
     if (!usernameRegex.test(trimmedUsername)) {
       toast({
-        title: "Invalid username",
-        description: "Username can only contain letters, numbers, and underscores",
+        title: "Username format issue",
+        description: "You can only use letters, numbers, and underscores",
         variant: "destructive",
       });
       return;
@@ -223,21 +223,21 @@ export default function Profile() {
       // Check for unique constraint violation
       if (error.code === '23505') {
         toast({
-          title: "Username taken",
-          description: "This username is already taken. Please choose another.",
+          title: "That username's taken",
+          description: "Someone else is using that username. Try a different one.",
           variant: "destructive",
         });
       } else {
         toast({
-          title: "Error",
-          description: error.message || "Failed to update profile",
+          title: "Couldn't update profile",
+          description: error.message || "Something went wrong. Please try again",
           variant: "destructive",
         });
       }
     } else {
       toast({
-        title: "Success!",
-        description: "Profile updated successfully",
+        title: "Profile updated!",
+        description: "Your changes have been saved",
       });
       setEditing(false);
       fetchProfile();
@@ -256,16 +256,16 @@ export default function Profile() {
       setUser(null);
       setProfile(null);
       toast({
-        title: "Logged out",
-        description: "You have been logged out successfully",
+        title: "You're signed out",
+        description: "Come back soon!",
       });
       router.push("/");
       router.refresh();
     } catch (error) {
       console.error("Error logging out:", error);
       toast({
-        title: "Error",
-        description: "Failed to log out. Please try again.",
+        title: "Couldn't sign you out",
+        description: "Something went wrong. Please try again.",
         variant: "destructive",
       });
     }

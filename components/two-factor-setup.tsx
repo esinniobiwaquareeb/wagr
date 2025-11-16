@@ -54,8 +54,8 @@ export function TwoFactorSetup({ isOpen, onClose, onComplete }: TwoFactorSetupPr
       setStep('verify');
     } catch (error) {
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to setup 2FA",
+        title: "Setup issue",
+        description: error instanceof Error ? error.message : "We couldn't set up 2FA right now. Please try again",
         variant: "destructive",
       });
     } finally {
@@ -66,8 +66,8 @@ export function TwoFactorSetup({ isOpen, onClose, onComplete }: TwoFactorSetupPr
   const handleVerify = async () => {
     if (!verificationCode || verificationCode.length !== 6) {
       toast({
-        title: "Invalid code",
-        description: "Please enter a 6-digit code",
+        title: "Code format issue",
+        description: "Enter the 6-digit code from your authenticator app",
         variant: "destructive",
       });
       return;
@@ -93,8 +93,8 @@ export function TwoFactorSetup({ isOpen, onClose, onComplete }: TwoFactorSetupPr
       }
 
       toast({
-        title: "2FA Enabled",
-        description: "Two-factor authentication has been successfully enabled.",
+        title: "2FA is now active!",
+        description: "Your account is now protected with two-factor authentication.",
       });
 
       // Reset state

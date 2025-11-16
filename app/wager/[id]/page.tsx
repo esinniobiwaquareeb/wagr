@@ -227,8 +227,8 @@ export default function WagerDetail() {
       // Check if wager is still open
       if (wager!.status !== "OPEN") {
         toast({
-          title: "Wager closed",
-          description: "This wager is no longer accepting bets.",
+          title: "This wager is closed",
+          description: "Bets are no longer being accepted for this wager.",
           variant: "destructive",
         });
         setJoining(false);
@@ -238,8 +238,8 @@ export default function WagerDetail() {
       // Check if deadline has passed
       if (wager!.deadline && new Date(wager!.deadline) <= new Date()) {
         toast({
-          title: "Deadline passed",
-          description: "The deadline for this wager has passed. No more bets can be placed.",
+          title: "Too late to bet",
+          description: "The deadline for this wager has already passed.",
           variant: "destructive",
         });
         setJoining(false);
@@ -256,8 +256,8 @@ export default function WagerDetail() {
 
       if (existingEntry) {
         toast({
-          title: "Already joined",
-          description: "You have already placed a bet on this wager.",
+          title: "You've already bet on this",
+          description: "You can only place one bet per wager.",
           variant: "destructive",
         });
         setJoining(false);
@@ -273,8 +273,8 @@ export default function WagerDetail() {
 
       if (!profile || profile.balance < wager!.amount) {
         toast({
-          title: "Insufficient balance",
-          description: "You don't have enough balance to join this wager.",
+          title: "Not enough funds",
+          description: "You need more money in your wallet to place this bet.",
           variant: "destructive",
         });
         setJoining(false);

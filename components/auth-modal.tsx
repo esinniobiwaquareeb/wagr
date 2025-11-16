@@ -32,7 +32,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       // Validate email
       const trimmedEmail = email.trim();
       if (!trimmedEmail) {
-        setError("Email is required");
+        setError("We need your email address to continue");
         setIsLoading(false);
         return;
       }
@@ -40,7 +40,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       // Basic email validation
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(trimmedEmail)) {
-        setError("Please enter a valid email address");
+        setError("That doesn't look like a valid email address");
         setIsLoading(false);
         return;
       }
@@ -55,13 +55,13 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       if (isSignUp) {
         // Password strength validation for sign up
         if (password.length < 6) {
-          setError("Password must be at least 6 characters long");
+          setError("Your password needs to be at least 6 characters");
           setIsLoading(false);
           return;
         }
 
         if (password.length > 72) {
-          setError("Password must not exceed 72 characters");
+          setError("Your password is too long (max 72 characters)");
           setIsLoading(false);
           return;
         }
@@ -77,8 +77,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         setEmail("");
         setPassword("");
         toast({
-          title: "Account created!",
-          description: "Please check your email to confirm your account.",
+          title: "You're all set!",
+          description: "Check your email to confirm your account and get started.",
         });
       } else {
         // Login validation
@@ -128,8 +128,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             // Sign out admin and redirect to admin login
             await supabase.auth.signOut();
             toast({
-              title: "Admin Access Required",
-              description: "Admins must use the admin login page. Redirecting...",
+              title: "Admin login required",
+              description: "Please use the admin login page to access your account.",
               variant: "destructive",
             });
             onClose();
