@@ -50,7 +50,7 @@ function WalletContent() {
       // Create profile if it doesn't exist
       const { data: newProfile } = await supabase
         .from("profiles")
-        .insert({ id: user.id, balance: 1000 })
+        .insert({ id: user.id, balance: 0 })
         .select()
         .single();
       if (newProfile) {

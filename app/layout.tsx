@@ -1,8 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
-import { MobileNav } from "@/components/mobile-nav";
-import { Footer } from "@/components/footer";
+import { ConditionalNav } from "@/components/conditional-nav";
 import { PWAInstaller } from "@/components/pwa-installer";
 import { Toaster } from "@/components/ui/toaster";
 import './globals.css'
@@ -135,15 +134,9 @@ export default function RootLayout({
         />
       </head>
       <body className={`${geist.className} antialiased`}>
-        <div className="flex flex-col min-h-screen">
-          <div className="flex flex-col md:flex-row flex-1">
-            <MobileNav />
-            <div className="flex-1 md:ml-0 flex flex-col min-h-screen">
-              <div className="flex-1">{children}</div>
-              <Footer />
-            </div>
-          </div>
-        </div>
+        <ConditionalNav>
+          {children}
+        </ConditionalNav>
         <Toaster />
         <PWAInstaller />
         <Analytics />

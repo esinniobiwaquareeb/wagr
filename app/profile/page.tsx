@@ -63,7 +63,7 @@ export default function Profile() {
       // Create profile if it doesn't exist
       const { data: newProfile } = await supabase
         .from("profiles")
-        .insert({ id: user.id, balance: 1000, username: user.email?.split("@")[0] || "User" })
+        .insert({ id: user.id, balance: 0, username: user.email?.split("@")[0] || "User" })
         .select()
         .single();
       if (newProfile) {
