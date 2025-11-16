@@ -103,10 +103,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         const data = await response.json();
 
         if (!response.ok) {
-          if (data.error) {
-            throw new Error(data.error.message || 'Login failed');
-          }
-          throw new Error('Login failed');
+          const { extractErrorFromResponse } = await import('@/lib/error-extractor');
+          const errorMessage = await extractErrorFromResponse(response, 'Login failed');
+          throw new Error(errorMessage);
         }
 
         // Check if 2FA is required
@@ -170,7 +169,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         }, 300);
       }
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred");
+      const { extractErrorMessage } = await import('@/lib/error-extractor');
+      const errorMessage = extractErrorMessage(error, "Something went wrong. Please try again.");
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -197,10 +198,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       const data = await response.json();
 
       if (!response.ok) {
-        if (data.error) {
-          throw new Error(data.error.message || 'Verification failed');
-        }
-        throw new Error('Verification failed');
+        const { extractErrorFromResponse } = await import('@/lib/error-extractor');
+        const errorMessage = await extractErrorFromResponse(response, 'Verification failed');
+        throw new Error(errorMessage);
       }
 
       // Check if user is an admin

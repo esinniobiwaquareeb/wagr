@@ -149,11 +149,8 @@ export default function AdminLogin() {
       }
     } catch (error) {
       console.error("Login error:", error);
-      const errorMessage = error instanceof Error 
-        ? (error.message || "An unexpected error occurred")
-        : typeof error === 'object' && error !== null && 'message' in error
-        ? String(error.message) || "An unexpected error occurred"
-        : "Failed to log in. Please try again.";
+      const { extractErrorMessage } = await import('@/lib/error-extractor');
+      const errorMessage = extractErrorMessage(error, "Failed to log in. Please try again.");
       
       toast({
         title: "Login failed",
@@ -185,10 +182,9 @@ export default function AdminLogin() {
       const data = await response.json();
 
       if (!response.ok) {
-        if (data.error) {
-          throw new Error(data.error.message || 'Verification failed');
-        }
-        throw new Error('Verification failed');
+        const { extractErrorFromResponse } = await import('@/lib/error-extractor');
+        const errorMessage = await extractErrorFromResponse(response, 'Verification failed');
+        throw new Error(errorMessage);
       }
 
       if (data.user) {
@@ -238,9 +234,8 @@ export default function AdminLogin() {
       }
     } catch (error) {
       console.error("2FA verification error:", error);
-      const errorMessage = error instanceof Error 
-        ? (error.message || "Verification failed")
-        : "Failed to verify code. Please try again.";
+      const { extractErrorMessage } = await import('@/lib/error-extractor');
+      const errorMessage = extractErrorMessage(error, "Failed to verify code. Please try again.");
       
       toast({
         title: "Verification failed",

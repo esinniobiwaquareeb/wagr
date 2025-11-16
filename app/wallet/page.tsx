@@ -38,6 +38,7 @@ function WalletContent() {
   const [banks, setBanks] = useState<Array<{ code: string; name: string }>>([]);
   const [loadingBanks, setLoadingBanks] = useState(false);
   const [processingWithdrawal, setProcessingWithdrawal] = useState(false);
+  const [verifyingAccount, setVerifyingAccount] = useState(false);
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
 
@@ -175,7 +176,13 @@ function WalletContent() {
 
   const verifyAccount = useCallback(async (accountNumber: string, bankCode: string) => {
     if (!accountNumber || !bankCode) return;
+    
+    // Prevent multiple simultaneous verification requests
+    if (verifyingAccount) {
+      return;
+    }
 
+    setVerifyingAccount(true);
     try {
       const response = await fetch('/api/payments/verify-account', {
         method: 'POST',
@@ -186,6 +193,30 @@ function WalletContent() {
       });
 
       const data = await response.json();
+      
+      if (!response.ok) {
+        // Handle rate limiting or other errors
+        if (response.status === 429) {
+          const { extractErrorFromResponse } = await import('@/lib/error-extractor');
+          const errorMessage = await extractErrorFromResponse(response, 'Too many verification requests. Please wait a moment.');
+          toast({
+            title: "Verification limit reached",
+            description: errorMessage,
+            variant: "destructive",
+          });
+        } else if (data.error && !data.error.includes('account') && !data.error.includes('resolve')) {
+          // Only show error toast for non-account-related errors
+          // Invalid account numbers are expected and shouldn't show error toasts
+          toast({
+            title: "Verification failed",
+            description: data.error || 'Could not verify account. Please check the details and try again.',
+            variant: "destructive",
+          });
+        }
+        setAccountName('');
+        return;
+      }
+      
       if (data.success && data.accountName) {
         setAccountName(data.accountName);
       } else {
@@ -194,19 +225,23 @@ function WalletContent() {
     } catch (error) {
       console.error('Error verifying account:', error);
       setAccountName('');
+      // Don't show toast for network errors during verification - it's too noisy
+    } finally {
+      setVerifyingAccount(false);
     }
-  }, []);
+  }, [toast, verifyingAccount]);
 
   useEffect(() => {
-    if (accountNumber && bankCode && accountNumber.length === 10) {
+    if (accountNumber && bankCode && accountNumber.length === 10 && !verifyingAccount) {
+      // Increased debounce to 1000ms (1 second) to reduce rapid requests and prevent rate limiting
       const timeoutId = setTimeout(() => {
         verifyAccount(accountNumber, bankCode);
-      }, 500);
+      }, 1000);
       return () => clearTimeout(timeoutId);
     } else {
       setAccountName('');
     }
-  }, [accountNumber, bankCode, verifyAccount]);
+  }, [accountNumber, bankCode, verifyAccount, verifyingAccount]);
 
   // Handle payment callback
   useEffect(() => {
@@ -365,7 +400,9 @@ function WalletContent() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to process withdrawal');
+        const { extractErrorFromResponse } = await import('@/lib/error-extractor');
+        const errorMessage = await extractErrorFromResponse(response, 'Failed to process withdrawal');
+        throw new Error(errorMessage);
       }
 
       toast({
@@ -383,9 +420,12 @@ function WalletContent() {
       fetchWalletData(true);
     } catch (error) {
       console.error("Error processing withdrawal:", error);
+      const { extractErrorMessage } = await import('@/lib/error-extractor');
+      const errorMessage = extractErrorMessage(error, "Something went wrong. Please try again.");
+      
       toast({
         title: "Withdrawal didn't work",
-        description: error instanceof Error ? error.message : "Something went wrong. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -452,7 +492,9 @@ function WalletContent() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to initialize payment');
+        const { extractErrorFromResponse } = await import('@/lib/error-extractor');
+        const errorMessage = await extractErrorFromResponse(response, 'Failed to initialize payment');
+        throw new Error(errorMessage);
       }
 
       // Open Paystack checkout
@@ -463,9 +505,12 @@ function WalletContent() {
       }
     } catch (error) {
       console.error("Error initializing payment:", error);
+      const { extractErrorMessage } = await import('@/lib/error-extractor');
+      const errorMessage = extractErrorMessage(error, "We couldn't start the payment process. Please try again.");
+      
       toast({
         title: "Payment setup failed",
-        description: error instanceof Error ? error.message : "We couldn't start the payment process. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
       setProcessingPayment(false);
@@ -604,13 +649,18 @@ function WalletContent() {
               )}
               <button
                 onClick={handleWithdraw}
-                disabled={processingWithdrawal || !withdrawAmount.trim() || !accountNumber || !bankCode || !accountName}
+                disabled={processingWithdrawal || verifyingAccount || !withdrawAmount.trim() || !accountNumber || !bankCode || !accountName}
                 className="w-full px-4 md:px-6 py-2 md:py-2.5 bg-primary text-primary-foreground rounded-lg md:rounded-md font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.98] touch-manipulation text-sm md:text-base flex items-center justify-center gap-2"
               >
                 {processingWithdrawal ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Processing...
+                  </>
+                ) : verifyingAccount ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Verifying Account...
                   </>
                 ) : (
                   'Withdraw'

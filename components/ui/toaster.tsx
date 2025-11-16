@@ -16,17 +16,21 @@ export function Toaster() {
   return (
     <ToastProvider>
       {toasts.map(function ({ id, title, description, action, ...props }) {
-        // Always render if there's a title or description (even if empty string, show something)
-        // Only skip if both are explicitly null/undefined
-        const hasContent = title != null || description != null || action != null;
+        // Normalize title and description - handle empty strings, null, undefined
+        const normalizedTitle = title && String(title).trim() ? String(title).trim() : null;
+        const normalizedDescription = description && String(description).trim() ? String(description).trim() : null;
+        
+        // Only skip if both title and description are empty/null/undefined and no action
+        const hasContent = normalizedTitle || normalizedDescription || action;
         
         if (!hasContent) {
           return null;
         }
         
         // Ensure at least title or description exists for display
-        const displayTitle = title || "Notification";
-        const displayDescription = description || (title ? undefined : "An error occurred");
+        // For destructive toasts, always show something meaningful
+        const displayTitle = normalizedTitle || (props.variant === 'destructive' ? "Something went wrong" : "Notification");
+        const displayDescription = normalizedDescription || (normalizedTitle ? undefined : (props.variant === 'destructive' ? "Please try again or contact support if the problem persists." : "An error occurred"));
         
         return (
           <Toast key={id} {...props}>

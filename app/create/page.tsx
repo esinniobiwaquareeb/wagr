@@ -291,9 +291,12 @@ export default function CreateWager() {
       }, 100);
     } catch (error) {
       console.error("Error creating wager:", error);
+      const { extractErrorMessage } = await import('@/lib/error-extractor');
+      const errorMessage = extractErrorMessage(error, "Something went wrong. Give it another try.");
+      
       toast({
         title: "Couldn't create wager",
-        description: error instanceof Error ? error.message : "Something went wrong. Give it another try.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

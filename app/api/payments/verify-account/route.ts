@@ -22,14 +22,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify account with Paystack
-    const response = await fetch('https://api.paystack.co/bank/resolve', {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${paystackSecretKey}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
     const resolveResponse = await fetch(
       `https://api.paystack.co/bank/resolve?account_number=${accountNumber}&bank_code=${bankCode}`,
       {
