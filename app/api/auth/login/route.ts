@@ -45,7 +45,8 @@ export async function POST(request: NextRequest) {
           throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch user profile');
         }
 
-        // If 2FA is enabled, require verification
+        // If 2FA is enabled, ALWAYS require verification on login
+        // This ensures 2FA is required on every new login, not just the first time
         if (profile?.two_factor_enabled) {
           if (!twoFactorCode) {
             // Sign out and return 2FA required
@@ -90,6 +91,17 @@ export async function POST(request: NextRequest) {
             await supabase.auth.signOut();
             throw new AppError(ErrorCode.TWO_FACTOR_INVALID, 'Invalid verification code');
           }
+          
+          // Mark that 2FA was verified for this login session
+          // We'll return a flag that the client can use to mark the session
+          return NextResponse.json({
+            success: true,
+            user: {
+              id: authData.user.id,
+              email: authData.user.email,
+            },
+            twoFactorVerified: true, // Flag to indicate 2FA was verified
+          });
         }
 
         return NextResponse.json({

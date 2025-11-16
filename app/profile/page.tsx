@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { TwoFactorSetup } from "@/components/two-factor-setup";
+import { clear2FAVerification } from "@/lib/session-2fa";
 
 interface Profile {
   id: string;
@@ -247,6 +248,8 @@ export default function Profile() {
 
   const confirmLogout = async () => {
     try {
+      // Clear 2FA verification on logout
+      clear2FAVerification();
       await supabase.auth.signOut();
       setUser(null);
       setProfile(null);

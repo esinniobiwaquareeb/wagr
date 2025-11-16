@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Shield, Lock, Mail } from "lucide-react";
 import Link from "next/link";
 import { TwoFactorVerify } from "@/components/two-factor-verify";
+import { markSessionAs2FAVerified } from "@/lib/session-2fa";
 
 export default function AdminLogin() {
   const supabase = useMemo(() => createClient(), []);
@@ -122,6 +123,11 @@ export default function AdminLogin() {
           return;
         }
 
+        // Mark session as 2FA verified if 2FA was used (for admins without 2FA, this won't be set)
+        if (data.twoFactorVerified && data.user) {
+          markSessionAs2FAVerified(data.user.id);
+        }
+
         // Redirect to admin center
         router.push("/admin");
         router.refresh();
@@ -187,6 +193,11 @@ export default function AdminLogin() {
           });
           setLoading(false);
           return;
+        }
+
+        // Mark session as 2FA verified if 2FA was used
+        if (data.twoFactorVerified && data.user) {
+          markSessionAs2FAVerified(data.user.id);
         }
 
         setRequires2FA(false);

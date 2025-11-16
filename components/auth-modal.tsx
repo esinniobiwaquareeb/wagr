@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { TwoFactorVerify } from "@/components/two-factor-verify";
+import { markSessionAs2FAVerified } from "@/lib/session-2fa";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -137,6 +138,11 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             }, 1500);
             return;
           }
+          
+          // Mark session as 2FA verified if 2FA was used (for users without 2FA, this won't be set)
+          if (data.twoFactorVerified) {
+            markSessionAs2FAVerified(data.user.id);
+          }
         }
 
         router.refresh();
@@ -197,6 +203,11 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           }, 1500);
           return;
         }
+      }
+
+      // Mark session as 2FA verified if 2FA was used
+      if (data.twoFactorVerified && data.user) {
+        markSessionAs2FAVerified(data.user.id);
       }
 
       setRequires2FA(false);
