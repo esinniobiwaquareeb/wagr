@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Shield, Lock, Mail } from "lucide-react";
 import Link from "next/link";
+import { TwoFactorVerify } from "@/components/two-factor-verify";
 
 export default function AdminLogin() {
   const supabase = useMemo(() => createClient(), []);
@@ -15,6 +16,7 @@ export default function AdminLogin() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [requires2FA, setRequires2FA] = useState(false);
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -73,13 +75,33 @@ export default function AdminLogin() {
         return;
       }
 
-      // Sign in
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
+      // Use the login API that supports 2FA
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+        }),
       });
 
-      if (error) throw error;
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.error) {
+          throw new Error(data.error.message || 'Login failed');
+        }
+        throw new Error('Login failed');
+      }
+
+      // Check if 2FA is required
+      if (data.requires2FA) {
+        setRequires2FA(true);
+        setLoading(false);
+        return;
+      }
 
       if (data.user) {
         // Check if user is admin
@@ -121,6 +143,82 @@ export default function AdminLogin() {
       setLoading(false);
     }
   };
+
+  const handle2FAVerify = async (code: string, isBackupCode: boolean) => {
+    setLoading(true);
+
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          twoFactorCode: code,
+          isBackupCode,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.error) {
+          throw new Error(data.error.message || 'Verification failed');
+        }
+        throw new Error('Verification failed');
+      }
+
+      if (data.user) {
+        // Check if user is admin
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("is_admin")
+          .eq("id", data.user.id)
+          .single();
+
+        if (!profile?.is_admin) {
+          await supabase.auth.signOut();
+          toast({
+            title: "Access Denied",
+            description: "You don't have admin privileges.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+
+        setRequires2FA(false);
+        router.push("/admin");
+        router.refresh();
+      }
+    } catch (error) {
+      console.error("2FA verification error:", error);
+      const errorMessage = error instanceof Error 
+        ? (error.message || "Verification failed")
+        : "Failed to verify code. Please try again.";
+      
+      toast({
+        title: "Verification failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      throw error; // Re-throw so TwoFactorVerify can handle it
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Show 2FA verification dialog if required
+  if (requires2FA) {
+    return (
+      <TwoFactorVerify
+        isOpen={requires2FA}
+        onVerify={handle2FAVerify}
+      />
+    );
+  }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">

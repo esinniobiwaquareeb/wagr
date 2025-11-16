@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
+import { TwoFactorVerify } from "@/components/two-factor-verify";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [requires2FA, setRequires2FA] = useState(false);
   const supabase = createClient();
   const router = useRouter();
   const { toast } = useToast();
@@ -85,11 +87,33 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           return;
         }
 
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: trimmedEmail,
-          password,
+        // Use the new login API that supports 2FA
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: trimmedEmail,
+            password,
+          }),
         });
-        if (error) throw error;
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          if (data.error) {
+            throw new Error(data.error.message || 'Login failed');
+          }
+          throw new Error('Login failed');
+        }
+
+        // Check if 2FA is required
+        if (data.requires2FA) {
+          setRequires2FA(true);
+          setIsLoading(false);
+          return;
+        }
 
         // Check if user is an admin - admins should use admin login
         if (data.user) {
@@ -125,7 +149,80 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     }
   };
 
+  const handle2FAVerify = async (code: string, isBackupCode: boolean) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          twoFactorCode: code,
+          isBackupCode,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.error) {
+          throw new Error(data.error.message || 'Verification failed');
+        }
+        throw new Error('Verification failed');
+      }
+
+      // Check if user is an admin
+      if (data.user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("is_admin")
+          .eq("id", data.user.id)
+          .single();
+
+        if (profile?.is_admin) {
+          await supabase.auth.signOut();
+          toast({
+            title: "Admin Access Required",
+            description: "Admins must use the admin login page. Redirecting...",
+            variant: "destructive",
+          });
+          onClose();
+          setTimeout(() => {
+            router.push("/admin/login");
+          }, 1500);
+          return;
+        }
+      }
+
+      setRequires2FA(false);
+      router.refresh();
+      onClose();
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : "Verification failed");
+      throw error; // Re-throw so TwoFactorVerify can handle it
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (!isOpen) return null;
+
+  // Show 2FA verification dialog if required
+  if (requires2FA) {
+    return (
+      <>
+        <TwoFactorVerify
+          isOpen={requires2FA}
+          onVerify={handle2FAVerify}
+        />
+      </>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
