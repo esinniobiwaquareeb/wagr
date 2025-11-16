@@ -7,6 +7,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
 import { Home as HomeIcon, Plus } from "lucide-react";
 import Link from "next/link";
+import { LandingHero } from "@/components/landing-hero";
+import { LandingFeatures } from "@/components/landing-features";
+import { LandingHowItWorks } from "@/components/landing-how-it-works";
+import { LandingCTA } from "@/components/landing-cta";
 
 interface Wager {
   id: string;
@@ -39,6 +43,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [userPreferences, setUserPreferences] = useState<string[]>([]);
+  const [user, setUser] = useState<any>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const supabase = useMemo(() => createClient(), []);
   
   // Cache entry counts to avoid N+1 queries
@@ -151,12 +157,21 @@ export default function Home() {
     setLoading(false);
   }, [supabase, entryCountsCache]);
 
+  // Check if user is authenticated
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+      setCheckingAuth(false);
+    };
+    checkUser();
+  }, [supabase]);
+
   // Fetch user preferences
   useEffect(() => {
+    if (!user) return;
+    
     const fetchPreferences = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const { data } = await supabase
         .from("user_preferences")
         .select("preferred_categories")
@@ -169,7 +184,7 @@ export default function Home() {
     };
 
     fetchPreferences();
-  }, [supabase]);
+  }, [supabase, user]);
 
   const [tagPreferences, setTagPreferences] = useState<string[]>([]);
 
@@ -269,6 +284,29 @@ export default function Home() {
     };
   }, [fetchWagers, supabase]);
 
+  // Show landing page for unauthenticated users
+  if (checkingAuth) {
+    return (
+      <main className="flex-1">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </main>
+    );
+  }
+
+  if (!user) {
+    return (
+      <main className="flex-1">
+        <LandingHero />
+        <LandingFeatures />
+        <LandingHowItWorks />
+        <LandingCTA />
+      </main>
+    );
+  }
+
+  // Show wagers list for authenticated users
   return (
     <main className="flex-1 pb-24 md:pb-0">
       <div className="max-w-6xl mx-auto p-3 md:p-6">

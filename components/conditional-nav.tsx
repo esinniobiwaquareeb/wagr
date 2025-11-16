@@ -7,9 +7,15 @@ import { usePathname } from "next/navigation";
 export function ConditionalNav({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdminRoute = pathname?.startsWith("/admin");
+  const isLandingPage = pathname === "/landing" || pathname === "/";
 
   // Hide regular navigation for admin routes (admin has its own sidebar)
   if (isAdminRoute) {
+    return <>{children}</>;
+  }
+
+  // Hide navigation and footer for landing page
+  if (isLandingPage) {
     return <>{children}</>;
   }
 
