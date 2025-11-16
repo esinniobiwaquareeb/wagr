@@ -58,8 +58,30 @@ export default function AdminTransactionsPage() {
     setIsAdmin(true);
   }, [supabase, router]);
 
-  const fetchTransactions = useCallback(async () => {
+  const fetchTransactions = useCallback(async (force = false) => {
     if (!isAdmin) return;
+
+    // Check cache first
+    if (!force) {
+      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
+      const cached = cache.get<Transaction[]>(CACHE_KEYS.ADMIN_TRANSACTIONS);
+      
+      if (cached) {
+        setTransactions(cached);
+        
+        // Check if cache is stale - refresh in background if needed
+        const cacheEntry = cache.memoryCache.get(CACHE_KEYS.ADMIN_TRANSACTIONS);
+        if (cacheEntry) {
+          const age = Date.now() - cacheEntry.timestamp;
+          const staleThreshold = CACHE_TTL.ADMIN_DATA / 2;
+          
+          if (age > staleThreshold) {
+            fetchTransactions(true).catch(() => {});
+          }
+        }
+        return;
+      }
+    }
 
     try {
       const { data, error } = await supabase
@@ -70,6 +92,10 @@ export default function AdminTransactionsPage() {
 
       if (error) throw error;
       setTransactions(data || []);
+      
+      // Cache the results
+      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
+      cache.set(CACHE_KEYS.ADMIN_TRANSACTIONS, data || [], CACHE_TTL.ADMIN_DATA);
     } catch (error) {
       console.error("Error fetching transactions:", error);
       toast({

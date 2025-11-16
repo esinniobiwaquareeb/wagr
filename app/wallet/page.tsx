@@ -34,9 +34,37 @@ function WalletContent() {
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
 
-  const fetchWalletData = useCallback(async () => {
+  const fetchWalletData = useCallback(async (force = false) => {
     if (!user) return;
 
+    // Check cache first
+    if (!force) {
+      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
+      const cachedProfile = cache.get<Profile>(CACHE_KEYS.USER_PROFILE(user.id));
+      const cachedTransactions = cache.get<Transaction[]>(CACHE_KEYS.TRANSACTIONS(user.id));
+      
+      if (cachedProfile && cachedTransactions) {
+        setProfile(cachedProfile);
+        setTransactions(cachedTransactions);
+        setLoading(false);
+        
+        // Check if cache is stale - refresh in background if needed
+        const profileCacheEntry = cache.memoryCache.get(CACHE_KEYS.USER_PROFILE(user.id));
+        const transCacheEntry = cache.memoryCache.get(CACHE_KEYS.TRANSACTIONS(user.id));
+        
+        const profileAge = profileCacheEntry ? Date.now() - profileCacheEntry.timestamp : Infinity;
+        const transAge = transCacheEntry ? Date.now() - transCacheEntry.timestamp : Infinity;
+        const staleThreshold = Math.min(CACHE_TTL.USER_PROFILE, CACHE_TTL.TRANSACTIONS) / 2;
+        
+        if (profileAge > staleThreshold || transAge > staleThreshold) {
+          // Refresh in background
+          fetchWalletData(true).catch(() => {});
+        }
+        return;
+      }
+    }
+
+    // No cache or forced refresh - fetch from API
     // Fetch profile
     const { data: profileData } = await supabase
       .from("profiles")
@@ -67,6 +95,13 @@ function WalletContent() {
 
     if (transData) {
       setTransactions(transData);
+      
+      // Cache the results
+      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
+      if (profileData) {
+        cache.set(CACHE_KEYS.USER_PROFILE(user.id), profileData, CACHE_TTL.USER_PROFILE);
+      }
+      cache.set(CACHE_KEYS.TRANSACTIONS(user.id), transData, CACHE_TTL.TRANSACTIONS);
     }
     setLoading(false);
   }, [user, supabase]);

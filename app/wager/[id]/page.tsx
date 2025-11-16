@@ -75,43 +75,55 @@ export default function WagerDetail() {
     };
   }, [getUser, supabase]);
 
-  const fetchWager = useCallback(async () => {
-    // Check cache first
-    const cacheKey = `wager_${wagerId}`;
-    const cached = typeof window !== 'undefined' ? sessionStorage.getItem(cacheKey) : null;
-    if (cached) {
-      try {
-        const cachedData = JSON.parse(cached);
-        const CACHE_TTL = 60 * 1000; // 1 minute
-        if (Date.now() - cachedData.timestamp < CACHE_TTL && cachedData.wager) {
-          setWager(cachedData.wager);
-          setEntries(cachedData.entries || []);
-          setSideCount(cachedData.sideCount || { a: 0, b: 0 });
-          setLoading(false);
-          
-          // Check if wager expired with single participant and auto-refund
-          if (cachedData.wager.deadline && new Date(cachedData.wager.deadline) <= new Date() && cachedData.wager.status === "OPEN") {
-            const uniqueParticipants = new Set((cachedData.entries || []).map((e: Entry) => e.user_id));
-            if (uniqueParticipants.size === 1) {
-              // Trigger auto-refund in background (don't block UI)
-              (async () => {
-                try {
-                  await supabase.rpc("check_and_refund_single_participants");
-                  // Refresh after refund
-                  setTimeout(() => fetchWager(), 1000);
-                } catch (error) {
-                  console.error("Error auto-refunding:", error);
-                }
-              })();
-            }
+  const fetchWager = useCallback(async (force = false) => {
+    // Check cache first using centralized cache utility
+    const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
+    const cacheKey = CACHE_KEYS.WAGER(wagerId);
+    
+    if (!force) {
+      const cached = cache.get<{ wager: Wager; entries: Entry[]; sideCount: { a: number; b: number } }>(cacheKey);
+      
+      if (cached) {
+        setWager(cached.wager);
+        setEntries(cached.entries || []);
+        setSideCount(cached.sideCount || { a: 0, b: 0 });
+        setLoading(false);
+        
+        // Check if wager expired with single participant and auto-refund
+        if (cached.wager.deadline && new Date(cached.wager.deadline) <= new Date() && cached.wager.status === "OPEN") {
+          const uniqueParticipants = new Set((cached.entries || []).map((e: Entry) => e.user_id));
+          if (uniqueParticipants.size === 1) {
+            // Trigger auto-refund in background (don't block UI)
+            (async () => {
+              try {
+                await supabase.rpc("check_and_refund_single_participants");
+                // Refresh after refund
+                setTimeout(() => fetchWager(true), 1000);
+              } catch (error) {
+                console.error("Error auto-refunding:", error);
+              }
+            })();
           }
-          return;
         }
-      } catch (e) {
-        // Cache invalid, continue with fetch
+        
+        // Check if cache is stale - if so, refresh in background
+        const cacheEntry = (cache as any).memoryCache.get(cacheKey);
+        if (cacheEntry) {
+          const age = Date.now() - cacheEntry.timestamp;
+          const staleThreshold = CACHE_TTL.WAGER / 2; // Consider stale after half TTL
+          
+          if (age > staleThreshold) {
+            // Cache is getting stale, refresh in background (don't block UI)
+            fetchWager(true).catch(() => {
+              // Ignore errors in background refresh
+            });
+          }
+        }
+        return; // Don't fetch if we have fresh cache
       }
     }
 
+    // No cache or forced refresh - fetch from API
     const { data: wagerData, error } = await supabase
       .from("wagers")
       .select("*")
@@ -159,19 +171,13 @@ export default function WagerDetail() {
       (wagerData as any).sideATotal = sideATotal;
       (wagerData as any).sideBTotal = sideBTotal;
 
-      // Cache the results
-      if (typeof window !== 'undefined') {
-        try {
-          sessionStorage.setItem(cacheKey, JSON.stringify({
-            wager: wagerData,
-            entries: entriesData,
-            sideCount,
-            timestamp: Date.now(),
-          }));
-        } catch (e) {
-          // SessionStorage might be full
-        }
-      }
+        // Cache the results using centralized cache utility
+        const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
+        cache.set(cacheKey, {
+          wager: wagerData,
+          entries: entriesData || [],
+          sideCount,
+        }, CACHE_TTL.WAGER);
     }
     setLoading(false);
   }, [wagerId, supabase, user]);

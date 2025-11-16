@@ -85,11 +85,36 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           return;
         }
 
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: trimmedEmail,
           password,
         });
         if (error) throw error;
+
+        // Check if user is an admin - admins should use admin login
+        if (data.user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("is_admin")
+            .eq("id", data.user.id)
+            .single();
+
+          if (profile?.is_admin) {
+            // Sign out admin and redirect to admin login
+            await supabase.auth.signOut();
+            toast({
+              title: "Admin Access Required",
+              description: "Admins must use the admin login page. Redirecting...",
+              variant: "destructive",
+            });
+            onClose();
+            setTimeout(() => {
+              router.push("/admin/login");
+            }, 1500);
+            return;
+          }
+        }
+
         router.refresh();
         onClose();
       }

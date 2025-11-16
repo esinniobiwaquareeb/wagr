@@ -42,9 +42,35 @@ export default function Profile() {
     setUser(data.user);
   }, [supabase, router]);
 
-  const fetchProfile = useCallback(async () => {
+  const fetchProfile = useCallback(async (force = false) => {
     if (!user) return;
 
+    // Check cache first
+    if (!force) {
+      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
+      const cached = cache.get<Profile>(CACHE_KEYS.USER_PROFILE(user.id));
+      
+      if (cached) {
+        setProfile(cached);
+        setUsername(cached.username || "");
+        setLoading(false);
+        
+        // Check if cache is stale - refresh in background if needed
+        const cacheEntry = cache.memoryCache.get(CACHE_KEYS.USER_PROFILE(user.id));
+        if (cacheEntry) {
+          const age = Date.now() - cacheEntry.timestamp;
+          const staleThreshold = CACHE_TTL.USER_PROFILE / 2;
+          
+          if (age > staleThreshold) {
+            // Refresh in background
+            fetchProfile(true).catch(() => {});
+          }
+        }
+        return;
+      }
+    }
+
+    // No cache or forced refresh - fetch from API
     const { data: profileData, error } = await supabase
       .from("profiles")
       .select("*")
@@ -59,6 +85,10 @@ export default function Profile() {
     if (profileData) {
       setProfile(profileData);
       setUsername(profileData.username || "");
+      
+      // Cache the result
+      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
+      cache.set(CACHE_KEYS.USER_PROFILE(user.id), profileData, CACHE_TTL.USER_PROFILE);
     } else {
       // Create profile if it doesn't exist
       const { data: newProfile } = await supabase
@@ -69,6 +99,10 @@ export default function Profile() {
       if (newProfile) {
         setProfile(newProfile);
         setUsername(newProfile.username || "");
+        
+        // Cache the new profile
+        const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
+        cache.set(CACHE_KEYS.USER_PROFILE(user.id), newProfile, CACHE_TTL.USER_PROFILE);
       }
     }
     setLoading(false);

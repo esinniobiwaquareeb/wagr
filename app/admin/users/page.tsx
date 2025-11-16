@@ -56,8 +56,30 @@ export default function AdminUsersPage() {
     setIsAdmin(true);
   }, [supabase, router]);
 
-  const fetchUsers = useCallback(async () => {
+  const fetchUsers = useCallback(async (force = false) => {
     if (!isAdmin) return;
+
+    // Check cache first
+    if (!force) {
+      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
+      const cached = cache.get<User[]>(CACHE_KEYS.ADMIN_USERS);
+      
+      if (cached) {
+        setUsers(cached);
+        
+        // Check if cache is stale - refresh in background if needed
+        const cacheEntry = cache.memoryCache.get(CACHE_KEYS.ADMIN_USERS);
+        if (cacheEntry) {
+          const age = Date.now() - cacheEntry.timestamp;
+          const staleThreshold = CACHE_TTL.ADMIN_DATA / 2;
+          
+          if (age > staleThreshold) {
+            fetchUsers(true).catch(() => {});
+          }
+        }
+        return;
+      }
+    }
 
     try {
       const response = await fetch("/api/admin/users");
@@ -66,6 +88,10 @@ export default function AdminUsersPage() {
       }
       const { users: usersData } = await response.json();
       setUsers(usersData || []);
+      
+      // Cache the results
+      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
+      cache.set(CACHE_KEYS.ADMIN_USERS, usersData || [], CACHE_TTL.ADMIN_DATA);
     } catch (error) {
       console.error("Error fetching users:", error);
       toast({

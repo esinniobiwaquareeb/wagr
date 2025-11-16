@@ -47,23 +47,36 @@ export default function Home() {
   // A/B Testing
   const layoutVariant = useMemo(() => getVariant(AB_TESTS.HOME_LAYOUT), []);
 
-  const fetchWagers = useCallback(async () => {
-    // Check cache first
-    const cached = typeof window !== 'undefined' ? sessionStorage.getItem('wagers_cache') : null;
-    if (cached) {
-      try {
-        const { data: cachedData, timestamp } = JSON.parse(cached);
-        const CACHE_TTL = 30 * 1000; // 30 seconds
-        if (Date.now() - timestamp < CACHE_TTL && cachedData) {
-          setAllWagers(cachedData);
-          setLoading(false);
-          // Still fetch in background to update
+  const fetchWagers = useCallback(async (force = false) => {
+    // Check cache first using centralized cache utility
+    const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
+    const cacheKey = CACHE_KEYS.WAGERS;
+    
+    if (!force) {
+      // Check if we have fresh cached data
+      const cached = cache.get<WagerWithEntries[]>(cacheKey);
+      if (cached) {
+        setAllWagers(cached);
+        setLoading(false);
+        
+        // Check if cache is stale (older than half TTL) - if so, refresh in background
+        const cacheEntry = (cache as any).memoryCache.get(cacheKey);
+        if (cacheEntry) {
+          const age = Date.now() - cacheEntry.timestamp;
+          const staleThreshold = CACHE_TTL.WAGERS / 2; // Consider stale after half TTL
+          
+          if (age > staleThreshold) {
+            // Cache is getting stale, refresh in background (don't block UI)
+            fetchWagers(true).catch(() => {
+              // Ignore errors in background refresh
+            });
+          }
         }
-      } catch (e) {
-        // Cache invalid, continue with fetch
+        return; // Don't fetch if we have fresh cache
       }
     }
 
+    // No cache or forced refresh - fetch from API
     const { data: wagersData, error } = await supabase
       .from("wagers")
       .select("*")
@@ -125,17 +138,9 @@ export default function Home() {
         
         setAllWagers(wagersWithCounts);
         
-        // Cache the results
-        if (typeof window !== 'undefined') {
-          try {
-            sessionStorage.setItem('wagers_cache', JSON.stringify({
-              data: wagersWithCounts,
-              timestamp: Date.now(),
-            }));
-          } catch (e) {
-            // SessionStorage might be full
-          }
-        }
+        // Cache the results using centralized cache utility
+        const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
+        cache.set(CACHE_KEYS.WAGERS, wagersWithCounts, CACHE_TTL.WAGERS);
         
         // Update cache
         counts.forEach((count, id) => entryCountsCache.set(id, count));

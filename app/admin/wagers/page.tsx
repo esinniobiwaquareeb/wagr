@@ -63,8 +63,30 @@ export default function AdminWagersPage() {
     setIsAdmin(true);
   }, [supabase, router]);
 
-  const fetchWagers = useCallback(async () => {
+  const fetchWagers = useCallback(async (force = false) => {
     if (!isAdmin) return;
+
+    // Check cache first
+    if (!force) {
+      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
+      const cached = cache.get<Wager[]>(CACHE_KEYS.ADMIN_WAGERS);
+      
+      if (cached) {
+        setWagers(cached);
+        
+        // Check if cache is stale - refresh in background if needed
+        const cacheEntry = cache.memoryCache.get(CACHE_KEYS.ADMIN_WAGERS);
+        if (cacheEntry) {
+          const age = Date.now() - cacheEntry.timestamp;
+          const staleThreshold = CACHE_TTL.ADMIN_DATA / 2;
+          
+          if (age > staleThreshold) {
+            fetchWagers(true).catch(() => {});
+          }
+        }
+        return;
+      }
+    }
 
     try {
       const { data, error } = await supabase
@@ -74,6 +96,10 @@ export default function AdminWagersPage() {
 
       if (error) throw error;
       setWagers(data || []);
+      
+      // Cache the results
+      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
+      cache.set(CACHE_KEYS.ADMIN_WAGERS, data || [], CACHE_TTL.ADMIN_DATA);
     } catch (error) {
       console.error("Error fetching wagers:", error);
       toast({
@@ -106,7 +132,10 @@ export default function AdminWagersPage() {
         description: "Wager has been resolved and settled.",
       });
 
-      fetchWagers();
+      // Invalidate cache and refresh
+      const { cache, CACHE_KEYS } = await import('@/lib/cache');
+      cache.remove(CACHE_KEYS.ADMIN_WAGERS);
+      fetchWagers(true);
     } catch (error) {
       console.error("Error resolving wager:", error);
       toast({

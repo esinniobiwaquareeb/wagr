@@ -101,8 +101,30 @@ export default function AdminPage() {
     setIsAdmin(true);
   }, [supabase, router, toast]);
 
-  const fetchStats = useCallback(async () => {
+  const fetchStats = useCallback(async (force = false) => {
     if (!isAdmin) return;
+
+    // Check cache first
+    if (!force) {
+      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
+      const cached = cache.get<Stats>(CACHE_KEYS.ADMIN_STATS);
+      
+      if (cached) {
+        setStats(cached);
+        
+        // Check if cache is stale - refresh in background if needed
+        const cacheEntry = cache.memoryCache.get(CACHE_KEYS.ADMIN_STATS);
+        if (cacheEntry) {
+          const age = Date.now() - cacheEntry.timestamp;
+          const staleThreshold = CACHE_TTL.ADMIN_DATA / 2;
+          
+          if (age > staleThreshold) {
+            fetchStats(true).catch(() => {});
+          }
+        }
+        return;
+      }
+    }
 
     try {
       // Get total users
@@ -127,21 +149,49 @@ export default function AdminPage() {
         ?.filter(t => t.type === "deposit" || t.type === "wager_join")
         .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0) || 0;
 
-      setStats({
+      const statsData: Stats = {
         totalUsers: userCount || 0,
         totalWagers: wagersData?.length || 0,
         openWagers,
         resolvedWagers,
         totalTransactions: transactionsData?.length || 0,
         totalVolume,
-      });
+      };
+
+      setStats(statsData);
+      
+      // Cache the results
+      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
+      cache.set(CACHE_KEYS.ADMIN_STATS, statsData, CACHE_TTL.ADMIN_DATA);
     } catch (error) {
       console.error("Error fetching stats:", error);
     }
   }, [supabase, isAdmin]);
 
-  const fetchRecentWagers = useCallback(async () => {
+  const fetchRecentWagers = useCallback(async (force = false) => {
     if (!isAdmin) return;
+
+    // Check cache first
+    if (!force) {
+      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
+      const cached = cache.get<Wager[]>(CACHE_KEYS.ADMIN_WAGERS);
+      
+      if (cached) {
+        setRecentWagers(cached);
+        
+        // Check if cache is stale - refresh in background if needed
+        const cacheEntry = cache.memoryCache.get(CACHE_KEYS.ADMIN_WAGERS);
+        if (cacheEntry) {
+          const age = Date.now() - cacheEntry.timestamp;
+          const staleThreshold = CACHE_TTL.ADMIN_DATA / 2;
+          
+          if (age > staleThreshold) {
+            fetchRecentWagers(true).catch(() => {});
+          }
+        }
+        return;
+      }
+    }
 
     const { data } = await supabase
       .from("wagers")
@@ -151,11 +201,37 @@ export default function AdminPage() {
 
     if (data) {
       setRecentWagers(data);
+      
+      // Cache the results
+      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
+      cache.set(CACHE_KEYS.ADMIN_WAGERS, data, CACHE_TTL.ADMIN_DATA);
     }
   }, [supabase, isAdmin]);
 
-  const fetchRecentTransactions = useCallback(async () => {
+  const fetchRecentTransactions = useCallback(async (force = false) => {
     if (!isAdmin) return;
+
+    // Check cache first
+    if (!force) {
+      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
+      const cached = cache.get<Transaction[]>(CACHE_KEYS.ADMIN_TRANSACTIONS);
+      
+      if (cached) {
+        setRecentTransactions(cached);
+        
+        // Check if cache is stale - refresh in background if needed
+        const cacheEntry = cache.memoryCache.get(CACHE_KEYS.ADMIN_TRANSACTIONS);
+        if (cacheEntry) {
+          const age = Date.now() - cacheEntry.timestamp;
+          const staleThreshold = CACHE_TTL.ADMIN_DATA / 2;
+          
+          if (age > staleThreshold) {
+            fetchRecentTransactions(true).catch(() => {});
+          }
+        }
+        return;
+      }
+    }
 
     const { data } = await supabase
       .from("transactions")
@@ -165,6 +241,10 @@ export default function AdminPage() {
 
     if (data) {
       setRecentTransactions(data);
+      
+      // Cache the results
+      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
+      cache.set(CACHE_KEYS.ADMIN_TRANSACTIONS, data, CACHE_TTL.ADMIN_DATA);
     }
   }, [supabase, isAdmin]);
 
@@ -192,8 +272,12 @@ export default function AdminPage() {
         description: "Wager has been resolved and settled.",
       });
 
-      fetchRecentWagers();
-      fetchStats();
+      // Invalidate cache and refresh
+      const { cache, CACHE_KEYS } = await import('@/lib/cache');
+      cache.remove(CACHE_KEYS.ADMIN_WAGERS);
+      cache.remove(CACHE_KEYS.ADMIN_STATS);
+      fetchRecentWagers(true);
+      fetchStats(true);
     } catch (error) {
       console.error("Error resolving wager:", error);
       toast({
