@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { TwoFactorSetup } from "@/components/two-factor-setup";
+import { TwoFactorManage } from "@/components/two-factor-manage";
 import { clear2FAVerification } from "@/lib/session-2fa";
 
 interface Profile {
@@ -31,6 +32,7 @@ export default function Profile() {
   const [username, setUsername] = useState("");
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [show2FASetup, setShow2FASetup] = useState(false);
+  const [show2FAManage, setShow2FAManage] = useState(false);
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
 
@@ -402,7 +404,13 @@ export default function Profile() {
                   <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
                 </Link>
                 <button
-                  onClick={() => setShow2FASetup(true)}
+                  onClick={() => {
+                    if (profile.two_factor_enabled) {
+                      setShow2FAManage(true);
+                    } else {
+                      setShow2FASetup(true);
+                    }
+                  }}
                   className="w-full flex items-center justify-between p-2.5 md:p-4 bg-muted/50 hover:bg-muted rounded-lg transition active:scale-[0.98] touch-manipulation"
                 >
                   <div className="flex items-center gap-2 md:gap-3">
@@ -435,10 +443,44 @@ export default function Profile() {
 
             <TwoFactorSetup
               isOpen={show2FASetup}
-              onClose={() => setShow2FASetup(false)}
-              onComplete={() => {
-                fetchProfile(true);
+              onClose={async () => {
                 setShow2FASetup(false);
+                // Clear cache to ensure fresh data
+                if (user) {
+                  const { cache, CACHE_KEYS } = await import('@/lib/cache');
+                  cache.remove(CACHE_KEYS.USER_PROFILE(user.id));
+                }
+              }}
+              onComplete={async () => {
+                // Clear cache and refresh profile
+                if (user) {
+                  const { cache, CACHE_KEYS } = await import('@/lib/cache');
+                  cache.remove(CACHE_KEYS.USER_PROFILE(user.id));
+                }
+                await fetchProfile(true);
+                setShow2FASetup(false);
+              }}
+            />
+            <TwoFactorManage
+              isOpen={show2FAManage}
+              onClose={async () => {
+                setShow2FAManage(false);
+                // Clear cache to ensure fresh data
+                if (user) {
+                  const { cache, CACHE_KEYS } = await import('@/lib/cache');
+                  cache.remove(CACHE_KEYS.USER_PROFILE(user.id));
+                }
+              }}
+              onComplete={async () => {
+                // Clear cache and refresh profile
+                if (user) {
+                  const { cache, CACHE_KEYS } = await import('@/lib/cache');
+                  cache.remove(CACHE_KEYS.USER_PROFILE(user.id));
+                }
+                await fetchProfile(true);
+                setShow2FAManage(false);
+                // Clear 2FA verification on disable
+                clear2FAVerification();
               }}
             />
           </div>

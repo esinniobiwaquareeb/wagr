@@ -123,14 +123,29 @@ export default function AdminLogin() {
           return;
         }
 
+        // After successful login, the session is created server-side via cookies
+        // We need to ensure the client reads the session and triggers auth state updates
+        // Wait a bit for cookies to be set, then refresh session
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Get session to sync cookies from server
+        const { data: sessionData } = await supabase.auth.getSession();
+        
+        // Get user to trigger auth state change listeners in all components
+        const { data: userData } = await supabase.auth.getUser();
+        
         // Mark session as 2FA verified if 2FA was used (for admins without 2FA, this won't be set)
-        if (data.twoFactorVerified && data.user) {
-          markSessionAs2FAVerified(data.user.id);
+        if (data.twoFactorVerified && userData?.user) {
+          markSessionAs2FAVerified(userData.user.id);
         }
-
-        // Redirect to admin center
-        router.push("/admin");
+        
+        // Force router refresh to update server components
         router.refresh();
+        
+        // Redirect after a brief delay to allow UI to update
+        setTimeout(() => {
+          router.push("/admin");
+        }, 300);
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -195,14 +210,31 @@ export default function AdminLogin() {
           return;
         }
 
+        // After successful 2FA login, the session is created server-side via cookies
+        // We need to ensure the client reads the session and triggers auth state updates
+        // Wait a bit for cookies to be set, then refresh session
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Get session to sync cookies from server
+        const { data: sessionData } = await supabase.auth.getSession();
+        
+        // Get user to trigger auth state change listeners in all components
+        const { data: userData } = await supabase.auth.getUser();
+        
         // Mark session as 2FA verified if 2FA was used
-        if (data.twoFactorVerified && data.user) {
-          markSessionAs2FAVerified(data.user.id);
+        if (data.twoFactorVerified && userData?.user) {
+          markSessionAs2FAVerified(userData.user.id);
         }
-
+        
         setRequires2FA(false);
-        router.push("/admin");
+        
+        // Force router refresh to update server components
         router.refresh();
+        
+        // Redirect after a brief delay to allow UI to update
+        setTimeout(() => {
+          router.push("/admin");
+        }, 300);
       }
     } catch (error) {
       console.error("2FA verification error:", error);

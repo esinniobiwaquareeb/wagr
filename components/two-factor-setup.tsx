@@ -23,6 +23,18 @@ export function TwoFactorSetup({ isOpen, onClose, onComplete }: TwoFactorSetupPr
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
+  // Reset state when dialog closes
+  const handleClose = () => {
+    setStep('setup');
+    setQrCode("");
+    setSecret("");
+    setBackupCodes([]);
+    setVerificationCode("");
+    setLoading(false);
+    setCopied(false);
+    onClose();
+  };
+
   const handleSetup = async () => {
     setLoading(true);
     try {
@@ -85,10 +97,15 @@ export function TwoFactorSetup({ isOpen, onClose, onComplete }: TwoFactorSetupPr
         description: "Two-factor authentication has been successfully enabled.",
       });
 
-      onComplete();
-      onClose();
+      // Reset state
       setStep('setup');
+      setQrCode("");
+      setSecret("");
+      setBackupCodes([]);
       setVerificationCode("");
+      
+      onComplete();
+      handleClose();
     } catch (error) {
       toast({
         title: "Verification failed",
@@ -112,7 +129,7 @@ export function TwoFactorSetup({ isOpen, onClose, onComplete }: TwoFactorSetupPr
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -137,6 +154,21 @@ export function TwoFactorSetup({ isOpen, onClose, onComplete }: TwoFactorSetupPr
 
         {step === 'verify' && (
           <div className="space-y-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setStep('setup');
+                setQrCode("");
+                setSecret("");
+                setBackupCodes([]);
+                setVerificationCode("");
+              }}
+              className="w-full"
+            >
+              ← Back to Setup
+            </Button>
+            
             {qrCode && (
               <div className="flex flex-col items-center space-y-4">
                 <img src={qrCode} alt="2FA QR Code" className="border rounded-lg p-2" />

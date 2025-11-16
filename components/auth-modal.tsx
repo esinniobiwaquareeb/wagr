@@ -145,8 +145,29 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           }
         }
 
+        // After successful login, the session is created server-side via cookies
+        // We need to ensure the client reads the session and triggers auth state updates
+        // Wait a bit for cookies to be set, then refresh session
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Get session to sync cookies from server
+        const { data: sessionData } = await supabase.auth.getSession();
+        
+        // Get user to trigger auth state change listeners in all components
+        const { data: userData } = await supabase.auth.getUser();
+        
+        // Mark session as 2FA verified if 2FA was used (for users without 2FA, this won't be set)
+        if (data.twoFactorVerified && userData?.user) {
+          markSessionAs2FAVerified(userData.user.id);
+        }
+        
+        // Force router refresh to update server components
         router.refresh();
-        onClose();
+        
+        // Close modal after a brief delay to allow UI to update
+        setTimeout(() => {
+          onClose();
+        }, 300);
       }
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred");
@@ -210,9 +231,31 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         markSessionAs2FAVerified(data.user.id);
       }
 
+      // After successful 2FA login, the session is created server-side via cookies
+      // We need to ensure the client reads the session and triggers auth state updates
+      // Wait a bit for cookies to be set, then refresh session
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Get session to sync cookies from server
+      const { data: sessionData } = await supabase.auth.getSession();
+      
+      // Get user to trigger auth state change listeners in all components
+      const { data: userData } = await supabase.auth.getUser();
+      
+      // Mark session as 2FA verified if 2FA was used
+      if (data.twoFactorVerified && userData?.user) {
+        markSessionAs2FAVerified(userData.user.id);
+      }
+      
       setRequires2FA(false);
+      
+      // Force router refresh to update server components
       router.refresh();
-      onClose();
+      
+      // Close modal after a brief delay to allow UI to update
+      setTimeout(() => {
+        onClose();
+      }, 300);
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Verification failed");
       throw error; // Re-throw so TwoFactorVerify can handle it
