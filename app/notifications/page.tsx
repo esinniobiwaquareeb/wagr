@@ -247,7 +247,6 @@ export default function NotificationsPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 md:gap-4">
             <div>
               <h1 className="text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2 flex items-center gap-2">
-                <Bell className="h-5 w-5 md:h-6 md:w-6" />
                 Notifications
               </h1>
               <p className="text-xs md:text-base text-muted-foreground">
