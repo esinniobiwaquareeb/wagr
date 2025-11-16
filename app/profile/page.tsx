@@ -377,7 +377,33 @@ export default function Profile() {
                   <p className="text-[10px] md:text-sm text-muted-foreground mb-0.5 md:mb-1">Member Since</p>
                   <p className="font-medium text-xs md:text-base flex items-center gap-1 md:gap-2">
                     <Calendar className="h-3 w-3 md:h-4 md:w-4" />
-                    <span className="truncate">{format(new Date(profile.created_at), "MMM d, yyyy")}</span>
+                    <span className="truncate">
+                      {(() => {
+                        // Validate created_at exists and is not empty
+                        if (!profile.created_at || typeof profile.created_at !== 'string' || profile.created_at.trim() === '') {
+                          return "N/A";
+                        }
+                        
+                        try {
+                          const date = new Date(profile.created_at);
+                          // Check if date is valid
+                          if (isNaN(date.getTime()) || date.getTime() === 0) {
+                            return "N/A";
+                          }
+                          // Additional validation: check if date is reasonable (not too far in past/future)
+                          const now = Date.now();
+                          const dateTime = date.getTime();
+                          // Allow dates from 1970 to 100 years in the future
+                          if (dateTime < 0 || dateTime > now + (100 * 365 * 24 * 60 * 60 * 1000)) {
+                            return "N/A";
+                          }
+                          return format(date, "MMM d, yyyy");
+                        } catch (error) {
+                          console.error('Error formatting date:', error);
+                          return "N/A";
+                        }
+                      })()}
+                    </span>
                   </p>
                 </div>
                 <div>

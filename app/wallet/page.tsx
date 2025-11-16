@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback, Suspense } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef, Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { format } from "date-fns";
@@ -39,6 +39,8 @@ function WalletContent() {
   const [loadingBanks, setLoadingBanks] = useState(false);
   const [processingWithdrawal, setProcessingWithdrawal] = useState(false);
   const [verifyingAccount, setVerifyingAccount] = useState(false);
+  const verifyingAccountRef = useRef(false);
+  const lastVerifiedRef = useRef<{ accountNumber: string; bankCode: string } | null>(null);
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
 
@@ -178,10 +180,16 @@ function WalletContent() {
     if (!accountNumber || !bankCode) return;
     
     // Prevent multiple simultaneous verification requests
-    if (verifyingAccount) {
+    if (verifyingAccountRef.current) {
       return;
     }
 
+    // Check if we already verified this exact account
+    if (lastVerifiedRef.current?.accountNumber === accountNumber && lastVerifiedRef.current?.bankCode === bankCode) {
+      return;
+    }
+
+    verifyingAccountRef.current = true;
     setVerifyingAccount(true);
     try {
       const response = await fetch('/api/payments/verify-account', {
@@ -199,49 +207,74 @@ function WalletContent() {
         if (response.status === 429) {
           const { extractErrorFromResponse } = await import('@/lib/error-extractor');
           const errorMessage = await extractErrorFromResponse(response, 'Too many verification requests. Please wait a moment.');
-          toast({
-            title: "Verification limit reached",
-            description: errorMessage,
-            variant: "destructive",
-          });
-        } else if (data.error && !data.error.includes('account') && !data.error.includes('resolve')) {
+          
+          // Only show toast if we have a meaningful message
+          if (errorMessage && errorMessage.trim()) {
+            toast({
+              title: "Verification limit reached",
+              description: errorMessage,
+              variant: "destructive",
+            });
+          }
+        } else if (data.error) {
+          const errorText = typeof data.error === 'string' ? data.error : String(data.error || '');
           // Only show error toast for non-account-related errors
           // Invalid account numbers are expected and shouldn't show error toasts
-          toast({
-            title: "Verification failed",
-            description: data.error || 'Could not verify account. Please check the details and try again.',
-            variant: "destructive",
-          });
+          if (errorText && !errorText.toLowerCase().includes('account') && !errorText.toLowerCase().includes('resolve') && !errorText.toLowerCase().includes('not found')) {
+            toast({
+              title: "Verification failed",
+              description: errorText || 'Could not verify account. Please check the details and try again.',
+              variant: "destructive",
+            });
+          }
         }
         setAccountName('');
+        lastVerifiedRef.current = null;
         return;
       }
       
       if (data.success && data.accountName) {
         setAccountName(data.accountName);
+        // Remember this successful verification
+        lastVerifiedRef.current = { accountNumber, bankCode };
       } else {
         setAccountName('');
+        lastVerifiedRef.current = null;
       }
     } catch (error) {
       console.error('Error verifying account:', error);
       setAccountName('');
+      lastVerifiedRef.current = null;
       // Don't show toast for network errors during verification - it's too noisy
     } finally {
+      verifyingAccountRef.current = false;
       setVerifyingAccount(false);
     }
-  }, [toast, verifyingAccount]);
+  }, [toast]);
 
   useEffect(() => {
-    if (accountNumber && bankCode && accountNumber.length === 10 && !verifyingAccount) {
-      // Increased debounce to 1000ms (1 second) to reduce rapid requests and prevent rate limiting
-      const timeoutId = setTimeout(() => {
-        verifyAccount(accountNumber, bankCode);
-      }, 1000);
-      return () => clearTimeout(timeoutId);
-    } else {
+    // Clear account name if account number or bank code is invalid
+    if (!accountNumber || !bankCode || accountNumber.length !== 10) {
       setAccountName('');
+      lastVerifiedRef.current = null;
+      return;
     }
-  }, [accountNumber, bankCode, verifyAccount, verifyingAccount]);
+
+    // Don't verify if already verified for this exact account
+    if (lastVerifiedRef.current?.accountNumber === accountNumber && lastVerifiedRef.current?.bankCode === bankCode) {
+      return;
+    }
+
+    // Debounce verification to avoid rapid requests
+    const timeoutId = setTimeout(() => {
+      // Only verify if not currently verifying
+      if (!verifyingAccountRef.current) {
+        verifyAccount(accountNumber, bankCode);
+      }
+    }, 1000);
+
+    return () => clearTimeout(timeoutId);
+  }, [accountNumber, bankCode, verifyAccount]);
 
   // Handle payment callback
   useEffect(() => {
@@ -402,22 +435,38 @@ function WalletContent() {
       if (!response.ok) {
         const { extractErrorFromResponse } = await import('@/lib/error-extractor');
         const errorMessage = await extractErrorFromResponse(response, 'Failed to process withdrawal');
-        throw new Error(errorMessage);
+        
+        toast({
+          title: "Withdrawal didn't work",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        return;
       }
 
-      toast({
-        title: "Withdrawal on the way!",
-        description: `We've received your request for ${formatCurrency(amount, currency)}. It should be in your bank account soon.`,
-      });
+      // Check if withdrawal was successful
+      if (data.success) {
+        toast({
+          title: "Withdrawal on the way!",
+          description: `We've received your request for ${formatCurrency(amount, currency)}. It should be in your bank account soon.`,
+        });
 
-      // Reset form
-      setWithdrawAmount("");
-      setAccountNumber("");
-      setBankCode("");
-      setAccountName("");
-      
-      // Refresh wallet data
-      fetchWalletData(true);
+        // Reset form
+        setWithdrawAmount("");
+        setAccountNumber("");
+        setBankCode("");
+        setAccountName("");
+        lastVerifiedRef.current = null;
+        
+        // Refresh wallet data
+        fetchWalletData(true);
+      } else {
+        toast({
+          title: "Withdrawal didn't work",
+          description: data.error || data.message || "Something went wrong. Please try again.",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error("Error processing withdrawal:", error);
       const { extractErrorMessage } = await import('@/lib/error-extractor');

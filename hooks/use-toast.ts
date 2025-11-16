@@ -147,7 +147,14 @@ function toast({ ...props }: Toast) {
       type: 'UPDATE_TOAST',
       toast: { ...props, id },
     })
-  const dismiss = () => dispatch({ type: 'DISMISS_TOAST', toastId: id })
+  const dismiss = () => {
+    // Clear timeout if it exists
+    if (toastTimeouts.has(id)) {
+      clearTimeout(toastTimeouts.get(id))
+      toastTimeouts.delete(id)
+    }
+    dispatch({ type: 'DISMISS_TOAST', toastId: id })
+  }
 
   dispatch({
     type: 'ADD_TOAST',
@@ -155,11 +162,20 @@ function toast({ ...props }: Toast) {
       ...props,
       id,
       open: true,
+      duration: props.duration ?? TOAST_REMOVE_DELAY,
       onOpenChange: (open) => {
         if (!open) dismiss()
       },
     },
   })
+
+  // Auto-dismiss after duration
+  const timeout = setTimeout(() => {
+    dismiss()
+  }, props.duration ?? TOAST_REMOVE_DELAY)
+
+  // Store timeout to clear if toast is manually dismissed
+  toastTimeouts.set(id, timeout)
 
   return {
     id: id,
