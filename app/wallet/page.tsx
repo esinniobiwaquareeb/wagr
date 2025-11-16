@@ -184,6 +184,11 @@ function WalletContent() {
       return;
     }
 
+    // Don't verify if processing withdrawal
+    if (processingWithdrawal) {
+      return;
+    }
+
     // Check if we already verified this exact account
     if (lastVerifiedRef.current?.accountNumber === accountNumber && lastVerifiedRef.current?.bankCode === bankCode) {
       return;
@@ -250,7 +255,7 @@ function WalletContent() {
       verifyingAccountRef.current = false;
       setVerifyingAccount(false);
     }
-  }, [toast]);
+  }, [toast, processingWithdrawal]);
 
   useEffect(() => {
     // Clear account name if account number or bank code is invalid
@@ -265,16 +270,21 @@ function WalletContent() {
       return;
     }
 
+    // Don't verify if currently processing withdrawal (form might be resetting)
+    if (processingWithdrawal) {
+      return;
+    }
+
     // Debounce verification to avoid rapid requests
     const timeoutId = setTimeout(() => {
-      // Only verify if not currently verifying
-      if (!verifyingAccountRef.current) {
+      // Only verify if not currently verifying and not processing withdrawal
+      if (!verifyingAccountRef.current && !processingWithdrawal) {
         verifyAccount(accountNumber, bankCode);
       }
     }, 1000);
 
     return () => clearTimeout(timeoutId);
-  }, [accountNumber, bankCode, verifyAccount]);
+  }, [accountNumber, bankCode, verifyAccount, processingWithdrawal]);
 
   // Handle payment callback
   useEffect(() => {
