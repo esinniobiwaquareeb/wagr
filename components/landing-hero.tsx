@@ -49,7 +49,7 @@ export function LandingHero() {
               size="lg"
               className="text-base md:text-lg px-8 py-6 h-auto rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all"
             >
-              <Link href="/create">
+              <Link href="/wagers">
                 Get Started
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
