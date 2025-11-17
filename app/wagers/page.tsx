@@ -7,6 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
 import { Home as HomeIcon, Plus } from "lucide-react";
 import Link from "next/link";
+import { AuthModal } from "@/components/auth-modal";
+import { useRouter } from "next/navigation";
 
 interface Wager {
   id: string;
@@ -40,7 +42,10 @@ export default function WagersPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [userPreferences, setUserPreferences] = useState<string[]>([]);
   const [user, setUser] = useState<any>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const supabase = useMemo(() => createClient(), []);
+  const router = useRouter();
   
   // Cache entry counts to avoid N+1 queries
   const entryCountsCache = useMemo(() => new Map<string, number>(), []);
@@ -157,6 +162,12 @@ export default function WagersPage() {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
+      setCheckingAuth(false);
+      
+      // If user is not authenticated, show login modal
+      if (!user) {
+        setShowAuthModal(true);
+      }
     };
     checkUser();
   }, [supabase]);
@@ -289,13 +300,15 @@ export default function WagersPage() {
                 Join and create wagers. Pick a side and win!
               </p>
             </div>
-            <Link
-              href="/create"
-              className="hidden md:flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 md:px-6 md:py-3 rounded-lg font-medium hover:opacity-90 transition active:scale-[0.98] touch-manipulation whitespace-nowrap"
-            >
-              <Plus className="h-5 w-5" />
-              <span>Create Wager</span>
-            </Link>
+            {user && (
+              <Link
+                href="/create"
+                className="hidden md:flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 md:px-6 md:py-3 rounded-lg font-medium hover:opacity-90 transition active:scale-[0.98] touch-manipulation whitespace-nowrap"
+              >
+                <Plus className="h-5 w-5" />
+                <span>Create Wager</span>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -357,6 +370,14 @@ export default function WagersPage() {
           </div>
         )}
       </div>
+      
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => {
+          setShowAuthModal(false);
+          router.refresh();
+        }}
+      />
     </main>
   );
 }

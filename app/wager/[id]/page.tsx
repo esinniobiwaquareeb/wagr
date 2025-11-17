@@ -447,7 +447,7 @@ export default function WagerDetail() {
       });
 
       // Redirect to home page
-      router.push("/");
+      router.push("/wagers");
       router.refresh();
     } catch (error) {
       console.error("Error deleting wager:", error);

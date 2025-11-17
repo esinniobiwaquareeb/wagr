@@ -62,7 +62,7 @@ export default function PreferencesPage() {
     const getUser = async () => {
       const { data } = await supabase.auth.getUser();
       if (!data?.user) {
-        router.push("/");
+        router.push("/wagers");
         return;
       }
       setUser(data.user);

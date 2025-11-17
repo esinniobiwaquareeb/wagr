@@ -41,7 +41,7 @@ export default function Profile() {
     if (!data?.user) {
       setUser(null);
       setProfile(null);
-      router.push("/");
+      router.push("/wagers");
       router.refresh();
       return;
     }
@@ -121,7 +121,7 @@ export default function Profile() {
       if (event === 'SIGNED_OUT' || !session) {
         setUser(null);
         setProfile(null);
-        router.push("/");
+        router.push("/wagers");
         router.refresh();
       } else {
         getUser();
@@ -259,7 +259,7 @@ export default function Profile() {
         title: "You're signed out",
         description: "Come back soon!",
       });
-      router.push("/");
+      router.push("/wagers");
       router.refresh();
     } catch (error) {
       console.error("Error logging out:", error);
