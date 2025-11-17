@@ -10,6 +10,7 @@ import Link from "next/link";
 import { AuthModal } from "@/components/auth-modal";
 import { useRouter, useSearchParams } from "next/navigation";
 
+
 interface Wager {
   id: string;
   title: string;
