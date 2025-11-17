@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { WagerCard } from "@/components/wager-card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -35,7 +35,7 @@ interface WagerWithEntries extends Wager {
   side_b_total?: number; // Total amount wagered on side B
 }
 
-export default function WagersPage() {
+function WagersPageContent() {
   const [wagers, setWagers] = useState<WagerWithEntries[]>([]);
   const [allWagers, setAllWagers] = useState<WagerWithEntries[]>([]);
   const [loading, setLoading] = useState(true);
@@ -383,6 +383,32 @@ export default function WagersPage() {
         }}
       />
     </main>
+  );
+}
+
+export default function WagersPage() {
+  return (
+    <Suspense fallback={
+      <main className="flex-1 pb-24 md:pb-0">
+        <div className="max-w-6xl mx-auto p-3 md:p-6">
+          <div className="grid gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="bg-card border border-border rounded-lg p-4">
+                <Skeleton className="h-6 w-3/4 mb-2" />
+                <Skeleton className="h-4 w-full mb-3" />
+                <Skeleton className="h-4 w-2/3 mb-4" />
+                <div className="flex justify-between">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </main>
+    }>
+      <WagersPageContent />
+    </Suspense>
   );
 }
 
