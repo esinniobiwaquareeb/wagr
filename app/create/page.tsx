@@ -61,7 +61,7 @@ export default function CreateWager() {
   const getUser = useCallback(async () => {
     const { data } = await supabase.auth.getUser();
     if (!data?.user) {
-      router.push("/wagers");
+      router.push("/wagers?login=true");
       return;
     }
     setUser(data.user);
@@ -286,7 +286,7 @@ export default function CreateWager() {
       
       // Small delay to ensure database is updated, then redirect
       setTimeout(() => {
-        router.push("/wagers");
+        router.push("/wagers?login=true");
         router.refresh(); // Force refresh to show new wager
       }, 100);
     } catch (error) {

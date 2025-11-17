@@ -8,7 +8,7 @@ import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
 import { Home as HomeIcon, Plus } from "lucide-react";
 import Link from "next/link";
 import { AuthModal } from "@/components/auth-modal";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface Wager {
   id: string;
@@ -46,6 +46,7 @@ export default function WagersPage() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
+  const searchParams = useSearchParams();
   
   // Cache entry counts to avoid N+1 queries
   const entryCountsCache = useMemo(() => new Map<string, number>(), []);
@@ -164,13 +165,16 @@ export default function WagersPage() {
       setUser(user);
       setCheckingAuth(false);
       
-      // If user is not authenticated, show login modal
-      if (!user) {
+      // Only show login modal if redirected from a protected page (indicated by ?login=true)
+      const shouldShowLogin = searchParams.get('login') === 'true';
+      if (!user && shouldShowLogin) {
         setShowAuthModal(true);
+        // Clean up the URL parameter
+        router.replace('/wagers', { scroll: false });
       }
     };
     checkUser();
-  }, [supabase]);
+  }, [supabase, searchParams, router]);
 
   // Fetch user preferences
   useEffect(() => {

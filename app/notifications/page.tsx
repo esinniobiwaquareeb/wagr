@@ -34,7 +34,7 @@ export default function NotificationsPage() {
     const getUser = async () => {
       const { data } = await supabase.auth.getUser();
       if (!data?.user) {
-        router.push("/wagers");
+        router.push("/wagers?login=true");
         return;
       }
       setUser(data.user);
