@@ -95,16 +95,16 @@ export function MobileNav() {
     <nav className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-lg border-t border-border md:hidden z-50 safe-area-inset-bottom">
       <div className="flex justify-around items-center h-16 px-1">
         <Link
-          href="/"
+          href="/wagers"
           className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
-            isActive("/")
+            isActive("/wagers")
               ? "text-primary"
               : "text-muted-foreground hover:text-foreground"
           }`}
           title="Wagers"
         >
-          <Home className={`h-6 w-6 transition-transform ${isActive("/") ? "scale-110" : ""}`} />
-          <span className="text-[10px] mt-0.5 font-medium">{isActive("/") ? "Home" : ""}</span>
+          <Home className={`h-6 w-6 transition-transform ${isActive("/wagers") ? "scale-110" : ""}`} />
+          <span className="text-[10px] mt-0.5 font-medium">{isActive("/wagers") ? "Wagers" : ""}</span>
         </Link>
         
         <Link
@@ -198,9 +198,9 @@ export function MobileNav() {
       {/* Desktop Sidebar */}
       <nav className="hidden md:flex md:flex-col md:w-64 md:border-r md:border-border md:bg-card md:p-4 md:gap-2 md:sticky md:top-0 md:h-screen md:overflow-y-auto">
         <Link
-          href="/"
+          href="/wagers"
           className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
-            isActive("/")
+            isActive("/wagers")
               ? "bg-primary text-primary-foreground"
               : "text-muted-foreground hover:text-foreground hover:bg-muted"
           }`}
