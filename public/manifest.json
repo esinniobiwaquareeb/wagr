@@ -1,7 +1,7 @@
 {
-  "name": "wagr - Betting Platform",
+  "name": "wagr - Wagering Platform",
   "short_name": "wagr",
-  "description": "Join and create wagers in real-time. Bet on sports, finance, politics, and more.",
+  "description": "Join and create wagers in real-time. Wager on sports, finance, politics, and more.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

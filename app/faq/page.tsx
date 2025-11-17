@@ -14,7 +14,7 @@ export default function FAQPage() {
     },
     {
       question: "Can I cancel a wager I've joined?",
-      answer: "No, once you've placed a bet on a wager, it cannot be cancelled. All bets are final.",
+      answer: "No, once you've placed a wager, it cannot be cancelled. All wagers are final.",
     },
     {
       question: "How do I add funds to my wallet?",
@@ -38,7 +38,7 @@ export default function FAQPage() {
     },
     {
       question: "Is wagr legal in my country?",
-      answer: "You are responsible for ensuring that betting activities are legal in your jurisdiction. Please check your local laws before participating.",
+      answer: "You are responsible for ensuring that wagering activities are legal in your jurisdiction. Please check your local laws before participating.",
     },
   ];
 

@@ -102,7 +102,7 @@ export default function CreateWager() {
       if (!trimmedTitle) {
         toast({
           title: "What's your wager about?",
-          description: "Give your wager a title so people know what they're betting on.",
+          description: "Give your wager a title so people know what they're wagering on.",
           variant: "destructive",
         });
         setSubmitting(false);
@@ -134,7 +134,7 @@ export default function CreateWager() {
       if (!trimmedSideA || !trimmedSideB) {
         toast({
           title: "Need both options",
-          description: "Enter what people can bet on for each side.",
+          description: "Enter what people can wager on for each side.",
           variant: "destructive",
         });
         setSubmitting(false);
@@ -174,8 +174,8 @@ export default function CreateWager() {
       // Validate amount
       if (!formData.amount || formData.amount.trim() === '') {
         toast({
-          title: "How much to bet?",
-          description: "Set the amount people need to place a bet.",
+          title: "How much to wager?",
+          description: "Set the amount people need to place a wager.",
           variant: "destructive",
         });
         setSubmitting(false);
@@ -186,7 +186,7 @@ export default function CreateWager() {
       if (isNaN(amount)) {
         toast({
           title: "That's not a valid amount",
-          description: "Enter a number for how much each bet costs.",
+          description: "Enter a number for how much each wager costs.",
           variant: "destructive",
         });
         setSubmitting(false);
@@ -196,7 +196,7 @@ export default function CreateWager() {
       if (amount <= 0) {
         toast({
           title: "Amount needs to be more than zero",
-          description: "The bet amount has to be at least ₦1.",
+          description: "The wager amount has to be at least ₦1.",
           variant: "destructive",
         });
         setSubmitting(false);
@@ -205,8 +205,8 @@ export default function CreateWager() {
 
       if (amount < 1) {
         toast({
-          title: "Minimum bet is ₦1",
-          description: "The smallest bet amount is ₦1.",
+          title: "Minimum wager is ₦1",
+          description: "The smallest wager amount is ₦1.",
           variant: "destructive",
         });
         setSubmitting(false);
@@ -281,7 +281,7 @@ export default function CreateWager() {
       
       toast({
         title: "Your wager is live!",
-        description: `${formData.isPublic ? 'Everyone can see it now and start betting.' : 'It\'s private for now - only you can see it.'}`,
+        description: `${formData.isPublic ? 'Everyone can see it now and start wagering.' : 'It\'s private for now - only you can see it.'}`,
       });
       
       // Small delay to ensure database is updated, then redirect
@@ -319,7 +319,7 @@ export default function CreateWager() {
       <div className="max-w-6xl mx-auto p-3 md:p-6">
         <div className="mb-4 md:mb-8">
           <h1 className="text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2">Create Wager</h1>
-          <p className="text-xs md:text-base text-muted-foreground">Start a new betting opportunity</p>
+          <p className="text-xs md:text-base text-muted-foreground">Start a new wagering opportunity</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-card border border-border rounded-lg p-3 md:p-4 space-y-3 md:space-y-4">

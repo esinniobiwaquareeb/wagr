@@ -238,7 +238,7 @@ export default function WagerDetail() {
       // Check if deadline has passed
       if (wager!.deadline && new Date(wager!.deadline) <= new Date()) {
         toast({
-          title: "Too late to bet",
+          title: "Too late to wager",
           description: "The deadline for this wager has already passed.",
           variant: "destructive",
         });
@@ -256,8 +256,8 @@ export default function WagerDetail() {
 
       if (existingEntry) {
         toast({
-          title: "You've already bet on this",
-          description: "You can only place one bet per wager.",
+          title: "You've already wagered on this",
+          description: "You can only place one wager per wager.",
           variant: "destructive",
         });
         setJoining(false);
@@ -274,7 +274,7 @@ export default function WagerDetail() {
       if (!profile || profile.balance < wager!.amount) {
         toast({
           title: "Not enough funds",
-          description: "You need more money in your wallet to place this bet.",
+          description: "You need more money in your wallet to place this wager.",
           variant: "destructive",
         });
         setJoining(false);
@@ -300,7 +300,7 @@ export default function WagerDetail() {
         if (error.code === '23505') { // Unique constraint violation
           toast({
             title: "Already joined",
-            description: "You have already placed a bet on this wager.",
+            description: "You have already placed a wager on this wager.",
             variant: "destructive",
           });
           setJoining(false);

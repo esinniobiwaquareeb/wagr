@@ -6,11 +6,11 @@ const features = [
   {
     icon: TrendingUp,
     title: "Real-Time Markets",
-    description: "Bet on live events as they unfold. Sports, politics, entertainment, and more.",
+    description: "Wager on live events as they unfold. Sports, politics, entertainment, and more.",
   },
   {
     icon: Users,
-    title: "Social Betting",
+    title: "Social Wagering",
     description: "Create your own wagers and challenge friends. The community decides the outcome.",
   },
   {
@@ -26,12 +26,12 @@ const features = [
   {
     icon: DollarSign,
     title: "Fair Odds",
-    description: "Dynamic odds based on real betting activity. Always fair, always transparent.",
+    description: "Dynamic odds based on real wagering activity. Always fair, always transparent.",
   },
   {
     icon: Clock,
     title: "24/7 Available",
-    description: "Bet anytime, anywhere. Mobile-optimized for betting on the go.",
+    description: "Wager anytime, anywhere. Mobile-optimized for wagering on the go.",
   },
 ];
 
@@ -44,7 +44,7 @@ export function LandingFeatures() {
             Why Choose wagr
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            A modern betting platform built for simplicity and fairness.
+            A modern wagering platform built for simplicity and fairness.
           </p>
         </div>
 

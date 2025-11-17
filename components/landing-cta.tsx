@@ -13,7 +13,7 @@ export function LandingCTA() {
         </h2>
         <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
           Join thousands of users turning their predictions into profits.
-          Create wagers, bet on outcomes, and win real money.
+          Create wagers, wager on outcomes, and win real money.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <Button

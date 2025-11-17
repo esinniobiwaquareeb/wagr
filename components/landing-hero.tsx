@@ -29,7 +29,7 @@ export function LandingHero() {
         <div className="text-center">
           {/* Main heading - Clean and bold */}
           <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-extrabold tracking-tight mb-6">
-            <span className="block">Bet on</span>
+            <span className="block">Wager on</span>
             <span className="block bg-gradient-to-r from-foreground via-foreground/90 to-foreground bg-clip-text text-transparent">
               What Matters
             </span>

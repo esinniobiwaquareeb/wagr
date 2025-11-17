@@ -7,14 +7,14 @@ export default function AboutPage() {
         <div className="prose prose-sm dark:prose-invert max-w-none space-y-6">
           <section>
             <p className="text-muted-foreground mb-4 text-base">
-              wagr is a modern betting platform that allows users to create and participate in wagers on various topics, from sports and entertainment to finance and politics.
+              wagr is a modern wagering platform that allows users to create and participate in wagers on various topics, from sports and entertainment to finance and politics.
             </p>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold mb-3">Our Mission</h2>
             <p className="text-muted-foreground mb-4">
-              We aim to provide a fun, engaging, and transparent platform for users to bet on outcomes they care about. Whether you're passionate about sports, interested in financial markets, or curious about political events, wagr offers a space to put your predictions to the test.
+              We aim to provide a fun, engaging, and transparent platform for users to wager on outcomes they care about. Whether you're passionate about sports, interested in financial markets, or curious about political events, wagr offers a space to put your predictions to the test.
             </p>
           </section>
 
@@ -22,7 +22,7 @@ export default function AboutPage() {
             <h2 className="text-xl font-semibold mb-3">How It Works</h2>
             <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
               <li>Create or join wagers on topics that interest you</li>
-              <li>Place your bet by choosing a side</li>
+              <li>Place your wager by choosing a side</li>
               <li>Wait for the outcome to be determined</li>
               <li>Win and collect your share of the pool (minus platform fees)</li>
             </ul>
@@ -40,9 +40,9 @@ export default function AboutPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mb-3">Responsible Betting</h2>
+            <h2 className="text-xl font-semibold mb-3">Responsible Wagering</h2>
             <p className="text-muted-foreground mb-4">
-              We encourage responsible betting practices. Please only wager amounts you can afford to lose, and ensure you comply with all local laws and regulations regarding betting activities in your jurisdiction.
+              We encourage responsible wagering practices. Please only wager amounts you can afford to lose, and ensure you comply with all local laws and regulations regarding wagering activities in your jurisdiction.
             </p>
           </section>
         </div>

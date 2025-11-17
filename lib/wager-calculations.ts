@@ -1,7 +1,7 @@
 // Helper functions for calculating wager returns and potential winnings
 
 export interface WagerCalculationParams {
-  entryAmount: number; // The amount the user is betting
+  entryAmount: number; // The amount the user is wagering
   sideATotal: number; // Total amount bet on side A (sum of all entries)
   sideBTotal: number; // Total amount bet on side B (sum of all entries)
   feePercentage: number;
@@ -21,7 +21,7 @@ export interface PotentialReturn {
 
 /**
  * Calculate potential returns for a wager
- * Uses actual bet amounts, not just counts, so multiple people betting different amounts are handled correctly
+ * Uses actual wager amounts, not just counts, so multiple people wagering different amounts are handled correctly
  */
 export function calculatePotentialReturns(params: WagerCalculationParams): PotentialReturn {
   const { entryAmount, sideATotal, sideBTotal, feePercentage } = params;

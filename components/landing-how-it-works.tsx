@@ -20,8 +20,8 @@ const steps = [
   {
     number: "3",
     icon: TrendingUp,
-    title: "Place Your Bet",
-    description: "Bet on the outcome you believe in. Watch odds update in real-time.",
+    title: "Place Your Wager",
+    description: "Wager on the outcome you believe in. Watch odds update in real-time.",
   },
   {
     number: "4",
@@ -40,7 +40,7 @@ export function LandingHowItWorks() {
             How It Works
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Get started in four simple steps. No complexity, just betting.
+            Get started in four simple steps. No complexity, just wagering.
           </p>
         </div>
 
@@ -69,7 +69,7 @@ export function LandingHowItWorks() {
             size="lg"
             className="text-base md:text-lg px-8 py-6 h-auto rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all"
           >
-            <Link href="/create">Start Betting Now</Link>
+            <Link href="/create">Start Wagering Now</Link>
           </Button>
         </div>
       </div>

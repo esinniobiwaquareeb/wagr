@@ -32,7 +32,7 @@ export default function TermsPage() {
               By participating in wagers on wagr, you acknowledge that:
             </p>
             <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
-              <li>You are of legal age to participate in betting activities in your jurisdiction</li>
+              <li>You are of legal age to participate in wagering activities in your jurisdiction</li>
               <li>You understand that wagering involves risk of loss</li>
               <li>You are responsible for ensuring compliance with local laws and regulations</li>
               <li>All wagers are final once placed and cannot be cancelled</li>
