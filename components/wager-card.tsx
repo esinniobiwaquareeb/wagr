@@ -104,7 +104,7 @@ export function WagerCard({
         {/* Status indicator bar - color based on deadline */}
         <div className={`absolute top-0 left-0 right-0 h-1 ${
           !isOpen
-            ? status === "RESOLVED" 
+            ? (status === "RESOLVED" || status === "SETTLED")
               ? "bg-blue-500" 
               : "bg-gray-400"
             : deadlineStatus === 'red'
@@ -137,12 +137,12 @@ export function WagerCard({
               className={`text-[9px] md:text-[10px] px-2 py-0.5 rounded-full font-semibold ${
                 isOpen
                   ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                  : status === "RESOLVED"
+                  : (status === "RESOLVED" || status === "SETTLED")
                   ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
                   : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
               }`}
             >
-              {status}
+              {status === "SETTLED" ? "Settled" : status === "RESOLVED" ? "Resolved" : status}
             </span>
           </div>
         </div>

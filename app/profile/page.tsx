@@ -646,7 +646,7 @@ export default function Profile() {
                                 ? "text-blue-600 dark:text-blue-400"
                                 : "text-gray-600 dark:text-gray-400"
                             }`}>
-                              {wager.status}
+                              {wager.status === "SETTLED" ? "Settled" : wager.status === "RESOLVED" ? "Resolved" : wager.status}
                             </span>
                           </div>
                         </div>

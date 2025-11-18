@@ -1231,7 +1231,7 @@ export default function WagerDetail() {
                       : "bg-gray-500/20 text-gray-700 dark:text-gray-400 border border-gray-500/30"
                 }`}
               >
-                {wager.status}
+                {wager.status === "SETTLED" ? "Settled" : wager.status === "RESOLVED" ? "Resolved" : wager.status}
               </span>
               {/* Share button - available for all wagers */}
               <button
@@ -1355,7 +1355,7 @@ export default function WagerDetail() {
                     LEADING
                   </div>
                 )}
-                {wager.status === "RESOLVED" && wager.winning_side === "a" && (
+                {(wager.status === "RESOLVED" || wager.status === "SETTLED") && wager.winning_side === "a" && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-green-500 text-white text-[10px] md:text-xs font-bold rounded-full flex items-center gap-1 z-20">
                     <Trophy className="h-3 w-3" />
                     WINNER
@@ -1448,7 +1448,7 @@ export default function WagerDetail() {
                     LEADING
                   </div>
                 )}
-                {wager.status === "RESOLVED" && wager.winning_side === "b" && (
+                {(wager.status === "RESOLVED" || wager.status === "SETTLED") && wager.winning_side === "b" && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-green-500 text-white text-[10px] md:text-xs font-bold rounded-full flex items-center gap-1 z-20">
                     <Trophy className="h-3 w-3" />
                     WINNER
@@ -1527,7 +1527,7 @@ export default function WagerDetail() {
         </div>
 
         {/* Resolved Status */}
-        {wager.status === "RESOLVED" && wager.winning_side && (
+        {(wager.status === "RESOLVED" || wager.status === "SETTLED") && wager.winning_side && (
           <div className="mb-4 md:mb-6 bg-gradient-to-r from-green-500/20 to-blue-500/20 border-2 border-green-500/30 rounded-xl p-4 md:p-6 text-center">
             <div className="flex items-center justify-center gap-2 mb-2">
               <Trophy className="h-5 w-5 md:h-6 md:w-6 text-green-600 dark:text-green-400" />
@@ -1536,7 +1536,9 @@ export default function WagerDetail() {
               </p>
             </div>
             <p className="text-xs md:text-sm text-muted-foreground">
-              This competition has been resolved
+              {wager.status === "SETTLED" 
+                ? "This wager has been settled and winnings have been distributed"
+                : "This competition has been resolved"}
             </p>
           </div>
         )}
