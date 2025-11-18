@@ -12,6 +12,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { TwoFactorSetup } from "@/components/two-factor-setup";
 import { TwoFactorManage } from "@/components/two-factor-manage";
 import { ChangePasswordDialog } from "@/components/change-password-dialog";
+import { PushNotificationSettings } from "@/components/push-notification-settings";
 import { clear2FAVerification } from "@/lib/session-2fa";
 
 interface Profile {
@@ -485,6 +486,7 @@ export default function Profile() {
                   </div>
                   <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
                 </button>
+                <PushNotificationSettings />
                 <button
                   onClick={() => {
                     if (profile.two_factor_enabled) {

@@ -5,12 +5,13 @@ import { createClient } from "@/lib/supabase/client";
 import { WagerCard } from "@/components/wager-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
-import { Home as HomeIcon, Plus, Search, Sparkles, Users, X, Tag, Filter } from "lucide-react";
+import { Home as HomeIcon, Plus, Search, Sparkles, Users, X, Tag, Filter, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { AuthModal } from "@/components/auth-modal";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { PLATFORM_FEE_PERCENTAGE, WAGER_CATEGORIES } from "@/lib/constants";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 
 interface Wager {
   id: string;
@@ -104,6 +105,13 @@ function WagersPageContent() {
     
     return tabWagers;
   }, [activeTab, systemWagers, userWagers, searchQuery, selectedCategory]);
+
+  // Pull to refresh
+  const { isRefreshing, pullDistance } = usePullToRefresh({
+    onRefresh: () => fetchWagers(true),
+    threshold: 80,
+    disabled: loading,
+  });
 
   const fetchWagers = useCallback(async (force = false) => {
     const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
@@ -467,7 +475,24 @@ function WagersPageContent() {
   };
 
   return (
-    <main className="flex-1 pb-24 md:pb-0">
+    <main className="flex-1 pb-24 md:pb-0 relative">
+      {/* Pull to refresh indicator */}
+      {pullDistance > 0 && (
+        <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center pt-4 pointer-events-none">
+          <div className="bg-primary/90 backdrop-blur-sm text-primary-foreground px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
+            {isRefreshing ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm font-medium">Refreshing...</span>
+              </>
+            ) : (
+              <>
+                <span className="text-sm font-medium">Pull to refresh</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
       <div className="max-w-7xl mx-auto p-3 md:p-6">
         {/* Header */}
         <div className="mb-6 md:mb-8">

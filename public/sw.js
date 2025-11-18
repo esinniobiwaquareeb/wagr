@@ -1,8 +1,8 @@
-// Service Worker for wagr PWA with enhanced caching
-const CACHE_NAME = 'wagr-v2';
-const RUNTIME_CACHE = 'wagr-runtime-v2';
-const IMAGE_CACHE = 'wagr-images-v2';
-const API_CACHE = 'wagr-api-v2';
+// Service Worker for wagr PWA with enhanced caching and push notifications
+const CACHE_NAME = 'wagr-v3';
+const RUNTIME_CACHE = 'wagr-runtime-v3';
+const IMAGE_CACHE = 'wagr-images-v3';
+const API_CACHE = 'wagr-api-v3';
 
 // Assets to cache on install
 const PRECACHE_ASSETS = [
@@ -143,4 +143,79 @@ self.addEventListener('fetch', (event) => {
       }
     })()
   );
+});
+
+// Push notification event handler
+self.addEventListener('push', (event) => {
+  let notificationData = {
+    title: 'wagr',
+    body: 'You have a new notification',
+    icon: '/icons/icon-192x192.png',
+    badge: '/icons/icon-96x96.png',
+    data: {},
+  };
+
+  if (event.data) {
+    try {
+      const data = event.data.json();
+      notificationData = {
+        title: data.title || notificationData.title,
+        body: data.body || notificationData.body,
+        icon: data.icon || notificationData.icon,
+        badge: data.badge || notificationData.badge,
+        image: data.image,
+        data: data.data || {},
+        tag: data.tag,
+        requireInteraction: data.requireInteraction || false,
+        actions: data.actions,
+      };
+    } catch (e) {
+      notificationData.body = event.data.text();
+    }
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(notificationData.title, {
+      body: notificationData.body,
+      icon: notificationData.icon,
+      badge: notificationData.badge,
+      image: notificationData.image,
+      data: notificationData.data,
+      tag: notificationData.tag,
+      requireInteraction: notificationData.requireInteraction,
+      actions: notificationData.actions,
+      vibrate: [200, 100, 200],
+      timestamp: Date.now(),
+    })
+  );
+});
+
+// Notification click event handler
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const data = event.notification.data;
+  const urlToOpen = data?.url || '/';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Check if there's already a window/tab open with the target URL
+      for (let i = 0; i < clientList.length; i++) {
+        const client = clientList[i];
+        if (client.url === urlToOpen && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // If not, open a new window/tab
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen);
+      }
+    })
+  );
+});
+
+// Handle notification action clicks
+self.addEventListener('notificationclose', (event) => {
+  // Track notification dismissal if needed
+  console.log('Notification closed:', event.notification.tag);
 });
