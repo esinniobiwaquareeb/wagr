@@ -476,6 +476,16 @@ export default function Profile() {
                   <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
                 </Link>
                 <button
+                  onClick={() => setShowChangePassword(true)}
+                  className="w-full flex items-center justify-between p-2.5 md:p-4 bg-muted/50 hover:bg-muted rounded-lg transition active:scale-[0.98] touch-manipulation"
+                >
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <Key className="h-4 w-4 md:h-5 md:w-5" />
+                    <span className="font-medium text-xs md:text-base">Change Password</span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
+                </button>
+                <button
                   onClick={() => {
                     if (profile.two_factor_enabled) {
                       setShow2FAManage(true);

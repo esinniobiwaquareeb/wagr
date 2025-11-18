@@ -169,6 +169,13 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         // Force router refresh to update server components
         router.refresh();
         
+        // Trigger a manual auth state change event to ensure all listeners are notified
+        // This ensures the sidebar and other components update immediately
+        // Use a small delay to ensure session is fully synced
+        setTimeout(() => {
+          window.dispatchEvent(new Event('auth-state-changed'));
+        }, 150);
+        
         // Close modal after a brief delay to allow UI to update
         setTimeout(() => {
           onClose();
@@ -243,20 +250,26 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       await new Promise(resolve => setTimeout(resolve, 100));
       
       // Get session to sync cookies from server
-      const { data: sessionData } = await supabase.auth.getSession();
+      await supabase.auth.getSession();
       
       // Get user to trigger auth state change listeners in all components
-      const { data: userData } = await supabase.auth.getUser();
+      await supabase.auth.getUser();
       
       // Mark session as 2FA verified if 2FA was used
-      if (data.twoFactorVerified && userData?.user) {
-        markSessionAs2FAVerified(userData.user.id);
+      if (data.twoFactorVerified && data.user) {
+        markSessionAs2FAVerified(data.user.id);
       }
       
       setRequires2FA(false);
       
       // Force router refresh to update server components
       router.refresh();
+      
+      // Trigger a manual auth state change event to ensure all listeners are notified
+      // Use a small delay to ensure session is fully synced
+      setTimeout(() => {
+        window.dispatchEvent(new Event('auth-state-changed'));
+      }, 150);
       
       // Close modal after a brief delay to allow UI to update
       setTimeout(() => {

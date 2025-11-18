@@ -22,6 +22,9 @@ export function MobileNav() {
 
     const getUser = async () => {
       try {
+        // First get the session to ensure it's synced
+        await supabase.auth.getSession();
+        // Then get the user
         const { data } = await supabase.auth.getUser();
         setUser(data?.user || null);
       } catch (error) {
@@ -32,12 +35,29 @@ export function MobileNav() {
     
     getUser();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(() => {
+    // Listen to Supabase auth state changes
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Update user state immediately when auth state changes
+      if (session?.user) {
+        setUser(session.user);
+      } else {
+        setUser(null);
+      }
+      // Also fetch fresh user data to ensure consistency
       getUser();
     });
 
+    // Also listen to custom auth state change events (triggered after login)
+    const handleAuthStateChanged = async () => {
+      // Small delay to ensure session is fully established
+      await new Promise(resolve => setTimeout(resolve, 50));
+      getUser();
+    };
+    window.addEventListener('auth-state-changed', handleAuthStateChanged);
+
     return () => {
       authListener?.subscription?.unsubscribe?.();
+      window.removeEventListener('auth-state-changed', handleAuthStateChanged);
     };
   }, [supabase]);
 
