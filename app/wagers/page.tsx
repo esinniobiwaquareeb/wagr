@@ -29,6 +29,8 @@ interface Wager {
   is_system_generated?: boolean;
   is_public?: boolean;
   fee_percentage?: number;
+  winning_side?: string | null;
+  short_id?: string | null;
 }
 
 interface WagerWithEntries extends Wager {
@@ -474,6 +476,7 @@ function WagersPageContent() {
               isSystemGenerated={wager.is_system_generated || false}
               createdAt={wager.created_at}
               winningSide={wager.winning_side}
+              shortId={wager.short_id}
               onClick={() => trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'wager_clicked', { wager_id: wager.id, tab: activeTab })}
             />
           </div>
@@ -542,6 +545,7 @@ function WagersPageContent() {
               isSystemGenerated={wager.is_system_generated || false}
               createdAt={wager.created_at}
               winningSide={wager.winning_side}
+              shortId={wager.short_id}
               onClick={() => trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'wager_clicked', { wager_id: wager.id, tab: activeTab })}
             />
         ))}

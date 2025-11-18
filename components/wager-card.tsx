@@ -29,6 +29,7 @@ interface WagerCardProps {
   feePercentage?: number;
   createdAt?: string;
   winningSide?: string | null;
+  shortId?: string | null;
   onClick?: () => void;
 }
 
@@ -52,6 +53,7 @@ export function WagerCard({
   feePercentage = 0.05,
   createdAt,
   winningSide,
+  shortId,
   onClick,
 }: WagerCardProps) {
   const isOpen = status === "OPEN";
@@ -89,9 +91,12 @@ export function WagerCard({
     weather: "🌤️",
   };
 
+  // Use short_id if available, otherwise fall back to UUID
+  const wagerLinkId = shortId || id;
+
   return (
     <Link 
-      href={`/wager/${id}`} 
+      href={`/wager/${wagerLinkId}`} 
       className="block group"
       onClick={onClick}
     >
@@ -260,11 +265,21 @@ export function WagerCard({
             )}
           </div>
 
-          {/* Created date */}
+          {/* Created date and Potential Winning */}
           {createdAt && (
-            <div className="flex items-center gap-1.5 text-[9px] md:text-[10px] text-muted-foreground mt-1">
-              <Calendar className="h-3 w-3" />
-              <span>Created {format(new Date(createdAt), "MMM d, yyyy")}</span>
+            <div className="flex items-center justify-between text-[9px] md:text-[10px] text-muted-foreground mt-1">
+              <div className="flex items-center gap-1.5">
+                <Calendar className="h-3 w-3" />
+                <span>Created {format(new Date(createdAt), "MMM d, yyyy")}</span>
+              </div>
+              {isOpen && entriesCount > 0 && (
+                <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                  <Coins className="h-3 w-3" />
+                  <span className="font-semibold">
+                    Potential Winning: {formatCurrency(Math.max(returns.sideAPotential, returns.sideBPotential), currency as Currency)}
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>

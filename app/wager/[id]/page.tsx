@@ -31,6 +31,7 @@ interface Wager {
   is_system_generated?: boolean;
   is_public?: boolean;
   creator_id?: string;
+  short_id?: string | null;
 }
 
 interface Entry {
@@ -137,10 +138,13 @@ export default function WagerDetail() {
     }
 
     // No cache or forced refresh - fetch from API
-    const { data: wagerData, error } = await supabase
-      .from("wagers")
-      .select("*")
-      .eq("id", wagerId)
+    // Support both UUID and short_id
+    const isUUID = wagerId.length === 36 && wagerId.includes('-');
+    const query = isUUID 
+      ? supabase.from("wagers").select("*").eq("id", wagerId)
+      : supabase.from("wagers").select("*").eq("short_id", wagerId);
+    
+    const { data: wagerData, error } = await query
       .single();
 
     if (error || !wagerData) {
@@ -665,9 +669,11 @@ export default function WagerDetail() {
   };
 
   const handleShare = async () => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !wager) return;
     
-    const wagerUrl = `${window.location.origin}/wager/${wagerId}`;
+    // Use short_id if available, otherwise fall back to UUID
+    const shareId = wager.short_id || wager.id;
+    const wagerUrl = `${window.location.origin}/wager/${shareId}`;
     
     try {
       await navigator.clipboard.writeText(wagerUrl);
