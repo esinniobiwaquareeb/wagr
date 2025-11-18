@@ -264,34 +264,41 @@ export default function CreateWager() {
         return;
       }
 
-      // Validate deadline if provided and convert to UTC
+      // Validate deadline (required)
+      if (!formData.deadline || !formData.deadline.trim()) {
+        toast({
+          title: "Deadline is required",
+          description: "Please set a deadline for your wager.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
       const { localToUTC, isDeadlineValid } = await import('@/lib/deadline-utils');
       
-      let deadlineUTC: string | null = null;
-      if (formData.deadline) {
-        // Validate deadline is in the future
-        if (!isDeadlineValid(formData.deadline)) {
-          toast({
-            title: "Invalid deadline",
-            description: "Please enter a valid date and time in the future.",
-            variant: "destructive",
-          });
-          setSubmitting(false);
-          return;
-        }
-        
-        // Convert local datetime to UTC ISO string for storage
-        deadlineUTC = localToUTC(formData.deadline);
-        
-        if (!deadlineUTC) {
-          toast({
-            title: "Invalid deadline",
-            description: "Please enter a valid date and time.",
-            variant: "destructive",
-          });
-          setSubmitting(false);
-          return;
-        }
+      // Validate deadline is in the future
+      if (!isDeadlineValid(formData.deadline)) {
+        toast({
+          title: "Invalid deadline",
+          description: "Please enter a valid date and time in the future.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+      
+      // Convert local datetime to UTC ISO string for storage
+      const deadlineUTC = localToUTC(formData.deadline);
+      
+      if (!deadlineUTC) {
+        toast({
+          title: "Invalid deadline",
+          description: "Please enter a valid date and time.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
       }
 
       // Validate description length if provided
@@ -380,7 +387,7 @@ export default function CreateWager() {
       }
 
       trackABTestEvent(AB_TESTS.CREATE_FORM_LAYOUT, formVariant, 'wager_created', {
-        has_deadline: !!formData.deadline,
+        has_deadline: true, // Deadline is now required
         currency: formData.currency,
         is_public: formData.isPublic,
         has_category: !!formData.category,
@@ -671,7 +678,7 @@ export default function CreateWager() {
             </div>
           </div>
 
-          {/* Description & Deadline - Optional, Compact */}
+          {/* Description & Deadline */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium mb-1">Description</label>
@@ -685,9 +692,12 @@ export default function CreateWager() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium mb-1">Deadline</label>
+              <label className="block text-xs font-medium mb-1">
+                Deadline <span className="text-destructive">*</span>
+              </label>
               <input
                 type="datetime-local"
+                required
                 value={formData.deadline}
                 onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
                 min={new Date().toISOString().slice(0, 16)}
@@ -700,7 +710,8 @@ export default function CreateWager() {
             const amount = parseFloat(formData.amount);
             const isValidAmount = !isNaN(amount) && amount > 0;
             const hasEnoughBalance = isValidAmount && userBalance !== null && userBalance >= amount;
-            const isFormValid = formData.title && formData.sideA && formData.sideB && formData.amount;
+            const hasDeadline = formData.deadline && formData.deadline.trim() !== "";
+            const isFormValid = formData.title && formData.sideA && formData.sideB && formData.amount && hasDeadline;
             const canSubmit = isFormValid && hasEnoughBalance && !submitting;
             
             return (
