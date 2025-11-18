@@ -14,7 +14,7 @@ The wagr platform includes an automated system that creates wagers based on real
 
 2. **API Endpoints**
    - `/api/wagers/create-system` - Creates a single system-generated wager
-   - `/api/cron/generate-system-wagers` - Cron job that generates multiple wagers
+   - `/api/agents/generate-wagers` - Vercel AI Agent that generates multiple wagers automatically
 
 3. **Database Schema**
    - `wagers.category` - Category of the wager (crypto, finance, politics, etc.)
@@ -38,7 +38,7 @@ const cryptoWagers = generateCryptoWagers({
 
 ### 2. Automatic Creation
 
-The cron job (`/api/cron/generate-system-wagers`) runs every 6 hours and:
+The Vercel AI Agent (`/api/agents/generate-wagers`) runs automatically (configured in `vercel.json`) and:
 1. Fetches current market data (or uses mock data in development)
 2. Generates wager templates for each category
 3. Creates wagers via the `/api/wagers/create-system` endpoint

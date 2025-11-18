@@ -6,6 +6,7 @@ import { Sparkles, User, Users, TrendingUp, Coins } from "lucide-react";
 import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
 import { useDeadlineCountdown } from "@/hooks/use-deadline-countdown";
 import { DeadlineDisplay } from "@/components/deadline-display";
+import { PLATFORM_FEE_PERCENTAGE } from "@/lib/constants";
 
 interface WagerCardProps {
   id: string;
@@ -45,7 +46,7 @@ export function WagerCard({
   sideBCount = 0,
   sideATotal = 0,
   sideBTotal = 0,
-  feePercentage = 0.01,
+  feePercentage = 0.05,
   onClick,
 }: WagerCardProps) {
   const isOpen = status === "OPEN";
@@ -61,7 +62,7 @@ export function WagerCard({
     entryAmount: amount,
     sideATotal: sideATotal || 0,
     sideBTotal: sideBTotal || 0,
-    feePercentage: feePercentage || 0.01,
+    feePercentage: feePercentage || PLATFORM_FEE_PERCENTAGE,
   });
 
   // Get the better return (higher potential)

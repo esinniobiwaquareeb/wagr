@@ -4,24 +4,30 @@ import { parseDeadline, getTimeRemaining } from '@/lib/deadline-utils';
 export type DeadlineStatus = 'green' | 'orange' | 'red';
 
 export interface DeadlineCountdownResult {
-  countdown: string; // HH:MM:SS format
+  countdown: string; // DD:HH:MM:SS format
   timeRemaining: number; // milliseconds
   status: DeadlineStatus;
   hasElapsed: boolean;
+  days: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
 }
 
 /**
- * Format milliseconds as HH:MM:SS
+ * Format milliseconds as DD:HH:MM:SS (days:hours:minutes:seconds)
+ * If deadline has passed, returns "00:00"
  */
 export function formatCountdown(milliseconds: number): string {
-  if (milliseconds <= 0) return "00:00:00";
+  if (milliseconds <= 0) return "00:00";
   
   const totalSeconds = Math.floor(milliseconds / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
   
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  return `${String(days).padStart(2, '0')}:${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
 /**
@@ -44,6 +50,13 @@ export function useDeadlineCountdown(deadline: string | null | undefined): Deadl
   // Real-time countdown state
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [status, setStatus] = useState<DeadlineStatus>('green');
+  
+  // Calculate time components
+  const totalSeconds = Math.floor(timeRemaining / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
   
   // Update countdown in real-time
   useEffect(() => {
@@ -75,6 +88,10 @@ export function useDeadlineCountdown(deadline: string | null | undefined): Deadl
     timeRemaining,
     status,
     hasElapsed: timeRemaining <= 0,
+    days,
+    hours,
+    minutes,
+    seconds,
   };
 }
 

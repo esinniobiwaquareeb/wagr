@@ -5,11 +5,12 @@ import { createClient } from "@/lib/supabase/client";
 import { WagerCard } from "@/components/wager-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
-import { Home as HomeIcon, Plus, Search, Sparkles, Users, X } from "lucide-react";
+import { Home as HomeIcon, Plus, Search, Sparkles, Users, X, Tag, Filter } from "lucide-react";
 import Link from "next/link";
 import { AuthModal } from "@/components/auth-modal";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
+import { PLATFORM_FEE_PERCENTAGE, WAGER_CATEGORIES } from "@/lib/constants";
 
 interface Wager {
   id: string;
@@ -20,6 +21,7 @@ interface Wager {
   amount: number;
   status: string;
   deadline: string;
+  created_at?: string;
   currency?: string;
   category?: string;
   tags?: string[];
@@ -44,43 +46,64 @@ function WagersPageContent() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('system');
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const { user, loading: authLoading, supabase } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // A/B Testing - Layout variant
-  const layoutVariant = useMemo(() => getVariant(AB_TESTS.WAGERS_PAGE_LAYOUT), []);
+  // A/B Testing - Layout variant (client-side only to prevent hydration mismatch)
+  const [layoutVariant, setLayoutVariant] = useState<'A' | 'B'>('A');
+  
+  useEffect(() => {
+    setMounted(true);
+    setLayoutVariant(getVariant(AB_TESTS.WAGERS_PAGE_LAYOUT));
+  }, []);
 
-  // Separate wagers by type
-  const systemWagers = useMemo(() => 
-    allWagers.filter(w => w.is_system_generated === true),
-    [allWagers]
-  );
+  // Separate wagers by type and sort by deadline (earliest first)
+  const systemWagers = useMemo(() => {
+    const filtered = allWagers.filter(w => w.is_system_generated === true);
+    return filtered.sort((a, b) => {
+      const deadlineA = a.deadline ? new Date(a.deadline).getTime() : Infinity;
+      const deadlineB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
+      return deadlineA - deadlineB; // Earliest deadline first
+    });
+  }, [allWagers]);
 
-  const userWagers = useMemo(() => 
-    allWagers.filter(w => w.is_system_generated !== true),
-    [allWagers]
-  );
+  const userWagers = useMemo(() => {
+    const filtered = allWagers.filter(w => w.is_system_generated !== true);
+    return filtered.sort((a, b) => {
+      const deadlineA = a.deadline ? new Date(a.deadline).getTime() : Infinity;
+      const deadlineB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
+      return deadlineA - deadlineB; // Earliest deadline first
+    });
+  }, [allWagers]);
 
-  // Filter wagers based on active tab and search
+  // Filter wagers based on active tab, search, and category
   const filteredWagers = useMemo(() => {
-    const tabWagers = activeTab === 'system' ? systemWagers : userWagers;
+    let tabWagers = activeTab === 'system' ? systemWagers : userWagers;
     
-    if (!searchQuery.trim()) {
-      return tabWagers;
+    // Filter by category
+    if (selectedCategory) {
+      tabWagers = tabWagers.filter(wager => wager.category === selectedCategory);
     }
-
-    const query = searchQuery.toLowerCase().trim();
-    return tabWagers.filter(wager => 
-      wager.title.toLowerCase().includes(query) ||
-      wager.description?.toLowerCase().includes(query) ||
-      wager.side_a.toLowerCase().includes(query) ||
-      wager.side_b.toLowerCase().includes(query) ||
-      wager.category?.toLowerCase().includes(query) ||
-      wager.tags?.some(tag => tag.toLowerCase().includes(query))
-    );
-  }, [activeTab, systemWagers, userWagers, searchQuery]);
+    
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      tabWagers = tabWagers.filter(wager => 
+        wager.title.toLowerCase().includes(query) ||
+        wager.description?.toLowerCase().includes(query) ||
+        wager.side_a.toLowerCase().includes(query) ||
+        wager.side_b.toLowerCase().includes(query) ||
+        wager.category?.toLowerCase().includes(query) ||
+        wager.tags?.some(tag => tag.toLowerCase().includes(query))
+      );
+    }
+    
+    return tabWagers;
+  }, [activeTab, systemWagers, userWagers, searchQuery, selectedCategory]);
 
   const fetchWagers = useCallback(async (force = false) => {
     const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
@@ -120,9 +143,9 @@ function WagersPageContent() {
 
       const { data: publicWagers, error: publicError } = await supabase
         .from("wagers")
-        .select("*")
+        .select("*, created_at")
         .eq("is_public", true)
-        .order("created_at", { ascending: false })
+        .order("deadline", { ascending: true })
         .limit(200);
 
       if (publicError) {
@@ -133,10 +156,10 @@ function WagersPageContent() {
 
       const { data: createdWagers, error: createdError } = await supabase
         .from("wagers")
-        .select("*")
+        .select("*, created_at")
         .eq("is_public", false)
         .eq("creator_id", currentUser.id)
-        .order("created_at", { ascending: false })
+        .order("deadline", { ascending: true })
         .limit(100);
 
       if (!error && createdError) {
@@ -154,10 +177,10 @@ function WagersPageContent() {
       if (joinedWagerIds.length > 0) {
         const { data: joinedWagers, error: joinedError } = await supabase
           .from("wagers")
-          .select("*")
+          .select("*, created_at")
           .eq("is_public", false)
           .in("id", joinedWagerIds)
-          .order("created_at", { ascending: false })
+          .order("deadline", { ascending: true })
           .limit(100);
 
         if (!error && joinedError) {
@@ -173,13 +196,18 @@ function WagersPageContent() {
         }
       }
 
-      wagersData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      // Sort by deadline (earliest first)
+      wagersData.sort((a, b) => {
+        const deadlineA = a.deadline ? new Date(a.deadline).getTime() : Infinity;
+        const deadlineB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
+        return deadlineA - deadlineB;
+      });
     } else {
       const { data: publicWagers, error: publicError } = await supabase
         .from("wagers")
-        .select("*")
+        .select("*, created_at")
         .eq("is_public", true)
-        .order("created_at", { ascending: false })
+        .order("deadline", { ascending: true })
         .limit(200);
 
       if (publicError) {
@@ -229,6 +257,13 @@ function WagersPageContent() {
           side_a_total: sideATotals.get(wager.id) || 0,
           side_b_total: sideBTotals.get(wager.id) || 0,
         }));
+        
+        // Sort by deadline (earliest deadline first)
+        wagersWithCounts.sort((a, b) => {
+          const deadlineA = a.deadline ? new Date(a.deadline).getTime() : Infinity;
+          const deadlineB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
+          return deadlineA - deadlineB; // Earliest deadline first
+        });
         
         setAllWagers(wagersWithCounts);
         
@@ -356,7 +391,7 @@ function WagersPageContent() {
               sideBCount={wager.side_b_count || 0}
               sideATotal={wager.side_a_total || 0}
               sideBTotal={wager.side_b_total || 0}
-              feePercentage={wager.fee_percentage || 0.01}
+                     feePercentage={wager.fee_percentage || PLATFORM_FEE_PERCENTAGE}
               isSystemGenerated={wager.is_system_generated || false}
               onClick={() => trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'wager_clicked', { wager_id: wager.id, tab: activeTab })}
             />
@@ -422,7 +457,7 @@ function WagersPageContent() {
             sideBCount={wager.side_b_count || 0}
             sideATotal={wager.side_a_total || 0}
             sideBTotal={wager.side_b_total || 0}
-            feePercentage={wager.fee_percentage || 0.01}
+            feePercentage={wager.fee_percentage || PLATFORM_FEE_PERCENTAGE}
             isSystemGenerated={wager.is_system_generated || false}
             onClick={() => trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'wager_clicked', { wager_id: wager.id, tab: activeTab })}
           />
@@ -490,7 +525,7 @@ function WagersPageContent() {
           </div>
 
           {/* Enhanced Search Bar */}
-          <div className="relative group">
+          <div className="relative group mb-4">
             <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-primary/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
             <div className="relative bg-card/50 backdrop-blur-sm border border-border rounded-xl p-1 shadow-sm hover:shadow-md transition-all">
               <div className="flex items-center gap-2">
@@ -521,10 +556,74 @@ function WagersPageContent() {
               </div>
             </div>
           </div>
+
+          {/* Category Filter */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-muted-foreground">Filter by Category</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setSelectedCategory(null)}
+                className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition-all ${
+                  selectedCategory === null
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+              >
+                All Categories
+              </button>
+              {WAGER_CATEGORIES.map((category) => {
+                const categoryWagerCount = (activeTab === 'system' ? systemWagers : userWagers).filter(
+                  w => w.category === category.id
+                ).length;
+                
+                return (
+                  <button
+                    key={category.id}
+                    onClick={() => setSelectedCategory(category.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition-all flex items-center gap-1.5 ${
+                      selectedCategory === category.id
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    <span>{category.icon}</span>
+                    <span>{category.label}</span>
+                    {categoryWagerCount > 0 && (
+                      <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${
+                        selectedCategory === category.id
+                          ? 'bg-primary-foreground/20 text-primary-foreground'
+                          : 'bg-background/50 text-muted-foreground'
+                      }`}>
+                        {categoryWagerCount}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Variant A: Tabs with Horizontal Scroll */}
-        {layoutVariant === 'A' ? (
+        {!mounted ? (
+          // Show loading state during hydration to prevent mismatch
+          <div className="grid gap-3 md:gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="bg-card border border-border rounded-lg p-4">
+                <Skeleton className="h-6 w-3/4 mb-2" />
+                <Skeleton className="h-4 w-full mb-3" />
+                <Skeleton className="h-4 w-2/3 mb-4" />
+                <div className="flex justify-between">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : layoutVariant === 'A' ? (
           <>
             {/* Horizontal Scrollable Sections */}
             {activeTab === 'system' ? (

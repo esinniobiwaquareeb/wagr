@@ -1,0 +1,13 @@
+{
+  "crons": [
+    {
+      "path": "/api/agents/generate-wagers",
+      "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/agents/settle-wagers",
+      "schedule": "* * * * *"
+    }
+  ]
+}
+

@@ -88,7 +88,7 @@
 ### 4. Automatic Settlement
 - **Settlement Function**: Database function that:
   - Calculates total pool
-  - Deducts platform fee (1%)
+   - Deducts platform fee (5%)
   - Distributes winnings proportionally to winners
   - Handles refunds for single-participant wagers
   - Updates wager status
@@ -189,7 +189,7 @@
 - `deadline` (timestamptz)
 - `status` (text, default 'OPEN')
 - `winning_side` (text)
-- `fee_percentage` (numeric, default 0.01)
+- `fee_percentage` (numeric, default 0.05)
 - `currency` (text)
 - `category` (text)
 - `tags` (text[])
@@ -309,7 +309,7 @@
 3. Cron job calls settlement function
 4. System:
    - Calculates total pool
-   - Deducts 1% platform fee
+   - Deducts 5% platform fee
    - Distributes winnings proportionally
    - Updates all balances
    - Creates transaction records

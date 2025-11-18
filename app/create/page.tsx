@@ -10,27 +10,7 @@ import { DEFAULT_CURRENCY, type Currency, CURRENCY_SYMBOLS, formatCurrency } fro
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
 import { Globe, Lock, Tag } from "lucide-react";
 
-// Available categories
-const CATEGORIES = [
-  { id: "crypto", label: "Cryptocurrency", icon: "₿" },
-  { id: "finance", label: "Finance & Stocks", icon: "📈" },
-  { id: "politics", label: "Politics", icon: "🏛️" },
-  { id: "sports", label: "Sports", icon: "⚽" },
-  { id: "entertainment", label: "Entertainment", icon: "🎬" },
-  { id: "technology", label: "Technology", icon: "💻" },
-  { id: "religion", label: "Religion", icon: "🙏" },
-  { id: "weather", label: "Weather", icon: "🌤️" },
-];
-
-// Common side options for quick selection
-const COMMON_SIDES = [
-  { label: "Yes / No", value: { sideA: "Yes", sideB: "No" } },
-  { label: "Win / Lose", value: { sideA: "Win", sideB: "Lose" } },
-  { label: "Over / Under", value: { sideA: "Over", sideB: "Under" } },
-  { label: "True / False", value: { sideA: "True", sideB: "False" } },
-  { label: "Higher / Lower", value: { sideA: "Higher", sideB: "Lower" } },
-  { label: "Custom", value: null },
-];
+import { WAGER_CATEGORIES, COMMON_SIDES, DEFAULT_WAGER_AMOUNT, PLATFORM_FEE_PERCENTAGE, UI } from "@/lib/constants";
 
 // Common amount presets
 const AMOUNT_PRESETS = [10, 25, 50, 100, 250, 500, 1000];
@@ -344,7 +324,7 @@ export default function CreateWager() {
         side_a: trimmedSideA,
         side_b: trimmedSideB,
         deadline: deadlineUTC, // Use UTC deadline
-        fee_percentage: 0.01, // Platform fee is fixed at 1%
+        fee_percentage: PLATFORM_FEE_PERCENTAGE,
         currency: formData.currency,
         is_system_generated: false,
         is_public: formData.isPublic,
@@ -653,7 +633,7 @@ export default function CreateWager() {
                 className="w-full px-2.5 py-1.5 text-sm border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 <option value="">None</option>
-                {CATEGORIES.map((category) => (
+                {WAGER_CATEGORIES.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.icon} {category.label}
                   </option>

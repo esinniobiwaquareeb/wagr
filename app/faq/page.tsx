@@ -10,7 +10,7 @@ export default function FAQPage() {
     },
     {
       question: "What is the platform fee?",
-      answer: "The platform fee is 1% of the total wager pool. This fee is automatically deducted before winnings are distributed to winners.",
+      answer: "The platform fee is 5% of the total wager pool. This fee is automatically deducted before winnings are distributed to winners.",
     },
     {
       question: "Can I cancel a wager I've joined?",

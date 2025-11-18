@@ -10,7 +10,7 @@ The wagr platform includes an automatic settlement system that resolves wagers w
 1. **`settle_wager(wager_id_param uuid)`**
    - Settles a specific wager
    - Calculates total pool from all entries
-   - Deducts platform fee (1%)
+   - Deducts platform fee (5%)
    - Distributes winnings proportionally to winners
    - Refunds all participants if no winners
    - Updates wager status to 'RESOLVED'
@@ -49,7 +49,7 @@ The system uses a cron job endpoint at `/api/cron/settle-wagers` that:
 
 - Wagers must have a `winning_side` set before deadline for automatic settlement
 - If no winning side is set, wagers remain OPEN (manual resolution required)
-- Platform fee is fixed at 1% (0.01)
+- Platform fee is fixed at 5% (0.05)
 - Winnings are distributed proportionally based on entry amounts
 - All transactions are recorded in the `transactions` table
 

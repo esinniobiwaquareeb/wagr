@@ -161,12 +161,7 @@ function WalletContent() {
         const uniqueBanks = Array.from(bankMap.values());
         // Sort alphabetically by name
         uniqueBanks.sort((a, b) => a.name.localeCompare(b.name));
-        // Double-check for duplicates and log if found
-        const codes = uniqueBanks.map(b => b.code);
-        const duplicates = codes.filter((code, index) => codes.indexOf(code) !== index);
-        if (duplicates.length > 0) {
-          console.warn('Duplicate bank codes found after deduplication:', duplicates);
-        }
+        // Deduplication is handled by the Map above
         setBanks(uniqueBanks);
       }
     } catch (error) {

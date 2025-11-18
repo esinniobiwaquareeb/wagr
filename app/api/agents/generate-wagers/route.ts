@@ -4,8 +4,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { DEFAULT_WAGER_AMOUNT } from "@/lib/constants";
 
-export const runtime = 'edge';
+// Note: Using Node.js runtime for better compatibility with external API calls
+// export const runtime = 'edge';
 export const maxDuration = 300; // 5 minutes max
 
 export async function GET(request: NextRequest) {
@@ -50,7 +52,8 @@ export async function GET(request: NextRequest) {
       const cryptoWagers = generateCryptoWagers(cryptoPrices);
 
       for (const wager of cryptoWagers) {
-        const response = await fetch(`${request.nextUrl.origin}/api/wagers/create-system`, {
+        const origin = request.nextUrl?.origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const response = await fetch(`${origin}/api/wagers/create-system`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -87,7 +90,8 @@ export async function GET(request: NextRequest) {
         });
 
         for (const wager of financeWagers) {
-          const response = await fetch(`${request.nextUrl.origin}/api/wagers/create-system`, {
+          const origin = request.nextUrl?.origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+          const response = await fetch(`${origin}/api/wagers/create-system`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -110,23 +114,79 @@ export async function GET(request: NextRequest) {
       results.errors.push(`Finance: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
-    // Generate politics wagers
+    // Generate wagers from news using AI (supports all categories)
     try {
       if (process.env.NEWS_API_KEY) {
-        const { fetchPoliticalNews } = await import("@/lib/api/news");
-        const { generatePoliticsWagers } = await import("@/lib/wager-generators/politics");
+        const { fetchPoliticalNews, fetchGeneralNews } = await import("@/lib/api/news");
+        const { analyzeNewsForWagers, getTrendingNews } = await import("@/lib/ai/news-analyzer");
         
-        const newsArticles = await fetchPoliticalNews(process.env.NEWS_API_KEY);
-        const upcomingEvents = newsArticles.slice(0, 5).map((article, index) => ({
-          name: article.title,
-          date: new Date(Date.now() + (index + 1) * 7 * 24 * 60 * 60 * 1000).toISOString(),
-          description: article.description,
-        }));
+        // Fetch news from multiple categories
+        const newsPromises = [
+          fetchPoliticalNews(process.env.NEWS_API_KEY).catch(() => []),
+          fetchGeneralNews(process.env.NEWS_API_KEY, 'cryptocurrency OR bitcoin OR ethereum').catch(() => []),
+          fetchGeneralNews(process.env.NEWS_API_KEY, 'stock market OR finance OR economy').catch(() => []),
+          fetchGeneralNews(process.env.NEWS_API_KEY, 'sports OR football OR basketball').catch(() => []),
+          fetchGeneralNews(process.env.NEWS_API_KEY, 'entertainment OR movie OR music').catch(() => []),
+          fetchGeneralNews(process.env.NEWS_API_KEY, 'technology OR tech OR innovation').catch(() => []),
+        ];
         
-        const politicsWagers = generatePoliticsWagers(upcomingEvents);
+        const allNewsArticles = (await Promise.all(newsPromises)).flat();
+        
+        // Get trending news (most popular/relevant) from all categories
+        const trendingArticles = await getTrendingNews(allNewsArticles, 10);
+        
+        // Use AI to analyze and generate intelligent wagers across all categories
+        const aiApiKey = process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY;
+        const wagerSuggestions = await analyzeNewsForWagers(trendingArticles, aiApiKey);
+        
+        // Convert AI suggestions to wager format, grouping by category
+        const wagersByCategory = new Map<string, any[]>();
+        
+        wagerSuggestions.forEach(suggestion => {
+          const category = suggestion.category || 'politics';
+          if (!wagersByCategory.has(category)) {
+            wagersByCategory.set(category, []);
+          }
+          wagersByCategory.get(category)!.push({
+            title: suggestion.title,
+            description: suggestion.description,
+          side_a: suggestion.sideA,
+          side_b: suggestion.sideB,
+          amount: DEFAULT_WAGER_AMOUNT,
+          deadline: suggestion.deadline,
+          category: category,
+          tags: suggestion.tags,
+          source_data: {
+            reasoning: suggestion.reasoning,
+            ai_generated: true,
+          },
+          });
+        });
+        
+        // Process wagers by category
+        const allNewsWagers: any[] = [];
+        for (const [category, wagers] of wagersByCategory.entries()) {
+          allNewsWagers.push(...wagers);
+          
+          // Update results counter based on category
+          if (category === 'politics') {
+            results.politics += wagers.length;
+          } else if (category === 'crypto') {
+            results.crypto += wagers.length;
+          } else if (category === 'finance') {
+            results.finance += wagers.length;
+          } else if (category === 'sports') {
+            results.sports += wagers.length;
+          } else if (category === 'entertainment') {
+            results.entertainment += wagers.length;
+          }
+        }
+        
+        const politicsWagers = allNewsWagers;
 
         for (const wager of politicsWagers) {
-          const response = await fetch(`${request.nextUrl.origin}/api/wagers/create-system`, {
+          const origin = request.nextUrl?.origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+          const response = await fetch(`${origin}/api/wagers/create-system`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

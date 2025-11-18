@@ -20,15 +20,30 @@ export function generatePoliticsWagers(upcomingEvents: Array<{
   const wagers: PoliticsWagerTemplate[] = [];
   
   upcomingEvents.forEach((event) => {
+    // Create more relevant wager titles based on news content
+    const eventDate = new Date(event.date);
+    const daysUntil = Math.ceil((eventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    
+    // Generate different wager types based on the news
+    let title = event.name;
+    let sideA = "Yes";
+    let sideB = "No";
+    
+    // If the title is too long, create a shorter version
+    if (title.length > 100) {
+      title = title.substring(0, 97) + "...";
+    }
+    
+    // Create wager based on the event
     wagers.push({
-      title: `Will ${event.name} happen as scheduled?`,
-      description: event.description || `Political event scheduled for ${new Date(event.date).toLocaleDateString()}`,
-      side_a: "Yes",
-      side_b: "No",
+      title: title.length > 60 ? `Will this happen within ${daysUntil} days?` : title,
+      description: event.description || `Recent political news: ${event.name}`,
+      side_a: sideA,
+      side_b: sideB,
       amount: 500,
       deadline: event.date,
       category: "politics",
-      tags: ["politics", "elections", "government"],
+      tags: ["politics", "news", "current-events"],
     });
   });
 

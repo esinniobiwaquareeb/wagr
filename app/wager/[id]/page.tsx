@@ -14,6 +14,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { utcToLocal, localToUTC, isDeadlineElapsed } from "@/lib/deadline-utils";
 import { useDeadlineCountdown } from "@/hooks/use-deadline-countdown";
 import { DeadlineDisplay } from "@/components/deadline-display";
+import { PLATFORM_FEE_PERCENTAGE } from "@/lib/constants";
 
 interface Wager {
   id: string;
@@ -740,7 +741,7 @@ export default function WagerDetail() {
     entryAmount: wager.amount,
     sideATotal: sideATotal,
     sideBTotal: sideBTotal,
-    feePercentage: wager.fee_percentage || 0.01,
+    feePercentage: wager.fee_percentage || PLATFORM_FEE_PERCENTAGE,
   });
 
   return (
@@ -974,7 +975,7 @@ export default function WagerDetail() {
                   <Coins className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
                   <p className="text-[10px] md:text-xs text-muted-foreground">Platform Fee</p>
                 </div>
-                <p className="text-lg md:text-2xl font-bold">{(wager.fee_percentage || 0.01) * 100}%</p>
+                <p className="text-lg md:text-2xl font-bold">{(wager.fee_percentage || PLATFORM_FEE_PERCENTAGE) * 100}%</p>
                 <p className="text-[9px] md:text-[10px] text-muted-foreground mt-0.5">
                   {formatCurrency(returns.platformFee, (wager.currency || DEFAULT_CURRENCY) as Currency)}
                 </p>

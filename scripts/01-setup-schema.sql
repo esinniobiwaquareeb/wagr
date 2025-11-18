@@ -19,7 +19,7 @@ create table wagers (
   deadline timestamptz,
   status text default 'OPEN',
   winning_side text,
-  fee_percentage numeric default 0.01,
+  fee_percentage numeric default 0.05,
   created_at timestamptz default now()
 );
 
