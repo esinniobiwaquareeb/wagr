@@ -11,7 +11,7 @@ import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Award, Coins, Trash2,
 import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { utcToLocal, localToUTC, isDeadlineElapsed } from "@/lib/deadline-utils";
+import { utcToLocal, localToUTC, isDeadlineElapsed, getTimeRemaining } from "@/lib/deadline-utils";
 import { useDeadlineCountdown } from "@/hooks/use-deadline-countdown";
 import { DeadlineDisplay } from "@/components/deadline-display";
 import { PLATFORM_FEE_PERCENTAGE } from "@/lib/constants";
@@ -59,7 +59,13 @@ export default function WagerDetail() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showJoinDialog, setShowJoinDialog] = useState(false);
+  const [showUnjoinDialog, setShowUnjoinDialog] = useState(false);
+  const [showChangeSideDialog, setShowChangeSideDialog] = useState(false);
   const [selectedSide, setSelectedSide] = useState<"a" | "b" | null>(null);
+  const [newSide, setNewSide] = useState<"a" | "b" | null>(null);
+  const [unjoining, setUnjoining] = useState(false);
+  const [changingSide, setChangingSide] = useState(false);
   const [editFormData, setEditFormData] = useState({
     title: "",
     description: "",
@@ -242,6 +248,27 @@ export default function WagerDetail() {
   const deadlineStatus = deadlineCountdown.status;
   const deadlineHasElapsed = deadlineCountdown.hasElapsed;
   const deadlineCountdownText = deadlineCountdown.countdown;
+  
+  // Check if within 20 seconds of deadline (cutoff)
+  const isWithinCutoff = useMemo(() => {
+    if (!wager?.deadline) return false;
+    const timeRemaining = getTimeRemaining(wager.deadline);
+    return timeRemaining > 0 && timeRemaining <= 20000; // 20 seconds = 20000ms
+  }, [wager?.deadline]);
+  
+  // Check if user has already joined
+  const userEntry = useMemo(() => {
+    if (!user || !entries.length) return null;
+    return entries.find(entry => entry.user_id === user.id) || null;
+  }, [user, entries]);
+  
+  // Check if betting is allowed (not within 20 seconds cutoff and deadline hasn't passed)
+  const canBet = useMemo(() => {
+    if (!wager || wager.status !== "OPEN") return false;
+    if (isDeadlineElapsed(wager.deadline)) return false;
+    if (isWithinCutoff) return false;
+    return true;
+  }, [wager, isWithinCutoff]);
 
   useEffect(() => {
     fetchWager();
@@ -276,57 +303,78 @@ export default function WagerDetail() {
     };
   }, [wagerId, fetchWager, supabase]);
 
-  const handleJoin = async (side: "a" | "b") => {
+  const handleJoinClick = (side: "a" | "b") => {
     if (!user) {
       setSelectedSide(side);
       setShowAuthModal(true);
       return;
     }
 
+    if (!wager) return;
+
+    // Check if user already has an entry
+    if (userEntry) {
+      // If user is on the same side, show unjoin dialog
+      if (userEntry.side === side) {
+        setShowUnjoinDialog(true);
+        return;
+      }
+      // If user is on different side, show change side dialog
+      setNewSide(side);
+      setShowChangeSideDialog(true);
+      return;
+    }
+
+    // Show confirmation dialog for new join
+    setSelectedSide(side);
+    setShowJoinDialog(true);
+  };
+
+  const confirmJoin = async () => {
+    if (!selectedSide || !wager || !user) return;
+
     setJoining(true);
     try {
       // Check if wager is still open
-      if (wager!.status !== "OPEN") {
+      if (wager.status !== "OPEN") {
         toast({
           title: "This wager is closed",
           description: "Bets are no longer being accepted for this wager.",
           variant: "destructive",
         });
         setJoining(false);
+        setShowJoinDialog(false);
         return;
       }
 
       // Check if deadline has passed
-      if (isDeadlineElapsed(wager!.deadline)) {
+      if (isDeadlineElapsed(wager.deadline)) {
         toast({
           title: "Too late to wager",
           description: "The deadline for this wager has already passed.",
           variant: "destructive",
         });
         setJoining(false);
+        setShowJoinDialog(false);
         return;
       }
 
-      // Check if user already has an entry for this wager (use actual UUID, not short_id)
-      if (!wager) {
-        setJoining(false);
-        return;
-      }
-      
-      const { data: existingEntry } = await supabase
-        .from("wager_entries")
-        .select("id")
-        .eq("wager_id", wager.id)
-        .eq("user_id", user.id)
-        .single();
-
-      if (existingEntry) {
+      // Check 20-second cutoff
+      const timeRemaining = getTimeRemaining(wager.deadline);
+      if (timeRemaining > 0 && timeRemaining <= 20000) {
         toast({
-          title: "You've already wagered on this",
-          description: "You can only place one wager per wager.",
+          title: "Too late to wager",
+          description: "You cannot place bets within 20 seconds of the deadline.",
           variant: "destructive",
         });
         setJoining(false);
+        setShowJoinDialog(false);
+        return;
+      }
+
+      if (!wager) {
+        setJoining(false);
+        setShowJoinDialog(false);
         return;
       }
 
@@ -362,7 +410,7 @@ export default function WagerDetail() {
       const { error } = await supabase.from("wager_entries").insert({
         wager_id: wager.id,
         user_id: user.id,
-        side: side,
+        side: selectedSide,
         amount: wager.amount,
       });
 
@@ -391,7 +439,7 @@ export default function WagerDetail() {
         type: "wager_join",
         amount: -wager.amount,
         reference: wager.id,
-        description: `Wager Entry: "${wager.title}" - Joined ${side === "a" ? wager.side_a : wager.side_b}`,
+        description: `Wager Entry: "${wager.title}" - Joined ${selectedSide === "a" ? wager.side_a : wager.side_b}`,
       });
 
       // Refresh wager data (use actual UUID, not short_id)
@@ -439,14 +487,17 @@ export default function WagerDetail() {
       }
 
       trackABTestEvent(AB_TESTS.BUTTON_STYLE, buttonVariant, 'wager_joined', {
-        wager_id: wagerId,
-        side: side,
+        wager_id: wager.id,
+        side: selectedSide,
       });
       
       toast({
         title: "Success!",
         description: "You've successfully joined the wager.",
       });
+      
+      setShowJoinDialog(false);
+      setSelectedSide(null);
     } catch (error) {
       console.error("Error joining wager:", error);
       const { extractErrorMessage } = await import('@/lib/error-extractor');
@@ -459,6 +510,146 @@ export default function WagerDetail() {
       });
     } finally {
       setJoining(false);
+    }
+  };
+
+  const handleUnjoin = async () => {
+    if (!user || !wager || !userEntry) return;
+
+    setUnjoining(true);
+    try {
+      // Check if deadline has passed
+      if (isDeadlineElapsed(wager.deadline)) {
+        toast({
+          title: "Cannot unjoin",
+          description: "The deadline has passed. You cannot unjoin this wager.",
+          variant: "destructive",
+        });
+        setUnjoining(false);
+        setShowUnjoinDialog(false);
+        return;
+      }
+
+      // Check 20-second cutoff
+      const timeRemaining = getTimeRemaining(wager.deadline);
+      if (timeRemaining > 0 && timeRemaining <= 20000) {
+        toast({
+          title: "Cannot unjoin",
+          description: "You cannot unjoin within 20 seconds of the deadline.",
+          variant: "destructive",
+        });
+        setUnjoining(false);
+        setShowUnjoinDialog(false);
+        return;
+      }
+
+      // Delete the entry
+      const { error: deleteError } = await supabase
+        .from("wager_entries")
+        .delete()
+        .eq("id", userEntry.id)
+        .eq("user_id", user.id);
+
+      if (deleteError) throw deleteError;
+
+      // Refund the user
+      await supabase.rpc("increment_balance", {
+        user_id: user.id,
+        amt: userEntry.amount,
+      });
+
+      // Record transaction
+      await supabase.from("transactions").insert({
+        user_id: user.id,
+        type: "wager_refund",
+        amount: userEntry.amount,
+        reference: wager.id,
+        description: `Unjoined Wager: "${wager.title}" - Entry refunded`,
+      });
+
+      toast({
+        title: "Unjoined successfully",
+        description: "You have been removed from this wager and your entry has been refunded.",
+      });
+
+      // Refresh wager data
+      await fetchWager(true);
+      setShowUnjoinDialog(false);
+    } catch (error) {
+      console.error("Error unjoining wager:", error);
+      const { extractErrorMessage } = await import('@/lib/error-extractor');
+      const errorMessage = extractErrorMessage(error, "Couldn't unjoin the wager. Please try again.");
+      
+      toast({
+        title: "Couldn't unjoin wager",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setUnjoining(false);
+    }
+  };
+
+  const handleChangeSide = async () => {
+    if (!user || !wager || !userEntry || !newSide) return;
+
+    setChangingSide(true);
+    try {
+      // Check if deadline has passed
+      if (isDeadlineElapsed(wager.deadline)) {
+        toast({
+          title: "Cannot change side",
+          description: "The deadline has passed. You cannot change your side.",
+          variant: "destructive",
+        });
+        setChangingSide(false);
+        setShowChangeSideDialog(false);
+        return;
+      }
+
+      // Check 20-second cutoff
+      const timeRemaining = getTimeRemaining(wager.deadline);
+      if (timeRemaining > 0 && timeRemaining <= 20000) {
+        toast({
+          title: "Cannot change side",
+          description: "You cannot change your side within 20 seconds of the deadline.",
+          variant: "destructive",
+        });
+        setChangingSide(false);
+        setShowChangeSideDialog(false);
+        return;
+      }
+
+      // Update the entry side
+      const { error: updateError } = await supabase
+        .from("wager_entries")
+        .update({ side: newSide })
+        .eq("id", userEntry.id)
+        .eq("user_id", user.id);
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: "Side changed",
+        description: `You've switched to ${newSide === "a" ? wager.side_a : wager.side_b}.`,
+      });
+
+      // Refresh wager data
+      await fetchWager(true);
+      setShowChangeSideDialog(false);
+      setNewSide(null);
+    } catch (error) {
+      console.error("Error changing side:", error);
+      const { extractErrorMessage } = await import('@/lib/error-extractor');
+      const errorMessage = extractErrorMessage(error, "Couldn't change your side. Please try again.");
+      
+      toast({
+        title: "Couldn't change side",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setChangingSide(false);
     }
   };
 
@@ -829,7 +1020,7 @@ export default function WagerDetail() {
         onClose={() => {
           setShowAuthModal(false);
           if (selectedSide && user) {
-            handleJoin(selectedSide);
+            setShowJoinDialog(true);
           }
         }}
       />
@@ -843,6 +1034,49 @@ export default function WagerDetail() {
         cancelText="Cancel"
         variant="destructive"
         onConfirm={confirmDelete}
+      />
+
+      <ConfirmDialog
+        open={showJoinDialog}
+        onOpenChange={setShowJoinDialog}
+        title="Confirm Join Wager"
+        description={
+          wager && selectedSide
+            ? `Are you sure you want to join "${wager.title}" on ${selectedSide === "a" ? wager.side_a : wager.side_b}? This will deduct ${formatCurrency(wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)} from your balance.`
+            : "Are you sure you want to join this wager?"
+        }
+        confirmText="Join"
+        cancelText="Cancel"
+        onConfirm={confirmJoin}
+      />
+
+      <ConfirmDialog
+        open={showUnjoinDialog}
+        onOpenChange={setShowUnjoinDialog}
+        title="Unjoin Wager"
+        description={
+          wager && userEntry
+            ? `Are you sure you want to unjoin "${wager.title}"? You will receive a refund of ${formatCurrency(userEntry.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}.`
+            : "Are you sure you want to unjoin this wager?"
+        }
+        confirmText="Unjoin"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={handleUnjoin}
+      />
+
+      <ConfirmDialog
+        open={showChangeSideDialog}
+        onOpenChange={setShowChangeSideDialog}
+        title="Change Side"
+        description={
+          wager && newSide
+            ? `Are you sure you want to switch from ${userEntry?.side === "a" ? wager.side_a : wager.side_b} to ${newSide === "a" ? wager.side_a : wager.side_b}?`
+            : "Are you sure you want to change your side?"
+        }
+        confirmText="Change Side"
+        cancelText="Cancel"
+        onConfirm={handleChangeSide}
       />
 
       {/* Edit Dialog */}
@@ -1161,15 +1395,38 @@ export default function WagerDetail() {
                 </div>
 
                 {wager.status === "OPEN" && (
-                  <button
-                    onClick={() => handleJoin("a")}
-                    disabled={joining || deadlineHasElapsed}
-                    className={`w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl ${
-                      buttonVariant === 'B' ? 'shadow-lg hover:shadow-xl' : ''
-                    }`}
-                  >
-                    {deadlineHasElapsed ? "Deadline Passed" : joining ? "Joining..." : `Join ${wager.side_a}`}
-                  </button>
+                  <>
+                    {userEntry && userEntry.side === "a" ? (
+                      <button
+                        onClick={() => setShowUnjoinDialog(true)}
+                        disabled={unjoining || !canBet}
+                        className="w-full bg-destructive text-destructive-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation"
+                      >
+                        {unjoining ? "Unjoining..." : !canBet ? "Cannot Unjoin" : "Unjoin"}
+                      </button>
+                    ) : userEntry && userEntry.side === "b" ? (
+                      <button
+                        onClick={() => {
+                          setNewSide("a");
+                          setShowChangeSideDialog(true);
+                        }}
+                        disabled={changingSide || !canBet}
+                        className="w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl"
+                      >
+                        {changingSide ? "Changing..." : !canBet ? "Cannot Change" : `Switch to ${wager.side_a}`}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleJoinClick("a")}
+                        disabled={joining || !canBet}
+                        className={`w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl ${
+                          buttonVariant === 'B' ? 'shadow-lg hover:shadow-xl' : ''
+                        }`}
+                      >
+                        {!canBet ? (isWithinCutoff ? "Too Late (20s cutoff)" : "Deadline Passed") : joining ? "Joining..." : `Join ${wager.side_a}`}
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -1231,15 +1488,38 @@ export default function WagerDetail() {
                 </div>
 
                 {wager.status === "OPEN" && (
-                  <button
-                    onClick={() => handleJoin("b")}
-                    disabled={joining || deadlineHasElapsed}
-                    className={`w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl ${
-                      buttonVariant === 'B' ? 'shadow-lg hover:shadow-xl' : ''
-                    }`}
-                  >
-                    {deadlineHasElapsed ? "Deadline Passed" : joining ? "Joining..." : `Join ${wager.side_b}`}
-                  </button>
+                  <>
+                    {userEntry && userEntry.side === "b" ? (
+                      <button
+                        onClick={() => setShowUnjoinDialog(true)}
+                        disabled={unjoining || !canBet}
+                        className="w-full bg-destructive text-destructive-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation"
+                      >
+                        {unjoining ? "Unjoining..." : !canBet ? "Cannot Unjoin" : "Unjoin"}
+                      </button>
+                    ) : userEntry && userEntry.side === "a" ? (
+                      <button
+                        onClick={() => {
+                          setNewSide("b");
+                          setShowChangeSideDialog(true);
+                        }}
+                        disabled={changingSide || !canBet}
+                        className="w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl"
+                      >
+                        {changingSide ? "Changing..." : !canBet ? "Cannot Change" : `Switch to ${wager.side_b}`}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleJoinClick("b")}
+                        disabled={joining || !canBet}
+                        className={`w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl ${
+                          buttonVariant === 'B' ? 'shadow-lg hover:shadow-xl' : ''
+                        }`}
+                      >
+                        {!canBet ? (isWithinCutoff ? "Too Late (20s cutoff)" : "Deadline Passed") : joining ? "Joining..." : `Join ${wager.side_b}`}
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
