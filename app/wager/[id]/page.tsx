@@ -51,6 +51,7 @@ export default function WagerDetail() {
   const [wager, setWager] = useState<Wager | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [sideCount, setSideCount] = useState({ a: 0, b: 0 });
+  const [userNames, setUserNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -119,6 +120,24 @@ export default function WagerDetail() {
         setWager(cached.wager);
         setEntries(cached.entries || []);
         setSideCount(cached.sideCount || { a: 0, b: 0 });
+        
+        // Fetch usernames for cached entries
+        const uniqueUserIds = [...new Set((cached.entries || []).map((e: Entry) => e.user_id))];
+        if (uniqueUserIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("id, username")
+            .in("id", uniqueUserIds);
+          
+          if (profiles) {
+            const userNameMap: Record<string, string> = {};
+            profiles.forEach((profile: { id: string; username: string }) => {
+              userNameMap[profile.id] = profile.username || `User ${profile.id.slice(0, 8)}`;
+            });
+            setUserNames(userNameMap);
+          }
+        }
+        
         setLoading(false);
         
         // Check if wager expired with single participant and auto-refund
@@ -189,6 +208,23 @@ export default function WagerDetail() {
       // Store totals for calculations
       (wagerData as any).sideATotal = sideATotal;
       (wagerData as any).sideBTotal = sideBTotal;
+
+      // Fetch usernames for all participants
+      const uniqueUserIds = [...new Set(entriesData.map((e: Entry) => e.user_id))];
+      if (uniqueUserIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, username")
+          .in("id", uniqueUserIds);
+        
+        if (profiles) {
+          const userNameMap: Record<string, string> = {};
+          profiles.forEach((profile: { id: string; username: string }) => {
+            userNameMap[profile.id] = profile.username || `User ${profile.id.slice(0, 8)}`;
+          });
+          setUserNames(userNameMap);
+        }
+      }
 
         // Cache the results using centralized cache utility
         const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
@@ -382,6 +418,23 @@ export default function WagerDetail() {
             (e: Entry) => e.side === "b"
           ).length;
           setSideCount({ a: aCounts, b: bCounts });
+          
+          // Fetch usernames for all participants
+          const uniqueUserIds = [...new Set(entriesData.map((e: Entry) => e.user_id))];
+          if (uniqueUserIds.length > 0) {
+            const { data: profiles } = await supabase
+              .from("profiles")
+              .select("id, username")
+              .in("id", uniqueUserIds);
+            
+            if (profiles) {
+              const userNameMap: Record<string, string> = {};
+              profiles.forEach((profile: { id: string; username: string }) => {
+                userNameMap[profile.id] = profile.username || `User ${profile.id.slice(0, 8)}`;
+              });
+              setUserNames(userNameMap);
+            }
+          }
         }
       }
 
@@ -900,7 +953,7 @@ export default function WagerDetail() {
         <div className="mb-4 md:mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 md:gap-3 mb-3 md:mb-4">
             <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
-              <h1 className="text-xl md:text-4xl font-bold flex-1 truncate">{wager.title}</h1>
+              <h1 className="text-xl md:text-4xl font-bold flex-1 break-words">{wager.title}</h1>
               {/* Edit and Delete Buttons - Only show for creator when no other users have bet */}
               {user && wager.creator_id === user.id && wager.status === "OPEN" && entries.filter(e => e.user_id !== user.id).length === 0 && (
                 <>
@@ -1226,7 +1279,7 @@ export default function WagerDetail() {
                       entry.side === "a" ? "bg-primary" : "bg-primary/60"
                     }`} />
                     <span className="text-xs md:text-sm font-medium text-foreground truncate">
-                      {entry.user_id.slice(0, 8)}...
+                      {userNames[entry.user_id] || `User ${entry.user_id.slice(0, 8)}`}
                     </span>
                     <span className="text-[10px] md:text-xs text-muted-foreground">
                       {entry.side === "a" ? wager.side_a : wager.side_b}
