@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
-import { Sparkles, User, Users, TrendingUp, Coins } from "lucide-react";
+import { Sparkles, User, Users, TrendingUp, Coins, Calendar } from "lucide-react";
+import { format } from "date-fns";
 import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
 import { useDeadlineCountdown } from "@/hooks/use-deadline-countdown";
 import { DeadlineDisplay } from "@/components/deadline-display";
@@ -26,6 +27,7 @@ interface WagerCardProps {
   sideATotal?: number; // Total amount bet on side A
   sideBTotal?: number; // Total amount bet on side B
   feePercentage?: number;
+  createdAt?: string;
   onClick?: () => void;
 }
 
@@ -47,6 +49,7 @@ export function WagerCard({
   sideATotal = 0,
   sideBTotal = 0,
   feePercentage = 0.05,
+  createdAt,
   onClick,
 }: WagerCardProps) {
   const isOpen = status === "OPEN";
@@ -207,6 +210,14 @@ export function WagerCard({
               />
             )}
           </div>
+
+          {/* Created date */}
+          {createdAt && (
+            <div className="flex items-center gap-1.5 text-[9px] md:text-[10px] text-muted-foreground mt-1">
+              <Calendar className="h-3 w-3" />
+              <span>Created {format(new Date(createdAt), "MMM d, yyyy")}</span>
+            </div>
+          )}
         </div>
       </div>
     </Link>

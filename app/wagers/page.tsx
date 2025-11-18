@@ -39,7 +39,7 @@ interface WagerWithEntries extends Wager {
   side_b_total?: number;
 }
 
-type TabType = 'system' | 'user';
+type TabType = 'system' | 'user' | 'expired' | 'settled';
 
 function WagersPageContent() {
   const [wagers, setWagers] = useState<WagerWithEntries[]>([]);
@@ -62,10 +62,24 @@ function WagersPageContent() {
     setLayoutVariant(getVariant(AB_TESTS.WAGERS_PAGE_LAYOUT));
   }, []);
 
-  // Separate wagers by type and sort by deadline (earliest first)
+  // Helper function to check if wager is expired
+  const isExpired = (wager: WagerWithEntries) => {
+    if (!wager.deadline || wager.status !== "OPEN") return false;
+    return new Date(wager.deadline).getTime() < Date.now();
+  };
+
+  // Separate wagers by type and sort by deadline (earliest first, expired last)
   const systemWagers = useMemo(() => {
     const filtered = allWagers.filter(w => w.is_system_generated === true);
     return filtered.sort((a, b) => {
+      const aExpired = isExpired(a);
+      const bExpired = isExpired(b);
+      
+      // Expired wagers go to the end
+      if (aExpired && !bExpired) return 1;
+      if (!aExpired && bExpired) return -1;
+      
+      // Both expired or both not expired - sort by deadline
       const deadlineA = a.deadline ? new Date(a.deadline).getTime() : Infinity;
       const deadlineB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
       return deadlineA - deadlineB; // Earliest deadline first
@@ -75,15 +89,50 @@ function WagersPageContent() {
   const userWagers = useMemo(() => {
     const filtered = allWagers.filter(w => w.is_system_generated !== true);
     return filtered.sort((a, b) => {
+      const aExpired = isExpired(a);
+      const bExpired = isExpired(b);
+      
+      // Expired wagers go to the end
+      if (aExpired && !bExpired) return 1;
+      if (!aExpired && bExpired) return -1;
+      
+      // Both expired or both not expired - sort by deadline
       const deadlineA = a.deadline ? new Date(a.deadline).getTime() : Infinity;
       const deadlineB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
       return deadlineA - deadlineB; // Earliest deadline first
     });
   }, [allWagers]);
 
+  const expiredWagers = useMemo(() => {
+    return allWagers.filter(w => isExpired(w)).sort((a, b) => {
+      // Sort expired by deadline (most recently expired first)
+      const deadlineA = a.deadline ? new Date(a.deadline).getTime() : 0;
+      const deadlineB = b.deadline ? new Date(b.deadline).getTime() : 0;
+      return deadlineB - deadlineA; // Most recently expired first
+    });
+  }, [allWagers]);
+
+  const settledWagers = useMemo(() => {
+    return allWagers.filter(w => w.status === "RESOLVED").sort((a, b) => {
+      // Sort settled by deadline (most recently settled first)
+      const deadlineA = a.deadline ? new Date(a.deadline).getTime() : 0;
+      const deadlineB = b.deadline ? new Date(b.deadline).getTime() : 0;
+      return deadlineB - deadlineA; // Most recently settled first
+    });
+  }, [allWagers]);
+
   // Filter wagers based on active tab, search, and category
   const filteredWagers = useMemo(() => {
-    let tabWagers = activeTab === 'system' ? systemWagers : userWagers;
+    let tabWagers: WagerWithEntries[];
+    if (activeTab === 'system') {
+      tabWagers = systemWagers;
+    } else if (activeTab === 'user') {
+      tabWagers = userWagers;
+    } else if (activeTab === 'expired') {
+      tabWagers = expiredWagers;
+    } else {
+      tabWagers = settledWagers;
+    }
     
     // Filter by category
     if (selectedCategory) {
@@ -104,7 +153,7 @@ function WagersPageContent() {
     }
     
     return tabWagers;
-  }, [activeTab, systemWagers, userWagers, searchQuery, selectedCategory]);
+  }, [activeTab, systemWagers, userWagers, expiredWagers, settledWagers, searchQuery, selectedCategory]);
 
   // Pull to refresh
   const { isRefreshing, pullDistance } = usePullToRefresh({
@@ -204,8 +253,21 @@ function WagersPageContent() {
         }
       }
 
-      // Sort by deadline (earliest first)
+      // Sort by deadline (earliest first, expired last)
+      const isExpiredWager = (w: any) => {
+        if (!w.deadline || w.status !== "OPEN") return false;
+        return new Date(w.deadline).getTime() < Date.now();
+      };
+      
       wagersData.sort((a, b) => {
+        const aExpired = isExpiredWager(a);
+        const bExpired = isExpiredWager(b);
+        
+        // Expired wagers go to the end
+        if (aExpired && !bExpired) return 1;
+        if (!aExpired && bExpired) return -1;
+        
+        // Both expired or both not expired - sort by deadline
         const deadlineA = a.deadline ? new Date(a.deadline).getTime() : Infinity;
         const deadlineB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
         return deadlineA - deadlineB;
@@ -266,8 +328,21 @@ function WagersPageContent() {
           side_b_total: sideBTotals.get(wager.id) || 0,
         }));
         
-        // Sort by deadline (earliest deadline first)
+        // Sort by deadline (earliest deadline first, expired last)
+        const isExpiredWagerWithCounts = (w: WagerWithEntries) => {
+          if (!w.deadline || w.status !== "OPEN") return false;
+          return new Date(w.deadline).getTime() < Date.now();
+        };
+        
         wagersWithCounts.sort((a, b) => {
+          const aExpired = isExpiredWagerWithCounts(a);
+          const bExpired = isExpiredWagerWithCounts(b);
+          
+          // Expired wagers go to the end
+          if (aExpired && !bExpired) return 1;
+          if (!aExpired && bExpired) return -1;
+          
+          // Both expired or both not expired - sort by deadline
           const deadlineA = a.deadline ? new Date(a.deadline).getTime() : Infinity;
           const deadlineB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
           return deadlineA - deadlineB; // Earliest deadline first
@@ -399,8 +474,9 @@ function WagersPageContent() {
               sideBCount={wager.side_b_count || 0}
               sideATotal={wager.side_a_total || 0}
               sideBTotal={wager.side_b_total || 0}
-                     feePercentage={wager.fee_percentage || PLATFORM_FEE_PERCENTAGE}
+              feePercentage={wager.fee_percentage || PLATFORM_FEE_PERCENTAGE}
               isSystemGenerated={wager.is_system_generated || false}
+              createdAt={wager.created_at}
               onClick={() => trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'wager_clicked', { wager_id: wager.id, tab: activeTab })}
             />
           </div>
@@ -448,27 +524,28 @@ function WagersPageContent() {
     return (
       <div className="grid gap-3 md:gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {filteredWagers.map((wager) => (
-          <WagerCard
-            key={wager.id}
-            id={wager.id}
-            title={wager.title}
-            description={wager.description || ""}
-            sideA={wager.side_a}
-            sideB={wager.side_b}
-            amount={wager.amount}
-            status={wager.status}
-            entriesCount={wager.entries_count}
-            deadline={wager.deadline}
-            currency={wager.currency}
-            category={wager.category}
-            sideACount={wager.side_a_count || 0}
-            sideBCount={wager.side_b_count || 0}
-            sideATotal={wager.side_a_total || 0}
-            sideBTotal={wager.side_b_total || 0}
-            feePercentage={wager.fee_percentage || PLATFORM_FEE_PERCENTAGE}
-            isSystemGenerated={wager.is_system_generated || false}
-            onClick={() => trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'wager_clicked', { wager_id: wager.id, tab: activeTab })}
-          />
+            <WagerCard
+              key={wager.id}
+              id={wager.id}
+              title={wager.title}
+              description={wager.description || ""}
+              sideA={wager.side_a}
+              sideB={wager.side_b}
+              amount={wager.amount}
+              status={wager.status}
+              entriesCount={wager.entries_count}
+              deadline={wager.deadline}
+              currency={wager.currency}
+              category={wager.category}
+              sideACount={wager.side_a_count || 0}
+              sideBCount={wager.side_b_count || 0}
+              sideATotal={wager.side_a_total || 0}
+              sideBTotal={wager.side_b_total || 0}
+              feePercentage={wager.fee_percentage || PLATFORM_FEE_PERCENTAGE}
+              isSystemGenerated={wager.is_system_generated || false}
+              createdAt={wager.created_at}
+              onClick={() => trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'wager_clicked', { wager_id: wager.id, tab: activeTab })}
+            />
         ))}
       </div>
     );
@@ -518,10 +595,10 @@ function WagersPageContent() {
 
         {/* Tabs */}
         <div className="mb-6">
-          <div className="flex gap-2 border-b border-border mb-4">
+          <div className="flex gap-2 border-b border-border mb-4 overflow-x-auto">
             <button
               onClick={() => handleTabChange('system')}
-              className={`flex items-center gap-2 px-4 py-3 font-medium transition-all relative ${
+              className={`flex items-center gap-2 px-4 py-3 font-medium transition-all relative whitespace-nowrap ${
                 activeTab === 'system'
                   ? 'text-primary border-b-2 border-primary'
                   : 'text-muted-foreground hover:text-foreground'
@@ -535,7 +612,7 @@ function WagersPageContent() {
             </button>
             <button
               onClick={() => handleTabChange('user')}
-              className={`flex items-center gap-2 px-4 py-3 font-medium transition-all relative ${
+              className={`flex items-center gap-2 px-4 py-3 font-medium transition-all relative whitespace-nowrap ${
                 activeTab === 'user'
                   ? 'text-primary border-b-2 border-primary'
                   : 'text-muted-foreground hover:text-foreground'
@@ -545,6 +622,34 @@ function WagersPageContent() {
               <span>User Wagers</span>
               <span className="ml-1 px-2 py-0.5 text-xs bg-muted rounded-full">
                 {userWagers.length}
+              </span>
+            </button>
+            <button
+              onClick={() => handleTabChange('expired')}
+              className={`flex items-center gap-2 px-4 py-3 font-medium transition-all relative whitespace-nowrap ${
+                activeTab === 'expired'
+                  ? 'text-primary border-b-2 border-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <X className="h-4 w-4" />
+              <span>Expired</span>
+              <span className="ml-1 px-2 py-0.5 text-xs bg-muted rounded-full">
+                {expiredWagers.length}
+              </span>
+            </button>
+            <button
+              onClick={() => handleTabChange('settled')}
+              className={`flex items-center gap-2 px-4 py-3 font-medium transition-all relative whitespace-nowrap ${
+                activeTab === 'settled'
+                  ? 'text-primary border-b-2 border-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Tag className="h-4 w-4" />
+              <span>Settled</span>
+              <span className="ml-1 px-2 py-0.5 text-xs bg-muted rounded-full">
+                {settledWagers.length}
               </span>
             </button>
           </div>
@@ -600,7 +705,13 @@ function WagersPageContent() {
                 All Categories
               </button>
               {WAGER_CATEGORIES.map((category) => {
-                const categoryWagerCount = (activeTab === 'system' ? systemWagers : userWagers).filter(
+                const getTabWagers = () => {
+                  if (activeTab === 'system') return systemWagers;
+                  if (activeTab === 'user') return userWagers;
+                  if (activeTab === 'expired') return expiredWagers;
+                  return settledWagers;
+                };
+                const categoryWagerCount = getTabWagers().filter(
                   w => w.category === category.id
                 ).length;
                 
