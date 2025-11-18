@@ -339,6 +339,16 @@ export default function Profile() {
 
   return (
     <main className="flex-1 pb-24 md:pb-0">
+      <ConfirmDialog
+        open={showLogoutDialog}
+        onOpenChange={setShowLogoutDialog}
+        title="Logout"
+        description="Are you sure you want to log out?"
+        confirmText="Logout"
+        cancelText="Cancel"
+        variant="default"
+        onConfirm={confirmLogout}
+      />
       <div className="max-w-6xl mx-auto p-3 md:p-6">
         <div className="mb-4 md:mb-6 flex items-start justify-between gap-4">
           <div>
