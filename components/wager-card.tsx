@@ -30,6 +30,8 @@ interface WagerCardProps {
   createdAt?: string;
   winningSide?: string | null;
   shortId?: string | null;
+  userEntryAmount?: number; // User's entry amount if they participated
+  userEntrySide?: string; // User's chosen side ('a' or 'b')
   onClick?: () => void;
 }
 
@@ -54,10 +56,13 @@ export function WagerCard({
   createdAt,
   winningSide,
   shortId,
+  userEntryAmount,
+  userEntrySide,
   onClick,
 }: WagerCardProps) {
   const isOpen = status === "OPEN";
   const isResolved = status === "RESOLVED" || status === "SETTLED";
+  const isSettled = status === "SETTLED";
   const sideAWon = isResolved && winningSide === "a";
   const sideBWon = isResolved && winningSide === "b";
   
@@ -78,6 +83,46 @@ export function WagerCard({
   // Get the better return (higher potential)
   const bestReturn = Math.max(returns.sideAReturnMultiplier, returns.sideBReturnMultiplier);
   const bestReturnPercentage = Math.max(returns.sideAReturnPercentage, returns.sideBReturnPercentage);
+
+  // Calculate actual winnings for settled bets
+  const calculateActualWinnings = () => {
+    if (!isSettled || userEntryAmount === undefined || !userEntrySide || !winningSide) {
+      return null;
+    }
+
+    // User didn't win
+    if (userEntrySide !== winningSide) {
+      return 0;
+    }
+
+    // Calculate total pool (sum of all entries on both sides)
+    const totalPool = (sideATotal || 0) + (sideBTotal || 0);
+    
+    // If no pool, return 0
+    if (totalPool === 0) {
+      return 0;
+    }
+    
+    // Calculate platform fee
+    const platformFee = totalPool * (feePercentage || PLATFORM_FEE_PERCENTAGE);
+    
+    // Calculate winnings pool (after fee)
+    const winningsPool = totalPool - platformFee;
+    
+    // Calculate winning side total
+    const winningSideTotal = winningSide === "a" ? (sideATotal || 0) : (sideBTotal || 0);
+    
+    // Calculate user's proportional winnings
+    if (winningSideTotal > 0) {
+      const userWinnings = (userEntryAmount / winningSideTotal) * winningsPool;
+      return userWinnings;
+    }
+    
+    return 0;
+  };
+
+  const actualWinnings = calculateActualWinnings();
+  const userWon = isSettled && userEntryAmount && userEntrySide === winningSide;
 
   // Category icons mapping
   const categoryIcons: Record<string, string> = {
@@ -148,14 +193,12 @@ export function WagerCard({
         </div>
 
         {/* Category badge */}
-        {category && (
-          <div className="mb-2 flex items-center gap-1">
-            <span className="text-base">{categoryIcons[category] || "📌"}</span>
-            <span className="text-[9px] md:text-[10px] text-muted-foreground uppercase font-medium">
-              {category}
-            </span>
-          </div>
-        )}
+        <div className="mb-2 flex items-center gap-1">
+          <span className="text-base">{category ? (categoryIcons[category] || "📌") : "📌"}</span>
+          <span className="text-[9px] md:text-[10px] text-muted-foreground uppercase font-medium">
+            {category || "UNCATEGORIZED"}
+          </span>
+        </div>
 
         {/* Description */}
         {description && (
@@ -265,7 +308,7 @@ export function WagerCard({
             )}
           </div>
 
-          {/* Created date and Potential Winning */}
+          {/* Created date and Potential/Winning */}
           {createdAt && (
             <div className="flex items-center justify-between text-[9px] md:text-[10px] text-muted-foreground mt-1">
               <div className="flex items-center gap-1.5">
@@ -279,6 +322,25 @@ export function WagerCard({
                     Potential Winning: {entriesCount > 0 
                       ? formatCurrency(Math.max(returns.sideAPotential, returns.sideBPotential), currency as Currency)
                       : "N/A"
+                    }
+                  </span>
+                </div>
+              )}
+              {isSettled && (
+                <div className={`flex items-center gap-1.5 font-semibold ${
+                  userWon 
+                    ? "text-green-600 dark:text-green-400" 
+                    : userEntryAmount !== undefined
+                    ? "text-muted-foreground"
+                    : "text-muted-foreground"
+                }`}>
+                  <Coins className="h-3 w-3" />
+                  <span>
+                    Winning: {actualWinnings !== null 
+                      ? formatCurrency(actualWinnings, currency as Currency)
+                      : userEntryAmount !== undefined
+                        ? (userWon ? "Calculating..." : "Lost")
+                        : "N/A"
                     }
                   </span>
                 </div>

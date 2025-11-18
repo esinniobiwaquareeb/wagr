@@ -53,6 +53,7 @@ function WagersPageContent() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [userEntries, setUserEntries] = useState<Map<string, { amount: number; side: string }>>(new Map());
   const { user, loading: authLoading, supabase } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -189,12 +190,22 @@ function WagersPageContent() {
     let error: any = null;
 
     if (currentUser) {
-      const { data: userEntries } = await supabase
+      const { data: userEntriesData } = await supabase
         .from("wager_entries")
-        .select("wager_id")
+        .select("wager_id, amount, side")
         .eq("user_id", currentUser.id);
 
-      const joinedWagerIds = userEntries?.map(e => e.wager_id) || [];
+      const joinedWagerIds = userEntriesData?.map(e => e.wager_id) || [];
+      
+      // Store user entries in a map for quick lookup
+      const userEntriesMap = new Map<string, { amount: number; side: string }>();
+      userEntriesData?.forEach(entry => {
+        userEntriesMap.set(entry.wager_id, {
+          amount: Number(entry.amount),
+          side: entry.side,
+        });
+      });
+      setUserEntries(userEntriesMap);
 
       const { data: publicWagers, error: publicError } = await supabase
         .from("wagers")
@@ -477,6 +488,8 @@ function WagersPageContent() {
               createdAt={wager.created_at}
               winningSide={wager.winning_side}
               shortId={wager.short_id}
+              userEntryAmount={userEntries.get(wager.id)?.amount}
+              userEntrySide={userEntries.get(wager.id)?.side}
               onClick={() => trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'wager_clicked', { wager_id: wager.id, tab: activeTab })}
             />
           </div>
@@ -546,6 +559,8 @@ function WagersPageContent() {
               createdAt={wager.created_at}
               winningSide={wager.winning_side}
               shortId={wager.short_id}
+              userEntryAmount={userEntries.get(wager.id)?.amount}
+              userEntrySide={userEntries.get(wager.id)?.side}
               onClick={() => trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'wager_clicked', { wager_id: wager.id, tab: activeTab })}
             />
         ))}
