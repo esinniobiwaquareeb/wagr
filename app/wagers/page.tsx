@@ -37,6 +37,7 @@ interface WagerWithEntries extends Wager {
   side_b_count?: number;
   side_a_total?: number;
   side_b_total?: number;
+  winning_side?: string | null;
 }
 
 type TabType = 'system' | 'user' | 'expired' | 'settled';
@@ -477,6 +478,7 @@ function WagersPageContent() {
               feePercentage={wager.fee_percentage || PLATFORM_FEE_PERCENTAGE}
               isSystemGenerated={wager.is_system_generated || false}
               createdAt={wager.created_at}
+              winningSide={wager.winning_side}
               onClick={() => trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'wager_clicked', { wager_id: wager.id, tab: activeTab })}
             />
           </div>
@@ -544,6 +546,7 @@ function WagersPageContent() {
               feePercentage={wager.fee_percentage || PLATFORM_FEE_PERCENTAGE}
               isSystemGenerated={wager.is_system_generated || false}
               createdAt={wager.created_at}
+              winningSide={wager.winning_side}
               onClick={() => trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'wager_clicked', { wager_id: wager.id, tab: activeTab })}
             />
         ))}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
-import { Sparkles, User, Users, TrendingUp, Coins, Calendar } from "lucide-react";
+import { Sparkles, User, Users, TrendingUp, Coins, Calendar, Trophy, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
 import { useDeadlineCountdown } from "@/hooks/use-deadline-countdown";
@@ -28,6 +28,7 @@ interface WagerCardProps {
   sideBTotal?: number; // Total amount bet on side B
   feePercentage?: number;
   createdAt?: string;
+  winningSide?: string | null;
   onClick?: () => void;
 }
 
@@ -50,9 +51,13 @@ export function WagerCard({
   sideBTotal = 0,
   feePercentage = 0.05,
   createdAt,
+  winningSide,
   onClick,
 }: WagerCardProps) {
   const isOpen = status === "OPEN";
+  const isResolved = status === "RESOLVED";
+  const sideAWon = isResolved && winningSide === "a";
+  const sideBWon = isResolved && winningSide === "b";
   
   // Use deadline countdown hook
   const { status: deadlineStatus } = useDeadlineCountdown(deadline);
@@ -154,15 +159,59 @@ export function WagerCard({
           </p>
         )}
 
-        {/* Sides - Improved visual design */}
+        {/* Sides - Improved visual design with winner indication */}
         <div className="grid grid-cols-2 gap-2 md:gap-3 mb-3 md:mb-4 flex-shrink-0 bg-muted/30 rounded-lg p-2 md:p-2.5">
-          <div className="text-center">
-            <div className="text-[9px] md:text-[10px] text-muted-foreground mb-1 font-medium">Side A</div>
-            <p className="font-bold text-foreground text-xs md:text-sm truncate px-1">{sideA}</p>
+          <div className={`text-center relative rounded-lg p-1.5 md:p-2 transition-all ${
+            sideAWon 
+              ? "bg-green-500/20 border-2 border-green-500 dark:bg-green-500/10" 
+              : sideBWon
+              ? "bg-gray-500/10 border border-border opacity-60"
+              : "border border-transparent"
+          }`}>
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <div className="text-[9px] md:text-[10px] text-muted-foreground font-medium">Side A</div>
+              {sideAWon && (
+                <Trophy className="h-3 w-3 md:h-4 md:w-4 text-green-600 dark:text-green-400" />
+              )}
+            </div>
+            <p className={`font-bold text-xs md:text-sm truncate px-1 ${
+              sideAWon 
+                ? "text-green-700 dark:text-green-400" 
+                : sideBWon
+                ? "text-muted-foreground"
+                : "text-foreground"
+            }`}>{sideA}</p>
+            {sideAWon && (
+              <div className="absolute -top-1 -right-1 bg-green-500 rounded-full p-0.5">
+                <CheckCircle2 className="h-3 w-3 text-white" />
+              </div>
+            )}
           </div>
-          <div className="text-center border-l border-border">
-            <div className="text-[9px] md:text-[10px] text-muted-foreground mb-1 font-medium">Side B</div>
-            <p className="font-bold text-foreground text-xs md:text-sm truncate px-1">{sideB}</p>
+          <div className={`text-center border-l border-border relative rounded-lg p-1.5 md:p-2 transition-all ${
+            sideBWon 
+              ? "bg-green-500/20 border-2 border-green-500 dark:bg-green-500/10 ml-[-1px]" 
+              : sideAWon
+              ? "bg-gray-500/10 border border-border opacity-60"
+              : "border border-transparent"
+          }`}>
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <div className="text-[9px] md:text-[10px] text-muted-foreground font-medium">Side B</div>
+              {sideBWon && (
+                <Trophy className="h-3 w-3 md:h-4 md:w-4 text-green-600 dark:text-green-400" />
+              )}
+            </div>
+            <p className={`font-bold text-xs md:text-sm truncate px-1 ${
+              sideBWon 
+                ? "text-green-700 dark:text-green-400" 
+                : sideAWon
+                ? "text-muted-foreground"
+                : "text-foreground"
+            }`}>{sideB}</p>
+            {sideBWon && (
+              <div className="absolute -top-1 -right-1 bg-green-500 rounded-full p-0.5">
+                <CheckCircle2 className="h-3 w-3 text-white" />
+              </div>
+            )}
           </div>
         </div>
 
