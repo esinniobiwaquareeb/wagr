@@ -90,9 +90,27 @@ export default function WagerDetail() {
   }, [getUser, supabase]);
 
   const fetchWager = useCallback(async (force = false) => {
-    // Check cache first using centralized cache utility
+    // No cache or forced refresh - fetch from API
+    // Support both UUID and short_id
+    const isUUID = wagerId.length === 36 && wagerId.includes('-');
+    const query = isUUID 
+      ? supabase.from("wagers").select("*").eq("id", wagerId)
+      : supabase.from("wagers").select("*").eq("short_id", wagerId);
+    
+    const { data: wagerData, error } = await query
+      .single();
+
+    if (error || !wagerData) {
+      setLoading(false);
+      return;
+    }
+
+    // Use the actual UUID for cache key and entry queries (not short_id)
+    const actualWagerId = wagerData.id;
+    
+    // Check cache first using centralized cache utility (use actual UUID)
     const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
-    const cacheKey = CACHE_KEYS.WAGER(wagerId);
+    const cacheKey = CACHE_KEYS.WAGER(actualWagerId);
     
     if (!force) {
       const cached = cache.get<{ wager: Wager; entries: Entry[]; sideCount: { a: number; b: number } }>(cacheKey);
@@ -137,31 +155,17 @@ export default function WagerDetail() {
       }
     }
 
-    // No cache or forced refresh - fetch from API
-    // Support both UUID and short_id
-    const isUUID = wagerId.length === 36 && wagerId.includes('-');
-    const query = isUUID 
-      ? supabase.from("wagers").select("*").eq("id", wagerId)
-      : supabase.from("wagers").select("*").eq("short_id", wagerId);
-    
-    const { data: wagerData, error } = await query
-      .single();
-
-    if (error || !wagerData) {
-      setLoading(false);
-      return;
-    }
-
     // For private wagers, allow access via direct link (simple sharing)
     // Anyone with the link can access private wagers
     // This enables simple sharing via WhatsApp, etc.
 
     setWager(wagerData);
 
+    // Use actual UUID (not short_id) to fetch entries
     const { data: entriesData } = await supabase
       .from("wager_entries")
       .select("*")
-      .eq("wager_id", wagerId);
+      .eq("wager_id", actualWagerId);
 
     if (entriesData) {
       setEntries(entriesData);
