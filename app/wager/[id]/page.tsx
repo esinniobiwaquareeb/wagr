@@ -8,7 +8,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
-import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Award, Coins, Trash2 } from "lucide-react";
+import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Award, Coins, Trash2, Edit2 } from "lucide-react";
 import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -50,9 +50,19 @@ export default function WagerDetail() {
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedSide, setSelectedSide] = useState<"a" | "b" | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    title: "",
+    description: "",
+    sideA: "",
+    sideB: "",
+    amount: "",
+    deadline: "",
+  });
   const { toast } = useToast();
   
   // A/B Testing
@@ -464,6 +474,187 @@ export default function WagerDetail() {
     }
   };
 
+  const handleEdit = () => {
+    if (!user || !wager) return;
+
+    // Check if user is the creator
+    if (wager.creator_id !== user.id) {
+      toast({
+        title: "Unauthorized",
+        description: "Only the creator can edit this wager.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if wager is still open
+    if (wager.status !== "OPEN") {
+      toast({
+        title: "Cannot edit",
+        description: "Only open wagers can be edited.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if there are entries from other users
+    const otherUserEntries = entries.filter(entry => entry.user_id !== user.id);
+    if (otherUserEntries.length > 0) {
+      toast({
+        title: "Cannot edit",
+        description: "This wager cannot be edited because other users have placed bets on it.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Initialize edit form with current wager data
+    setEditFormData({
+      title: wager.title,
+      description: wager.description || "",
+      sideA: wager.side_a,
+      sideB: wager.side_b,
+      amount: wager.amount.toString(),
+      deadline: wager.deadline ? new Date(wager.deadline).toISOString().slice(0, 16) : "",
+    });
+    setShowEditDialog(true);
+  };
+
+  const confirmEdit = async () => {
+    if (!user || !wager) return;
+
+    setEditing(true);
+
+    try {
+      // Validate form data
+      const trimmedTitle = editFormData.title.trim();
+      if (!trimmedTitle || trimmedTitle.length < 5) {
+        toast({
+          title: "Invalid title",
+          description: "Title must be at least 5 characters.",
+          variant: "destructive",
+        });
+        setEditing(false);
+        return;
+      }
+
+      const trimmedSideA = editFormData.sideA.trim();
+      const trimmedSideB = editFormData.sideB.trim();
+      if (!trimmedSideA || !trimmedSideB || trimmedSideA.length < 2 || trimmedSideB.length < 2) {
+        toast({
+          title: "Invalid sides",
+          description: "Both sides must be at least 2 characters.",
+          variant: "destructive",
+        });
+        setEditing(false);
+        return;
+      }
+
+      const newAmount = parseFloat(editFormData.amount);
+      if (isNaN(newAmount) || newAmount <= 0) {
+        toast({
+          title: "Invalid amount",
+          description: "Amount must be a positive number.",
+          variant: "destructive",
+        });
+        setEditing(false);
+        return;
+      }
+
+      // Handle balance adjustment if entry fee changed
+      const oldAmount = wager.amount;
+      const amountDifference = newAmount - oldAmount;
+
+      if (amountDifference !== 0) {
+        // Check user balance if increasing
+        if (amountDifference > 0) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("balance")
+            .eq("id", user.id)
+            .single();
+
+          if (!profile || profile.balance < amountDifference) {
+            toast({
+              title: "Insufficient balance",
+              description: `You need ${formatCurrency(amountDifference, (wager.currency || DEFAULT_CURRENCY) as Currency)} to increase the entry fee. Your current balance is ${formatCurrency(profile?.balance || 0, (wager.currency || DEFAULT_CURRENCY) as Currency)}.`,
+              variant: "destructive",
+            });
+            setEditing(false);
+            return;
+          }
+
+          // Deduct the difference
+          await supabase.rpc("increment_balance", {
+            user_id: user.id,
+            amt: -amountDifference,
+          });
+
+          // Record transaction
+          await supabase.from("transactions").insert({
+            user_id: user.id,
+            type: "wager_edit",
+            amount: -amountDifference,
+            reference: wagerId,
+            description: `Wager Entry Fee Increased: "${wager.title}" - Entry fee increased from ${formatCurrency(oldAmount, (wager.currency || DEFAULT_CURRENCY) as Currency)} to ${formatCurrency(newAmount, (wager.currency || DEFAULT_CURRENCY) as Currency)}`,
+          });
+        } else {
+          // Refund the difference (amount decreased)
+          await supabase.rpc("increment_balance", {
+            user_id: user.id,
+            amt: Math.abs(amountDifference),
+          });
+
+          // Record transaction
+          await supabase.from("transactions").insert({
+            user_id: user.id,
+            type: "wager_edit",
+            amount: Math.abs(amountDifference),
+            reference: wagerId,
+            description: `Wager Entry Fee Decreased: "${wager.title}" - Entry fee decreased from ${formatCurrency(oldAmount, (wager.currency || DEFAULT_CURRENCY) as Currency)} to ${formatCurrency(newAmount, (wager.currency || DEFAULT_CURRENCY) as Currency)}`,
+          });
+        }
+      }
+
+      // Update the wager
+      const { error } = await supabase
+        .from("wagers")
+        .update({
+          title: trimmedTitle,
+          description: editFormData.description.trim() || null,
+          side_a: trimmedSideA,
+          side_b: trimmedSideB,
+          amount: newAmount,
+          deadline: editFormData.deadline ? new Date(editFormData.deadline).toISOString() : null,
+        })
+        .eq("id", wagerId)
+        .eq("creator_id", user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Wager updated",
+        description: "Your wager has been updated successfully.",
+      });
+
+      // Refresh wager data
+      await fetchWager(true);
+      setShowEditDialog(false);
+    } catch (error) {
+      console.error("Error editing wager:", error);
+      const { extractErrorMessage } = await import('@/lib/error-extractor');
+      const errorMessage = extractErrorMessage(error, "Couldn't update the wager. Please try again.");
+      
+      toast({
+        title: "Couldn't update wager",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setEditing(false);
+    }
+  };
+
   if (loading) {
     return (
       <main className="flex-1 pb-24 md:pb-0">
@@ -531,23 +722,137 @@ export default function WagerDetail() {
         onConfirm={confirmDelete}
       />
 
+      {/* Edit Dialog */}
+      {showEditDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-card border border-border rounded-lg p-4 md:p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl md:text-2xl font-bold mb-4">Edit Wager</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Title *</label>
+                <input
+                  type="text"
+                  value={editFormData.title}
+                  onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  maxLength={200}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Description</label>
+                <textarea
+                  value={editFormData.description}
+                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                  maxLength={1000}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Side A *</label>
+                  <input
+                    type="text"
+                    value={editFormData.sideA}
+                    onChange={(e) => setEditFormData({ ...editFormData, sideA: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    maxLength={100}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Side B *</label>
+                  <input
+                    type="text"
+                    value={editFormData.sideB}
+                    onChange={(e) => setEditFormData({ ...editFormData, sideB: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    maxLength={100}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Entry Amount *</label>
+                <input
+                  type="number"
+                  value={editFormData.amount}
+                  onChange={(e) => setEditFormData({ ...editFormData, amount: e.target.value })}
+                  min="1"
+                  step="0.01"
+                  className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+                {wager && parseFloat(editFormData.amount) !== wager.amount && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {parseFloat(editFormData.amount) > wager.amount
+                      ? `You'll need to add ${formatCurrency(parseFloat(editFormData.amount) - wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)} to your wallet.`
+                      : `You'll receive a refund of ${formatCurrency(wager.amount - parseFloat(editFormData.amount), (wager.currency || DEFAULT_CURRENCY) as Currency)}.`}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Deadline</label>
+                <input
+                  type="datetime-local"
+                  value={editFormData.deadline}
+                  onChange={(e) => setEditFormData({ ...editFormData, deadline: e.target.value })}
+                  min={new Date().toISOString().slice(0, 16)}
+                  className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowEditDialog(false)}
+                disabled={editing}
+                className="flex-1 px-4 py-2 text-sm border border-input rounded-lg hover:bg-muted transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmEdit}
+                disabled={editing}
+                className="flex-1 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition disabled:opacity-50"
+              >
+                {editing ? "Updating..." : "Update Wager"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto p-3 md:p-6">
         {/* Header Section */}
         <div className="mb-4 md:mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 md:gap-3 mb-3 md:mb-4">
             <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
               <h1 className="text-xl md:text-4xl font-bold flex-1 truncate">{wager.title}</h1>
-              {/* Delete Button - Only show for creator when no other users have bet */}
+              {/* Edit and Delete Buttons - Only show for creator when no other users have bet */}
               {user && wager.creator_id === user.id && wager.status === "OPEN" && entries.filter(e => e.user_id !== user.id).length === 0 && (
-                <button
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 transition active:scale-[0.98] touch-manipulation disabled:opacity-50 flex-shrink-0"
-                  title="Delete wager"
-                >
-                  <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                  <span className="text-[10px] md:text-xs font-medium hidden sm:inline">Delete</span>
-                </button>
+                <>
+                  <button
+                    onClick={handleEdit}
+                    disabled={editing}
+                    className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition active:scale-[0.98] touch-manipulation disabled:opacity-50 flex-shrink-0"
+                    title="Edit wager"
+                  >
+                    <Edit2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                    <span className="text-[10px] md:text-xs font-medium hidden sm:inline">Edit</span>
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 transition active:scale-[0.98] touch-manipulation disabled:opacity-50 flex-shrink-0"
+                    title="Delete wager"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                    <span className="text-[10px] md:text-xs font-medium hidden sm:inline">Delete</span>
+                  </button>
+                </>
               )}
               {wager.is_system_generated ? (
                 <div className="flex items-center gap-1 px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 flex-shrink-0">

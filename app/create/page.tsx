@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
-import { DEFAULT_CURRENCY, type Currency, CURRENCY_SYMBOLS } from "@/lib/currency";
+import { DEFAULT_CURRENCY, type Currency, CURRENCY_SYMBOLS, formatCurrency } from "@/lib/currency";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
 import { Globe, Lock, Tag } from "lucide-react";
 
@@ -213,6 +213,33 @@ export default function CreateWager() {
         return;
       }
 
+      // Check user balance before creating wager
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("balance")
+        .eq("id", user.id)
+        .single();
+
+      if (!profile) {
+        toast({
+          title: "Profile not found",
+          description: "Please try again or contact support.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      if (profile.balance < amount) {
+        toast({
+          title: "Insufficient balance",
+          description: `You need ${formatCurrency(amount, formData.currency)} to create this wager. Your current balance is ${formatCurrency(profile.balance, formData.currency)}.`,
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
       // Validate deadline if provided
       if (formData.deadline) {
         const deadlineDate = new Date(formData.deadline);
@@ -239,7 +266,27 @@ export default function CreateWager() {
         return;
       }
 
-      const { error } = await supabase.from("wagers").insert({
+      // Deduct entry fee from creator's balance
+      const { error: balanceError } = await supabase.rpc("increment_balance", {
+        user_id: user.id,
+        amt: -amount,
+      });
+
+      if (balanceError) {
+        throw new Error("Failed to deduct entry fee from your wallet. Please try again.");
+      }
+
+      // Record transaction for entry fee deduction
+      await supabase.from("transactions").insert({
+        user_id: user.id,
+        type: "wager_create",
+        amount: -amount,
+        reference: null, // Will be updated after wager is created
+        description: `Wager Creation Fee: "${trimmedTitle}"`,
+      });
+
+      // Create the wager
+      const { data: newWager, error } = await supabase.from("wagers").insert({
         creator_id: user.id,
         title: trimmedTitle,
         description: formData.description.trim() || null,
@@ -253,9 +300,27 @@ export default function CreateWager() {
         is_public: formData.isPublic,
         category: formData.category || null,
         tags: formData.tags.length > 0 ? formData.tags : [],
-      });
+      }).select().single();
 
-      if (error) throw error;
+      if (error) {
+        // Refund the deducted amount if wager creation fails
+        await supabase.rpc("increment_balance", {
+          user_id: user.id,
+          amt: amount,
+        });
+        throw error;
+      }
+
+      // Update transaction reference with wager ID
+      if (newWager) {
+        await supabase
+          .from("transactions")
+          .update({ reference: newWager.id })
+          .eq("user_id", user.id)
+          .eq("type", "wager_create")
+          .order("created_at", { ascending: false })
+          .limit(1);
+      }
 
       trackABTestEvent(AB_TESTS.CREATE_FORM_LAYOUT, formVariant, 'wager_created', {
         has_deadline: !!formData.deadline,
