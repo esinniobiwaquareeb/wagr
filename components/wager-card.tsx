@@ -86,7 +86,13 @@ export function WagerCard({
 
   // Calculate actual winnings for settled bets
   const calculateActualWinnings = () => {
-    if (!isSettled || userEntryAmount === undefined || !userEntrySide || !winningSide) {
+    // Only calculate if wager is settled and has a winning side
+    if (!isSettled || !winningSide) {
+      return null;
+    }
+
+    // If user didn't participate, return null
+    if (userEntryAmount === undefined || !userEntrySide) {
       return null;
     }
 
@@ -122,7 +128,8 @@ export function WagerCard({
   };
 
   const actualWinnings = calculateActualWinnings();
-  const userWon = isSettled && userEntryAmount && userEntrySide === winningSide;
+  const userWon = isSettled && userEntryAmount !== undefined && userEntrySide === winningSide;
+  const userParticipated = userEntryAmount !== undefined && userEntrySide !== undefined;
 
   // Category icons mapping
   const categoryIcons: Record<string, string> = {
@@ -309,44 +316,42 @@ export function WagerCard({
           </div>
 
           {/* Created date and Potential/Winning */}
-          {createdAt && (
-            <div className="flex items-center justify-between text-[9px] md:text-[10px] text-muted-foreground mt-1">
+          <div className="flex items-center justify-between text-[9px] md:text-[10px] text-muted-foreground mt-1">
+            {createdAt && (
               <div className="flex items-center gap-1.5">
                 <Calendar className="h-3 w-3" />
                 <span>Created {format(new Date(createdAt), "MMM d, yyyy")}</span>
               </div>
-              {isOpen && (
-                <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
-                  <Coins className="h-3 w-3" />
-                  <span className="font-semibold">
-                    Potential Winning: {entriesCount > 0 
-                      ? formatCurrency(Math.max(returns.sideAPotential, returns.sideBPotential), currency as Currency)
-                      : "N/A"
-                    }
-                  </span>
-                </div>
-              )}
-              {isSettled && (
-                <div className={`flex items-center gap-1.5 font-semibold ${
-                  userWon 
-                    ? "text-green-600 dark:text-green-400" 
-                    : userEntryAmount !== undefined
-                    ? "text-muted-foreground"
-                    : "text-muted-foreground"
-                }`}>
-                  <Coins className="h-3 w-3" />
-                  <span>
-                    Winning: {actualWinnings !== null 
-                      ? formatCurrency(actualWinnings, currency as Currency)
-                      : userEntryAmount !== undefined
-                        ? (userWon ? "Calculating..." : "Lost")
-                        : "N/A"
-                    }
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
+            )}
+            {isOpen && (
+              <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                <Coins className="h-3 w-3" />
+                <span className="font-semibold">
+                  Potential Winning: {entriesCount > 0 
+                    ? formatCurrency(Math.max(returns.sideAPotential, returns.sideBPotential), currency as Currency)
+                    : "N/A"
+                  }
+                </span>
+              </div>
+            )}
+            {isSettled && (
+              <div className={`flex items-center gap-1.5 font-semibold ${
+                actualWinnings !== null && actualWinnings > 0
+                  ? "text-green-600 dark:text-green-400" 
+                  : "text-muted-foreground"
+              }`}>
+                <Coins className="h-3 w-3" />
+                <span>
+                  Winning: {actualWinnings !== null
+                    ? (actualWinnings > 0 
+                        ? formatCurrency(actualWinnings, currency as Currency)
+                        : "Lost")
+                    : "N/A"
+                  }
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </Link>

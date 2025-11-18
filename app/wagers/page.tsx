@@ -165,6 +165,36 @@ function WagersPageContent() {
     const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
     const cacheKey = CACHE_KEYS.WAGERS;
     
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    
+    // Always fetch user entries if user is logged in
+    let userEntriesMap = new Map<string, { amount: number; side: string }>();
+    if (currentUser) {
+      const { data: userEntriesData } = await supabase
+        .from("wager_entries")
+        .select("wager_id, amount, side")
+        .eq("user_id", currentUser.id);
+
+      // Store user entries in a map for quick lookup
+      // If user has multiple entries on same wager, sum the amounts
+      userEntriesData?.forEach(entry => {
+        const existing = userEntriesMap.get(entry.wager_id);
+        if (existing) {
+          // Sum amounts if user has multiple entries (shouldn't happen, but handle it)
+          userEntriesMap.set(entry.wager_id, {
+            amount: existing.amount + Number(entry.amount),
+            side: existing.side, // Keep the first side (all entries should be same side)
+          });
+        } else {
+          userEntriesMap.set(entry.wager_id, {
+            amount: Number(entry.amount),
+            side: entry.side,
+          });
+        }
+      });
+      setUserEntries(userEntriesMap);
+    }
+    
     if (!force) {
       const cached = cache.get<WagerWithEntries[]>(cacheKey);
       if (cached) {
@@ -184,29 +214,12 @@ function WagersPageContent() {
       }
     }
 
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
-
     let wagersData: any[] = [];
     let error: any = null;
 
     if (currentUser) {
-      const { data: userEntriesData } = await supabase
-        .from("wager_entries")
-        .select("wager_id, amount, side")
-        .eq("user_id", currentUser.id);
-
-      const joinedWagerIds = userEntriesData?.map(e => e.wager_id) || [];
+      const joinedWagerIds = Array.from(userEntriesMap.keys());
       
-      // Store user entries in a map for quick lookup
-      const userEntriesMap = new Map<string, { amount: number; side: string }>();
-      userEntriesData?.forEach(entry => {
-        userEntriesMap.set(entry.wager_id, {
-          amount: Number(entry.amount),
-          side: entry.side,
-        });
-      });
-      setUserEntries(userEntriesMap);
-
       const { data: publicWagers, error: publicError } = await supabase
         .from("wagers")
         .select("*, created_at")
