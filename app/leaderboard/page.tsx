@@ -39,18 +39,12 @@ export default function Leaderboard() {
           .from("wager_entries")
           .select("user_id, wager_id, side, amount");
 
-        // Fetch resolved wagers to calculate wins
+        // Fetch resolved wagers with fee percentage to calculate winnings
         const { data: resolvedWagers } = await supabase
           .from("wagers")
-          .select("id, status, winning_side")
+          .select("id, status, winning_side, fee_percentage")
           .eq("status", "RESOLVED")
           .not("winning_side", "is", null);
-
-        // Fetch wager win transactions to calculate total winnings
-        const { data: winTransactions } = await supabase
-          .from("transactions")
-          .select("user_id, amount")
-          .eq("type", "wager_win");
 
         // Calculate stats for each user
         const userStats = new Map<string, {
@@ -71,37 +65,46 @@ export default function Leaderboard() {
           });
         }
 
-        // Calculate wins and winnings
+        // Calculate wins and winnings from resolved wagers
         if (resolvedWagers && wagerEntries) {
-          const resolvedWagerIds = new Set(resolvedWagers.map(w => w.id));
-          resolvedWagers.forEach((wager) => {
+          resolvedWagers.forEach((wager: any) => {
             const winningSide = wager.winning_side?.toLowerCase() === "a" ? "a" : "b";
-            wagerEntries
-              .filter((entry: any) => 
-                entry.wager_id === wager.id && 
-                entry.side === winningSide &&
-                resolvedWagerIds.has(entry.wager_id)
-              )
-              .forEach((entry: any) => {
+            const feePercentage = Number(wager.fee_percentage) || 0.05;
+            
+            // Get all entries for this wager
+            const allWagerEntries = wagerEntries.filter((e: any) => e.wager_id === wager.id);
+            
+            // Skip if no entries
+            if (allWagerEntries.length === 0) return;
+            
+            // Calculate total pool
+            const totalPool = allWagerEntries.reduce((sum: number, e: any) => sum + Number(e.amount || 0), 0);
+            
+            // Calculate platform fee and winnings pool
+            const platformFee = totalPool * feePercentage;
+            const winningsPool = totalPool - platformFee;
+            
+            // Get winning side entries
+            const winningEntries = allWagerEntries.filter((e: any) => e.side === winningSide);
+            const winningSideTotal = winningEntries.reduce((sum: number, e: any) => sum + Number(e.amount || 0), 0);
+            
+            // Calculate winnings for each winner (same formula as settlement function)
+            if (winningSideTotal > 0 && winningsPool > 0) {
+              winningEntries.forEach((entry: any) => {
                 const userId = entry.user_id;
-                if (userStats.has(userId)) {
-                  userStats.get(userId)!.wins += 1;
+                const entryAmount = Number(entry.amount || 0);
+                
+                // Initialize user stats if not exists
+                if (!userStats.has(userId)) {
+                  userStats.set(userId, { total_wagers: 0, wins: 0, total_winnings: 0 });
                 }
-              });
-          });
-        }
-
-        // Calculate total winnings from transactions
-        if (winTransactions) {
-          winTransactions.forEach((transaction: any) => {
-            const userId = transaction.user_id;
-            if (userStats.has(userId)) {
-              userStats.get(userId)!.total_winnings += Number(transaction.amount) || 0;
-            } else {
-              userStats.set(userId, {
-                total_wagers: 0,
-                wins: 0,
-                total_winnings: Number(transaction.amount) || 0,
+                
+                const stats = userStats.get(userId)!;
+                stats.wins += 1;
+                
+                // Calculate proportional winnings: (entryAmount / winningSideTotal) * winningsPool
+                const userWinnings = (entryAmount / winningSideTotal) * winningsPool;
+                stats.total_winnings += userWinnings;
               });
             }
           });
@@ -288,53 +291,107 @@ export default function Leaderboard() {
             {users.map((user) => (
               <div
                 key={user.id}
-                className={`bg-card border border-border rounded-lg p-2.5 md:p-5 transition hover:border-primary active:scale-[0.99] touch-manipulation ${
+                className={`bg-card border border-border rounded-lg p-2.5 md:p-4 transition hover:border-primary active:scale-[0.99] touch-manipulation ${
                   user.rank <= 3 ? "ring-2 ring-primary/20" : ""
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
-                    <div className="flex-shrink-0 w-6 md:w-12 flex items-center justify-center">
+                {/* Mobile Layout */}
+                <div className="md:hidden">
+                  <div className="flex items-center gap-2 flex-1 min-w-0 mb-2">
+                    <div className="flex-shrink-0 w-6 flex items-center justify-center">
                       {getRankIcon(user.rank)}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-sm md:text-lg truncate mb-1 md:mb-2">
-                        {user.username}
-                      </h3>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 text-[10px] md:text-sm">
-                        <div className="flex items-center gap-1 md:gap-2">
-                          <Trophy className="h-3 w-3 md:h-4 md:w-4 text-yellow-500" />
-                          <div>
-                            <div className="text-muted-foreground">Wins</div>
-                            <div className="font-bold text-foreground">{user.wins}</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 md:gap-2">
-                          <Target className="h-3 w-3 md:h-4 md:w-4 text-primary" />
-                          <div>
-                            <div className="text-muted-foreground">Win Rate</div>
-                            <div className="font-bold text-foreground">
-                              {user.total_wagers > 0 ? `${user.win_rate.toFixed(1)}%` : "0%"}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 md:gap-2">
-                          <Zap className="h-3 w-3 md:h-4 md:w-4 text-green-500" />
-                          <div>
-                            <div className="text-muted-foreground">Winnings</div>
-                            <div className="font-bold text-green-600 dark:text-green-400">
-                              {formatCurrency(user.total_winnings, DEFAULT_CURRENCY as Currency)}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 md:gap-2">
-                          <Users className="h-3 w-3 md:h-4 md:w-4 text-blue-500" />
-                          <div>
-                            <div className="text-muted-foreground">Total Wagers</div>
-                            <div className="font-bold text-foreground">{user.total_wagers}</div>
-                          </div>
+                    <h3 className="font-semibold text-sm truncate">
+                      {user.username}
+                    </h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[10px]">
+                    <div className="flex items-center gap-1">
+                      <Trophy className="h-3 w-3 text-yellow-500" />
+                      <div>
+                        <div className="text-muted-foreground">Wins</div>
+                        <div className="font-bold text-foreground">{user.wins}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Target className="h-3 w-3 text-primary" />
+                      <div>
+                        <div className="text-muted-foreground">Win Rate</div>
+                        <div className="font-bold text-foreground">
+                          {user.total_wagers > 0 ? `${user.win_rate.toFixed(1)}%` : "0%"}
                         </div>
                       </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Zap className="h-3 w-3 text-green-500" />
+                      <div>
+                        <div className="text-muted-foreground">Winnings</div>
+                        <div className="font-bold text-green-600 dark:text-green-400 text-xs">
+                          {formatCurrency(user.total_winnings, DEFAULT_CURRENCY as Currency)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Users className="h-3 w-3 text-blue-500" />
+                      <div>
+                        <div className="text-muted-foreground">Total Wagers</div>
+                        <div className="font-bold text-foreground">{user.total_wagers}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Desktop Layout - Single Line */}
+                <div className="hidden md:flex items-center gap-4 lg:gap-6">
+                  {/* Rank Icon */}
+                  <div className="flex-shrink-0 w-12 flex items-center justify-center">
+                    {getRankIcon(user.rank)}
+                  </div>
+                  
+                  {/* Username */}
+                  <div className="flex-shrink-0 w-48 lg:w-64">
+                    <h3 className="font-semibold text-base lg:text-lg truncate">
+                      {user.username}
+                    </h3>
+                  </div>
+                  
+                  {/* Wins */}
+                  <div className="flex items-center gap-2 flex-shrink-0 w-24">
+                    <Trophy className="h-4 w-4 text-yellow-500" />
+                    <div>
+                      <div className="text-xs text-muted-foreground">Wins</div>
+                      <div className="font-bold text-foreground">{user.wins}</div>
+                    </div>
+                  </div>
+                  
+                  {/* Win Rate */}
+                  <div className="flex items-center gap-2 flex-shrink-0 w-28">
+                    <Target className="h-4 w-4 text-primary" />
+                    <div>
+                      <div className="text-xs text-muted-foreground">Win Rate</div>
+                      <div className="font-bold text-foreground">
+                        {user.total_wagers > 0 ? `${user.win_rate.toFixed(1)}%` : "0%"}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Winnings */}
+                  <div className="flex items-center gap-2 flex-shrink-0 w-32 lg:w-40">
+                    <Zap className="h-4 w-4 text-green-500" />
+                    <div>
+                      <div className="text-xs text-muted-foreground">Winnings</div>
+                      <div className="font-bold text-green-600 dark:text-green-400 text-sm">
+                        {formatCurrency(user.total_winnings, DEFAULT_CURRENCY as Currency)}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Total Wagers */}
+                  <div className="flex items-center gap-2 flex-shrink-0 w-28">
+                    <Users className="h-4 w-4 text-blue-500" />
+                    <div>
+                      <div className="text-xs text-muted-foreground">Wagers</div>
+                      <div className="font-bold text-foreground">{user.total_wagers}</div>
                     </div>
                   </div>
                 </div>
