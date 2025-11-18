@@ -227,27 +227,18 @@ export function MobileNav() {
         </Link>
 
         {user ? (
-          <>
-            <Link
-              href="/profile"
-              className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
-                isActive("/profile")
-                  ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              title="Profile"
-            >
-              <User className={`h-6 w-6 transition-transform ${isActive("/profile") ? "scale-110" : ""}`} />
-              <span className="text-[10px] mt-0.5 font-medium">{isActive("/profile") ? "Profile" : ""}</span>
-            </Link>
-            <button
-              onClick={() => setShowLogoutDialog(true)}
-              className="flex flex-col items-center justify-center flex-1 py-2 rounded-lg text-muted-foreground hover:text-destructive transition-all duration-200"
-              title="Logout"
-            >
-              <LogOut className="h-6 w-6" />
-            </button>
-          </>
+          <Link
+            href="/profile"
+            className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
+              isActive("/profile")
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            title="Profile"
+          >
+            <User className={`h-6 w-6 transition-transform ${isActive("/profile") ? "scale-110" : ""}`} />
+            <span className="text-[10px] mt-0.5 font-medium">{isActive("/profile") ? "Profile" : ""}</span>
+          </Link>
         ) : (
           <button
             onClick={() => setShowAuthModal(true)}
