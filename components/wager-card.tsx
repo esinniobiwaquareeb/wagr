@@ -272,11 +272,14 @@ export function WagerCard({
                 <Calendar className="h-3 w-3" />
                 <span>Created {format(new Date(createdAt), "MMM d, yyyy")}</span>
               </div>
-              {isOpen && entriesCount > 0 && (
+              {isOpen && (
                 <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
                   <Coins className="h-3 w-3" />
                   <span className="font-semibold">
-                    Potential Winning: {formatCurrency(Math.max(returns.sideAPotential, returns.sideBPotential), currency as Currency)}
+                    Potential Winning: {entriesCount > 0 
+                      ? formatCurrency(Math.max(returns.sideAPotential, returns.sideBPotential), currency as Currency)
+                      : "N/A"
+                    }
                   </span>
                 </div>
               )}
