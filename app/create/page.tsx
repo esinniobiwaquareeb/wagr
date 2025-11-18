@@ -415,7 +415,7 @@ export default function CreateWager() {
       
       // Small delay to ensure database is updated, then redirect
       setTimeout(() => {
-        router.push("/wagers?login=true");
+        router.push("/wagers");
         router.refresh(); // Force refresh to show new wager
       }, 100);
     } catch (error) {

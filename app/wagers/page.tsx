@@ -358,7 +358,7 @@ function WagersPageContent() {
   }, [supabase]);
 
   useEffect(() => {
-    const shouldShowLogin = searchParams.get('login') === 'true';
+    const shouldShowLogin = searchParams.get('login') === 'true' && !user;
     if (!user && shouldShowLogin) {
       setShowAuthModal(true);
       router.replace('/wagers', { scroll: false });
