@@ -83,5 +83,6 @@ export const AB_TESTS = {
   NAVIGATION_STYLE: 'navigation_style',
   CREATE_FORM_LAYOUT: 'create_form_layout',
   BUTTON_STYLE: 'button_style',
+  WAGERS_PAGE_LAYOUT: 'wagers_page_layout', // A: Tabs with horizontal scroll, B: Vertical grid with filters
 } as const;
 

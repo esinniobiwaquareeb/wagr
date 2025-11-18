@@ -5,11 +5,11 @@ import { createClient } from "@/lib/supabase/client";
 import { WagerCard } from "@/components/wager-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
-import { Home as HomeIcon, Plus } from "lucide-react";
+import { Home as HomeIcon, Plus, Search, Sparkles, Users, X } from "lucide-react";
 import Link from "next/link";
 import { AuthModal } from "@/components/auth-modal";
 import { useRouter, useSearchParams } from "next/navigation";
-
+import { useAuth } from "@/hooks/use-auth";
 
 interface Wager {
   id: string;
@@ -32,68 +32,85 @@ interface WagerWithEntries extends Wager {
   entries_count: number;
   side_a_count?: number;
   side_b_count?: number;
-  side_a_total?: number; // Total amount wagered on side A
-  side_b_total?: number; // Total amount wagered on side B
+  side_a_total?: number;
+  side_b_total?: number;
 }
+
+type TabType = 'system' | 'user';
 
 function WagersPageContent() {
   const [wagers, setWagers] = useState<WagerWithEntries[]>([]);
   const [allWagers, setAllWagers] = useState<WagerWithEntries[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [userPreferences, setUserPreferences] = useState<string[]>([]);
-  const [user, setUser] = useState<any>(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabType>('system');
+  const [searchQuery, setSearchQuery] = useState("");
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const supabase = useMemo(() => createClient(), []);
+  const { user, loading: authLoading, supabase } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // Cache entry counts to avoid N+1 queries
-  const entryCountsCache = useMemo(() => new Map<string, number>(), []);
-  
-  // A/B Testing
-  const layoutVariant = useMemo(() => getVariant(AB_TESTS.HOME_LAYOUT), []);
+  // A/B Testing - Layout variant
+  const layoutVariant = useMemo(() => getVariant(AB_TESTS.WAGERS_PAGE_LAYOUT), []);
+
+  // Separate wagers by type
+  const systemWagers = useMemo(() => 
+    allWagers.filter(w => w.is_system_generated === true),
+    [allWagers]
+  );
+
+  const userWagers = useMemo(() => 
+    allWagers.filter(w => w.is_system_generated !== true),
+    [allWagers]
+  );
+
+  // Filter wagers based on active tab and search
+  const filteredWagers = useMemo(() => {
+    const tabWagers = activeTab === 'system' ? systemWagers : userWagers;
+    
+    if (!searchQuery.trim()) {
+      return tabWagers;
+    }
+
+    const query = searchQuery.toLowerCase().trim();
+    return tabWagers.filter(wager => 
+      wager.title.toLowerCase().includes(query) ||
+      wager.description?.toLowerCase().includes(query) ||
+      wager.side_a.toLowerCase().includes(query) ||
+      wager.side_b.toLowerCase().includes(query) ||
+      wager.category?.toLowerCase().includes(query) ||
+      wager.tags?.some(tag => tag.toLowerCase().includes(query))
+    );
+  }, [activeTab, systemWagers, userWagers, searchQuery]);
 
   const fetchWagers = useCallback(async (force = false) => {
-    // Check cache first using centralized cache utility
     const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
     const cacheKey = CACHE_KEYS.WAGERS;
     
     if (!force) {
-      // Check if we have fresh cached data
       const cached = cache.get<WagerWithEntries[]>(cacheKey);
       if (cached) {
         setAllWagers(cached);
         setLoading(false);
         
-        // Check if cache is stale (older than half TTL) - if so, refresh in background
         const cacheEntry = (cache as any).memoryCache.get(cacheKey);
         if (cacheEntry) {
           const age = Date.now() - cacheEntry.timestamp;
-          const staleThreshold = CACHE_TTL.WAGERS / 2; // Consider stale after half TTL
+          const staleThreshold = CACHE_TTL.WAGERS / 2;
           
           if (age > staleThreshold) {
-            // Cache is getting stale, refresh in background (don't block UI)
-            fetchWagers(true).catch(() => {
-              // Ignore errors in background refresh
-            });
+            fetchWagers(true).catch(() => {});
           }
         }
-        return; // Don't fetch if we have fresh cache
+        return;
       }
     }
 
-    // Get current user
     const { data: { user: currentUser } } = await supabase.auth.getUser();
 
-    // No cache or forced refresh - fetch from API
-    // Fetch public wagers and private wagers where user is creator or has joined
     let wagersData: any[] = [];
     let error: any = null;
 
     if (currentUser) {
-      // Get private wagers where user has an entry (joined/subscribed)
       const { data: userEntries } = await supabase
         .from("wager_entries")
         .select("wager_id")
@@ -101,13 +118,12 @@ function WagersPageContent() {
 
       const joinedWagerIds = userEntries?.map(e => e.wager_id) || [];
 
-      // Fetch public wagers
       const { data: publicWagers, error: publicError } = await supabase
         .from("wagers")
         .select("*")
         .eq("is_public", true)
         .order("created_at", { ascending: false })
-        .limit(100);
+        .limit(200);
 
       if (publicError) {
         error = publicError;
@@ -115,7 +131,6 @@ function WagersPageContent() {
         wagersData = [...publicWagers];
       }
 
-      // Fetch private wagers where user is creator
       const { data: createdWagers, error: createdError } = await supabase
         .from("wagers")
         .select("*")
@@ -127,7 +142,6 @@ function WagersPageContent() {
       if (!error && createdError) {
         error = createdError;
       } else if (createdWagers) {
-        // Merge and deduplicate
         const existingIds = new Set(wagersData.map(w => w.id));
         createdWagers.forEach(w => {
           if (!existingIds.has(w.id)) {
@@ -137,7 +151,6 @@ function WagersPageContent() {
         });
       }
 
-      // Fetch private wagers where user has joined
       if (joinedWagerIds.length > 0) {
         const { data: joinedWagers, error: joinedError } = await supabase
           .from("wagers")
@@ -150,7 +163,6 @@ function WagersPageContent() {
         if (!error && joinedError) {
           error = joinedError;
         } else if (joinedWagers) {
-          // Merge and deduplicate
           const existingIds = new Set(wagersData.map(w => w.id));
           joinedWagers.forEach(w => {
             if (!existingIds.has(w.id)) {
@@ -161,16 +173,14 @@ function WagersPageContent() {
         }
       }
 
-      // Sort by created_at descending
       wagersData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     } else {
-      // Unauthenticated users only see public wagers
       const { data: publicWagers, error: publicError } = await supabase
         .from("wagers")
         .select("*")
         .eq("is_public", true)
         .order("created_at", { ascending: false })
-        .limit(100);
+        .limit(200);
 
       if (publicError) {
         error = publicError;
@@ -186,33 +196,22 @@ function WagersPageContent() {
     }
 
     if (wagersData) {
-      // Fetch all entry counts in a single optimized query
       const wagerIds = wagersData.map(w => w.id);
       if (wagerIds.length > 0) {
-        const { data: entriesData } = await supabase
-          .from("wager_entries")
-          .select("wager_id")
-          .in("wager_id", wagerIds);
-
-        // Count entries per wager and per side
-        const counts = new Map<string, number>();
-        const sideACounts = new Map<string, number>();
-        const sideBCounts = new Map<string, number>();
-        
-        entriesData?.forEach(entry => {
-          counts.set(entry.wager_id, (counts.get(entry.wager_id) || 0) + 1);
-        });
-
-        // Fetch side counts and amounts
         const { data: allEntriesData } = await supabase
           .from("wager_entries")
           .select("wager_id, side, amount")
           .in("wager_id", wagerIds);
 
+        const counts = new Map<string, number>();
+        const sideACounts = new Map<string, number>();
+        const sideBCounts = new Map<string, number>();
         const sideATotals = new Map<string, number>();
         const sideBTotals = new Map<string, number>();
 
         allEntriesData?.forEach(entry => {
+          counts.set(entry.wager_id, (counts.get(entry.wager_id) || 0) + 1);
+          
           if (entry.side === "a") {
             sideACounts.set(entry.wager_id, (sideACounts.get(entry.wager_id) || 0) + 1);
             sideATotals.set(entry.wager_id, (sideATotals.get(entry.wager_id) || 0) + Number(entry.amount));
@@ -233,112 +232,26 @@ function WagersPageContent() {
         
         setAllWagers(wagersWithCounts);
         
-        // Cache the results using centralized cache utility
         const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
         cache.set(CACHE_KEYS.WAGERS, wagersWithCounts, CACHE_TTL.WAGERS);
-        
-        // Update cache
-        counts.forEach((count, id) => entryCountsCache.set(id, count));
       } else {
         setAllWagers([]);
       }
     }
     setLoading(false);
-  }, [supabase, entryCountsCache]);
-
-  // Check if user is authenticated
-  useEffect(() => {
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      setCheckingAuth(false);
-      
-      // Only show login modal if redirected from a protected page (indicated by ?login=true)
-      const shouldShowLogin = searchParams.get('login') === 'true';
-      if (!user && shouldShowLogin) {
-        setShowAuthModal(true);
-        // Clean up the URL parameter
-        router.replace('/wagers', { scroll: false });
-      }
-    };
-    checkUser();
-  }, [supabase, searchParams, router]);
-
-  // Fetch user preferences
-  useEffect(() => {
-    if (!user) return;
-    
-    const fetchPreferences = async () => {
-      const { data } = await supabase
-        .from("user_preferences")
-        .select("preferred_categories")
-        .eq("user_id", user.id)
-        .single();
-
-      if (data?.preferred_categories) {
-        setUserPreferences(data.preferred_categories);
-      }
-    };
-
-    fetchPreferences();
-  }, [supabase, user]);
-
-  const [tagPreferences, setTagPreferences] = useState<string[]>([]);
-
-  // Fetch user tag preferences
-  useEffect(() => {
-    const fetchTagPreferences = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setTagPreferences([]);
-        return;
-      }
-
-      const { data } = await supabase
-        .from("user_preferences")
-        .select("preferred_tags")
-        .eq("user_id", user.id)
-        .single();
-
-      if (data?.preferred_tags) {
-        setTagPreferences(data.preferred_tags);
-      } else {
-        setTagPreferences([]);
-      }
-    };
-
-    fetchTagPreferences();
   }, [supabase]);
 
-  // Filter wagers based on category, preferences, and tags
   useEffect(() => {
-    let filtered = [...allWagers];
-
-    // Filter by selected category (explicit selection takes priority)
-    if (selectedCategory) {
-      filtered = filtered.filter(w => w.category === selectedCategory);
+    const shouldShowLogin = searchParams.get('login') === 'true';
+    if (!user && shouldShowLogin) {
+      setShowAuthModal(true);
+      router.replace('/wagers', { scroll: false });
     }
-    // Note: User preferences are not used as filters - they're just for sorting/display
-    // All public wagers should be visible unless a category is explicitly selected
-
-    // Filter by tags if user has tag preferences
-    // Only filter if wager has tags - wagers without tags should always show
-    if (tagPreferences.length > 0) {
-      filtered = filtered.filter(w => {
-        // If wager has no tags, always show it
-        if (!w.tags || w.tags.length === 0) return true;
-        // If wager has tags, only show if at least one tag matches preferences
-        return w.tags.some(tag => tagPreferences.includes(tag));
-      });
-    }
-
-    setWagers(filtered);
-  }, [allWagers, selectedCategory, userPreferences, tagPreferences]);
+  }, [user, searchParams, router]);
 
   useEffect(() => {
     fetchWagers();
 
-    // Subscribe to real-time updates for wagers
     const wagersChannel = supabase
       .channel("wagers-list")
       .on(
@@ -347,23 +260,19 @@ function WagersPageContent() {
           event: "*", 
           schema: "public", 
           table: "wagers",
-          filter: "is_public=eq.true" // Only listen to public wagers
+          filter: "is_public=eq.true"
         },
-        (payload) => {
-          // Clear cache when wagers change to ensure fresh data
+        () => {
           if (typeof window !== 'undefined') {
             try {
               sessionStorage.removeItem('wagers_cache');
-            } catch (e) {
-              // Ignore
-            }
+            } catch (e) {}
           }
           fetchWagers();
         }
       )
       .subscribe();
 
-    // Subscribe to real-time updates for wager entries (to update counts)
     const entriesChannel = supabase
       .channel("wager-entries-list")
       .on(
@@ -381,33 +290,24 @@ function WagersPageContent() {
     };
   }, [fetchWagers, supabase]);
 
-  return (
-    <main className="flex-1 pb-24 md:pb-0">
-      <div className="max-w-6xl mx-auto p-3 md:p-6">
-        <div className="mb-4 md:mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 md:gap-4">
-            <div>
-              <h1 className="text-xl md:text-4xl font-bold mb-1 md:mb-2">Wagers</h1>
-              <p className="text-xs md:text-base text-muted-foreground">
-                Join and create wagers. Pick a side and win!
-              </p>
-            </div>
-            {user && (
-              <Link
-                href="/create"
-                className="hidden md:flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 md:px-6 md:py-3 rounded-lg font-medium hover:opacity-90 transition active:scale-[0.98] touch-manipulation whitespace-nowrap"
-              >
-                <Plus className="h-5 w-5" />
-                <span>Create Wager</span>
-              </Link>
-            )}
-          </div>
-        </div>
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'tab_switched', { tab });
+  };
 
-        {loading ? (
-          <div className="grid gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-card border border-border rounded-lg p-4">
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'search_performed', { query_length: query.length });
+  };
+
+  // Render horizontal scrollable section
+  const renderHorizontalSection = (wagersList: WagerWithEntries[], title: string, emptyMessage: string) => {
+    if (loading) {
+      return (
+        <div className="flex gap-3 md:gap-4 overflow-x-auto pb-4 scrollbar-hide">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="flex-shrink-0 w-[280px] md:w-[320px]">
+              <div className="bg-card border border-border rounded-lg p-4">
                 <Skeleton className="h-6 w-3/4 mb-2" />
                 <Skeleton className="h-4 w-full mb-3" />
                 <Skeleton className="h-4 w-2/3 mb-4" />
@@ -416,50 +316,248 @@ function WagersPageContent() {
                   <Skeleton className="h-4 w-24" />
                 </div>
               </div>
-            ))}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (wagersList.length === 0) {
+      return (
+        <div className="text-center py-12 bg-card border border-border rounded-lg">
+          <div className="max-w-md mx-auto">
+            <div className="h-12 w-12 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+              <HomeIcon className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <h3 className="text-base font-semibold mb-2">{emptyMessage}</h3>
+            <p className="text-sm text-muted-foreground">Check back later for new wagers!</p>
           </div>
-        ) : wagers.length === 0 ? (
-          <div className="text-center py-16 bg-card border border-border rounded-lg">
-            <div className="max-w-md mx-auto">
-              <div className="h-16 w-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-                <HomeIcon className="h-8 w-8 text-muted-foreground" />
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex gap-3 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
+        {wagersList.map((wager) => (
+          <div key={wager.id} className="flex-shrink-0 w-[280px] md:w-[320px] snap-start">
+            <WagerCard
+              id={wager.id}
+              title={wager.title}
+              description={wager.description || ""}
+              sideA={wager.side_a}
+              sideB={wager.side_b}
+              amount={wager.amount}
+              status={wager.status}
+              entriesCount={wager.entries_count}
+              deadline={wager.deadline}
+              currency={wager.currency}
+              category={wager.category}
+              sideACount={wager.side_a_count || 0}
+              sideBCount={wager.side_b_count || 0}
+              sideATotal={wager.side_a_total || 0}
+              sideBTotal={wager.side_b_total || 0}
+              feePercentage={wager.fee_percentage || 0.01}
+              isSystemGenerated={wager.is_system_generated || false}
+              onClick={() => trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'wager_clicked', { wager_id: wager.id, tab: activeTab })}
+            />
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Variant B: Vertical grid layout (fallback)
+  const renderVerticalGrid = () => {
+    if (loading) {
+      return (
+        <div className="grid gap-3 md:gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="bg-card border border-border rounded-lg p-4">
+              <Skeleton className="h-6 w-3/4 mb-2" />
+              <Skeleton className="h-4 w-full mb-3" />
+              <Skeleton className="h-4 w-2/3 mb-4" />
+              <div className="flex justify-between">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-24" />
               </div>
-              <h3 className="text-lg font-semibold mb-2">No wagers available</h3>
-              <p className="text-sm text-muted-foreground mb-4">Be the first to create a wager!</p>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (filteredWagers.length === 0) {
+      return (
+        <div className="text-center py-16 bg-card border border-border rounded-lg">
+          <div className="max-w-md mx-auto">
+            <div className="h-16 w-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+              <HomeIcon className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">No wagers found</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              {searchQuery ? "Try a different search term" : "Be the first to create a wager!"}
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid gap-3 md:gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {filteredWagers.map((wager) => (
+          <WagerCard
+            key={wager.id}
+            id={wager.id}
+            title={wager.title}
+            description={wager.description || ""}
+            sideA={wager.side_a}
+            sideB={wager.side_b}
+            amount={wager.amount}
+            status={wager.status}
+            entriesCount={wager.entries_count}
+            deadline={wager.deadline}
+            currency={wager.currency}
+            category={wager.category}
+            sideACount={wager.side_a_count || 0}
+            sideBCount={wager.side_b_count || 0}
+            sideATotal={wager.side_a_total || 0}
+            sideBTotal={wager.side_b_total || 0}
+            feePercentage={wager.fee_percentage || 0.01}
+            isSystemGenerated={wager.is_system_generated || false}
+            onClick={() => trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'wager_clicked', { wager_id: wager.id, tab: activeTab })}
+          />
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <main className="flex-1 pb-24 md:pb-0">
+      <div className="max-w-7xl mx-auto p-3 md:p-6">
+        {/* Header */}
+        <div className="mb-6 md:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <div>
+              <h1 className="text-2xl md:text-4xl font-bold mb-2">Discover Wagers</h1>
+              <p className="text-sm md:text-base text-muted-foreground">
+                Join exciting wagers or create your own
+              </p>
+            </div>
+            {user && (
+              <Link
+                href="/create"
+                className="flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 md:px-6 md:py-3 rounded-lg font-medium hover:opacity-90 transition active:scale-[0.98] touch-manipulation whitespace-nowrap shadow-lg hover:shadow-xl"
+                onClick={() => trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'create_button_clicked')}
+              >
+                <Plus className="h-5 w-5" />
+                <span>Create Wager</span>
+              </Link>
+            )}
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="mb-6">
+          <div className="flex gap-2 border-b border-border mb-4">
+            <button
+              onClick={() => handleTabChange('system')}
+              className={`flex items-center gap-2 px-4 py-3 font-medium transition-all relative ${
+                activeTab === 'system'
+                  ? 'text-primary border-b-2 border-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Sparkles className="h-4 w-4" />
+              <span>System Wagers</span>
+              <span className="ml-1 px-2 py-0.5 text-xs bg-muted rounded-full">
+                {systemWagers.length}
+              </span>
+            </button>
+            <button
+              onClick={() => handleTabChange('user')}
+              className={`flex items-center gap-2 px-4 py-3 font-medium transition-all relative ${
+                activeTab === 'user'
+                  ? 'text-primary border-b-2 border-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Users className="h-4 w-4" />
+              <span>User Wagers</span>
+              <span className="ml-1 px-2 py-0.5 text-xs bg-muted rounded-full">
+                {userWagers.length}
+              </span>
+            </button>
+          </div>
+
+          {/* Enhanced Search Bar */}
+          <div className="relative group">
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-primary/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+            <div className="relative bg-card/50 backdrop-blur-sm border border-border rounded-xl p-1 shadow-sm hover:shadow-md transition-all">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Search wagers by title, description, category, or tags..."
+                    value={searchQuery}
+                    onChange={(e) => handleSearch(e.target.value)}
+                    className="w-full pl-10 pr-10 py-2.5 md:py-3 bg-transparent border-0 focus:outline-none focus:ring-0 text-sm md:text-base placeholder:text-muted-foreground/60"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => handleSearch("")}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1.5 hover:bg-muted rounded-lg transition-colors"
+                      aria-label="Clear search"
+                    >
+                      <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                    </button>
+                  )}
+                </div>
+                {searchQuery && (
+                  <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 rounded-lg">
+                    {filteredWagers.length} {filteredWagers.length === 1 ? 'result' : 'results'}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
+        </div>
+
+        {/* Variant A: Tabs with Horizontal Scroll */}
+        {layoutVariant === 'A' ? (
+          <>
+            {/* Horizontal Scrollable Sections */}
+            {activeTab === 'system' ? (
+              <div>
+                <h2 className="text-lg md:text-xl font-semibold mb-4 flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  System Generated Wagers
+                </h2>
+                {renderHorizontalSection(
+                  filteredWagers,
+                  "System Wagers",
+                  "No system wagers available at the moment"
+                )}
+              </div>
+            ) : (
+              <div>
+                <h2 className="text-lg md:text-xl font-semibold mb-4 flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  Community Wagers
+                </h2>
+                {renderHorizontalSection(
+                  filteredWagers,
+                  "User Wagers",
+                  "No user-created wagers yet. Be the first to create one!"
+                )}
+              </div>
+            )}
+          </>
         ) : (
-          <div 
-            className={`grid gap-3 md:gap-4 ${
-              layoutVariant === 'A' 
-                ? 'sm:grid-cols-2 lg:grid-cols-3' 
-                : 'sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
-            }`}
-          >
-            {wagers.map((wager) => (
-              <WagerCard
-                key={wager.id}
-                id={wager.id}
-                title={wager.title}
-                description={wager.description || ""}
-                sideA={wager.side_a}
-                sideB={wager.side_b}
-                amount={wager.amount}
-                status={wager.status}
-                entriesCount={wager.entries_count}
-                deadline={wager.deadline}
-                currency={wager.currency}
-                category={wager.category}
-                sideACount={wager.side_a_count || 0}
-                sideBCount={wager.side_b_count || 0}
-                sideATotal={wager.side_a_total || 0}
-                sideBTotal={wager.side_b_total || 0}
-                feePercentage={wager.fee_percentage || 0.01}
-                isSystemGenerated={wager.is_system_generated || false}
-                onClick={() => trackABTestEvent(AB_TESTS.HOME_LAYOUT, layoutVariant, 'wager_clicked', { wager_id: wager.id })}
-              />
-            ))}
-          </div>
+          /* Variant B: Vertical Grid */
+          <>
+            {renderVerticalGrid()}
+          </>
         )}
       </div>
       
@@ -478,8 +576,8 @@ export default function WagersPage() {
   return (
     <Suspense fallback={
       <main className="flex-1 pb-24 md:pb-0">
-        <div className="max-w-6xl mx-auto p-3 md:p-6">
-          <div className="grid gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="max-w-7xl mx-auto p-3 md:p-6">
+          <div className="grid gap-3 md:gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[...Array(6)].map((_, i) => (
               <div key={i} className="bg-card border border-border rounded-lg p-4">
                 <Skeleton className="h-6 w-3/4 mb-2" />
@@ -499,4 +597,3 @@ export default function WagersPage() {
     </Suspense>
   );
 }
-
