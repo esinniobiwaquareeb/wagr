@@ -69,18 +69,16 @@ function WagersPageContent() {
     return new Date(wager.deadline).getTime() < Date.now();
   };
 
-  // Separate wagers by type and sort by deadline (earliest first, expired last)
+  // Separate wagers by type and sort by deadline (earliest first)
+  // Filter out expired and resolved wagers since they have their own tabs
   const systemWagers = useMemo(() => {
-    const filtered = allWagers.filter(w => w.is_system_generated === true);
+    const filtered = allWagers.filter(w => 
+      w.is_system_generated === true && 
+      w.status === "OPEN" && 
+      !isExpired(w)
+    );
     return filtered.sort((a, b) => {
-      const aExpired = isExpired(a);
-      const bExpired = isExpired(b);
-      
-      // Expired wagers go to the end
-      if (aExpired && !bExpired) return 1;
-      if (!aExpired && bExpired) return -1;
-      
-      // Both expired or both not expired - sort by deadline
+      // Sort by deadline (earliest first)
       const deadlineA = a.deadline ? new Date(a.deadline).getTime() : Infinity;
       const deadlineB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
       return deadlineA - deadlineB; // Earliest deadline first
@@ -88,16 +86,13 @@ function WagersPageContent() {
   }, [allWagers]);
 
   const userWagers = useMemo(() => {
-    const filtered = allWagers.filter(w => w.is_system_generated !== true);
+    const filtered = allWagers.filter(w => 
+      w.is_system_generated !== true && 
+      w.status === "OPEN" && 
+      !isExpired(w)
+    );
     return filtered.sort((a, b) => {
-      const aExpired = isExpired(a);
-      const bExpired = isExpired(b);
-      
-      // Expired wagers go to the end
-      if (aExpired && !bExpired) return 1;
-      if (!aExpired && bExpired) return -1;
-      
-      // Both expired or both not expired - sort by deadline
+      // Sort by deadline (earliest first)
       const deadlineA = a.deadline ? new Date(a.deadline).getTime() : Infinity;
       const deadlineB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
       return deadlineA - deadlineB; // Earliest deadline first
@@ -598,16 +593,16 @@ function WagersPageContent() {
 
         {/* Tabs */}
         <div className="mb-6">
-          <div className="flex gap-2 border-b border-border mb-4 overflow-x-auto">
+          <div className="flex gap-2 border-b border-border mb-4 overflow-x-auto scrollbar-hide -mx-3 md:mx-0 px-3 md:px-0">
             <button
               onClick={() => handleTabChange('system')}
-              className={`flex items-center gap-2 px-4 py-3 font-medium transition-all relative whitespace-nowrap ${
+              className={`flex items-center gap-2 px-4 py-3 font-medium transition-all relative whitespace-nowrap flex-shrink-0 ${
                 activeTab === 'system'
                   ? 'text-primary border-b-2 border-primary'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <Sparkles className="h-4 w-4" />
+              <Sparkles className="h-4 w-4 hidden md:block" />
               <span>System Wagers</span>
               <span className="ml-1 px-2 py-0.5 text-xs bg-muted rounded-full">
                 {systemWagers.length}
@@ -615,13 +610,13 @@ function WagersPageContent() {
             </button>
             <button
               onClick={() => handleTabChange('user')}
-              className={`flex items-center gap-2 px-4 py-3 font-medium transition-all relative whitespace-nowrap ${
+              className={`flex items-center gap-2 px-4 py-3 font-medium transition-all relative whitespace-nowrap flex-shrink-0 ${
                 activeTab === 'user'
                   ? 'text-primary border-b-2 border-primary'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <Users className="h-4 w-4" />
+              <Users className="h-4 w-4 hidden md:block" />
               <span>User Wagers</span>
               <span className="ml-1 px-2 py-0.5 text-xs bg-muted rounded-full">
                 {userWagers.length}
@@ -629,13 +624,13 @@ function WagersPageContent() {
             </button>
             <button
               onClick={() => handleTabChange('expired')}
-              className={`flex items-center gap-2 px-4 py-3 font-medium transition-all relative whitespace-nowrap ${
+              className={`flex items-center gap-2 px-4 py-3 font-medium transition-all relative whitespace-nowrap flex-shrink-0 ${
                 activeTab === 'expired'
                   ? 'text-primary border-b-2 border-primary'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <X className="h-4 w-4" />
+              <X className="h-4 w-4 hidden md:block" />
               <span>Expired</span>
               <span className="ml-1 px-2 py-0.5 text-xs bg-muted rounded-full">
                 {expiredWagers.length}
@@ -643,13 +638,13 @@ function WagersPageContent() {
             </button>
             <button
               onClick={() => handleTabChange('settled')}
-              className={`flex items-center gap-2 px-4 py-3 font-medium transition-all relative whitespace-nowrap ${
+              className={`flex items-center gap-2 px-4 py-3 font-medium transition-all relative whitespace-nowrap flex-shrink-0 ${
                 activeTab === 'settled'
                   ? 'text-primary border-b-2 border-primary'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <Tag className="h-4 w-4" />
+              <Tag className="h-4 w-4 hidden md:block" />
               <span>Settled</span>
               <span className="ml-1 px-2 py-0.5 text-xs bg-muted rounded-full">
                 {settledWagers.length}
