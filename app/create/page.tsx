@@ -295,14 +295,29 @@ export default function CreateWager() {
         return;
       }
 
-      // Validate deadline if provided
+      // Validate deadline if provided and convert to UTC
+      const { localToUTC, isDeadlineValid } = await import('@/lib/deadline-utils');
+      
+      let deadlineUTC: string | null = null;
       if (formData.deadline) {
-        const deadlineDate = new Date(formData.deadline);
-        const now = new Date();
-        if (deadlineDate <= now) {
+        // Validate deadline is in the future
+        if (!isDeadlineValid(formData.deadline)) {
           toast({
-            title: "Deadline needs to be later",
-            description: "Pick a date and time that hasn't passed yet.",
+            title: "Invalid deadline",
+            description: "Please enter a valid date and time in the future.",
+            variant: "destructive",
+          });
+          setSubmitting(false);
+          return;
+        }
+        
+        // Convert local datetime to UTC ISO string for storage
+        deadlineUTC = localToUTC(formData.deadline);
+        
+        if (!deadlineUTC) {
+          toast({
+            title: "Invalid deadline",
+            description: "Please enter a valid date and time.",
             variant: "destructive",
           });
           setSubmitting(false);
@@ -339,7 +354,7 @@ export default function CreateWager() {
         amount: amount,
         side_a: trimmedSideA,
         side_b: trimmedSideB,
-        deadline: formData.deadline || null,
+        deadline: deadlineUTC, // Use UTC deadline
         fee_percentage: 0.01, // Platform fee is fixed at 1%
         currency: formData.currency,
         is_system_generated: false,

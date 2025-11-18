@@ -12,6 +12,7 @@ import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Award, Coins, Trash2,
 import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { utcToLocal, localToUTC, parseDeadline, getTimeRemaining, isDeadlineElapsed } from "@/lib/deadline-utils";
 
 interface Wager {
   id: string;
@@ -244,7 +245,7 @@ export default function WagerDetail() {
       }
 
       // Check if deadline has passed
-      if (wager!.deadline && new Date(wager!.deadline) <= new Date()) {
+      if (isDeadlineElapsed(wager!.deadline)) {
         toast({
           title: "Too late to wager",
           description: "The deadline for this wager has already passed.",
@@ -507,13 +508,14 @@ export default function WagerDetail() {
     }
 
     // Initialize edit form with current wager data
+    // Convert UTC deadline to local timezone for datetime-local input
     setEditFormData({
       title: wager.title,
       description: wager.description || "",
       sideA: wager.side_a,
       sideB: wager.side_b,
       amount: wager.amount.toString(),
-      deadline: wager.deadline ? new Date(wager.deadline).toISOString().slice(0, 16) : "",
+      deadline: utcToLocal(wager.deadline),
     });
     setShowEditDialog(true);
   };
@@ -623,7 +625,8 @@ export default function WagerDetail() {
           side_a: trimmedSideA,
           side_b: trimmedSideB,
           amount: newAmount,
-          deadline: editFormData.deadline ? new Date(editFormData.deadline).toISOString() : null,
+      // Convert local datetime to UTC for storage
+      deadline: localToUTC(editFormData.deadline),
         })
         .eq("id", wagerId)
         .eq("creator_id", user.id);
@@ -949,17 +952,23 @@ export default function WagerDetail() {
               </div>
               <p className="text-lg md:text-2xl font-bold">{formatCurrency(wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}</p>
             </div>
-            {wager.deadline ? (
-              <div className="bg-card border border-border rounded-lg p-3 md:p-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <Clock className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
-                  <p className="text-[10px] md:text-xs text-muted-foreground">Deadline</p>
+            {wager.deadline ? (() => {
+              const deadlineDate = parseDeadline(wager.deadline);
+              const timeDiff = deadlineDate ? getTimeRemaining(deadlineDate) : 0;
+              const hasElapsed = timeDiff <= 0;
+              
+              return (
+                <div className="bg-card border border-border rounded-lg p-3 md:p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Clock className={`h-4 w-4 md:h-5 md:w-5 ${hasElapsed ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`} />
+                    <p className="text-[10px] md:text-xs text-muted-foreground">Deadline</p>
+                  </div>
+                  <p className={`text-xs md:text-sm font-bold line-clamp-2 ${hasElapsed ? 'text-red-600 dark:text-red-400' : ''}`}>
+                    {hasElapsed ? "Deadline elapsed" : deadlineDate ? formatDistanceToNow(deadlineDate, { addSuffix: true }) : "Invalid deadline"}
+                  </p>
                 </div>
-                <p className="text-xs md:text-sm font-bold line-clamp-2">
-                  {formatDistanceToNow(new Date(wager.deadline), { addSuffix: true })}
-                </p>
-              </div>
-            ) : (
+              );
+            })() : (
               <div className="bg-card border border-border rounded-lg p-3 md:p-4">
                 <div className="flex items-center gap-2 mb-1">
                   <Coins className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
@@ -1072,17 +1081,22 @@ export default function WagerDetail() {
                   )}
                 </div>
 
-                {wager.status === "OPEN" && (
-                  <button
-                    onClick={() => handleJoin("a")}
-                    disabled={joining}
-                    className={`w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl ${
-                      buttonVariant === 'B' ? 'shadow-lg hover:shadow-xl' : ''
-                    }`}
-                  >
-                    {joining ? "Joining..." : `Join ${wager.side_a}`}
-                  </button>
-                )}
+                {wager.status === "OPEN" && (() => {
+                  const deadlineDate = parseDeadline(wager.deadline);
+                  const hasDeadlineElapsed = deadlineDate ? getTimeRemaining(deadlineDate) <= 0 : false;
+                  
+                  return (
+                    <button
+                      onClick={() => handleJoin("a")}
+                      disabled={joining || hasDeadlineElapsed}
+                      className={`w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl ${
+                        buttonVariant === 'B' ? 'shadow-lg hover:shadow-xl' : ''
+                      }`}
+                    >
+                      {hasDeadlineElapsed ? "Deadline Passed" : joining ? "Joining..." : `Join ${wager.side_a}`}
+                    </button>
+                  );
+                })()}
               </div>
 
               {/* Mobile VS Divider */}
@@ -1142,17 +1156,22 @@ export default function WagerDetail() {
                   )}
                 </div>
 
-                {wager.status === "OPEN" && (
-                  <button
-                    onClick={() => handleJoin("b")}
-                    disabled={joining}
-                    className={`w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl ${
-                      buttonVariant === 'B' ? 'shadow-lg hover:shadow-xl' : ''
-                    }`}
-                  >
-                    {joining ? "Joining..." : `Join ${wager.side_b}`}
-                  </button>
-                )}
+                {wager.status === "OPEN" && (() => {
+                  const deadlineDate = parseDeadline(wager.deadline);
+                  const hasDeadlineElapsed = deadlineDate ? getTimeRemaining(deadlineDate) <= 0 : false;
+                  
+                  return (
+                    <button
+                      onClick={() => handleJoin("b")}
+                      disabled={joining || hasDeadlineElapsed}
+                      className={`w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl ${
+                        buttonVariant === 'B' ? 'shadow-lg hover:shadow-xl' : ''
+                      }`}
+                    >
+                      {hasDeadlineElapsed ? "Deadline Passed" : joining ? "Joining..." : `Join ${wager.side_b}`}
+                    </button>
+                  );
+                })()}
               </div>
             </div>
           </div>

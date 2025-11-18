@@ -5,6 +5,7 @@ import { formatDistanceToNow } from "date-fns";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { Sparkles, User, Users, Clock, TrendingUp, Coins } from "lucide-react";
 import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
+import { parseDeadline, getTimeRemaining } from "@/lib/deadline-utils";
 
 interface WagerCardProps {
   id: string;
@@ -48,9 +49,55 @@ export function WagerCard({
   onClick,
 }: WagerCardProps) {
   const isOpen = status === "OPEN";
-  const timeLeft = deadline ? formatDistanceToNow(new Date(deadline), { addSuffix: true }) : null;
+  
+  // Calculate deadline status
+  let timeLeft: string | null = null;
+  let deadlineStatus: 'green' | 'orange' | 'red' = 'green';
+  
+  if (deadline) {
+    // Use utility function to parse deadline (handles UTC correctly)
+    // These are imported at the top, so they're available synchronously
+    const deadlineDate = parseDeadline(deadline);
+    
+    if (!deadlineDate) {
+      timeLeft = "Invalid deadline";
+      deadlineStatus = 'red';
+    } else {
+      // Get time remaining in milliseconds
+      const timeDiff = getTimeRemaining(deadlineDate);
+      const minutesLeft = timeDiff / (1000 * 60);
+      
+      // Check if deadline has passed - this must be checked FIRST before any formatting
+      if (timeDiff <= 0) {
+        // Deadline has elapsed
+        deadlineStatus = 'red';
+        timeLeft = "Deadline elapsed";
+      } else if (minutesLeft <= 30) {
+        // Less than 30 minutes remaining
+        deadlineStatus = 'orange';
+        // Show more precise time for urgent deadlines
+        if (minutesLeft < 1) {
+          const secondsLeft = Math.floor(timeDiff / 1000);
+          timeLeft = secondsLeft > 0 ? `in ${secondsLeft} second${secondsLeft !== 1 ? 's' : ''}` : "Deadline elapsed";
+          if (secondsLeft <= 0) {
+            deadlineStatus = 'red';
+          }
+        } else if (minutesLeft < 60) {
+          const mins = Math.floor(minutesLeft);
+          timeLeft = `in ${mins} minute${mins !== 1 ? 's' : ''}`;
+        } else {
+          timeLeft = formatDistanceToNow(deadlineDate, { addSuffix: true });
+        }
+      } else {
+        // More than 30 minutes remaining
+        deadlineStatus = 'green';
+        timeLeft = formatDistanceToNow(deadlineDate, { addSuffix: true });
+      }
+    }
+  }
+  
   const formattedAmount = formatCurrency(amount, currency as Currency);
-  const isUrgent = deadline && new Date(deadline).getTime() - Date.now() < 24 * 60 * 60 * 1000; // Less than 24 hours
+  const isUrgent = deadline && deadlineStatus !== 'green';
 
   // Calculate potential returns using actual amounts
   const returns = calculatePotentialReturns({
@@ -83,13 +130,17 @@ export function WagerCard({
       onClick={onClick}
     >
       <div className="bg-card border-2 border-border rounded-xl p-3 md:p-5 hover:border-primary hover:shadow-lg transition-all cursor-pointer active:scale-[0.98] touch-manipulation h-full flex flex-col relative overflow-hidden">
-        {/* Status indicator bar */}
+        {/* Status indicator bar - color based on deadline */}
         <div className={`absolute top-0 left-0 right-0 h-1 ${
-          isOpen 
-            ? "bg-green-500" 
-            : status === "RESOLVED" 
-            ? "bg-blue-500" 
-            : "bg-gray-400"
+          !isOpen
+            ? status === "RESOLVED" 
+              ? "bg-blue-500" 
+              : "bg-gray-400"
+            : deadlineStatus === 'red'
+              ? "bg-red-500"
+              : deadlineStatus === 'orange'
+              ? "bg-orange-500"
+              : "bg-green-500"
         }`} />
 
         {/* Header */}
@@ -191,9 +242,15 @@ export function WagerCard({
             </div>
             {timeLeft && (
               <div className={`flex items-center gap-1.5 font-medium ${
-                isUrgent ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground"
+                deadlineStatus === 'red'
+                  ? "text-red-600 dark:text-red-400"
+                  : deadlineStatus === 'orange'
+                  ? "text-orange-600 dark:text-orange-400"
+                  : "text-muted-foreground"
               }`}>
-                <Clock className={`h-3 w-3 md:h-3.5 md:w-3.5 ${isUrgent ? 'animate-pulse' : ''}`} />
+                <Clock className={`h-3 w-3 md:h-3.5 md:w-3.5 ${
+                  deadlineStatus === 'orange' || deadlineStatus === 'red' ? 'animate-pulse' : ''
+                }`} />
                 <span>{timeLeft}</span>
               </div>
             )}
