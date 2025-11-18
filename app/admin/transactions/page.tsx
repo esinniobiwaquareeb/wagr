@@ -7,14 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { format } from "date-fns";
 import { ArrowUp, ArrowDown } from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 
 interface Transaction {
   id: string;
@@ -151,72 +144,83 @@ export default function AdminTransactionsPage() {
           <p className="text-sm text-muted-foreground">View all transactions in the system</p>
         </div>
 
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>User ID</TableHead>
-                  <TableHead>Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {transactions.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                      No transactions found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  transactions.map((trans) => (
-                    <TableRow key={trans.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {isPositive(trans.type) ? (
-                            <ArrowUp className="h-4 w-4 text-green-600 dark:text-green-400" />
-                          ) : (
-                            <ArrowDown className="h-4 w-4 text-red-600 dark:text-red-400" />
-                          )}
-                          <span className="text-sm font-medium capitalize">
-                            {getTransactionTypeLabel(trans.type)}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className={`font-semibold ${
-                            isPositive(trans.type)
-                              ? "text-green-600 dark:text-green-400"
-                              : "text-red-600 dark:text-red-400"
-                          }`}
-                        >
-                          {isPositive(trans.type) ? "+" : "-"}
-                          {formatCurrency(Math.abs(trans.amount), DEFAULT_CURRENCY as Currency)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="max-w-xs">
-                        <span className="text-sm text-muted-foreground line-clamp-1">
-                          {trans.description || "N/A"}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-xs font-mono text-muted-foreground">
-                          {trans.user_id.substring(0, 8)}...
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {format(new Date(trans.created_at), "MMM d, yyyy HH:mm")}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
+        <DataTable
+          data={transactions}
+          columns={[
+            {
+              id: "type",
+              header: "Type",
+              accessorKey: "type",
+              cell: (row) => (
+                <div className="flex items-center gap-2">
+                  {isPositive(row.type) ? (
+                    <ArrowUp className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  ) : (
+                    <ArrowDown className="h-4 w-4 text-red-600 dark:text-red-400" />
+                  )}
+                  <span className="text-sm font-medium capitalize">
+                    {getTransactionTypeLabel(row.type)}
+                  </span>
+                </div>
+              ),
+            },
+            {
+              id: "amount",
+              header: "Amount",
+              accessorKey: "amount",
+              cell: (row) => (
+                <span
+                  className={`font-semibold ${
+                    isPositive(row.type)
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-red-600 dark:text-red-400"
+                  }`}
+                >
+                  {isPositive(row.type) ? "+" : "-"}
+                  {formatCurrency(Math.abs(row.amount), DEFAULT_CURRENCY as Currency)}
+                </span>
+              ),
+            },
+            {
+              id: "description",
+              header: "Description",
+              accessorKey: "description",
+              cell: (row) => (
+                <span className="text-sm text-muted-foreground line-clamp-1">
+                  {row.description || "N/A"}
+                </span>
+              ),
+            },
+            {
+              id: "user_id",
+              header: "User ID",
+              accessorKey: "user_id",
+              cell: (row) => (
+                <span className="text-xs font-mono text-muted-foreground">
+                  {row.user_id.substring(0, 8)}...
+                </span>
+              ),
+            },
+            {
+              id: "created_at",
+              header: "Date",
+              accessorKey: "created_at",
+              cell: (row) => (
+                <span className="text-sm text-muted-foreground">
+                  {format(new Date(row.created_at), "MMM d, yyyy HH:mm")}
+                </span>
+              ),
+            },
+          ]}
+          searchable
+          searchPlaceholder="Search by type, description, or user ID..."
+          searchKeys={["type", "description", "user_id"]}
+          pagination
+          pageSize={25}
+          sortable
+          defaultSort={{ key: "created_at", direction: "desc" }}
+          emptyMessage="No transactions found"
+        />
       </div>
     </main>
   );

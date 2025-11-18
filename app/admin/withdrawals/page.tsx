@@ -6,16 +6,8 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { format } from "date-fns";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 
 interface Withdrawal {
   id: string;
@@ -156,68 +148,98 @@ export default function AdminWithdrawals() {
           <p className="text-muted-foreground">Manage user withdrawal requests</p>
         </div>
 
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>User ID</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Bank Account</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Reference</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Processed</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {withdrawals.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                    No withdrawals found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                withdrawals.map((withdrawal) => (
-                  <TableRow key={withdrawal.id}>
-                    <TableCell className="font-mono text-xs">
-                      {withdrawal.user_id.substring(0, 8)}...
-                    </TableCell>
-                    <TableCell className="font-semibold">
-                      {formatCurrency(withdrawal.amount, currency)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        <p className="font-medium">{withdrawal.bank_account?.account_name || 'N/A'}</p>
-                        <p className="text-muted-foreground text-xs">
-                          {withdrawal.bank_account?.account_number || 'N/A'} • {withdrawal.bank_account?.bank_code || 'N/A'}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {getStatusBadge(withdrawal.status)}
-                      {withdrawal.failure_reason && (
-                        <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                          {withdrawal.failure_reason}
-                        </p>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {withdrawal.reference}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {format(new Date(withdrawal.created_at), "MMM d, yyyy HH:mm")}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {withdrawal.processed_at
-                        ? format(new Date(withdrawal.processed_at), "MMM d, yyyy HH:mm")
-                        : "-"}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+        <DataTable
+          data={withdrawals}
+          columns={[
+            {
+              id: "user_id",
+              header: "User ID",
+              accessorKey: "user_id",
+              cell: (row) => (
+                <span className="font-mono text-xs">
+                  {row.user_id.substring(0, 8)}...
+                </span>
+              ),
+            },
+            {
+              id: "amount",
+              header: "Amount",
+              accessorKey: "amount",
+              cell: (row) => (
+                <span className="font-semibold">
+                  {formatCurrency(row.amount, currency)}
+                </span>
+              ),
+            },
+            {
+              id: "bank_account",
+              header: "Bank Account",
+              cell: (row) => (
+                <div className="text-sm">
+                  <p className="font-medium">{row.bank_account?.account_name || 'N/A'}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {row.bank_account?.account_number || 'N/A'} • {row.bank_account?.bank_code || 'N/A'}
+                  </p>
+                </div>
+              ),
+            },
+            {
+              id: "status",
+              header: "Status",
+              accessorKey: "status",
+              cell: (row) => (
+                <div>
+                  {getStatusBadge(row.status)}
+                  {row.failure_reason && (
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                      {row.failure_reason}
+                    </p>
+                  )}
+                </div>
+              ),
+            },
+            {
+              id: "reference",
+              header: "Reference",
+              accessorKey: "reference",
+              cell: (row) => (
+                <span className="font-mono text-xs">
+                  {row.reference}
+                </span>
+              ),
+            },
+            {
+              id: "created_at",
+              header: "Created",
+              accessorKey: "created_at",
+              cell: (row) => (
+                <span className="text-sm">
+                  {format(new Date(row.created_at), "MMM d, yyyy HH:mm")}
+                </span>
+              ),
+            },
+            {
+              id: "processed_at",
+              header: "Processed",
+              accessorKey: "processed_at",
+              cell: (row) => (
+                <span className="text-sm">
+                  {row.processed_at
+                    ? format(new Date(row.processed_at), "MMM d, yyyy HH:mm")
+                    : "-"}
+                </span>
+              ),
+            },
+          ]}
+          searchable
+          searchPlaceholder="Search by user ID, reference, or status..."
+          searchKeys={["user_id", "reference", "status"]}
+          pagination
+          pageSize={20}
+          sortable
+          defaultSort={{ key: "created_at", direction: "desc" }}
+          emptyMessage="No withdrawals found"
+        />
       </div>
     </main>
   );

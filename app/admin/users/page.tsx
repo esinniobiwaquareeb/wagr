@@ -7,14 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { format } from "date-fns";
 import { Shield } from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 
 interface User {
   id: string;
@@ -139,51 +132,54 @@ export default function AdminUsersPage() {
           <p className="text-sm text-muted-foreground">Manage all users in the system</p>
         </div>
 
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Balance</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Joined</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                      No users found
-                    </TableCell>
-                  </TableRow>
+        <DataTable
+          data={users}
+          columns={[
+            {
+              id: "email",
+              header: "Email",
+              accessorKey: "email",
+              cell: (row) => <span className="font-medium">{row.email ?? "N/A"}</span>,
+            },
+            {
+              id: "balance",
+              header: "Balance",
+              accessorKey: "balance",
+              cell: (row) => formatCurrency(row.balance || 0, DEFAULT_CURRENCY as Currency),
+            },
+            {
+              id: "role",
+              header: "Role",
+              cell: (row) =>
+                row.is_admin ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-primary/10 text-primary text-xs">
+                    <Shield className="h-3 w-3" />
+                    Admin
+                  </span>
                 ) : (
-                  users.map((u) => (
-                    <TableRow key={u.id}>
-                      <TableCell className="font-medium">{u.email ?? "N/A"}</TableCell>
-                      <TableCell>
-                        {formatCurrency(u.balance || 0, DEFAULT_CURRENCY as Currency)}
-                      </TableCell>
-                      <TableCell>
-                        {u.is_admin ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-primary/10 text-primary text-xs">
-                            <Shield className="h-3 w-3" />
-                            Admin
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">User</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {format(new Date(u.created_at), "MMM d, yyyy")}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
+                  <span className="text-xs text-muted-foreground">User</span>
+                ),
+            },
+            {
+              id: "created_at",
+              header: "Joined",
+              accessorKey: "created_at",
+              cell: (row) => (
+                <span className="text-sm text-muted-foreground">
+                  {format(new Date(row.created_at), "MMM d, yyyy")}
+                </span>
+              ),
+            },
+          ]}
+          searchable
+          searchPlaceholder="Search by email..."
+          searchKeys={["email"]}
+          pagination
+          pageSize={20}
+          sortable
+          defaultSort={{ key: "created_at", direction: "desc" }}
+          emptyMessage="No users found"
+        />
       </div>
     </main>
   );

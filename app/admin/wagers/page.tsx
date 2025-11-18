@@ -9,14 +9,7 @@ import { format } from "date-fns";
 import { CheckCircle, XCircle, Clock, Eye, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 
 interface Wager {
   id: string;
@@ -366,121 +359,134 @@ export default function AdminWagersPage() {
           </div>
         </div>
 
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Sides</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Deadline</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {wagers.filter(w => {
-                  if (filterType === "user") return !w.is_system_generated;
-                  if (filterType === "system") return w.is_system_generated;
-                  return true;
-                }).length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                      No wagers found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  wagers
-                    .filter(w => {
-                      if (filterType === "user") return !w.is_system_generated;
-                      if (filterType === "system") return w.is_system_generated;
-                      return true;
-                    })
-                    .map((wager) => (
-                    <TableRow key={wager.id}>
-                      <TableCell className="font-medium max-w-xs">
-                        <Link
-                          href={`/wager/${wager.id}`}
-                          className="hover:text-primary transition line-clamp-1"
-                        >
-                          {wager.title}
-                        </Link>
-                        {wager.is_system_generated && (
-                          <span className="ml-2 text-xs text-muted-foreground">(System)</span>
-                        )}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(wager.status)}</TableCell>
-                      <TableCell>
-                        {formatCurrency(wager.amount, DEFAULT_CURRENCY as Currency)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1 text-xs">
-                          <div className="flex items-center gap-1">
-                            <span className="font-medium text-muted-foreground">A:</span>
-                            <span className="truncate max-w-[120px]">{wager.side_a}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="font-medium text-muted-foreground">B:</span>
-                            <span className="truncate max-w-[120px]">{wager.side_b}</span>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-xs text-muted-foreground capitalize">
-                          {wager.category || "N/A"}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {wager.deadline ? (
-                          format(new Date(wager.deadline), "MMM d, HH:mm")
-                        ) : (
-                          "N/A"
-                        )}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {format(new Date(wager.created_at), "MMM d, yyyy")}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Link
-                            href={`/wager/${wager.id}`}
-                            className="p-1 hover:bg-muted rounded transition"
-                            title="View"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Link>
-                          {wager.status === "OPEN" && !wager.is_system_generated && (
-                            <div className="flex gap-1">
-                              <button
-                                onClick={() => handleResolveClick(wager, "a")}
-                                disabled={resolving === wager.id}
-                                className="px-2 py-1 text-xs bg-green-500/10 text-green-700 dark:text-green-400 rounded hover:bg-green-500/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                                title={`Resolve: ${wager.side_a}`}
-                              >
-                                {resolving === wager.id ? "..." : "A"}
-                              </button>
-                              <button
-                                onClick={() => handleResolveClick(wager, "b")}
-                                disabled={resolving === wager.id}
-                                className="px-2 py-1 text-xs bg-blue-500/10 text-blue-700 dark:text-blue-400 rounded hover:bg-blue-500/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                                title={`Resolve: ${wager.side_b}`}
-                              >
-                                {resolving === wager.id ? "..." : "B"}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
+        <DataTable
+          data={wagers.filter(w => {
+            if (filterType === "user") return !w.is_system_generated;
+            if (filterType === "system") return w.is_system_generated;
+            return true;
+          })}
+          columns={[
+            {
+              id: "title",
+              header: "Title",
+              accessorKey: "title",
+              cell: (row) => (
+                <div className="font-medium max-w-xs">
+                  <Link
+                    href={`/wager/${row.id}`}
+                    className="hover:text-primary transition line-clamp-1"
+                  >
+                    {row.title}
+                  </Link>
+                  {row.is_system_generated && (
+                    <span className="ml-2 text-xs text-muted-foreground">(System)</span>
+                  )}
+                </div>
+              ),
+            },
+            {
+              id: "status",
+              header: "Status",
+              accessorKey: "status",
+              cell: (row) => getStatusBadge(row.status),
+            },
+            {
+              id: "amount",
+              header: "Amount",
+              accessorKey: "amount",
+              cell: (row) => formatCurrency(row.amount, DEFAULT_CURRENCY as Currency),
+            },
+            {
+              id: "sides",
+              header: "Sides",
+              cell: (row) => (
+                <div className="flex flex-col gap-1 text-xs">
+                  <div className="flex items-center gap-1">
+                    <span className="font-medium text-muted-foreground">A:</span>
+                    <span className="truncate max-w-[120px]">{row.side_a}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="font-medium text-muted-foreground">B:</span>
+                    <span className="truncate max-w-[120px]">{row.side_b}</span>
+                  </div>
+                </div>
+              ),
+            },
+            {
+              id: "category",
+              header: "Category",
+              accessorKey: "category",
+              cell: (row) => (
+                <span className="text-xs text-muted-foreground capitalize">
+                  {row.category || "N/A"}
+                </span>
+              ),
+            },
+            {
+              id: "deadline",
+              header: "Deadline",
+              accessorKey: "deadline",
+              cell: (row) => (
+                <span className="text-sm text-muted-foreground">
+                  {row.deadline ? format(new Date(row.deadline), "MMM d, HH:mm") : "N/A"}
+                </span>
+              ),
+            },
+            {
+              id: "created_at",
+              header: "Created",
+              accessorKey: "created_at",
+              cell: (row) => (
+                <span className="text-sm text-muted-foreground">
+                  {format(new Date(row.created_at), "MMM d, yyyy")}
+                </span>
+              ),
+            },
+            {
+              id: "actions",
+              header: "Actions",
+              cell: (row) => (
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/wager/${row.id}`}
+                    className="p-1 hover:bg-muted rounded transition"
+                    title="View"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Link>
+                  {row.status === "OPEN" && !row.is_system_generated && (
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => handleResolveClick(row, "a")}
+                        disabled={resolving === row.id}
+                        className="px-2 py-1 text-xs bg-green-500/10 text-green-700 dark:text-green-400 rounded hover:bg-green-500/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={`Resolve: ${row.side_a}`}
+                      >
+                        {resolving === row.id ? "..." : "A"}
+                      </button>
+                      <button
+                        onClick={() => handleResolveClick(row, "b")}
+                        disabled={resolving === row.id}
+                        className="px-2 py-1 text-xs bg-blue-500/10 text-blue-700 dark:text-blue-400 rounded hover:bg-blue-500/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={`Resolve: ${row.side_b}`}
+                      >
+                        {resolving === row.id ? "..." : "B"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ),
+            },
+          ]}
+          searchable
+          searchPlaceholder="Search by title, category, or sides..."
+          searchKeys={["title", "category", "side_a", "side_b"]}
+          pagination
+          pageSize={20}
+          sortable
+          defaultSort={{ key: "created_at", direction: "desc" }}
+          emptyMessage="No wagers found"
+        />
       </div>
     </main>
   );
