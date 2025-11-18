@@ -56,6 +56,59 @@ export function DataTable<T extends Record<string, any>>({
     direction: "asc" | "desc";
   }>(defaultSort ? { key: defaultSort.key, direction: defaultSort.direction } : { key: null, direction: "asc" });
 
+  // Helper function to extract searchable text from a value
+  const getSearchableText = (value: any): string => {
+    if (value === null || value === undefined) return "";
+    
+    if (typeof value === "string") {
+      return value;
+    }
+    
+    if (typeof value === "number") {
+      return String(value);
+    }
+    
+    if (typeof value === "boolean") {
+      return String(value);
+    }
+    
+    // Handle Date objects or date strings
+    if (value && typeof value === "object" && "getTime" in value) {
+      const dateValue = value as Date;
+      return dateValue.toISOString();
+    }
+    
+    // Handle date strings
+    if (typeof value === "string" && !isNaN(Date.parse(value))) {
+      const date = new Date(value);
+      if (!isNaN(date.getTime())) {
+        return date.toISOString();
+      }
+    }
+    
+    // Handle objects and arrays
+    if (typeof value === "object") {
+      try {
+        // For objects, recursively search nested properties
+        if (Array.isArray(value)) {
+          return value.map(item => getSearchableText(item)).join(" ");
+        }
+        // For plain objects, stringify and also search nested values
+        const stringified = JSON.stringify(value);
+        // Also extract all string values from the object
+        const nestedStrings = Object.values(value)
+          .map(v => getSearchableText(v))
+          .filter(Boolean)
+          .join(" ");
+        return `${stringified} ${nestedStrings}`;
+      } catch {
+        return String(value);
+      }
+    }
+    
+    return String(value);
+  };
+
   // Filter data based on search
   const filteredData = useMemo(() => {
     if (!search.trim()) return data;
@@ -63,57 +116,20 @@ export function DataTable<T extends Record<string, any>>({
     const searchLower = search.toLowerCase().trim();
     
     // Get keys to search - use provided searchKeys or all accessorKeys from columns
-    const keysToSearch = searchKeys || columns
-      .map(col => col.accessorKey)
-      .filter(Boolean) as (keyof T)[];
+    const keysToSearch = searchKeys && searchKeys.length > 0
+      ? searchKeys
+      : columns
+          .map(col => col.accessorKey)
+          .filter(Boolean) as (keyof T)[];
 
     return data.filter((row) => {
       // Search through specified keys
       for (const key of keysToSearch) {
         const value = row[key];
+        const searchableText = getSearchableText(value);
         
-        if (value === null || value === undefined) continue;
-        
-        // Handle different value types
-        let searchableValue = "";
-        
-        if (typeof value === "string") {
-          searchableValue = value;
-        } else if (typeof value === "number") {
-          searchableValue = String(value);
-        } else if (typeof value === "boolean") {
-          searchableValue = String(value);
-        } else if (value && typeof value === "object" && "getTime" in value) {
-          // Handle Date objects
-          const dateValue = value as Date;
-          searchableValue = dateValue.toISOString();
-        } else if (typeof value === "object" && value !== null) {
-          // For objects, try to stringify or search nested properties
-          try {
-            searchableValue = JSON.stringify(value);
-          } catch {
-            searchableValue = String(value);
-          }
-        } else {
-          searchableValue = String(value);
-        }
-        
-        if (searchableValue.toLowerCase().includes(searchLower)) {
+        if (searchableText.toLowerCase().includes(searchLower)) {
           return true;
-        }
-      }
-      
-      // Also search through all column values (including formatted ones)
-      // This helps when searchKeys might not include all searchable fields
-      for (const column of columns) {
-        if (column.accessorKey && !keysToSearch.includes(column.accessorKey)) {
-          const value = row[column.accessorKey];
-          if (value !== null && value !== undefined) {
-            const searchableValue = String(value).toLowerCase();
-            if (searchableValue.includes(searchLower)) {
-              return true;
-            }
-          }
         }
       }
       

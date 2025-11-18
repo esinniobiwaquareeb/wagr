@@ -2,17 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Trophy, Medal, Award, TrendingUp, Users } from "lucide-react";
+import { Trophy, Medal, Award, TrendingUp, Users, Target, Zap } from "lucide-react";
+import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface LeaderboardUser {
   id: string;
   email: string;
   username: string | null;
-  balance: number;
   total_wagers: number;
   wins: number;
   win_rate: number;
+  total_winnings: number;
   rank: number;
 }
 
@@ -20,24 +21,23 @@ export default function Leaderboard() {
   const [users, setUsers] = useState<LeaderboardUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<"balance" | "wins" | "win_rate">("balance");
+  const [sortBy, setSortBy] = useState<"wins" | "win_rate" | "winnings">("wins");
   const supabase = createClient();
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
-        // Fetch all profiles with balance
+        // Fetch all profiles
         const { data: profiles, error: profilesError } = await supabase
           .from("profiles")
-          .select("id, username, balance")
-          .order("balance", { ascending: false });
+          .select("id, username");
 
         if (profilesError) throw profilesError;
 
-        // Fetch all wager entries
+        // Fetch all wager entries with amounts
         const { data: wagerEntries } = await supabase
           .from("wager_entries")
-          .select("user_id, wager_id, side");
+          .select("user_id, wager_id, side, amount");
 
         // Fetch resolved wagers to calculate wins
         const { data: resolvedWagers } = await supabase
@@ -46,10 +46,17 @@ export default function Leaderboard() {
           .eq("status", "RESOLVED")
           .not("winning_side", "is", null);
 
+        // Fetch wager win transactions to calculate total winnings
+        const { data: winTransactions } = await supabase
+          .from("transactions")
+          .select("user_id, amount")
+          .eq("type", "wager_win");
+
         // Calculate stats for each user
         const userStats = new Map<string, {
           total_wagers: number;
           wins: number;
+          total_winnings: number;
         }>();
 
         // Count total wagers per user
@@ -57,14 +64,14 @@ export default function Leaderboard() {
           wagerEntries.forEach((entry: any) => {
             const userId = entry.user_id;
             if (!userStats.has(userId)) {
-              userStats.set(userId, { total_wagers: 0, wins: 0 });
+              userStats.set(userId, { total_wagers: 0, wins: 0, total_winnings: 0 });
             }
             const stats = userStats.get(userId)!;
             stats.total_wagers += 1;
           });
         }
 
-        // Calculate wins
+        // Calculate wins and winnings
         if (resolvedWagers && wagerEntries) {
           const resolvedWagerIds = new Set(resolvedWagers.map(w => w.id));
           resolvedWagers.forEach((wager) => {
@@ -84,22 +91,38 @@ export default function Leaderboard() {
           });
         }
 
+        // Calculate total winnings from transactions
+        if (winTransactions) {
+          winTransactions.forEach((transaction: any) => {
+            const userId = transaction.user_id;
+            if (userStats.has(userId)) {
+              userStats.get(userId)!.total_winnings += Number(transaction.amount) || 0;
+            } else {
+              userStats.set(userId, {
+                total_wagers: 0,
+                wins: 0,
+                total_winnings: Number(transaction.amount) || 0,
+              });
+            }
+          });
+        }
+
         // Combine profile data with stats - only include users who have won
         const leaderboardData: LeaderboardUser[] = (profiles || [])
           .map((profile) => {
-            const stats = userStats.get(profile.id) || { total_wagers: 0, wins: 0 };
+            const stats = userStats.get(profile.id) || { total_wagers: 0, wins: 0, total_winnings: 0 };
             const winRate = stats.total_wagers > 0 
               ? (stats.wins / stats.total_wagers) * 100 
               : 0;
 
             return {
               id: profile.id,
-              email: "", // We'll fetch this separately if needed
+              email: "",
               username: profile.username || `User ${profile.id.slice(0, 8)}`,
-              balance: Number(profile.balance) || 0,
               total_wagers: stats.total_wagers,
               wins: stats.wins,
               win_rate: winRate,
+              total_winnings: stats.total_winnings,
               rank: 0, // Will be set after sorting
             };
           })
@@ -108,12 +131,12 @@ export default function Leaderboard() {
 
         // Sort by selected criteria
         leaderboardData.sort((a, b) => {
-          if (sortBy === "balance") {
-            return b.balance - a.balance;
-          } else if (sortBy === "wins") {
+          if (sortBy === "wins") {
             return b.wins - a.wins;
-          } else {
+          } else if (sortBy === "win_rate") {
             return b.win_rate - a.win_rate;
+          } else {
+            return b.total_winnings - a.total_winnings;
           }
         });
 
@@ -217,34 +240,34 @@ export default function Leaderboard() {
         <div className="bg-card border border-border rounded-lg p-3 md:p-5 mb-3 md:mb-6">
           <div className="flex flex-wrap gap-1.5 md:gap-2">
             <button
-              onClick={() => setSortBy("balance")}
-              className={`px-2 py-1 md:px-4 md:py-2 rounded-md text-[10px] md:text-sm font-medium transition active:scale-[0.95] touch-manipulation ${
-                sortBy === "balance"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              Sort by Balance
-            </button>
-            <button
               onClick={() => setSortBy("wins")}
-              className={`px-2 py-1 md:px-4 md:py-2 rounded-md text-[10px] md:text-sm font-medium transition active:scale-[0.95] touch-manipulation ${
+              className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition active:scale-[0.95] touch-manipulation ${
                 sortBy === "wins"
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:bg-muted/80"
               }`}
             >
-              Sort by Wins
+              Most Wins
             </button>
             <button
               onClick={() => setSortBy("win_rate")}
-              className={`px-2 py-1 md:px-4 md:py-2 rounded-md text-[10px] md:text-sm font-medium transition active:scale-[0.95] touch-manipulation ${
+              className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition active:scale-[0.95] touch-manipulation ${
                 sortBy === "win_rate"
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:bg-muted/80"
               }`}
             >
-              Sort by Win Rate
+              Best Win Rate
+            </button>
+            <button
+              onClick={() => setSortBy("winnings")}
+              className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition active:scale-[0.95] touch-manipulation ${
+                sortBy === "winnings"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
+            >
+              Total Winnings
             </button>
           </div>
         </div>
@@ -275,25 +298,42 @@ export default function Leaderboard() {
                       {getRankIcon(user.rank)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-xs md:text-lg truncate">
+                      <h3 className="font-semibold text-sm md:text-lg truncate mb-1 md:mb-2">
                         {user.username}
                       </h3>
-                      <div className="flex flex-wrap gap-1.5 md:gap-4 mt-1 md:mt-2 text-[9px] md:text-sm text-muted-foreground">
-                        <span className="flex items-center gap-0.5 md:gap-1">
-                          <TrendingUp className="h-2.5 w-2.5 md:h-4 md:w-4" />
-                          Balance: <span className="font-semibold text-foreground">{user.balance.toFixed(2)}</span>
-                        </span>
-                        <span>
-                          Wins: <span className="font-semibold text-foreground">{user.wins}</span>
-                        </span>
-                        <span>
-                          Wagers: <span className="font-semibold text-foreground">{user.total_wagers}</span>
-                        </span>
-                        {user.total_wagers > 0 && (
-                          <span>
-                            Win Rate: <span className="font-semibold text-foreground">{user.win_rate.toFixed(1)}%</span>
-                          </span>
-                        )}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 text-[10px] md:text-sm">
+                        <div className="flex items-center gap-1 md:gap-2">
+                          <Trophy className="h-3 w-3 md:h-4 md:w-4 text-yellow-500" />
+                          <div>
+                            <div className="text-muted-foreground">Wins</div>
+                            <div className="font-bold text-foreground">{user.wins}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 md:gap-2">
+                          <Target className="h-3 w-3 md:h-4 md:w-4 text-primary" />
+                          <div>
+                            <div className="text-muted-foreground">Win Rate</div>
+                            <div className="font-bold text-foreground">
+                              {user.total_wagers > 0 ? `${user.win_rate.toFixed(1)}%` : "0%"}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 md:gap-2">
+                          <Zap className="h-3 w-3 md:h-4 md:w-4 text-green-500" />
+                          <div>
+                            <div className="text-muted-foreground">Winnings</div>
+                            <div className="font-bold text-green-600 dark:text-green-400">
+                              {formatCurrency(user.total_winnings, DEFAULT_CURRENCY as Currency)}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 md:gap-2">
+                          <Users className="h-3 w-3 md:h-4 md:w-4 text-blue-500" />
+                          <div>
+                            <div className="text-muted-foreground">Total Wagers</div>
+                            <div className="font-bold text-foreground">{user.total_wagers}</div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
