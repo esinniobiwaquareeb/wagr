@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Shield, ShieldCheck, AlertTriangle } from "lucide-react";
+import { Shield, ShieldCheck, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 
 interface TwoFactorManageProps {
@@ -16,6 +16,7 @@ interface TwoFactorManageProps {
 
 export function TwoFactorManage({ isOpen, onClose, onComplete }: TwoFactorManageProps) {
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showDisableConfirm, setShowDisableConfirm] = useState(false);
   const { toast } = useToast();
@@ -23,6 +24,7 @@ export function TwoFactorManage({ isOpen, onClose, onComplete }: TwoFactorManage
   // Reset state when dialog closes
   const handleClose = () => {
     setPassword("");
+    setShowPassword(false);
     setLoading(false);
     setShowDisableConfirm(false);
     onClose();
@@ -111,14 +113,29 @@ export function TwoFactorManage({ isOpen, onClose, onComplete }: TwoFactorManage
               <label className="text-sm font-medium">
                 Enter your password to confirm
               </label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                className="w-full"
-                disabled={loading}
-              />
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  className="w-full pr-10"
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  disabled={loading}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
               <p className="text-xs text-muted-foreground">
                 We need your password to make sure it's really you.
               </p>
