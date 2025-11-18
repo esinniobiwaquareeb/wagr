@@ -417,7 +417,7 @@ export default function PreferencesPage() {
               Select tags to filter wagers more specifically
             </p>
             <div className="flex flex-wrap gap-1.5 md:gap-2">
-              {[...COMMON_TAGS, ...availableTags].slice(0, 30).map((tag) => {
+              {Array.from(new Set([...COMMON_TAGS, ...availableTags])).slice(0, 30).map((tag) => {
                 const isSelected = preferences.preferred_tags.includes(tag);
                 return (
                   <button
