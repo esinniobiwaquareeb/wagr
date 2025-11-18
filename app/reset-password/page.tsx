@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -9,6 +9,7 @@ import Link from "next/link";
 
 function ResetPasswordContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
   const { toast } = useToast();
   
@@ -19,6 +20,64 @@ function ResetPasswordContent() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sessionReady, setSessionReady] = useState(false);
+
+  // Handle Supabase password reset flow
+  useEffect(() => {
+    const handlePasswordReset = async () => {
+      try {
+        // Check if we have a hash in the URL (Supabase password reset token)
+        const hash = window.location.hash;
+        
+        if (hash) {
+          // Extract the access token from the hash
+          const hashParams = new URLSearchParams(hash.substring(1));
+          const accessToken = hashParams.get('access_token');
+          const refreshToken = hashParams.get('refresh_token');
+          const type = hashParams.get('type');
+
+          // If this is a password recovery flow
+          if (type === 'recovery' && accessToken && refreshToken) {
+            // Set the session using the tokens from the hash
+            const { error: sessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+
+            if (sessionError) {
+              setError("Invalid or expired reset link. Please request a new password reset.");
+              return;
+            }
+
+            // Clear the hash from URL
+            window.history.replaceState(null, '', window.location.pathname);
+            setSessionReady(true);
+          } else {
+            // Check if we already have a session
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+              setSessionReady(true);
+            } else {
+              setError("Invalid or expired reset link. Please request a new password reset.");
+            }
+          }
+        } else {
+          // No hash, check if we have an existing session
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            setSessionReady(true);
+          } else {
+            setError("Invalid or expired reset link. Please request a new password reset.");
+          }
+        }
+      } catch (err) {
+        console.error('Error handling password reset:', err);
+        setError("Something went wrong. Please request a new password reset.");
+      }
+    };
+
+    handlePasswordReset();
+  }, [supabase]);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +85,21 @@ function ResetPasswordContent() {
     setError(null);
 
     try {
+      // Check if session is ready
+      if (!sessionReady) {
+        setError("Please wait while we verify your reset link...");
+        setLoading(false);
+        return;
+      }
+
+      // Verify we have a valid session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        setError("Your reset link has expired. Please request a new password reset.");
+        setLoading(false);
+        return;
+      }
+
       // Validation
       if (!password || !confirmPassword) {
         setError("Please fill in all fields");
@@ -44,10 +118,6 @@ function ResetPasswordContent() {
         setLoading(false);
         return;
       }
-
-      // Note: Supabase handles the reset token via URL hash automatically
-      // The hash parameter is set by Supabase when redirecting from email
-      // We can update the password directly as Supabase validates the session
       
       // Update password using Supabase
       const { error: updateError } = await supabase.auth.updateUser({
@@ -114,10 +184,17 @@ function ResetPasswordContent() {
             </div>
             <h1 className="text-2xl font-bold mb-2">Reset Your Password</h1>
             <p className="text-sm text-muted-foreground">
-              Enter your new password below
+              {sessionReady ? "Enter your new password below" : "Verifying your reset link..."}
             </p>
           </div>
 
+          {!sessionReady && !error && (
+            <div className="text-center py-4">
+              <p className="text-sm text-muted-foreground">Loading...</p>
+            </div>
+          )}
+
+          {sessionReady && (
           <form onSubmit={handleReset} className="space-y-4">
             <div>
               <label htmlFor="password" className="block text-sm font-medium mb-2">
@@ -203,6 +280,7 @@ function ResetPasswordContent() {
               </Link>
             </div>
           </form>
+          )}
         </div>
       </div>
     </main>
