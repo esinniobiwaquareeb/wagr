@@ -270,6 +270,23 @@ export default function WagerDetail() {
     return true;
   }, [wager, isWithinCutoff]);
 
+  // Calculate total won for settled wagers (must be before any conditional returns)
+  const totalWon = useMemo(() => {
+    if (!wager || wager.status !== "SETTLED" || !wager.winning_side) {
+      return null;
+    }
+    // Calculate totals from entries
+    const sideATotal = entries
+      .filter((e: Entry) => e.side === "a")
+      .reduce((sum: number, e: Entry) => sum + Number(e.amount), 0);
+    const sideBTotal = entries
+      .filter((e: Entry) => e.side === "b")
+      .reduce((sum: number, e: Entry) => sum + Number(e.amount), 0);
+    const totalPot = sideATotal + sideBTotal;
+    const platformFee = totalPot * (wager.fee_percentage || PLATFORM_FEE_PERCENTAGE);
+    return totalPot - platformFee;
+  }, [wager, entries]);
+
   useEffect(() => {
     fetchWager();
 
@@ -1013,6 +1030,9 @@ export default function WagerDetail() {
     feePercentage: wager.fee_percentage || PLATFORM_FEE_PERCENTAGE,
   });
 
+  // Check if wager is settled (for display logic)
+  const isSettled = wager.status === "SETTLED";
+
   return (
     <main className="flex-1 pb-24 md:pb-0">
       <AuthModal
@@ -1265,13 +1285,25 @@ export default function WagerDetail() {
               </div>
               <p className="text-lg md:text-2xl font-bold">{formatCurrency(totalPot, (wager.currency || DEFAULT_CURRENCY) as Currency)}</p>
             </div>
-            <div className="bg-card border border-border rounded-lg p-3 md:p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <Award className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
-                <p className="text-[10px] md:text-xs text-muted-foreground">Entry Fee</p>
+            {isSettled && totalWon !== null ? (
+              <div className="bg-card border-2 border-green-500/30 rounded-lg p-3 md:p-4 bg-gradient-to-br from-green-500/10 to-green-500/5">
+                <div className="flex items-center gap-2 mb-1">
+                  <Trophy className="h-4 w-4 md:h-5 md:w-5 text-green-600 dark:text-green-400" />
+                  <p className="text-[10px] md:text-xs text-green-700 dark:text-green-400 font-semibold">Total Won</p>
+                </div>
+                <p className="text-lg md:text-2xl font-bold text-green-600 dark:text-green-400">
+                  {formatCurrency(totalWon, (wager.currency || DEFAULT_CURRENCY) as Currency)}
+                </p>
               </div>
-              <p className="text-lg md:text-2xl font-bold">{formatCurrency(wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}</p>
-            </div>
+            ) : (
+              <div className="bg-card border border-border rounded-lg p-3 md:p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Award className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
+                  <p className="text-[10px] md:text-xs text-muted-foreground">Entry Fee</p>
+                </div>
+                <p className="text-lg md:text-2xl font-bold">{formatCurrency(wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}</p>
+              </div>
+            )}
             {wager.deadline ? (
               <div className="bg-card border border-border rounded-lg p-3 md:p-4">
                 <DeadlineDisplay 

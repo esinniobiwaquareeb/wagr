@@ -84,6 +84,24 @@ export function WagerCard({
   const bestReturn = Math.max(returns.sideAReturnMultiplier, returns.sideBReturnMultiplier);
   const bestReturnPercentage = Math.max(returns.sideAReturnPercentage, returns.sideBReturnPercentage);
 
+  // Calculate total won (winnings pool) for settled bets
+  const calculateTotalWon = () => {
+    if (!isSettled || !winningSide) {
+      return null;
+    }
+
+    const totalPool = (sideATotal || 0) + (sideBTotal || 0);
+    
+    if (totalPool === 0) {
+      return 0;
+    }
+    
+    const platformFee = totalPool * (feePercentage || PLATFORM_FEE_PERCENTAGE);
+    const winningsPool = totalPool - platformFee;
+    
+    return winningsPool;
+  };
+
   // Calculate actual winnings for settled bets
   const calculateActualWinnings = () => {
     // Only calculate if wager is settled and has a winning side
@@ -128,6 +146,7 @@ export function WagerCard({
   };
 
   const actualWinnings = calculateActualWinnings();
+  const totalWon = calculateTotalWon();
   const userWon = isSettled && userEntryAmount !== undefined && userEntrySide === winningSide;
   const userParticipated = userEntryAmount !== undefined && userEntrySide !== undefined;
 
@@ -335,20 +354,30 @@ export function WagerCard({
               </div>
             )}
             {isSettled && (
-              <div className={`flex items-center gap-1.5 font-semibold ${
-                actualWinnings !== null && actualWinnings > 0
-                  ? "text-green-600 dark:text-green-400" 
-                  : "text-muted-foreground"
-              }`}>
-                <Coins className="h-3 w-3" />
-                <span>
-                  Winning: {actualWinnings !== null
-                    ? (actualWinnings > 0 
-                        ? formatCurrency(actualWinnings, currency as Currency)
-                        : "Lost")
-                    : "N/A"
-                  }
-                </span>
+              <div className="flex flex-col gap-1">
+                {totalWon !== null && (
+                  <div className="flex items-center gap-1.5 font-semibold text-green-600 dark:text-green-400">
+                    <Trophy className="h-3 w-3" />
+                    <span>Total Won: {formatCurrency(totalWon, currency as Currency)}</span>
+                  </div>
+                )}
+                {userParticipated && (
+                  <div className={`flex items-center gap-1.5 text-xs ${
+                    actualWinnings !== null && actualWinnings > 0
+                      ? "text-green-600 dark:text-green-400" 
+                      : "text-muted-foreground"
+                  }`}>
+                    <Coins className="h-2.5 w-2.5" />
+                    <span>
+                      Your Winning: {actualWinnings !== null
+                        ? (actualWinnings > 0 
+                            ? formatCurrency(actualWinnings, currency as Currency)
+                            : "Lost")
+                        : "N/A"
+                      }
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>
