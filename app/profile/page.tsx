@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
-import { User, Mail, Calendar, LogOut, Settings, Edit2, Save, X, ChevronRight, Shield, ShieldCheck } from "lucide-react";
+import { User, Mail, Calendar, LogOut, Settings, Edit2, Save, X, ChevronRight, Shield, ShieldCheck, Trophy, Eye, EyeOff } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -33,6 +33,8 @@ export default function Profile() {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [show2FASetup, setShow2FASetup] = useState(false);
   const [show2FAManage, setShow2FAManage] = useState(false);
+  const [myWagers, setMyWagers] = useState<any[]>([]);
+  const [loadingWagers, setLoadingWagers] = useState(false);
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
 
@@ -133,11 +135,53 @@ export default function Profile() {
     };
   }, [getUser, supabase, router]);
 
+  const fetchMyWagers = useCallback(async () => {
+    if (!user) return;
+    
+    setLoadingWagers(true);
+    try {
+      const { data, error } = await supabase
+        .from("wagers")
+        .select("*")
+        .eq("creator_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.error("Error fetching wagers:", error);
+        return;
+      }
+
+      if (data) {
+        // Get entry counts for each wager
+        const wagersWithCounts = await Promise.all(
+          data.map(async (wager) => {
+            const { count } = await supabase
+              .from("wager_entries")
+              .select("*", { count: "exact", head: true })
+              .eq("wager_id", wager.id);
+            
+            return {
+              ...wager,
+              entries_count: count || 0,
+            };
+          })
+        );
+        setMyWagers(wagersWithCounts);
+      }
+    } catch (error) {
+      console.error("Error fetching my wagers:", error);
+    } finally {
+      setLoadingWagers(false);
+    }
+  }, [user, supabase]);
+
   useEffect(() => {
     if (user) {
       fetchProfile();
+      fetchMyWagers();
     }
-  }, [user, fetchProfile]);
+  }, [user, fetchProfile, fetchMyWagers]);
 
   // Real-time subscription for profile updates
   useEffect(() => {
@@ -509,6 +553,82 @@ export default function Profile() {
                 clear2FAVerification();
               }}
             />
+
+            {/* My Wagers Section */}
+            <div className="bg-card border border-border rounded-lg p-3 md:p-6">
+              <div className="flex items-center justify-between mb-3 md:mb-4">
+                <h3 className="text-sm md:text-lg font-semibold flex items-center gap-2">
+                  <Trophy className="h-4 w-4 md:h-5 md:w-5" />
+                  My Wagers
+                </h3>
+                <Link
+                  href="/create"
+                  className="text-xs md:text-sm text-primary hover:underline font-medium"
+                >
+                  Create New →
+                </Link>
+              </div>
+              
+              {loadingWagers ? (
+                <div className="text-center py-8">
+                  <p className="text-sm text-muted-foreground">Loading wagers...</p>
+                </div>
+              ) : myWagers.length === 0 ? (
+                <div className="text-center py-8">
+                  <Trophy className="h-8 w-8 md:h-12 md:w-12 text-muted-foreground mx-auto mb-2 opacity-50" />
+                  <p className="text-sm text-muted-foreground mb-2">You haven't created any wagers yet</p>
+                  <Link
+                    href="/create"
+                    className="text-xs md:text-sm text-primary hover:underline font-medium"
+                  >
+                    Create your first wager →
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {myWagers.map((wager) => (
+                    <Link
+                      key={wager.id}
+                      href={`/wager/${wager.id}`}
+                      className="block p-3 bg-muted/50 hover:bg-muted rounded-lg transition active:scale-[0.98] touch-manipulation"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="text-xs md:text-sm font-semibold truncate">{wager.title}</h4>
+                            {wager.is_public ? (
+                              <div title="Public">
+                                <Eye className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground flex-shrink-0" />
+                              </div>
+                            ) : (
+                              <div title="Private">
+                                <EyeOff className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground flex-shrink-0" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 text-[10px] md:text-xs text-muted-foreground">
+                            <span>{wager.entries_count} {wager.entries_count === 1 ? 'entry' : 'entries'}</span>
+                            <span>•</span>
+                            <span>{formatCurrency(wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}</span>
+                            <span>•</span>
+                            <span className={`${
+                              wager.status === "OPEN" 
+                                ? "text-green-600 dark:text-green-400" 
+                                : wager.status === "RESOLVED"
+                                ? "text-blue-600 dark:text-blue-400"
+                                : "text-gray-600 dark:text-gray-400"
+                            }`}>
+                              {wager.status}
+                            </span>
+                          </div>
+                        </div>
+                        <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground flex-shrink-0" />
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Stats Card */}

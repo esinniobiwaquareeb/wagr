@@ -84,13 +84,100 @@ function WagersPageContent() {
       }
     }
 
+    // Get current user
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+
     // No cache or forced refresh - fetch from API
-    const { data: wagersData, error } = await supabase
-      .from("wagers")
-      .select("*")
-      .eq("is_public", true) // Only fetch public wagers
-      .order("created_at", { ascending: false })
-      .limit(100); // Limit to prevent large queries
+    // Fetch public wagers and private wagers where user is creator or has joined
+    let wagersData: any[] = [];
+    let error: any = null;
+
+    if (currentUser) {
+      // Get private wagers where user has an entry (joined/subscribed)
+      const { data: userEntries } = await supabase
+        .from("wager_entries")
+        .select("wager_id")
+        .eq("user_id", currentUser.id);
+
+      const joinedWagerIds = userEntries?.map(e => e.wager_id) || [];
+
+      // Fetch public wagers
+      const { data: publicWagers, error: publicError } = await supabase
+        .from("wagers")
+        .select("*")
+        .eq("is_public", true)
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (publicError) {
+        error = publicError;
+      } else if (publicWagers) {
+        wagersData = [...publicWagers];
+      }
+
+      // Fetch private wagers where user is creator
+      const { data: createdWagers, error: createdError } = await supabase
+        .from("wagers")
+        .select("*")
+        .eq("is_public", false)
+        .eq("creator_id", currentUser.id)
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (!error && createdError) {
+        error = createdError;
+      } else if (createdWagers) {
+        // Merge and deduplicate
+        const existingIds = new Set(wagersData.map(w => w.id));
+        createdWagers.forEach(w => {
+          if (!existingIds.has(w.id)) {
+            wagersData.push(w);
+            existingIds.add(w.id);
+          }
+        });
+      }
+
+      // Fetch private wagers where user has joined
+      if (joinedWagerIds.length > 0) {
+        const { data: joinedWagers, error: joinedError } = await supabase
+          .from("wagers")
+          .select("*")
+          .eq("is_public", false)
+          .in("id", joinedWagerIds)
+          .order("created_at", { ascending: false })
+          .limit(100);
+
+        if (!error && joinedError) {
+          error = joinedError;
+        } else if (joinedWagers) {
+          // Merge and deduplicate
+          const existingIds = new Set(wagersData.map(w => w.id));
+          joinedWagers.forEach(w => {
+            if (!existingIds.has(w.id)) {
+              wagersData.push(w);
+              existingIds.add(w.id);
+            }
+          });
+        }
+      }
+
+      // Sort by created_at descending
+      wagersData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    } else {
+      // Unauthenticated users only see public wagers
+      const { data: publicWagers, error: publicError } = await supabase
+        .from("wagers")
+        .select("*")
+        .eq("is_public", true)
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (publicError) {
+        error = publicError;
+      } else if (publicWagers) {
+        wagersData = publicWagers;
+      }
+    }
 
     if (error) {
       console.error("Error fetching wagers:", error);

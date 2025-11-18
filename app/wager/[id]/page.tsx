@@ -8,7 +8,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
-import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Award, Coins, Trash2, Edit2 } from "lucide-react";
+import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Award, Coins, Trash2, Edit2, Share2 } from "lucide-react";
 import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -145,11 +145,9 @@ export default function WagerDetail() {
       return;
     }
 
-    // Check if wager is public or user is creator
-    if (!wagerData.is_public && wagerData.creator_id !== user?.id) {
-      setLoading(false);
-      return;
-    }
+    // For private wagers, allow access via direct link (simple sharing)
+    // Anyone with the link can access private wagers
+    // This enables simple sharing via WhatsApp, etc.
 
     setWager(wagerData);
 
@@ -655,6 +653,42 @@ export default function WagerDetail() {
     }
   };
 
+  const handleShare = async () => {
+    if (typeof window === 'undefined') return;
+    
+    const wagerUrl = `${window.location.origin}/wager/${wagerId}`;
+    
+    try {
+      await navigator.clipboard.writeText(wagerUrl);
+      toast({
+        title: "Link copied!",
+        description: "Wager link has been copied to your clipboard. Share it via WhatsApp or any platform.",
+      });
+    } catch (error) {
+      // Fallback for browsers that don't support clipboard API
+      const textArea = document.createElement("textarea");
+      textArea.value = wagerUrl;
+      textArea.style.position = "fixed";
+      textArea.style.opacity = "0";
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        toast({
+          title: "Link copied!",
+          description: "Wager link has been copied to your clipboard. Share it via WhatsApp or any platform.",
+        });
+      } catch (err) {
+        toast({
+          title: "Couldn't copy link",
+          description: "Please copy the link manually from the address bar.",
+          variant: "destructive",
+        });
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
   if (loading) {
     return (
       <main className="flex-1 pb-24 md:pb-0">
@@ -876,6 +910,15 @@ export default function WagerDetail() {
               >
                 {wager.status}
               </span>
+              {/* Share button - available for all wagers */}
+              <button
+                onClick={handleShare}
+                className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-muted hover:bg-muted/80 text-foreground border border-border transition active:scale-[0.98] touch-manipulation flex-shrink-0"
+                title="Copy wager link"
+              >
+                <Share2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                <span className="text-[10px] md:text-xs font-medium hidden sm:inline">Share</span>
+              </button>
             </div>
           </div>
           

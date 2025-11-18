@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useToast } from "@/hooks/use-toast";
 import { DEFAULT_CURRENCY, type Currency, CURRENCY_SYMBOLS, formatCurrency } from "@/lib/currency";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
@@ -39,6 +40,8 @@ export default function CreateWager() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [userBalance, setUserBalance] = useState<number | null>(null);
+  const [checkingBalance, setCheckingBalance] = useState(false);
   const { toast } = useToast();
   
   // A/B Testing
@@ -56,6 +59,7 @@ export default function CreateWager() {
     category: "",
     tags: [] as string[],
     selectedSideTemplate: null as { sideA: string; sideB: string } | null,
+    creatorSide: "a" as "a" | "b", // Which side the creator will join
   });
 
   const getUser = useCallback(async () => {
@@ -66,7 +70,58 @@ export default function CreateWager() {
     }
     setUser(data.user);
     setLoading(false);
+    
+    // Fetch user balance
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("balance")
+      .eq("id", data.user.id)
+      .single();
+    
+    if (profile) {
+      setUserBalance(profile.balance || 0);
+    } else {
+      setUserBalance(0);
+    }
   }, [supabase, router]);
+
+  // Check balance whenever amount changes
+  const checkBalance = useCallback(async () => {
+    if (!user || !formData.amount) {
+      return;
+    }
+
+    const amount = parseFloat(formData.amount);
+    if (isNaN(amount) || amount <= 0) {
+      return;
+    }
+
+    setCheckingBalance(true);
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("balance")
+        .eq("id", user.id)
+        .single();
+      
+      if (profile) {
+        setUserBalance(profile.balance || 0);
+      }
+    } catch (error) {
+      console.error("Error checking balance:", error);
+    } finally {
+      setCheckingBalance(false);
+    }
+  }, [user, formData.amount, supabase]);
+
+  useEffect(() => {
+    if (user && formData.amount) {
+      const timeoutId = setTimeout(() => {
+        checkBalance();
+      }, 500); // Debounce balance check
+      return () => clearTimeout(timeoutId);
+    }
+  }, [user, formData.amount, checkBalance]);
 
   useEffect(() => {
     getUser();
@@ -266,7 +321,7 @@ export default function CreateWager() {
         return;
       }
 
-      // Deduct entry fee from creator's balance
+      // Deduct entry fee from creator's balance (for the entry, not separate creation fee)
       const { error: balanceError } = await supabase.rpc("increment_balance", {
         user_id: user.id,
         amt: -amount,
@@ -275,15 +330,6 @@ export default function CreateWager() {
       if (balanceError) {
         throw new Error("Failed to deduct entry fee from your wallet. Please try again.");
       }
-
-      // Record transaction for entry fee deduction
-      await supabase.from("transactions").insert({
-        user_id: user.id,
-        type: "wager_create",
-        amount: -amount,
-        reference: null, // Will be updated after wager is created
-        description: `Wager Creation Fee: "${trimmedTitle}"`,
-      });
 
       // Create the wager
       const { data: newWager, error } = await supabase.from("wagers").insert({
@@ -320,6 +366,33 @@ export default function CreateWager() {
           .eq("type", "wager_create")
           .order("created_at", { ascending: false })
           .limit(1);
+
+        // Automatically create entry for creator (they're automatically joined)
+        const { error: entryError } = await supabase.from("wager_entries").insert({
+          wager_id: newWager.id,
+          user_id: user.id,
+          side: formData.creatorSide,
+          amount: amount,
+        });
+
+        if (entryError) {
+          console.error("Error creating creator entry:", entryError);
+          // Refund if entry creation fails
+          await supabase.rpc("increment_balance", {
+            user_id: user.id,
+            amt: amount,
+          });
+          throw new Error("Failed to join you to the wager. Please try again.");
+        }
+
+        // Record transaction for the entry
+        await supabase.from("transactions").insert({
+          user_id: user.id,
+          type: "wager_join",
+          amount: -amount,
+          reference: newWager.id,
+          description: `Wager Entry: "${trimmedTitle}" - Joined ${formData.creatorSide === "a" ? trimmedSideA : trimmedSideB}`,
+        });
       }
 
       trackABTestEvent(AB_TESTS.CREATE_FORM_LAYOUT, formVariant, 'wager_created', {
@@ -493,7 +566,75 @@ export default function CreateWager() {
                 className="flex-1 px-2.5 py-1.5 text-sm border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
               />
             </div>
+            {/* Balance validation */}
+            {formData.amount && userBalance !== null && (() => {
+              const amount = parseFloat(formData.amount);
+              const isValidAmount = !isNaN(amount) && amount > 0;
+              const hasEnoughBalance = isValidAmount && userBalance >= amount;
+              const shortfall = isValidAmount && !hasEnoughBalance ? amount - userBalance : 0;
+              
+              return isValidAmount && (
+                <div className={`mt-2 p-2.5 rounded-lg border ${
+                  hasEnoughBalance 
+                    ? "bg-green-500/10 border-green-500/20" 
+                    : "bg-destructive/10 border-destructive/20"
+                }`}>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className={hasEnoughBalance ? "text-green-700 dark:text-green-400" : "text-destructive"}>
+                      {hasEnoughBalance 
+                        ? `✓ You have ${formatCurrency(userBalance, formData.currency)} available`
+                        : `Insufficient balance. You need ${formatCurrency(shortfall, formData.currency)} more.`
+                      }
+                    </span>
+                  </div>
+                  {!hasEnoughBalance && (
+                    <Link 
+                      href="/wallet" 
+                      className="text-xs text-primary hover:underline mt-1 block font-medium"
+                    >
+                      Add money to wallet →
+                    </Link>
+                  )}
+                </div>
+              );
+            })()}
           </div>
+
+          {/* Creator Side Selection */}
+          {formData.sideA && formData.sideB && (
+            <div>
+              <label className="block text-xs font-medium mb-1.5">Which side are you joining? *</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, creatorSide: "a" })}
+                  className={`p-3 rounded-lg border-2 transition ${
+                    formData.creatorSide === "a"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <div className="text-sm font-semibold mb-1">{formData.sideA}</div>
+                  <div className="text-xs text-muted-foreground">Side A</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, creatorSide: "b" })}
+                  className={`p-3 rounded-lg border-2 transition ${
+                    formData.creatorSide === "b"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <div className="text-sm font-semibold mb-1">{formData.sideB}</div>
+                  <div className="text-xs text-muted-foreground">Side B</div>
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1.5">
+                You'll automatically join this side when you create the wager.
+              </p>
+            </div>
+          )}
 
           {/* Category & Visibility - Combined */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -571,13 +712,23 @@ export default function CreateWager() {
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={submitting || !formData.title || !formData.sideA || !formData.sideB || !formData.amount}
-            className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.98] touch-manipulation mt-2 text-sm"
-          >
-            {submitting ? "Creating..." : "Create Wager"}
-          </button>
+          {(() => {
+            const amount = parseFloat(formData.amount);
+            const isValidAmount = !isNaN(amount) && amount > 0;
+            const hasEnoughBalance = isValidAmount && userBalance !== null && userBalance >= amount;
+            const isFormValid = formData.title && formData.sideA && formData.sideB && formData.amount;
+            const canSubmit = isFormValid && hasEnoughBalance && !submitting;
+            
+            return (
+              <button
+                type="submit"
+                disabled={!canSubmit}
+                className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.98] touch-manipulation mt-2 text-sm"
+              >
+                {submitting ? "Creating..." : "Create Wager"}
+              </button>
+            );
+          })()}
         </form>
       </div>
     </main>
