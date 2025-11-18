@@ -7,6 +7,14 @@
 import { generateEmailHTML, generateEmailText, getEmailSubject, type EmailTemplateData } from './email-templates';
 import { logger } from './logger';
 
+// Dynamic import for nodemailer to avoid issues if not installed
+let nodemailer: any = null;
+try {
+  nodemailer = require('nodemailer');
+} catch (error) {
+  logger.warn('nodemailer not installed. Email sending will be disabled.');
+}
+
 export interface SendEmailOptions {
   to: string;
   type: EmailTemplateData['type'];
@@ -15,16 +23,43 @@ export interface SendEmailOptions {
 }
 
 /**
- * Send email using Supabase Auth email service
- * Note: Supabase handles emails for auth events automatically
- * This function is for custom emails (wager notifications, etc.)
+ * Create SMTP transporter
+ */
+function createTransporter() {
+  if (!nodemailer) {
+    throw new Error('nodemailer is not installed');
+  }
+
+  const host = process.env.SMTP_HOST;
+  const port = parseInt(process.env.SMTP_PORT || '587', 10);
+  const user = process.env.SMTP_USER;
+  const password = process.env.SMTP_PASSWORD;
+  const rejectUnauthorized = process.env.SMTP_REJECT_UNAUTHORIZED !== 'false';
+
+  if (!host || !user || !password) {
+    throw new Error('SMTP configuration is incomplete. Please set SMTP_HOST, SMTP_USER, and SMTP_PASSWORD environment variables.');
+  }
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465, // true for 465, false for other ports
+    auth: {
+      user,
+      pass: password,
+    },
+    tls: {
+      rejectUnauthorized,
+    },
+  });
+}
+
+/**
+ * Send email using SMTP
  */
 export async function sendEmail(options: SendEmailOptions): Promise<boolean> {
   try {
     const { to, type, data, subject } = options;
-    
-    // For now, we'll use Supabase's email service via their API
-    // In production, you might want to use a dedicated email service like Resend, SendGrid, etc.
     
     const emailData: EmailTemplateData = {
       type,
@@ -36,27 +71,35 @@ export async function sendEmail(options: SendEmailOptions): Promise<boolean> {
     const htmlContent = generateEmailHTML(emailData);
     const textContent = generateEmailText(emailData);
     const emailSubject = subject || getEmailSubject(type);
+    const fromAddress = process.env.SMTP_FROM || 'wagr <noreply@wagr.app>';
 
-    // TODO: Integrate with email service provider
-    // For now, log the email (in production, send via Resend, SendGrid, etc.)
-    logger.info('Email would be sent:', {
+    // Check if SMTP is configured
+    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
+      logger.warn('SMTP not configured. Email would be sent:', {
+        to,
+        subject: emailSubject,
+        type,
+      });
+      return false;
+    }
+
+    // Create transporter and send email
+    const transporter = createTransporter();
+    
+    const info = await transporter.sendMail({
+      from: fromAddress,
       to,
       subject: emailSubject,
-      type,
+      html: htmlContent,
+      text: textContent,
     });
 
-    // Example: If using Resend
-    // const resend = new Resend(process.env.RESEND_API_KEY);
-    // await resend.emails.send({
-    //   from: 'wagr <noreply@wagr.app>',
-    //   to,
-    //   subject: emailSubject,
-    //   html: htmlContent,
-    //   text: textContent,
-    // });
-
-    // For Supabase, you can use their email API if configured
-    // Or use a webhook/edge function to send emails
+    logger.info('Email sent successfully:', {
+      to,
+      subject: emailSubject,
+      messageId: info.messageId,
+      type,
+    });
 
     return true;
   } catch (error) {
@@ -87,7 +130,7 @@ export async function sendWagerSettlementEmail(
     },
     subject: won 
       ? `🎉 You won ${amount} on "${wagerTitle}"!` 
-      : `Wager resolved: "${wagerTitle}"`,
+      : `😔 Oops, you lost the bet on "${wagerTitle}"`,
   });
 }
 

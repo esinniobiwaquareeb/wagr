@@ -13,8 +13,8 @@ DECLARE
   user_winnings NUMERIC;
   participant_count INTEGER;
 BEGIN
-  -- Only trigger when status changes to RESOLVED
-  IF NEW.status = 'RESOLVED' AND OLD.status != 'RESOLVED' THEN
+  -- Only trigger when status changes to RESOLVED or SETTLED
+  IF (NEW.status = 'RESOLVED' OR NEW.status = 'SETTLED') AND (OLD.status != 'RESOLVED' AND OLD.status != 'SETTLED') THEN
     -- Count participants
     SELECT COUNT(DISTINCT user_id) INTO participant_count
     FROM wager_entries
@@ -98,8 +98,8 @@ BEGIN
           VALUES (
             entry_record.user_id,
             'wager_resolved',
-            'Wager resolved',
-            'The wager "' || NEW.title || '" has been resolved',
+            'Oops, you lost this bet 😔',
+            'Unfortunately, you lost the wager "' || NEW.title || '". Better luck next time!',
             '/wager/' || NEW.id,
             jsonb_build_object(
               'wager_id', NEW.id,
@@ -120,7 +120,7 @@ DROP TRIGGER IF EXISTS trigger_notify_wager_resolved ON wagers;
 CREATE TRIGGER trigger_notify_wager_resolved
   AFTER UPDATE ON wagers
   FOR EACH ROW
-  WHEN (NEW.status = 'RESOLVED' AND OLD.status != 'RESOLVED')
+  WHEN ((NEW.status = 'RESOLVED' OR NEW.status = 'SETTLED') AND (OLD.status != 'RESOLVED' AND OLD.status != 'SETTLED'))
   EXECUTE FUNCTION notify_wager_resolved();
 
 -- Function to notify when someone joins a wager

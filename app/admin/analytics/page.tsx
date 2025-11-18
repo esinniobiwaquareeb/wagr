@@ -203,7 +203,7 @@ export default function AdminAnalyticsPage() {
 
         // Calculate commissions for resolved wagers
         const resolvedWagers = (wagersData || []).filter(w => 
-          w.status === "RESOLVED" && 
+          (w.status === "RESOLVED" || w.status === "SETTLED") && 
           w.created_at >= dayStart && w.created_at <= dayEnd
         );
         
@@ -230,7 +230,7 @@ export default function AdminAnalyticsPage() {
 
       // Calculate financial metrics
       const totalWagerVolume = (entriesData || []).reduce((sum, e) => sum + e.amount, 0);
-      const resolvedWagers = (wagersData || []).filter(w => w.status === "RESOLVED");
+      const resolvedWagers = (wagersData || []).filter(w => w.status === "RESOLVED" || w.status === "SETTLED");
       
       let totalCommissions = 0;
       resolvedWagers.forEach(wager => {

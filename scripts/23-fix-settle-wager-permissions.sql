@@ -131,9 +131,9 @@ BEGIN
     END LOOP;
   END IF;
 
-  -- Update wager status to RESOLVED
+  -- Update wager status to SETTLED (actual settlement with winnings distributed)
   UPDATE wagers
-  SET status = 'RESOLVED'
+  SET status = 'SETTLED'
   WHERE id = wager_id_param;
 END;
 $$;

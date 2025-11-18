@@ -158,15 +158,15 @@ function HistoryPageContent() {
       }
       
       if (filter === 'resolved') {
-        return wager.status === 'RESOLVED';
+        return wager.status === 'RESOLVED' || wager.status === 'SETTLED';
       }
       
       if (filter === 'won') {
-        return wager.status === 'RESOLVED' && wager.winning_side === entry.side;
+        return (wager.status === 'RESOLVED' || wager.status === 'SETTLED') && wager.winning_side === entry.side;
       }
       
       if (filter === 'lost') {
-        return wager.status === 'RESOLVED' && wager.winning_side !== null && wager.winning_side !== entry.side;
+        return (wager.status === 'RESOLVED' || wager.status === 'SETTLED') && wager.winning_side !== null && wager.winning_side !== entry.side;
       }
       
       return true;
@@ -176,9 +176,9 @@ function HistoryPageContent() {
   const stats = useMemo(() => {
     const total = entries.length;
     const open = entries.filter(e => e.wager.status === 'OPEN').length;
-    const resolved = entries.filter(e => e.wager.status === 'RESOLVED').length;
-    const won = entries.filter(e => e.wager.status === 'RESOLVED' && e.wager.winning_side === e.side).length;
-    const lost = entries.filter(e => e.wager.status === 'RESOLVED' && e.wager.winning_side !== null && e.wager.winning_side !== e.side).length;
+    const resolved = entries.filter(e => e.wager.status === 'RESOLVED' || e.wager.status === 'SETTLED').length;
+    const won = entries.filter(e => (e.wager.status === 'RESOLVED' || e.wager.status === 'SETTLED') && e.wager.winning_side === e.side).length;
+    const lost = entries.filter(e => (e.wager.status === 'RESOLVED' || e.wager.status === 'SETTLED') && e.wager.winning_side !== null && e.wager.winning_side !== e.side).length;
 
     return { total, open, resolved, won, lost };
   }, [entries]);
@@ -334,8 +334,8 @@ function HistoryPageContent() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredEntries.map((entry) => {
               const wager = entry.wager;
-              const isWon = wager.status === 'RESOLVED' && wager.winning_side === entry.side;
-              const isLost = wager.status === 'RESOLVED' && wager.winning_side !== null && wager.winning_side !== entry.side;
+              const isWon = (wager.status === 'RESOLVED' || wager.status === 'SETTLED') && wager.winning_side === entry.side;
+              const isLost = (wager.status === 'RESOLVED' || wager.status === 'SETTLED') && wager.winning_side !== null && wager.winning_side !== entry.side;
               const sideLabel = entry.side === 'a' ? wager.side_a : wager.side_b;
               const entryCurrency = (wager.currency || currency) as Currency;
 
@@ -348,7 +348,7 @@ function HistoryPageContent() {
                   <div className="bg-card border-2 border-border rounded-xl p-4 md:p-5 hover:border-primary hover:shadow-lg transition-all cursor-pointer active:scale-[0.98] touch-manipulation h-full flex flex-col relative overflow-hidden">
                     {/* Status indicator bar */}
                     <div className={`absolute top-0 left-0 right-0 h-1 ${
-                      wager.status === 'RESOLVED'
+                      wager.status === 'RESOLVED' || wager.status === 'SETTLED'
                         ? isWon
                           ? 'bg-green-500'
                           : isLost

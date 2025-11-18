@@ -111,7 +111,7 @@ function WagersPageContent() {
   }, [allWagers]);
 
   const settledWagers = useMemo(() => {
-    return allWagers.filter(w => w.status === "RESOLVED").sort((a, b) => {
+    return allWagers.filter(w => w.status === "SETTLED" || w.status === "RESOLVED").sort((a, b) => {
       // Sort settled by deadline (most recently settled first)
       const deadlineA = a.deadline ? new Date(a.deadline).getTime() : 0;
       const deadlineB = b.deadline ? new Date(b.deadline).getTime() : 0;

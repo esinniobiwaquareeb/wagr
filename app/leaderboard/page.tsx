@@ -43,7 +43,7 @@ export default function Leaderboard() {
         const { data: resolvedWagers } = await supabase
           .from("wagers")
           .select("id, status, winning_side, fee_percentage")
-          .eq("status", "RESOLVED")
+          .in("status", ["RESOLVED", "SETTLED"])
           .not("winning_side", "is", null);
 
         // Calculate stats for each user

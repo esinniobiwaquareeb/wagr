@@ -57,7 +57,7 @@ export function WagerCard({
   onClick,
 }: WagerCardProps) {
   const isOpen = status === "OPEN";
-  const isResolved = status === "RESOLVED";
+  const isResolved = status === "RESOLVED" || status === "SETTLED";
   const sideAWon = isResolved && winningSide === "a";
   const sideBWon = isResolved && winningSide === "b";
   

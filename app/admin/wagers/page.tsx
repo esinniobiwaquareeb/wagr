@@ -173,7 +173,7 @@ export default function AdminWagersPage() {
             description: `Winning side has been set. Settlement will be processed automatically. Error: ${errorMessage}`,
             variant: "default",
           });
-        } else if (updatedWager?.status === "RESOLVED") {
+        } else if (updatedWager?.status === "SETTLED" || updatedWager?.status === "RESOLVED") {
           // Success - wager was settled
           toast({
             title: "Wager resolved",
@@ -263,6 +263,13 @@ export default function AdminWagersPage() {
           <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-blue-500/20 text-blue-700 dark:text-blue-400 text-xs">
             <CheckCircle className="h-3 w-3" />
             Resolved
+          </span>
+        );
+      case "SETTLED":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-green-500/20 text-green-700 dark:text-green-400 text-xs">
+            <CheckCircle className="h-3 w-3" />
+            Settled
           </span>
         );
       case "REFUNDED":

@@ -138,7 +138,7 @@ export default function AdminPage() {
         .select("status, amount");
 
       const openWagers = wagersData?.filter(w => w.status === "OPEN").length || 0;
-      const resolvedWagers = wagersData?.filter(w => w.status === "RESOLVED").length || 0;
+      const resolvedWagers = wagersData?.filter(w => w.status === "RESOLVED" || w.status === "SETTLED").length || 0;
 
       // Get transaction stats
       const { data: transactionsData } = await supabase

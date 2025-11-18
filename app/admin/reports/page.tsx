@@ -157,7 +157,7 @@ export default function AdminReportsPage() {
       setWagerEntries(entriesData || []);
 
       // Calculate platform commissions from resolved wagers
-      const resolvedWagers = (wagersData || []).filter(w => w.status === "RESOLVED");
+      const resolvedWagers = (wagersData || []).filter(w => w.status === "RESOLVED" || w.status === "SETTLED");
       let totalCommissions = 0;
       let totalWagerVolume = 0;
 

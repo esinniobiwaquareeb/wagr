@@ -1226,7 +1226,7 @@ export default function WagerDetail() {
                 className={`text-[10px] md:text-xs px-2.5 md:px-3 py-1 md:py-1.5 rounded-full font-semibold flex-shrink-0 ${
                   wager.status === "OPEN"
                     ? "bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/30"
-                    : wager.status === "RESOLVED"
+                    : wager.status === "RESOLVED" || wager.status === "SETTLED"
                       ? "bg-blue-500/20 text-blue-700 dark:text-blue-400 border border-blue-500/30"
                       : "bg-gray-500/20 text-gray-700 dark:text-gray-400 border border-gray-500/30"
                 }`}

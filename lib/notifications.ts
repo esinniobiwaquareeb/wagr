@@ -58,10 +58,10 @@ export async function notifyWagerResolved(
   await createNotification({
     user_id: userId,
     type: "wager_resolved",
-    title: won ? "You won a wager! 🎉" : "Wager resolved",
+    title: won ? "You won a wager! 🎉" : "Oops, you lost this bet 😔",
     message: won
       ? `You won ${amount} on "${wagerTitle}"`
-      : `The wager "${wagerTitle}" has been resolved`,
+      : `Unfortunately, you lost the wager "${wagerTitle}". Better luck next time!`,
     link: `/wager/${wagerId}`,
     metadata: {
       wager_id: wagerId,

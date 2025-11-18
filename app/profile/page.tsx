@@ -642,7 +642,7 @@ export default function Profile() {
                             <span className={`${
                               wager.status === "OPEN" 
                                 ? "text-green-600 dark:text-green-400" 
-                                : wager.status === "RESOLVED"
+                                : wager.status === "RESOLVED" || wager.status === "SETTLED"
                                 ? "text-blue-600 dark:text-blue-400"
                                 : "text-gray-600 dark:text-gray-400"
                             }`}>
