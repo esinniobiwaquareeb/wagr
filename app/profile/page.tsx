@@ -5,12 +5,13 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
-import { User, Mail, Calendar, LogOut, Settings, Edit2, Save, X, ChevronRight, Shield, ShieldCheck, Trophy, Eye, EyeOff } from "lucide-react";
+import { User, Mail, Calendar, LogOut, Settings, Edit2, Save, X, ChevronRight, Shield, ShieldCheck, Trophy, Eye, EyeOff, Key } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { TwoFactorSetup } from "@/components/two-factor-setup";
 import { TwoFactorManage } from "@/components/two-factor-manage";
+import { ChangePasswordDialog } from "@/components/change-password-dialog";
 import { clear2FAVerification } from "@/lib/session-2fa";
 
 interface Profile {
@@ -33,6 +34,7 @@ export default function Profile() {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [show2FASetup, setShow2FASetup] = useState(false);
   const [show2FAManage, setShow2FAManage] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const [myWagers, setMyWagers] = useState<any[]>([]);
   const [loadingWagers, setLoadingWagers] = useState(false);
   const { toast } = useToast();
@@ -511,6 +513,10 @@ export default function Profile() {
               </div>
             </div>
 
+            <ChangePasswordDialog
+              isOpen={showChangePassword}
+              onClose={() => setShowChangePassword(false)}
+            />
             <TwoFactorSetup
               isOpen={show2FASetup}
               onClose={async () => {

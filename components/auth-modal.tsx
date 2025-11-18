@@ -19,6 +19,10 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [requires2FA, setRequires2FA] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+  const [forgotPasswordSent, setForgotPasswordSent] = useState(false);
   const supabase = createClient();
   const router = useRouter();
   const { toast } = useToast();
@@ -264,7 +268,142 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotPasswordLoading(true);
+    setError(null);
+
+    try {
+      const trimmedEmail = forgotPasswordEmail.trim();
+      if (!trimmedEmail) {
+        setError("Please enter your email address");
+        setForgotPasswordLoading(false);
+        return;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(trimmedEmail)) {
+        setError("Please enter a valid email address");
+        setForgotPasswordLoading(false);
+        return;
+      }
+
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: trimmedEmail,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Failed to send password reset email');
+      }
+
+      setForgotPasswordSent(true);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Something went wrong. Please try again.");
+    } finally {
+      setForgotPasswordLoading(false);
+    }
+  };
+
   if (!isOpen) return null;
+
+  // Show forgot password form
+  if (showForgotPassword) {
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => {
+        setShowForgotPassword(false);
+        setForgotPasswordEmail("");
+        setForgotPasswordSent(false);
+        setError(null);
+      }}>
+        <div className="bg-card rounded-lg p-5 md:p-6 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="flex justify-between items-center mb-5 md:mb-6">
+            <h2 className="text-lg md:text-xl font-bold">Reset Password</h2>
+            <button
+              onClick={() => {
+                setShowForgotPassword(false);
+                setForgotPasswordEmail("");
+                setForgotPasswordSent(false);
+                setError(null);
+              }}
+              className="text-muted-foreground hover:text-foreground text-xl md:text-2xl leading-none w-6 h-6 flex items-center justify-center rounded hover:bg-muted transition active:scale-95 touch-manipulation"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+
+          {forgotPasswordSent ? (
+            <div className="space-y-4">
+              <div className="p-4 bg-green-500/10 text-green-700 dark:text-green-400 rounded-lg text-sm">
+                <p className="font-medium mb-1">Check your email</p>
+                <p>If an account with that email exists, we've sent you a password reset link.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowForgotPassword(false);
+                  setForgotPasswordEmail("");
+                  setForgotPasswordSent(false);
+                  setError(null);
+                }}
+                className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-medium hover:opacity-90 transition active:scale-[0.98] touch-manipulation text-base"
+              >
+                Back to Login
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Email</label>
+                <input
+                  type="email"
+                  value={forgotPasswordEmail}
+                  onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 text-base border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                />
+              </div>
+
+              {error && (
+                <div className="p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={forgotPasswordLoading}
+                className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-medium hover:opacity-90 disabled:opacity-50 transition active:scale-[0.98] touch-manipulation text-base"
+              >
+                {forgotPasswordLoading ? "Sending..." : "Send Reset Link"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowForgotPassword(false);
+                  setForgotPasswordEmail("");
+                  setError(null);
+                }}
+                className="w-full text-sm text-muted-foreground hover:text-foreground transition active:scale-95 touch-manipulation"
+              >
+                Back to Login
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   // Show 2FA verification dialog if required
   if (requires2FA) {
@@ -336,17 +475,31 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           </button>
         </form>
 
-        <button
-          onClick={() => {
-            setIsSignUp(!isSignUp);
-            setError(null);
-          }}
-          className="w-full mt-4 text-sm text-muted-foreground hover:text-foreground transition active:scale-95 touch-manipulation"
-        >
-          {isSignUp
-            ? "Already have an account? Login"
-            : "Don't have an account? Sign up"}
-        </button>
+          <div className="mt-4 space-y-2">
+            {!isSignUp && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowForgotPassword(true);
+                }}
+                className="w-full text-sm text-primary hover:underline transition"
+              >
+                Forgot password?
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                setError(null);
+              }}
+              className="w-full text-sm text-muted-foreground hover:text-foreground transition active:scale-95 touch-manipulation"
+            >
+              {isSignUp
+                ? "Already have an account? Login"
+                : "Don't have an account? Sign up"}
+            </button>
+          </div>
       </div>
     </div>
   );
