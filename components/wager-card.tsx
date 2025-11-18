@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, useMemo } from "react";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
-import { Sparkles, User, Users, Clock, TrendingUp, Coins } from "lucide-react";
+import { Sparkles, User, Users, TrendingUp, Coins } from "lucide-react";
 import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
-import { parseDeadline, getTimeRemaining } from "@/lib/deadline-utils";
+import { useDeadlineCountdown } from "@/hooks/use-deadline-countdown";
+import { DeadlineDisplay } from "@/components/deadline-display";
 
 interface WagerCardProps {
   id: string;
@@ -50,64 +50,8 @@ export function WagerCard({
 }: WagerCardProps) {
   const isOpen = status === "OPEN";
   
-  // Parse deadline once
-  const deadlineDate = useMemo(() => deadline ? parseDeadline(deadline) : null, [deadline]);
-  
-  // Real-time countdown state
-  const [timeRemaining, setTimeRemaining] = useState<number>(0);
-  const [deadlineStatus, setDeadlineStatus] = useState<'green' | 'orange' | 'red'>('green');
-  
-  // Format countdown as HH:MM:SS
-  const formatCountdown = (milliseconds: number): string => {
-    if (milliseconds <= 0) return "00:00:00";
-    
-    const totalSeconds = Math.floor(milliseconds / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  };
-  
-  // Update countdown in real-time
-  useEffect(() => {
-    if (!deadlineDate) {
-      setTimeRemaining(0);
-      setDeadlineStatus('green');
-      return;
-    }
-    
-    const updateCountdown = () => {
-      const remaining = getTimeRemaining(deadlineDate);
-      setTimeRemaining(remaining);
-      
-      if (remaining <= 0) {
-        setDeadlineStatus('red');
-      } else {
-        const minutesLeft = remaining / (1000 * 60);
-        if (minutesLeft <= 30) {
-          setDeadlineStatus('orange');
-        } else {
-          setDeadlineStatus('green');
-        }
-      }
-    };
-    
-    // Update immediately
-    updateCountdown();
-    
-    // Update every second
-    const interval = setInterval(updateCountdown, 1000);
-    
-    return () => clearInterval(interval);
-  }, [deadlineDate]);
-  
-  // Calculate display text
-  const timeLeft: string | null = deadlineDate
-    ? timeRemaining <= 0
-      ? "00:00:00"
-      : formatCountdown(timeRemaining)
-    : null;
+  // Use deadline countdown hook
+  const { status: deadlineStatus } = useDeadlineCountdown(deadline);
   
   const formattedAmount = formatCurrency(amount, currency as Currency);
   const isUrgent = deadline && deadlineStatus !== 'green';
@@ -253,19 +197,13 @@ export function WagerCard({
               <Users className="h-3 w-3 md:h-3.5 md:w-3.5" />
               <span className="font-medium">{entriesCount} {entriesCount === 1 ? 'participant' : 'participants'}</span>
             </div>
-            {timeLeft && (
-              <div className={`flex items-center gap-1.5 font-medium ${
-                deadlineStatus === 'red'
-                  ? "text-red-600 dark:text-red-400"
-                  : deadlineStatus === 'orange'
-                  ? "text-orange-600 dark:text-orange-400"
-                  : "text-muted-foreground"
-              }`}>
-                <Clock className={`h-3 w-3 md:h-3.5 md:w-3.5 ${
-                  deadlineStatus === 'orange' || deadlineStatus === 'red' ? 'animate-pulse' : ''
-                }`} />
-                <span className="font-mono text-xs md:text-sm tabular-nums">{timeLeft}</span>
-              </div>
+            {deadline && (
+              <DeadlineDisplay 
+                deadline={deadline} 
+                size="sm"
+                showLabel={false}
+                className="font-medium"
+              />
             )}
           </div>
         </div>

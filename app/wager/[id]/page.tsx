@@ -11,7 +11,9 @@ import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Award, Coins, Trash2,
 import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { utcToLocal, localToUTC, parseDeadline, getTimeRemaining, isDeadlineElapsed } from "@/lib/deadline-utils";
+import { utcToLocal, localToUTC, isDeadlineElapsed } from "@/lib/deadline-utils";
+import { useDeadlineCountdown } from "@/hooks/use-deadline-countdown";
+import { DeadlineDisplay } from "@/components/deadline-display";
 
 interface Wager {
   id: string;
@@ -63,8 +65,6 @@ export default function WagerDetail() {
     amount: "",
     deadline: "",
   });
-  const [deadlineCountdown, setDeadlineCountdown] = useState<number>(0);
-  const [deadlineStatus, setDeadlineStatus] = useState<'green' | 'orange' | 'red'>('green');
   const { toast } = useToast();
   
   // A/B Testing
@@ -192,57 +192,11 @@ export default function WagerDetail() {
     setLoading(false);
   }, [wagerId, supabase, user]);
 
-  // Format countdown as HH:MM:SS
-  const formatCountdown = (milliseconds: number): string => {
-    if (milliseconds <= 0) return "00:00:00";
-    
-    const totalSeconds = Math.floor(milliseconds / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  };
-
-  // Real-time countdown for deadline
-  useEffect(() => {
-    if (!wager?.deadline) {
-      setDeadlineCountdown(0);
-      setDeadlineStatus('green');
-      return;
-    }
-
-    const deadlineDate = parseDeadline(wager.deadline);
-    if (!deadlineDate) {
-      setDeadlineCountdown(0);
-      setDeadlineStatus('red');
-      return;
-    }
-
-    const updateCountdown = () => {
-      const remaining = getTimeRemaining(deadlineDate);
-      setDeadlineCountdown(remaining);
-      
-      if (remaining <= 0) {
-        setDeadlineStatus('red');
-      } else {
-        const minutesLeft = remaining / (1000 * 60);
-        if (minutesLeft <= 30) {
-          setDeadlineStatus('orange');
-        } else {
-          setDeadlineStatus('green');
-        }
-      }
-    };
-
-    // Update immediately
-    updateCountdown();
-
-    // Update every second
-    const interval = setInterval(updateCountdown, 1000);
-
-    return () => clearInterval(interval);
-  }, [wager?.deadline]);
+  // Use deadline countdown hook
+  const deadlineCountdown = useDeadlineCountdown(wager?.deadline);
+  const deadlineStatus = deadlineCountdown.status;
+  const deadlineHasElapsed = deadlineCountdown.hasElapsed;
+  const deadlineCountdownText = deadlineCountdown.countdown;
 
   useEffect(() => {
     fetchWager();
@@ -1007,25 +961,12 @@ export default function WagerDetail() {
             </div>
             {wager.deadline ? (
               <div className="bg-card border border-border rounded-lg p-3 md:p-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <Clock className={`h-4 w-4 md:h-5 md:w-5 ${
-                    deadlineStatus === 'red'
-                      ? 'text-red-600 dark:text-red-400'
-                      : deadlineStatus === 'orange'
-                      ? 'text-orange-600 dark:text-orange-400'
-                      : 'text-muted-foreground'
-                  } ${deadlineStatus === 'orange' || deadlineStatus === 'red' ? 'animate-pulse' : ''}`} />
-                  <p className="text-[10px] md:text-xs text-muted-foreground">Deadline</p>
-                </div>
-                <p className={`text-xs md:text-sm font-bold line-clamp-2 font-mono tabular-nums ${
-                  deadlineStatus === 'red'
-                    ? 'text-red-600 dark:text-red-400'
-                    : deadlineStatus === 'orange'
-                    ? 'text-orange-600 dark:text-orange-400'
-                    : ''
-                }`}>
-                  {deadlineCountdown <= 0 ? "00:00:00" : formatCountdown(deadlineCountdown)}
-                </p>
+                <DeadlineDisplay 
+                  deadline={wager.deadline} 
+                  size="md"
+                  showLabel={true}
+                  cardFormat={true}
+                />
               </div>
             ) : (
               <div className="bg-card border border-border rounded-lg p-3 md:p-4">
@@ -1140,22 +1081,17 @@ export default function WagerDetail() {
                   )}
                 </div>
 
-                {wager.status === "OPEN" && (() => {
-                  const deadlineDate = parseDeadline(wager.deadline);
-                  const hasDeadlineElapsed = deadlineDate ? getTimeRemaining(deadlineDate) <= 0 : false;
-                  
-                  return (
-                    <button
-                      onClick={() => handleJoin("a")}
-                      disabled={joining || hasDeadlineElapsed}
-                      className={`w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl ${
-                        buttonVariant === 'B' ? 'shadow-lg hover:shadow-xl' : ''
-                      }`}
-                    >
-                      {hasDeadlineElapsed ? "Deadline Passed" : joining ? "Joining..." : `Join ${wager.side_a}`}
-                    </button>
-                  );
-                })()}
+                {wager.status === "OPEN" && (
+                  <button
+                    onClick={() => handleJoin("a")}
+                    disabled={joining || deadlineHasElapsed}
+                    className={`w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl ${
+                      buttonVariant === 'B' ? 'shadow-lg hover:shadow-xl' : ''
+                    }`}
+                  >
+                    {deadlineHasElapsed ? "Deadline Passed" : joining ? "Joining..." : `Join ${wager.side_a}`}
+                  </button>
+                )}
               </div>
 
               {/* Mobile VS Divider */}
@@ -1215,22 +1151,17 @@ export default function WagerDetail() {
                   )}
                 </div>
 
-                {wager.status === "OPEN" && (() => {
-                  const deadlineDate = parseDeadline(wager.deadline);
-                  const hasDeadlineElapsed = deadlineDate ? getTimeRemaining(deadlineDate) <= 0 : false;
-                  
-                  return (
-                    <button
-                      onClick={() => handleJoin("b")}
-                      disabled={joining || hasDeadlineElapsed}
-                      className={`w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl ${
-                        buttonVariant === 'B' ? 'shadow-lg hover:shadow-xl' : ''
-                      }`}
-                    >
-                      {hasDeadlineElapsed ? "Deadline Passed" : joining ? "Joining..." : `Join ${wager.side_b}`}
-                    </button>
-                  );
-                })()}
+                {wager.status === "OPEN" && (
+                  <button
+                    onClick={() => handleJoin("b")}
+                    disabled={joining || deadlineHasElapsed}
+                    className={`w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl ${
+                      buttonVariant === 'B' ? 'shadow-lg hover:shadow-xl' : ''
+                    }`}
+                  >
+                    {deadlineHasElapsed ? "Deadline Passed" : joining ? "Joining..." : `Join ${wager.side_b}`}
+                  </button>
+                )}
               </div>
             </div>
           </div>

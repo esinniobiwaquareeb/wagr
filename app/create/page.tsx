@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
+import { useAuth } from "@/hooks/use-auth";
+import { LoadingSpinner } from "@/components/loading-spinner";
 import Link from 'next/link';
 import { useToast } from "@/hooks/use-toast";
 import { DEFAULT_CURRENCY, type Currency, CURRENCY_SYMBOLS, formatCurrency } from "@/lib/currency";
@@ -35,10 +36,11 @@ const COMMON_SIDES = [
 const AMOUNT_PRESETS = [10, 25, 50, 100, 250, 500, 1000];
 
 export default function CreateWager() {
-  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading, supabase } = useAuth({ 
+    requireAuth: true, 
+    redirectTo: "/wagers?login=true" 
+  });
   const [submitting, setSubmitting] = useState(false);
   const [userBalance, setUserBalance] = useState<number | null>(null);
   const [checkingBalance, setCheckingBalance] = useState(false);
@@ -62,20 +64,14 @@ export default function CreateWager() {
     creatorSide: "a" as "a" | "b", // Which side the creator will join
   });
 
-  const getUser = useCallback(async () => {
-    const { data } = await supabase.auth.getUser();
-    if (!data?.user) {
-      router.push("/wagers?login=true");
-      return;
-    }
-    setUser(data.user);
-    setLoading(false);
+  // Fetch user balance when user is available
+  const fetchUserBalance = useCallback(async () => {
+    if (!user) return;
     
-    // Fetch user balance
     const { data: profile } = await supabase
       .from("profiles")
       .select("balance")
-      .eq("id", data.user.id)
+      .eq("id", user.id)
       .single();
     
     if (profile) {
@@ -83,7 +79,7 @@ export default function CreateWager() {
     } else {
       setUserBalance(0);
     }
-  }, [supabase, router]);
+  }, [user, supabase]);
 
   // Check balance whenever amount changes
   const checkBalance = useCallback(async () => {
@@ -123,17 +119,10 @@ export default function CreateWager() {
     }
   }, [user, formData.amount, checkBalance]);
 
+  // Fetch balance when user is available
   useEffect(() => {
-    getUser();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(() => {
-      getUser();
-    });
-
-    return () => {
-      authListener?.subscription?.unsubscribe?.();
-    };
-  }, [getUser]);
+    fetchUserBalance();
+  }, [fetchUserBalance]);
 
   const handleSideTemplateSelect = (template: { sideA: string; sideB: string } | null) => {
     if (template) {
@@ -460,8 +449,8 @@ export default function CreateWager() {
   if (loading || !user) {
     return (
       <main className="flex-1 pb-24 md:pb-0">
-        <div className="max-w-6xl mx-auto p-4 py-12 text-center">
-          <p className="text-muted-foreground">Loading...</p>
+        <div className="max-w-6xl mx-auto p-4 py-12">
+          <LoadingSpinner size="lg" text="Loading..." />
         </div>
       </main>
     );
