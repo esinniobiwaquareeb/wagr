@@ -128,6 +128,32 @@ export default function AdminWagersPage() {
     setShowResolveDialog(false);
     setResolving(wagerId);
     try {
+      // First, fetch the wager to check the deadline
+      const { data: wagerData, error: fetchError } = await supabase
+        .from("wagers")
+        .select("deadline")
+        .eq("id", wagerId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!wagerData) throw new Error("Wager not found");
+
+      // Check if deadline has passed
+      if (wagerData.deadline) {
+        const deadline = new Date(wagerData.deadline);
+        const now = new Date();
+        
+        if (deadline > now) {
+          toast({
+            title: "Cannot settle wager",
+            description: `The deadline for this wager has not passed yet. Deadline: ${format(deadline, "MMM d, yyyy 'at' HH:mm")}. You can only settle wagers after their deadline.`,
+            variant: "destructive",
+          });
+          setResolving(null);
+          return;
+        }
+      }
+
       // First, set the winning side
       const { error: updateError } = await supabase
         .from("wagers")

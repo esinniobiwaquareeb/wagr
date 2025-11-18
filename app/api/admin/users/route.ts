@@ -59,12 +59,54 @@ export async function GET(request: Request) {
       );
     }
 
-    // Merge profiles with auth user emails
+    // Get user statistics
+    const userIds = profiles?.map(p => p.id) || [];
+    
+    // Get wagers created count per user
+    const { data: wagersData } = await supabaseAdmin
+      .from("wagers")
+      .select("creator_id")
+      .in("creator_id", userIds);
+    
+    const wagersCountByUser = new Map<string, number>();
+    wagersData?.forEach(wager => {
+      if (wager.creator_id) {
+        wagersCountByUser.set(wager.creator_id, (wagersCountByUser.get(wager.creator_id) || 0) + 1);
+      }
+    });
+    
+    // Get entries count per user
+    const { data: entriesData } = await supabaseAdmin
+      .from("wager_entries")
+      .select("user_id")
+      .in("user_id", userIds);
+    
+    const entriesCountByUser = new Map<string, number>();
+    entriesData?.forEach(entry => {
+      entriesCountByUser.set(entry.user_id, (entriesCountByUser.get(entry.user_id) || 0) + 1);
+    });
+    
+    // Get total wagered amount per user
+    const { data: entriesWithAmounts } = await supabaseAdmin
+      .from("wager_entries")
+      .select("user_id, amount")
+      .in("user_id", userIds);
+    
+    const totalWageredByUser = new Map<string, number>();
+    entriesWithAmounts?.forEach(entry => {
+      const current = totalWageredByUser.get(entry.user_id) || 0;
+      totalWageredByUser.set(entry.user_id, current + Number(entry.amount || 0));
+    });
+
+    // Merge profiles with auth user emails and stats
     const usersWithEmails = profiles?.map((profile) => {
       const authUser = authUsers?.users.find((u) => u.id === profile.id);
       return {
         ...profile,
         email: authUser?.email || null,
+        wagers_created: wagersCountByUser.get(profile.id) || 0,
+        entries_count: entriesCountByUser.get(profile.id) || 0,
+        total_wagered: totalWageredByUser.get(profile.id) || 0,
       };
     }) || [];
 
