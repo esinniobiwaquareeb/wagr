@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { formatDistanceToNow } from "date-fns";
+import { useState, useEffect, useMemo } from "react";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { Sparkles, User, Users, Clock, TrendingUp, Coins } from "lucide-react";
 import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
@@ -50,51 +50,64 @@ export function WagerCard({
 }: WagerCardProps) {
   const isOpen = status === "OPEN";
   
-  // Calculate deadline status
-  let timeLeft: string | null = null;
-  let deadlineStatus: 'green' | 'orange' | 'red' = 'green';
+  // Parse deadline once
+  const deadlineDate = useMemo(() => deadline ? parseDeadline(deadline) : null, [deadline]);
   
-  if (deadline) {
-    // Use utility function to parse deadline (handles UTC correctly)
-    // These are imported at the top, so they're available synchronously
-    const deadlineDate = parseDeadline(deadline);
+  // Real-time countdown state
+  const [timeRemaining, setTimeRemaining] = useState<number>(0);
+  const [deadlineStatus, setDeadlineStatus] = useState<'green' | 'orange' | 'red'>('green');
+  
+  // Format countdown as HH:MM:SS
+  const formatCountdown = (milliseconds: number): string => {
+    if (milliseconds <= 0) return "00:00:00";
     
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  };
+  
+  // Update countdown in real-time
+  useEffect(() => {
     if (!deadlineDate) {
-      timeLeft = "Invalid deadline";
-      deadlineStatus = 'red';
-    } else {
-      // Get time remaining in milliseconds
-      const timeDiff = getTimeRemaining(deadlineDate);
-      const minutesLeft = timeDiff / (1000 * 60);
-      
-      // Check if deadline has passed - this must be checked FIRST before any formatting
-      if (timeDiff <= 0) {
-        // Deadline has elapsed
-        deadlineStatus = 'red';
-        timeLeft = "Deadline elapsed";
-      } else if (minutesLeft <= 30) {
-        // Less than 30 minutes remaining
-        deadlineStatus = 'orange';
-        // Show more precise time for urgent deadlines
-        if (minutesLeft < 1) {
-          const secondsLeft = Math.floor(timeDiff / 1000);
-          timeLeft = secondsLeft > 0 ? `in ${secondsLeft} second${secondsLeft !== 1 ? 's' : ''}` : "Deadline elapsed";
-          if (secondsLeft <= 0) {
-            deadlineStatus = 'red';
-          }
-        } else if (minutesLeft < 60) {
-          const mins = Math.floor(minutesLeft);
-          timeLeft = `in ${mins} minute${mins !== 1 ? 's' : ''}`;
-        } else {
-          timeLeft = formatDistanceToNow(deadlineDate, { addSuffix: true });
-        }
-      } else {
-        // More than 30 minutes remaining
-        deadlineStatus = 'green';
-        timeLeft = formatDistanceToNow(deadlineDate, { addSuffix: true });
-      }
+      setTimeRemaining(0);
+      setDeadlineStatus('green');
+      return;
     }
-  }
+    
+    const updateCountdown = () => {
+      const remaining = getTimeRemaining(deadlineDate);
+      setTimeRemaining(remaining);
+      
+      if (remaining <= 0) {
+        setDeadlineStatus('red');
+      } else {
+        const minutesLeft = remaining / (1000 * 60);
+        if (minutesLeft <= 30) {
+          setDeadlineStatus('orange');
+        } else {
+          setDeadlineStatus('green');
+        }
+      }
+    };
+    
+    // Update immediately
+    updateCountdown();
+    
+    // Update every second
+    const interval = setInterval(updateCountdown, 1000);
+    
+    return () => clearInterval(interval);
+  }, [deadlineDate]);
+  
+  // Calculate display text
+  const timeLeft: string | null = deadlineDate
+    ? timeRemaining <= 0
+      ? "00:00:00"
+      : formatCountdown(timeRemaining)
+    : null;
   
   const formattedAmount = formatCurrency(amount, currency as Currency);
   const isUrgent = deadline && deadlineStatus !== 'green';
@@ -251,7 +264,7 @@ export function WagerCard({
                 <Clock className={`h-3 w-3 md:h-3.5 md:w-3.5 ${
                   deadlineStatus === 'orange' || deadlineStatus === 'red' ? 'animate-pulse' : ''
                 }`} />
-                <span>{timeLeft}</span>
+                <span className="font-mono text-xs md:text-sm tabular-nums">{timeLeft}</span>
               </div>
             )}
           </div>

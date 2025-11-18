@@ -4,7 +4,6 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams } from 'next/navigation';
 import { createClient } from "@/lib/supabase/client";
 import { AuthModal } from "@/components/auth-modal";
-import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
@@ -64,6 +63,8 @@ export default function WagerDetail() {
     amount: "",
     deadline: "",
   });
+  const [deadlineCountdown, setDeadlineCountdown] = useState<number>(0);
+  const [deadlineStatus, setDeadlineStatus] = useState<'green' | 'orange' | 'red'>('green');
   const { toast } = useToast();
   
   // A/B Testing
@@ -190,6 +191,58 @@ export default function WagerDetail() {
     }
     setLoading(false);
   }, [wagerId, supabase, user]);
+
+  // Format countdown as HH:MM:SS
+  const formatCountdown = (milliseconds: number): string => {
+    if (milliseconds <= 0) return "00:00:00";
+    
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  };
+
+  // Real-time countdown for deadline
+  useEffect(() => {
+    if (!wager?.deadline) {
+      setDeadlineCountdown(0);
+      setDeadlineStatus('green');
+      return;
+    }
+
+    const deadlineDate = parseDeadline(wager.deadline);
+    if (!deadlineDate) {
+      setDeadlineCountdown(0);
+      setDeadlineStatus('red');
+      return;
+    }
+
+    const updateCountdown = () => {
+      const remaining = getTimeRemaining(deadlineDate);
+      setDeadlineCountdown(remaining);
+      
+      if (remaining <= 0) {
+        setDeadlineStatus('red');
+      } else {
+        const minutesLeft = remaining / (1000 * 60);
+        if (minutesLeft <= 30) {
+          setDeadlineStatus('orange');
+        } else {
+          setDeadlineStatus('green');
+        }
+      }
+    };
+
+    // Update immediately
+    updateCountdown();
+
+    // Update every second
+    const interval = setInterval(updateCountdown, 1000);
+
+    return () => clearInterval(interval);
+  }, [wager?.deadline]);
 
   useEffect(() => {
     fetchWager();
@@ -952,23 +1005,29 @@ export default function WagerDetail() {
               </div>
               <p className="text-lg md:text-2xl font-bold">{formatCurrency(wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}</p>
             </div>
-            {wager.deadline ? (() => {
-              const deadlineDate = parseDeadline(wager.deadline);
-              const timeDiff = deadlineDate ? getTimeRemaining(deadlineDate) : 0;
-              const hasElapsed = timeDiff <= 0;
-              
-              return (
-                <div className="bg-card border border-border rounded-lg p-3 md:p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Clock className={`h-4 w-4 md:h-5 md:w-5 ${hasElapsed ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`} />
-                    <p className="text-[10px] md:text-xs text-muted-foreground">Deadline</p>
-                  </div>
-                  <p className={`text-xs md:text-sm font-bold line-clamp-2 ${hasElapsed ? 'text-red-600 dark:text-red-400' : ''}`}>
-                    {hasElapsed ? "Deadline elapsed" : deadlineDate ? formatDistanceToNow(deadlineDate, { addSuffix: true }) : "Invalid deadline"}
-                  </p>
+            {wager.deadline ? (
+              <div className="bg-card border border-border rounded-lg p-3 md:p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Clock className={`h-4 w-4 md:h-5 md:w-5 ${
+                    deadlineStatus === 'red'
+                      ? 'text-red-600 dark:text-red-400'
+                      : deadlineStatus === 'orange'
+                      ? 'text-orange-600 dark:text-orange-400'
+                      : 'text-muted-foreground'
+                  } ${deadlineStatus === 'orange' || deadlineStatus === 'red' ? 'animate-pulse' : ''}`} />
+                  <p className="text-[10px] md:text-xs text-muted-foreground">Deadline</p>
                 </div>
-              );
-            })() : (
+                <p className={`text-xs md:text-sm font-bold line-clamp-2 font-mono tabular-nums ${
+                  deadlineStatus === 'red'
+                    ? 'text-red-600 dark:text-red-400'
+                    : deadlineStatus === 'orange'
+                    ? 'text-orange-600 dark:text-orange-400'
+                    : ''
+                }`}>
+                  {deadlineCountdown <= 0 ? "00:00:00" : formatCountdown(deadlineCountdown)}
+                </p>
+              </div>
+            ) : (
               <div className="bg-card border border-border rounded-lg p-3 md:p-4">
                 <div className="flex items-center gap-2 mb-1">
                   <Coins className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
