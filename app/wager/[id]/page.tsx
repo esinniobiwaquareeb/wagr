@@ -271,11 +271,16 @@ export default function WagerDetail() {
         return;
       }
 
-      // Check if user already has an entry for this wager
+      // Check if user already has an entry for this wager (use actual UUID, not short_id)
+      if (!wager) {
+        setJoining(false);
+        return;
+      }
+      
       const { data: existingEntry } = await supabase
         .from("wager_entries")
         .select("id")
-        .eq("wager_id", wagerId)
+        .eq("wager_id", wager.id)
         .eq("user_id", user.id)
         .single();
 
@@ -307,17 +312,22 @@ export default function WagerDetail() {
       }
 
       // Deduct balance
+      if (!wager) {
+        setJoining(false);
+        return;
+      }
+      
       await supabase.rpc("increment_balance", {
         user_id: user.id,
-        amt: -wager!.amount,
+        amt: -wager.amount,
       });
 
-      // Add entry
+      // Add entry (use actual UUID, not short_id)
       const { error } = await supabase.from("wager_entries").insert({
-        wager_id: wagerId,
+        wager_id: wager.id,
         user_id: user.id,
         side: side,
-        amount: wager!.amount,
+        amount: wager.amount,
       });
 
       if (error) {
@@ -335,19 +345,24 @@ export default function WagerDetail() {
       }
 
       // Add transaction with description
+      if (!wager) {
+        setJoining(false);
+        return;
+      }
+      
       await supabase.from("transactions").insert({
         user_id: user.id,
         type: "wager_join",
-        amount: -wager!.amount,
-        reference: wagerId,
-        description: `Wager Entry: "${wager!.title}" - Joined ${side === "a" ? wager!.side_a : wager!.side_b}`,
+        amount: -wager.amount,
+        reference: wager.id,
+        description: `Wager Entry: "${wager.title}" - Joined ${side === "a" ? wager.side_a : wager.side_b}`,
       });
 
-      // Refresh wager data
+      // Refresh wager data (use actual UUID, not short_id)
       const { data: wagerData } = await supabase
         .from("wagers")
         .select("*")
-        .eq("id", wagerId)
+        .eq("id", wager.id)
         .single();
 
       if (wagerData) {
@@ -356,7 +371,7 @@ export default function WagerDetail() {
         const { data: entriesData } = await supabase
           .from("wager_entries")
           .select("*")
-          .eq("wager_id", wagerId);
+          .eq("wager_id", wager.id);
 
         if (entriesData) {
           setEntries(entriesData);
@@ -452,16 +467,16 @@ export default function WagerDetail() {
           user_id: user.id,
           type: "wager_refund",
           amount: creatorEntry.amount,
-          reference: wagerId,
+          reference: wager.id,
           description: `Wager Deleted: "${wager.title}" - Creator deleted wager, entry refunded`,
         });
       }
 
-      // Delete the wager (cascade will delete all entries)
+      // Delete the wager (cascade will delete all entries) - use actual UUID, not short_id
       const { error } = await supabase
         .from("wagers")
         .delete()
-        .eq("id", wagerId)
+        .eq("id", wager.id)
         .eq("creator_id", user.id);
 
       if (error) throw error;
@@ -611,7 +626,7 @@ export default function WagerDetail() {
             user_id: user.id,
             type: "wager_edit",
             amount: -amountDifference,
-            reference: wagerId,
+            reference: wager.id,
             description: `Wager Entry Fee Increased: "${wager.title}" - Entry fee increased from ${formatCurrency(oldAmount, (wager.currency || DEFAULT_CURRENCY) as Currency)} to ${formatCurrency(newAmount, (wager.currency || DEFAULT_CURRENCY) as Currency)}`,
           });
         } else {
@@ -626,13 +641,13 @@ export default function WagerDetail() {
             user_id: user.id,
             type: "wager_edit",
             amount: Math.abs(amountDifference),
-            reference: wagerId,
+            reference: wager.id,
             description: `Wager Entry Fee Decreased: "${wager.title}" - Entry fee decreased from ${formatCurrency(oldAmount, (wager.currency || DEFAULT_CURRENCY) as Currency)} to ${formatCurrency(newAmount, (wager.currency || DEFAULT_CURRENCY) as Currency)}`,
           });
         }
       }
 
-      // Update the wager
+      // Update the wager (use actual UUID, not short_id)
       const { error } = await supabase
         .from("wagers")
         .update({
@@ -644,7 +659,7 @@ export default function WagerDetail() {
       // Convert local datetime to UTC for storage
       deadline: localToUTC(editFormData.deadline),
         })
-        .eq("id", wagerId)
+        .eq("id", wager.id)
         .eq("creator_id", user.id);
 
       if (error) throw error;
