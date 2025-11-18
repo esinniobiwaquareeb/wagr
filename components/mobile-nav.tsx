@@ -5,16 +5,22 @@ import { usePathname } from 'next/navigation';
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from "react";
-import { Home, Plus, Wallet, Trophy, User, Settings, Bell, History } from "lucide-react";
+import { Home, Plus, Wallet, Trophy, User, Settings, Bell, History, LogOut } from "lucide-react";
 import { AuthModal } from "@/components/auth-modal";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { useToast } from "@/hooks/use-toast";
+import { clear2FAVerification } from "@/lib/session-2fa";
 
 export function MobileNav() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const supabase = createClient();
+  const { toast } = useToast();
 
   useEffect(() => {
     // Only run on client side
@@ -61,6 +67,35 @@ export function MobileNav() {
     };
   }, [supabase]);
 
+  // Fetch user profile
+  useEffect(() => {
+    if (!user) {
+      setProfile(null);
+      return;
+    }
+
+    const fetchProfile = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("username, avatar_url")
+          .eq("id", user.id)
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          console.error("Error fetching profile:", error);
+          return;
+        }
+
+        setProfile(data);
+      } catch (error) {
+        console.error("Error fetching profile:", error);
+      }
+    };
+
+    fetchProfile();
+  }, [user, supabase]);
+
   // Fetch unread notification count
   useEffect(() => {
     if (!user) {
@@ -106,6 +141,28 @@ export function MobileNav() {
       channel.unsubscribe();
     };
   }, [user, supabase]);
+
+  const handleLogout = async () => {
+    try {
+      clear2FAVerification();
+      await supabase.auth.signOut();
+      setUser(null);
+      setProfile(null);
+      toast({
+        title: "You're signed out",
+        description: "Come back soon!",
+      });
+      router.push("/wagers?login=true");
+      router.refresh();
+    } catch (error) {
+      console.error("Error logging out:", error);
+      toast({
+        title: "Couldn't sign you out",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const isActive = (path: string) => pathname === path;
 
@@ -216,103 +273,138 @@ export function MobileNav() {
       )}
 
       {/* Desktop Sidebar */}
-      <nav className="hidden md:flex md:flex-col md:w-64 md:border-r md:border-border md:bg-card md:p-4 md:gap-2 md:sticky md:top-0 md:h-screen md:overflow-y-auto">
-        <Link
-          href="/wagers"
-          className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
-            isActive("/wagers")
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
-          }`}
-        >
-          <Home className="h-5 w-5" />
-          <span className="text-sm font-medium">Wagers</span>
-        </Link>
-        <Link
-          href="/leaderboard"
-          className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
-            isActive("/leaderboard")
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
-          }`}
-        >
-          <Trophy className="h-5 w-5" />
-          <span className="text-sm font-medium">Leaderboard</span>
-        </Link>
-        {user && (
-          <Link
-            href="/notifications"
-            className={`relative flex items-center gap-3 py-2 px-3 rounded-lg transition ${
-              isActive("/notifications")
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
-          >
-            <Bell className="h-5 w-5" />
-            <span className="text-sm font-medium">Notifications</span>
-            {unreadCount > 0 && (
-              <span className="ml-auto bg-primary text-primary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center min-w-[20px]">
-                {unreadCount > 9 ? "9+" : unreadCount}
-              </span>
+      <nav className="hidden md:flex md:flex-col md:w-64 md:border-r md:border-border md:bg-card md:sticky md:top-0 md:h-screen md:overflow-hidden">
+        <div className="flex flex-col h-full">
+          {/* Main Navigation Links */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+            <Link
+              href="/wagers"
+              className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
+                isActive("/wagers")
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+            >
+              <Home className="h-5 w-5" />
+              <span className="text-sm font-medium">Wagers</span>
+            </Link>
+            <Link
+              href="/leaderboard"
+              className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
+                isActive("/leaderboard")
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+            >
+              <Trophy className="h-5 w-5" />
+              <span className="text-sm font-medium">Leaderboard</span>
+            </Link>
+            {user && (
+              <Link
+                href="/notifications"
+                className={`relative flex items-center gap-3 py-2 px-3 rounded-lg transition ${
+                  isActive("/notifications")
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                <Bell className="h-5 w-5" />
+                <span className="text-sm font-medium">Notifications</span>
+                {unreadCount > 0 && (
+                  <span className="ml-auto bg-primary text-primary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center min-w-[20px]">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </Link>
             )}
-          </Link>
-        )}
-        <Link
-          href="/wallet"
-          className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
-            isActive("/wallet")
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
-          }`}
-        >
-          <Wallet className="h-5 w-5" />
-          <span className="text-sm font-medium">Wallet</span>
-        </Link>
-        {user && (
-          <Link
-            href="/history"
-            className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
-              isActive("/history")
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
-          >
-            <History className="h-5 w-5" />
-            <span className="text-sm font-medium">History</span>
-          </Link>
-        )}
-        <Link
-          href="/preferences"
-          className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
-            isActive("/preferences")
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
-          }`}
-        >
-          <Settings className="h-5 w-5" />
-          <span className="text-sm font-medium">Preferences</span>
-        </Link>
-        {user ? (
-          <Link
-            href="/profile"
-            className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
-              isActive("/profile")
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
-          >
-            <User className="h-5 w-5" />
-            <span className="text-sm font-medium">Profile</span>
-          </Link>
-        ) : (
-          <button
-            onClick={() => setShowAuthModal(true)}
-            className="flex items-center gap-3 py-2 px-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition w-full text-left"
-          >
-            <User className="h-5 w-5" />
-            <span className="text-sm font-medium">Login</span>
-          </button>
-        )}
+            <Link
+              href="/wallet"
+              className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
+                isActive("/wallet")
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+            >
+              <Wallet className="h-5 w-5" />
+              <span className="text-sm font-medium">Wallet</span>
+            </Link>
+            {user && (
+              <Link
+                href="/history"
+                className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
+                  isActive("/history")
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                <History className="h-5 w-5" />
+                <span className="text-sm font-medium">History</span>
+              </Link>
+            )}
+            <Link
+              href="/preferences"
+              className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
+                isActive("/preferences")
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+            >
+              <Settings className="h-5 w-5" />
+              <span className="text-sm font-medium">Preferences</span>
+            </Link>
+          </div>
+
+          {/* Bottom Section - Profile & Logout */}
+          <div className="border-t border-border p-4 space-y-2">
+            {user ? (
+              <>
+                <Link
+                  href="/profile"
+                  className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
+                    isActive("/profile")
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    {profile?.avatar_url ? (
+                      <img
+                        src={profile.avatar_url}
+                        alt={profile.username || user.email?.split("@")[0] || "User"}
+                        className="h-8 w-8 rounded-full object-cover"
+                      />
+                    ) : (
+                      <User className="h-4 w-4 text-primary" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">
+                      {profile?.username || user.email?.split("@")[0] || "User"}
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {user.email}
+                    </div>
+                  </div>
+                </Link>
+                <button
+                  onClick={() => setShowLogoutDialog(true)}
+                  className="flex items-center gap-3 py-2 px-3 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition w-full text-left"
+                >
+                  <LogOut className="h-5 w-5" />
+                  <span className="text-sm font-medium">Logout</span>
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="flex items-center gap-3 py-2 px-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition w-full text-left"
+              >
+                <User className="h-5 w-5" />
+                <span className="text-sm font-medium">Login</span>
+              </button>
+            )}
+          </div>
+        </div>
       </nav>
 
       <AuthModal
@@ -321,6 +413,16 @@ export function MobileNav() {
           setShowAuthModal(false);
           router.refresh();
         }}
+      />
+      <ConfirmDialog
+        open={showLogoutDialog}
+        onOpenChange={setShowLogoutDialog}
+        title="Logout"
+        description="Are you sure you want to log out?"
+        confirmText="Logout"
+        cancelText="Cancel"
+        variant="default"
+        onConfirm={handleLogout}
       />
     </>
   );

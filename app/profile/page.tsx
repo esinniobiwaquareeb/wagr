@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
-import { User, Mail, Calendar, LogOut, Settings, Edit2, Save, X, ChevronRight, Shield, ShieldCheck, Trophy, Eye, EyeOff, Key, History } from "lucide-react";
+import { User, Mail, Calendar, Settings, Edit2, Save, X, ChevronRight, Shield, ShieldCheck, Trophy, Eye, EyeOff, Key, History } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -32,7 +32,6 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [username, setUsername] = useState("");
-  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [show2FASetup, setShow2FASetup] = useState(false);
   const [show2FAManage, setShow2FAManage] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -291,32 +290,6 @@ export default function Profile() {
     }
   };
 
-  const handleLogout = () => {
-    setShowLogoutDialog(true);
-  };
-
-  const confirmLogout = async () => {
-    try {
-      // Clear 2FA verification on logout
-      clear2FAVerification();
-      await supabase.auth.signOut();
-      setUser(null);
-      setProfile(null);
-      toast({
-        title: "You're signed out",
-        description: "Come back soon!",
-      });
-      router.push("/wagers?login=true");
-      router.refresh();
-    } catch (error) {
-      console.error("Error logging out:", error);
-      toast({
-        title: "Couldn't sign you out",
-        description: "Something went wrong. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
 
   if (loading) {
     return (
@@ -340,16 +313,6 @@ export default function Profile() {
 
   return (
     <main className="flex-1 pb-24 md:pb-0">
-      <ConfirmDialog
-        open={showLogoutDialog}
-        onOpenChange={setShowLogoutDialog}
-        title="Logout"
-        description="Are you sure you want to log out?"
-        confirmText="Logout"
-        cancelText="Cancel"
-        variant="default"
-        onConfirm={confirmLogout}
-      />
       <div className="max-w-6xl mx-auto p-3 md:p-6">
         <div className="mb-4 md:mb-6">
           <h1 className="text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2">Profile</h1>
@@ -511,16 +474,6 @@ export default function Profile() {
                     </div>
                   </div>
                   <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center justify-between p-2.5 md:p-4 bg-destructive/10 text-destructive rounded-lg hover:bg-destructive/20 transition active:scale-[0.98] touch-manipulation"
-                >
-                  <div className="flex items-center gap-2 md:gap-3">
-                    <LogOut className="h-4 w-4 md:h-5 md:w-5" />
-                    <span className="font-medium text-xs md:text-base">Logout</span>
-                  </div>
-                  <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-destructive/50" />
                 </button>
               </div>
             </div>
