@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from "react";
-import { Home, Plus, Wallet, Trophy, User, Settings, Bell } from "lucide-react";
+import { Home, Plus, Wallet, Trophy, User, Settings, Bell, History } from "lucide-react";
 import { AuthModal } from "@/components/auth-modal";
 
 export function MobileNav() {
@@ -268,6 +268,19 @@ export function MobileNav() {
           <Wallet className="h-5 w-5" />
           <span className="text-sm font-medium">Wallet</span>
         </Link>
+        {user && (
+          <Link
+            href="/history"
+            className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
+              isActive("/history")
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            <History className="h-5 w-5" />
+            <span className="text-sm font-medium">History</span>
+          </Link>
+        )}
         <Link
           href="/preferences"
           className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${

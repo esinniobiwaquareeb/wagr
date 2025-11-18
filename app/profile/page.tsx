@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
-import { User, Mail, Calendar, LogOut, Settings, Edit2, Save, X, ChevronRight, Shield, ShieldCheck, Trophy, Eye, EyeOff, Key } from "lucide-react";
+import { User, Mail, Calendar, LogOut, Settings, Edit2, Save, X, ChevronRight, Shield, ShieldCheck, Trophy, Eye, EyeOff, Key, History } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -579,12 +579,21 @@ export default function Profile() {
                   <Trophy className="h-4 w-4 md:h-5 md:w-5" />
                   My Wagers
                 </h3>
-                <Link
-                  href="/create"
-                  className="text-xs md:text-sm text-primary hover:underline font-medium"
-                >
-                  Create New →
-                </Link>
+                <div className="flex items-center gap-3">
+                  <Link
+                    href="/history"
+                    className="text-xs md:text-sm text-primary hover:underline font-medium flex items-center gap-1"
+                  >
+                    <History className="h-3 w-3 md:h-4 md:w-4" />
+                    History
+                  </Link>
+                  <Link
+                    href="/create"
+                    className="text-xs md:text-sm text-primary hover:underline font-medium"
+                  >
+                    Create New →
+                  </Link>
+                </div>
               </div>
               
               {loadingWagers ? (

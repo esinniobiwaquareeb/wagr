@@ -1,8 +1,7 @@
 /**
  * Email Service
- * Handles sending emails using the email template system
- * Currently uses Supabase's built-in email service
- * Can be extended to use custom email providers (Resend, SendGrid, etc.)
+ * Handles sending emails using SMTP
+ * Configured via environment variables
  */
 
 import { generateEmailHTML, generateEmailText, getEmailSubject, type EmailTemplateData } from './email-templates';
