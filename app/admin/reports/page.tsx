@@ -34,8 +34,11 @@ interface Analytics {
   totalWagerEntries: number;
   totalWagerWins: number;
   totalWagerRefunds: number;
+  totalCommissions: number;
   netFlow: number;
   uniqueUsers: number;
+  platformRevenue: number;
+  totalWagerVolume: number;
 }
 
 export default function AdminReportsPage() {
@@ -47,6 +50,8 @@ export default function AdminReportsPage() {
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [wagers, setWagers] = useState<any[]>([]);
+  const [wagerEntries, setWagerEntries] = useState<any[]>([]);
   
   // Filters
   const [dateRange, setDateRange] = useState<"today" | "week" | "month" | "all">("all");
@@ -135,17 +140,61 @@ export default function AdminReportsPage() {
       if (error) throw error;
       setTransactions(data || []);
 
+      // Fetch wagers and entries for commission calculation
+      let wagersQuery = supabase.from("wagers").select("id, fee_percentage, status, created_at");
+      let entriesQuery = supabase.from("wager_entries").select("id, wager_id, amount, created_at");
+
+      if (customDateRange && startDate && endDate) {
+        const start = startOfDay(new Date(startDate)).toISOString();
+        const end = endOfDay(new Date(endDate)).toISOString();
+        wagersQuery = wagersQuery.gte("created_at", start).lte("created_at", end);
+        entriesQuery = entriesQuery.gte("created_at", start).lte("created_at", end);
+      } else if (dateRange !== "all") {
+        const dateFilter = getDateFilter();
+        if (dateFilter) {
+          wagersQuery = wagersQuery.gte("created_at", dateFilter.start).lte("created_at", dateFilter.end);
+          entriesQuery = entriesQuery.gte("created_at", dateFilter.start).lte("created_at", dateFilter.end);
+        }
+      }
+
+      const { data: wagersData } = await wagersQuery;
+      const { data: entriesData } = await entriesQuery;
+
+      setWagers(wagersData || []);
+      setWagerEntries(entriesData || []);
+
+      // Calculate platform commissions from resolved wagers
+      const resolvedWagers = (wagersData || []).filter(w => w.status === "RESOLVED");
+      let totalCommissions = 0;
+      let totalWagerVolume = 0;
+
+      resolvedWagers.forEach(wager => {
+        const entries = (entriesData || []).filter(e => e.wager_id === wager.id);
+        const totalPool = entries.reduce((sum, e) => sum + e.amount, 0);
+        totalWagerVolume += totalPool;
+        const commission = totalPool * (wager.fee_percentage || 0.05);
+        totalCommissions += commission;
+      });
+
       // Calculate analytics
+      const totalDeposits = data?.filter(t => t.type === "deposit").reduce((sum, t) => sum + t.amount, 0) || 0;
+      const totalWithdrawals = data?.filter(t => t.type === "withdrawal").reduce((sum, t) => sum + Math.abs(t.amount), 0) || 0;
+      const totalWagerEntries = data?.filter(t => t.type === "wager_entry").reduce((sum, t) => sum + Math.abs(t.amount), 0) || 0;
+      const totalWagerWins = data?.filter(t => t.type === "wager_win").reduce((sum, t) => sum + t.amount, 0) || 0;
+      const totalWagerRefunds = data?.filter(t => t.type === "wager_refund").reduce((sum, t) => sum + t.amount, 0) || 0;
+
       const analyticsData: Analytics = {
         totalTransactions: data?.length || 0,
-        totalDeposits: data?.filter(t => t.type === "deposit").reduce((sum, t) => sum + t.amount, 0) || 0,
-        totalWithdrawals: data?.filter(t => t.type === "withdrawal").reduce((sum, t) => sum + Math.abs(t.amount), 0) || 0,
-        totalWagerEntries: data?.filter(t => t.type === "wager_entry").reduce((sum, t) => sum + Math.abs(t.amount), 0) || 0,
-        totalWagerWins: data?.filter(t => t.type === "wager_win").reduce((sum, t) => sum + t.amount, 0) || 0,
-        totalWagerRefunds: data?.filter(t => t.type === "wager_refund").reduce((sum, t) => sum + t.amount, 0) || 0,
-        netFlow: (data?.filter(t => ["deposit", "wager_win", "wager_refund"].includes(t.type)).reduce((sum, t) => sum + t.amount, 0) || 0) -
-                (data?.filter(t => ["withdrawal", "wager_entry"].includes(t.type)).reduce((sum, t) => sum + Math.abs(t.amount), 0) || 0),
+        totalDeposits,
+        totalWithdrawals,
+        totalWagerEntries,
+        totalWagerWins,
+        totalWagerRefunds,
+        totalCommissions,
+        netFlow: (totalDeposits + totalWagerWins + totalWagerRefunds) - (totalWithdrawals + totalWagerEntries),
         uniqueUsers: new Set(data?.map(t => t.user_id) || []).size,
+        platformRevenue: totalCommissions,
+        totalWagerVolume,
       };
 
       setAnalytics(analyticsData);
@@ -263,26 +312,71 @@ export default function AdminReportsPage() {
           </div>
         )}
 
-        {/* Detailed Stats */}
+        {/* Financial Breakdown */}
         {analytics && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div className="bg-card border border-border rounded-lg p-4">
-              <p className="text-sm text-muted-foreground mb-2">Wager Entries</p>
-              <p className="text-xl font-semibold text-red-600 dark:text-red-400">
-                {formatCurrency(analytics.totalWagerEntries, DEFAULT_CURRENCY as Currency)}
+              <p className="text-sm text-muted-foreground mb-2">Platform Commissions</p>
+              <p className="text-xl font-semibold text-primary">
+                {formatCurrency(analytics.totalCommissions, DEFAULT_CURRENCY as Currency)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {analytics.totalWagerVolume > 0 
+                  ? `${((analytics.totalCommissions / analytics.totalWagerVolume) * 100).toFixed(2)}% of volume`
+                  : '0% of volume'}
               </p>
             </div>
             <div className="bg-card border border-border rounded-lg p-4">
-              <p className="text-sm text-muted-foreground mb-2">Wager Wins</p>
+              <p className="text-sm text-muted-foreground mb-2">Total Wager Volume</p>
+              <p className="text-xl font-semibold text-blue-600 dark:text-blue-400">
+                {formatCurrency(analytics.totalWagerVolume, DEFAULT_CURRENCY as Currency)}
+              </p>
+            </div>
+            <div className="bg-card border border-border rounded-lg p-4">
+              <p className="text-sm text-muted-foreground mb-2">Wager Wins (Payouts)</p>
               <p className="text-xl font-semibold text-green-600 dark:text-green-400">
                 {formatCurrency(analytics.totalWagerWins, DEFAULT_CURRENCY as Currency)}
               </p>
             </div>
             <div className="bg-card border border-border rounded-lg p-4">
               <p className="text-sm text-muted-foreground mb-2">Wager Refunds</p>
-              <p className="text-xl font-semibold text-green-600 dark:text-green-400">
+              <p className="text-xl font-semibold text-yellow-600 dark:text-yellow-400">
                 {formatCurrency(analytics.totalWagerRefunds, DEFAULT_CURRENCY as Currency)}
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Commission Analysis */}
+        {analytics && analytics.totalCommissions > 0 && (
+          <div className="bg-card border border-border rounded-lg p-6 mb-6">
+            <h2 className="text-lg font-semibold mb-4">Platform Commission Analysis</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Commission Rate</p>
+                <p className="text-2xl font-bold text-primary">
+                  {analytics.totalWagerVolume > 0 
+                    ? `${((analytics.totalCommissions / analytics.totalWagerVolume) * 100).toFixed(2)}%`
+                    : '5.00%'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">Average fee percentage</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Net Revenue</p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  {formatCurrency(analytics.platformRevenue, DEFAULT_CURRENCY as Currency)}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">Total commissions earned</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Profit Margin</p>
+                <p className="text-2xl font-bold text-primary">
+                  {analytics.totalWagerVolume > 0
+                    ? `${((analytics.platformRevenue / analytics.totalWagerVolume) * 100).toFixed(2)}%`
+                    : '0%'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">Revenue as % of volume</p>
+              </div>
             </div>
           </div>
         )}

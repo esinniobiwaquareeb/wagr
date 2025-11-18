@@ -105,6 +105,18 @@ export function AdminSidebar() {
             <FileText className={`h-6 w-6 transition-transform ${isActive("/admin/reports") ? "scale-110" : ""}`} />
             <span className="text-[10px] mt-0.5 font-medium">{isActive("/admin/reports") ? "Reports" : ""}</span>
           </Link>
+          <Link
+            href="/admin/analytics"
+            className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
+              isActive("/admin/analytics")
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            title="Analytics"
+          >
+            <BarChart3 className={`h-6 w-6 transition-transform ${isActive("/admin/analytics") ? "scale-110" : ""}`} />
+            <span className="text-[10px] mt-0.5 font-medium">{isActive("/admin/analytics") ? "Analytics" : ""}</span>
+          </Link>
           {user && (
             <button
               onClick={handleLogout}
@@ -195,6 +207,18 @@ export function AdminSidebar() {
         >
           <FileText className="h-5 w-5" />
           <span className="text-sm font-medium">Reports</span>
+        </Link>
+        
+        <Link
+          href="/admin/analytics"
+          className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
+            isActive("/admin/analytics")
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          }`}
+        >
+          <BarChart3 className="h-5 w-5" />
+          <span className="text-sm font-medium">Analytics</span>
         </Link>
 
         <div className="mt-auto pt-4 border-t border-border">
