@@ -9,6 +9,7 @@ import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
 import { Home as HomeIcon, Plus, Search, Sparkles, Users, X, Tag, Filter, Loader2, LayoutGrid, List } from "lucide-react";
 import Link from "next/link";
 import { AuthModal } from "@/components/auth-modal";
+import { CreateWagerModal } from "@/components/create-wager-modal";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { PLATFORM_FEE_PERCENTAGE, WAGER_CATEGORIES } from "@/lib/constants";
@@ -55,6 +56,7 @@ function WagersPageContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [userEntries, setUserEntries] = useState<Map<string, { amount: number; side: string }>>(new Map());
   const { user, loading: authLoading } = useAuth();
@@ -549,14 +551,16 @@ function WagersPageContent() {
               </p>
             </div>
             {user && (
-              <Link
-                href="/create"
+              <button
+                onClick={() => {
+                  setShowCreateModal(true);
+                  trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'create_button_clicked');
+                }}
                 className="flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 md:px-6 md:py-3 rounded-lg font-medium hover:opacity-90 transition active:scale-[0.98] touch-manipulation whitespace-nowrap shadow-lg hover:shadow-xl"
-                onClick={() => trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'create_button_clicked')}
               >
                 <Plus className="h-5 w-5" />
                 <span>Create Wager</span>
-              </Link>
+              </button>
             )}
           </div>
         </div>
@@ -878,6 +882,16 @@ function WagersPageContent() {
           router.refresh();
         }}
       />
+      {user && (
+        <CreateWagerModal
+          open={showCreateModal}
+          onOpenChange={setShowCreateModal}
+          onSuccess={() => {
+            // Refresh wagers list when wager is successfully created
+            fetchWagers(true);
+          }}
+        />
+      )}
     </main>
   );
 }

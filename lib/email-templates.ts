@@ -9,7 +9,8 @@ export type EmailType =
   | 'password-reset' 
   | 'password-changed' 
   | '2fa-enabled'
-  | '2fa-disabled';
+  | '2fa-disabled'
+  | 'wager-invitation';
 
 export interface EmailTemplateData {
   type: EmailType;
@@ -27,6 +28,15 @@ export interface EmailTemplateData {
   changeDate?: string;
   // 2FA
   action?: string;
+  // Wager invitation
+  inviterName?: string;
+  wagerTitle?: string;
+  wagerDescription?: string;
+  wagerUrl?: string;
+  sideA?: string;
+  sideB?: string;
+  amount?: number;
+  deadline?: string;
 }
 
 /**
@@ -42,6 +52,7 @@ export function getEmailSubject(type: EmailType, customSubject?: string): string
     'password-changed': 'Your wagr password was changed',
     '2fa-enabled': 'Two-factor authentication enabled',
     '2fa-disabled': 'Two-factor authentication disabled',
+    'wager-invitation': 'You\'ve been invited to a wager!',
   };
 
   return subjects[type] || 'wagr notification';
@@ -56,6 +67,17 @@ export function generateEmailHTML(data: EmailTemplateData): string {
   const appName = 'wagr';
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://wagr.app';
   const supportEmail = process.env.SUPPORT_EMAIL || 'support@wagr.app';
+  const currency = (process.env.DEFAULT_CURRENCY || 'NGN') as 'NGN' | 'USD' | 'GBP' | 'EUR';
+  
+  // Helper function for currency formatting
+  const formatCurrency = (amount: number, curr: string = currency) => {
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: curr,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  };
 
   const baseStyles = `
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -229,6 +251,60 @@ export function generateEmailHTML(data: EmailTemplateData): string {
         </div>
       `;
       break;
+
+    case 'wager-invitation':
+      const inviterName = data.inviterName || 'Someone';
+      const wagerTitle = data.wagerTitle || 'a wager';
+      const wagerDescription = data.wagerDescription || '';
+      const sideA = data.sideA || 'Side A';
+      const sideB = data.sideB || 'Side B';
+      const amount = data.amount || 0;
+      const deadline = data.deadline ? new Date(data.deadline).toLocaleDateString() : '';
+      const wagerInviteUrl = data.wagerUrl || `${appUrl}/wagers`;
+      
+      content = `
+        <p style="font-size: 18px; color: #1a1a1a; margin-bottom: 16px;">You've been invited to a wager! 🎯</p>
+        <p><strong>${inviterName}</strong> has invited you to join an exciting wager on ${appName}.</p>
+        
+        <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 24px; border-radius: 12px; border: 2px solid #0070f3; margin: 24px 0;">
+          <h3 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 700; color: #1a1a1a;">${wagerTitle}</h3>
+          ${wagerDescription ? `<p style="margin: 0 0 16px 0; color: #495057; line-height: 1.6;">${wagerDescription}</p>` : ''}
+          
+          <div style="display: flex; gap: 16px; margin: 16px 0; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 120px; background: white; padding: 12px; border-radius: 8px; border: 1px solid #dee2e6;">
+              <p style="margin: 0 0 4px 0; font-size: 12px; color: #6c757d; font-weight: 600;">SIDE A</p>
+              <p style="margin: 0; font-size: 16px; font-weight: 600; color: #1a1a1a;">${sideA}</p>
+            </div>
+            <div style="flex: 1; min-width: 120px; background: white; padding: 12px; border-radius: 8px; border: 1px solid #dee2e6;">
+              <p style="margin: 0 0 4px 0; font-size: 12px; color: #6c757d; font-weight: 600;">SIDE B</p>
+              <p style="margin: 0; font-size: 16px; font-weight: 600; color: #1a1a1a;">${sideB}</p>
+            </div>
+          </div>
+          
+          <div style="display: flex; gap: 16px; margin-top: 16px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 100px;">
+              <p style="margin: 0 0 4px 0; font-size: 12px; color: #6c757d; font-weight: 600;">WAGER AMOUNT</p>
+              <p style="margin: 0; font-size: 18px; font-weight: 700; color: #0070f3;">${formatCurrency(amount)}</p>
+            </div>
+            ${deadline ? `
+            <div style="flex: 1; min-width: 100px;">
+              <p style="margin: 0 0 4px 0; font-size: 12px; color: #6c757d; font-weight: 600;">DEADLINE</p>
+              <p style="margin: 0; font-size: 16px; font-weight: 600; color: #1a1a1a;">${deadline}</p>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+        
+        <p style="margin-top: 20px;">Join ${appName} to participate in this wager and compete for exciting rewards!</p>
+      `;
+      buttonText = '🎯 Join Wager';
+      buttonUrl = wagerInviteUrl;
+      additionalInfo = `
+        <p style="font-size: 14px; color: #666666; margin-top: 32px; padding-top: 24px; border-top: 1px solid #e9ecef;">
+          Don't have an account? <a href="${appUrl}/wagers?signup=true" style="color: #0070f3; font-weight: 500;">Sign up for free</a> to join this wager and start competing!
+        </p>
+      `;
+      break;
   }
 
   return `
@@ -345,6 +421,17 @@ export function generateEmailText(data: EmailTemplateData): string {
       break;
     case '2fa-disabled':
       content = `Hi ${name},\n\nTwo-factor authentication has been disabled for your ${appName} account.\n\nIf you didn't disable this, please contact us immediately.\n\nBest regards,\nThe ${appName} Team`;
+      break;
+    case 'wager-invitation':
+      const inviterNameText = data.inviterName || 'Someone';
+      const wagerTitleText = data.wagerTitle || 'a wager';
+      const wagerDescriptionText = data.wagerDescription || '';
+      const sideAText = data.sideA || 'Side A';
+      const sideBText = data.sideB || 'Side B';
+      const amountText = data.amount || 0;
+      const deadlineText = data.deadline ? new Date(data.deadline).toLocaleDateString() : '';
+      const wagerUrlText = data.wagerUrl || `${appUrl}/wagers`;
+      content = `Hi ${name},\n\n${inviterNameText} has invited you to join a wager on ${appName}!\n\nWager: ${wagerTitleText}\n${wagerDescriptionText ? `Description: ${wagerDescriptionText}\n` : ''}\nSide A: ${sideAText}\nSide B: ${sideBText}\nAmount: ${amountText}\n${deadlineText ? `Deadline: ${deadlineText}\n` : ''}\nJoin now: ${wagerUrlText}\n\nDon't have an account? Sign up for free at ${appUrl}/wagers?signup=true\n\nBest regards,\nThe ${appName} Team`;
       break;
   }
 

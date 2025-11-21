@@ -8,7 +8,8 @@ import { AuthModal } from "@/components/auth-modal";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
-import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Award, Coins, Trash2, Edit2, Share2, Crown, Star } from "lucide-react";
+import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Award, Coins, Trash2, Edit2, Share2, Crown, Star, UserPlus } from "lucide-react";
+import { WagerInviteDialog } from "@/components/wager-invite-dialog";
 import { BackButton } from "@/components/back-button";
 import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
 import { useRouter } from "next/navigation";
@@ -68,6 +69,7 @@ export default function WagerDetail() {
   const [newSide, setNewSide] = useState<"a" | "b" | null>(null);
   const [unjoining, setUnjoining] = useState(false);
   const [changingSide, setChangingSide] = useState(false);
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [editFormData, setEditFormData] = useState({
     title: "",
     description: "",
@@ -183,6 +185,15 @@ export default function WagerDetail() {
     if (isWithinCutoff) return false;
     return true;
   }, [wager, isWithinCutoff]);
+
+  // Check if creator can unjoin (only if no other users have joined)
+  const creatorCanUnjoin = useMemo(() => {
+    if (!user || !wager || !userEntry) return true;
+    const isCreator = wager.creator_id === user.id;
+    if (!isCreator) return true; // Non-creators can always unjoin (subject to other restrictions)
+    const otherUserEntries = entries.filter(entry => entry.user_id !== user.id);
+    return otherUserEntries.length === 0; // Creator can only unjoin if no other users joined
+  }, [user, wager, userEntry, entries]);
 
   // Calculate total won for settled wagers (must be before any conditional returns)
   const totalWon = useMemo(() => {
@@ -449,6 +460,21 @@ export default function WagerDetail() {
 
     setUnjoining(true);
     try {
+      // Check if user is the creator and if other users have joined
+      const isCreator = wager.creator_id === user.id;
+      const otherUserEntries = entries.filter(entry => entry.user_id !== user.id);
+      
+      if (isCreator && otherUserEntries.length > 0) {
+        toast({
+          title: "Cannot unjoin",
+          description: "As the creator, you cannot unjoin this wager because other users have placed bets. You can switch sides instead.",
+          variant: "destructive",
+        });
+        setUnjoining(false);
+        setShowUnjoinDialog(false);
+        return;
+      }
+
       // Check if deadline has passed
       if (isDeadlineElapsed(wager.deadline)) {
         toast({
@@ -1119,11 +1145,9 @@ export default function WagerDetail() {
       <div className="max-w-7xl mx-auto p-3 md:p-6">
         {/* Header Section */}
         <div className="mb-4 md:mb-6">
-          <div className="mb-3 md:mb-4">
-            <BackButton fallbackHref="/wagers" />
-          </div>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 md:gap-3 mb-3 md:mb-4">
             <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+              <BackButton fallbackHref="/wagers" />
               <h1 className="text-xl md:text-4xl font-bold flex-1 break-words">{wager.title}</h1>
               {/* Edit and Delete Buttons - Only show for creator when no other users have bet */}
               {user && wager.creator_id === user.id && wager.status === "OPEN" && entries.filter(e => e.user_id !== user.id).length === 0 && (
@@ -1170,15 +1194,27 @@ export default function WagerDetail() {
               >
                 {wager.status === "SETTLED" ? "Settled" : wager.status === "RESOLVED" ? "Resolved" : wager.status}
               </span>
-              {/* Share button - available for all wagers */}
-              <button
-                onClick={handleShare}
-                className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-muted hover:bg-muted/80 text-foreground border border-border transition active:scale-[0.98] touch-manipulation flex-shrink-0"
-                title="Copy wager link"
-              >
-                <Share2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                <span className="text-[10px] md:text-xs font-medium hidden sm:inline">Share</span>
-              </button>
+              {/* Share & Invite buttons - available for all wagers */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleShare}
+                  className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-muted hover:bg-muted/80 text-foreground border border-border transition active:scale-[0.98] touch-manipulation flex-shrink-0"
+                  title="Copy wager link"
+                >
+                  <Share2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                  <span className="text-[10px] md:text-xs font-medium hidden sm:inline">Share</span>
+                </button>
+                {user && (
+                  <button
+                    onClick={() => setShowInviteDialog(true)}
+                    className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 border border-primary transition active:scale-[0.98] touch-manipulation flex-shrink-0"
+                    title="Invite people to wager"
+                  >
+                    <UserPlus className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                    <span className="text-[10px] md:text-xs font-medium hidden sm:inline">Invite</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
           
@@ -1346,24 +1382,50 @@ export default function WagerDetail() {
                 {wager.status === "OPEN" && (
                   <>
                     {userEntry && userEntry.side === "a" ? (
-                      <button
-                        onClick={() => setShowUnjoinDialog(true)}
-                        disabled={unjoining || !canBet}
-                        className="w-full bg-destructive text-destructive-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation"
-                      >
-                        {unjoining ? "Unjoining..." : !canBet ? "Cannot Unjoin" : "Unjoin"}
-                      </button>
+                      creatorCanUnjoin ? (
+                        <button
+                          onClick={() => setShowUnjoinDialog(true)}
+                          disabled={unjoining || !canBet}
+                          className="w-full bg-destructive text-destructive-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation"
+                        >
+                          {unjoining ? "Unjoining..." : !canBet ? "Cannot Unjoin" : "Unjoin"}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setNewSide("b");
+                            setShowChangeSideDialog(true);
+                          }}
+                          disabled={changingSide || !canBet}
+                          className="w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl"
+                        >
+                          {changingSide ? "Changing..." : !canBet ? "Cannot Change" : `Switch to ${wager.side_b}`}
+                        </button>
+                      )
                     ) : userEntry && userEntry.side === "b" ? (
-                      <button
-                        onClick={() => {
-                          setNewSide("a");
-                          setShowChangeSideDialog(true);
-                        }}
-                        disabled={changingSide || !canBet}
-                        className="w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl"
-                      >
-                        {changingSide ? "Changing..." : !canBet ? "Cannot Change" : `Switch to ${wager.side_a}`}
-                      </button>
+                      creatorCanUnjoin ? (
+                        <button
+                          onClick={() => {
+                            setNewSide("a");
+                            setShowChangeSideDialog(true);
+                          }}
+                          disabled={changingSide || !canBet}
+                          className="w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl"
+                        >
+                          {changingSide ? "Changing..." : !canBet ? "Cannot Change" : `Switch to ${wager.side_a}`}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setNewSide("a");
+                            setShowChangeSideDialog(true);
+                          }}
+                          disabled={changingSide || !canBet}
+                          className="w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl"
+                        >
+                          {changingSide ? "Changing..." : !canBet ? "Cannot Change" : `Switch to ${wager.side_a}`}
+                        </button>
+                      )
                     ) : (
                       <button
                         onClick={() => handleJoinClick("a")}
@@ -1439,24 +1501,50 @@ export default function WagerDetail() {
                 {wager.status === "OPEN" && (
                   <>
                     {userEntry && userEntry.side === "b" ? (
-                      <button
-                        onClick={() => setShowUnjoinDialog(true)}
-                        disabled={unjoining || !canBet}
-                        className="w-full bg-destructive text-destructive-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation"
-                      >
-                        {unjoining ? "Unjoining..." : !canBet ? "Cannot Unjoin" : "Unjoin"}
-                      </button>
+                      creatorCanUnjoin ? (
+                        <button
+                          onClick={() => setShowUnjoinDialog(true)}
+                          disabled={unjoining || !canBet}
+                          className="w-full bg-destructive text-destructive-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation"
+                        >
+                          {unjoining ? "Unjoining..." : !canBet ? "Cannot Unjoin" : "Unjoin"}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setNewSide("a");
+                            setShowChangeSideDialog(true);
+                          }}
+                          disabled={changingSide || !canBet}
+                          className="w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl"
+                        >
+                          {changingSide ? "Changing..." : !canBet ? "Cannot Change" : `Switch to ${wager.side_a}`}
+                        </button>
+                      )
                     ) : userEntry && userEntry.side === "a" ? (
-                      <button
-                        onClick={() => {
-                          setNewSide("b");
-                          setShowChangeSideDialog(true);
-                        }}
-                        disabled={changingSide || !canBet}
-                        className="w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl"
-                      >
-                        {changingSide ? "Changing..." : !canBet ? "Cannot Change" : `Switch to ${wager.side_b}`}
-                      </button>
+                      creatorCanUnjoin ? (
+                        <button
+                          onClick={() => {
+                            setNewSide("b");
+                            setShowChangeSideDialog(true);
+                          }}
+                          disabled={changingSide || !canBet}
+                          className="w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl"
+                        >
+                          {changingSide ? "Changing..." : !canBet ? "Cannot Change" : `Switch to ${wager.side_b}`}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setNewSide("b");
+                            setShowChangeSideDialog(true);
+                          }}
+                          disabled={changingSide || !canBet}
+                          className="w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl"
+                        >
+                          {changingSide ? "Changing..." : !canBet ? "Cannot Change" : `Switch to ${wager.side_b}`}
+                        </button>
+                      )
                     ) : (
                       <button
                         onClick={() => handleJoinClick("b")}
@@ -1550,6 +1638,24 @@ export default function WagerDetail() {
           </div>
         )}
       </div>
+
+      {/* Invite Dialog */}
+      {wager && (
+        <WagerInviteDialog
+          open={showInviteDialog}
+          onOpenChange={setShowInviteDialog}
+          wagerId={wager.id}
+          wagerTitle={wager.title}
+        />
+      )}
+
+      {/* Auth Modal */}
+      {showAuthModal && (
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+        />
+      )}
     </main>
   );
 }
