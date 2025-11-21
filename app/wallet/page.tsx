@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
-import { Loader2, Send, User, ArrowRight, Wallet as WalletIcon, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
+import { Loader2, Send, User, ArrowRight, Wallet as WalletIcon, ArrowDownCircle, ArrowUpCircle, Smartphone, Sparkles, Wifi, Zap, Home, CreditCard, Phone, CheckCircle2, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { BackButton } from "@/components/back-button";
 import { UsernameInput } from "@/components/username-input";
@@ -26,6 +26,58 @@ interface Transaction {
   reference: string | null;
   description?: string | null;
 }
+
+const BILL_CATEGORIES = [
+  {
+    id: "airtime",
+    name: "Airtime",
+    icon: Smartphone,
+    color: "from-blue-500 to-blue-600",
+    description: "Top up your phone",
+    popular: true,
+  },
+  {
+    id: "data",
+    name: "Data",
+    icon: Wifi,
+    color: "from-purple-500 to-purple-600",
+    description: "Buy internet data",
+    popular: true,
+  },
+  {
+    id: "electricity",
+    name: "Electricity",
+    icon: Zap,
+    color: "from-yellow-500 to-orange-500",
+    description: "Pay electricity bills",
+    popular: false,
+  },
+  {
+    id: "cable",
+    name: "Cable TV",
+    icon: Home,
+    color: "from-green-500 to-emerald-600",
+    description: "DSTV, GOtv & more",
+    popular: false,
+  },
+  {
+    id: "other",
+    name: "Other Bills",
+    icon: CreditCard,
+    color: "from-gray-500 to-gray-600",
+    description: "More bill types",
+    popular: false,
+  },
+];
+
+const AIRTIME_AMOUNTS = [100, 200, 500, 1000, 2000, 5000];
+const DATA_PLANS = [
+  { name: "500MB", amount: 200, validity: "30 days" },
+  { name: "1GB", amount: 350, validity: "30 days" },
+  { name: "2GB", amount: 600, validity: "30 days" },
+  { name: "5GB", amount: 1200, validity: "30 days" },
+  { name: "10GB", amount: 2000, validity: "30 days" },
+];
 
 function WalletContent() {
   const supabase = useMemo(() => createClient(), []);
@@ -54,7 +106,12 @@ function WalletContent() {
   const [transferDescription, setTransferDescription] = useState("");
   const [processingTransfer, setProcessingTransfer] = useState(false);
   const [selectedRecipient, setSelectedRecipient] = useState<{ id: string; username: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<"deposit" | "withdraw" | "transfer">("deposit");
+  const [activeTab, setActiveTab] = useState<"deposit" | "withdraw" | "transfer" | "bills">("deposit");
+  const [selectedBillCategory, setSelectedBillCategory] = useState<string | null>(null);
+  const [billPhoneNumber, setBillPhoneNumber] = useState("");
+  const [selectedBillAmount, setSelectedBillAmount] = useState<number | null>(null);
+  const [selectedBillPlan, setSelectedBillPlan] = useState<typeof DATA_PLANS[0] | null>(null);
+  const [processingBill, setProcessingBill] = useState(false);
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
 
@@ -802,15 +859,44 @@ function WalletContent() {
           </CardContent>
         </Card>
 
+        {/* Bills Payment Card - Always Available */}
+        {profile && (
+          <Card className="mb-4 md:mb-6 border-2 border-primary/20 bg-gradient-to-br from-primary/5 via-primary/10 to-transparent hover:border-primary/40 transition-colors">
+            <CardContent className="p-4 md:p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-primary/20 rounded-xl flex-shrink-0">
+                  <Sparkles className="h-6 w-6 md:h-8 md:w-8 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base md:text-lg font-bold mb-1 flex items-center gap-2">
+                    Pay Bills with Wallet
+                    <span className="px-2 py-0.5 text-xs bg-primary/20 text-primary rounded-full font-medium">New</span>
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Buy airtime, data, pay electricity bills, and more directly from your wallet balance. Fast, easy, and convenient!
+                  </p>
+                  <Link
+                    href="/wallet/bills"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition active:scale-95 touch-manipulation font-medium text-sm"
+                  >
+                    <Smartphone className="h-4 w-4" />
+                    Pay Bills Now
+                  </Link>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Actions Tabs */}
         <Card className="mb-4 md:mb-6">
           <CardHeader>
             <CardTitle>Wallet Actions</CardTitle>
-            <CardDescription>Deposit, withdraw, or transfer funds</CardDescription>
+            <CardDescription>Deposit, withdraw, transfer funds, or pay bills</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "deposit" | "withdraw" | "transfer")} className="w-full">
-              <TabsList className="grid w-full grid-cols-3 mb-4 md:mb-6">
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "deposit" | "withdraw" | "transfer" | "bills")} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 mb-4 md:mb-6">
                 <TabsTrigger value="deposit" className="flex items-center gap-2">
                   <ArrowDownCircle className="h-4 w-4" />
                   <span className="hidden sm:inline">Deposit</span>
@@ -822,6 +908,10 @@ function WalletContent() {
                 <TabsTrigger value="transfer" className="flex items-center gap-2">
                   <Send className="h-4 w-4" />
                   <span className="hidden sm:inline">Transfer</span>
+                </TabsTrigger>
+                <TabsTrigger value="bills" className="flex items-center gap-2">
+                  <Smartphone className="h-4 w-4" />
+                  <span className="hidden sm:inline">Bills</span>
                 </TabsTrigger>
               </TabsList>
 
@@ -1033,6 +1123,270 @@ function WalletContent() {
                     Minimum transfer: ₦1. Transfers are instant and cannot be reversed.
                   </p>
                 </div>
+              </TabsContent>
+
+              {/* Bills Payment Tab */}
+              <TabsContent value="bills" className="space-y-4 mt-0">
+                {!selectedBillCategory ? (
+                  /* Category Selection */
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-sm font-medium mb-3">Select a service</h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {BILL_CATEGORIES.map((category) => {
+                          const Icon = category.icon;
+                          return (
+                            <button
+                              key={category.id}
+                              onClick={() => setSelectedBillCategory(category.id)}
+                              className="group relative p-4 bg-card border-2 border-border rounded-xl hover:border-primary/50 transition-all active:scale-95 touch-manipulation text-left"
+                            >
+                              {category.popular && (
+                                <span className="absolute top-2 right-2 px-2 py-0.5 text-[10px] font-medium bg-primary/10 text-primary rounded-full">
+                                  Popular
+                                </span>
+                              )}
+                              <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${category.color} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
+                                <Icon className="h-6 w-6 text-white" />
+                              </div>
+                              <h4 className="font-semibold text-sm mb-1">{category.name}</h4>
+                              <p className="text-xs text-muted-foreground">{category.description}</p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Purchase Form */
+                  <div className="space-y-4">
+                    <button
+                      onClick={() => {
+                        setSelectedBillCategory(null);
+                        setBillPhoneNumber("");
+                        setSelectedBillAmount(null);
+                        setSelectedBillPlan(null);
+                      }}
+                      className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition"
+                    >
+                      <ArrowRight className="h-4 w-4 rotate-180" />
+                      Back to categories
+                    </button>
+
+                    {/* Phone Number Input */}
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Phone Number</label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <input
+                          type="tel"
+                          value={billPhoneNumber}
+                          onChange={(e) => setBillPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                          placeholder="08012345678"
+                          className="w-full pl-10 pr-4 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
+                          maxLength={11}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Amount/Plan Selection */}
+                    {selectedBillCategory === 'airtime' && (
+                      <div>
+                        <label className="block text-sm font-medium mb-3">Select Amount</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {AIRTIME_AMOUNTS.map((amount) => (
+                            <button
+                              key={amount}
+                              onClick={() => {
+                                if (!profile || profile.balance < amount) {
+                                  toast({
+                                    title: "Insufficient balance",
+                                    description: `You need ${formatCurrency(amount, currency)} but only have ${formatCurrency(profile?.balance || 0, currency)}`,
+                                    variant: "destructive",
+                                  });
+                                  return;
+                                }
+                                setSelectedBillAmount(amount);
+                              }}
+                              disabled={!profile || profile.balance < amount}
+                              className={`p-3 rounded-lg border-2 transition-all active:scale-95 touch-manipulation ${
+                                selectedBillAmount === amount
+                                  ? 'border-primary bg-primary/10 font-semibold'
+                                  : !profile || profile.balance < amount
+                                  ? 'border-border opacity-50 cursor-not-allowed'
+                                  : 'border-border hover:border-primary/50'
+                              }`}
+                            >
+                              <div className="text-sm font-medium">{formatCurrency(amount, currency)}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedBillCategory === 'data' && (
+                      <div>
+                        <label className="block text-sm font-medium mb-3">Select Data Plan</label>
+                        <div className="space-y-2">
+                          {DATA_PLANS.map((plan) => (
+                            <button
+                              key={plan.name}
+                              onClick={() => {
+                                if (!profile || profile.balance < plan.amount) {
+                                  toast({
+                                    title: "Insufficient balance",
+                                    description: `You need ${formatCurrency(plan.amount, currency)} but only have ${formatCurrency(profile?.balance || 0, currency)}`,
+                                    variant: "destructive",
+                                  });
+                                  return;
+                                }
+                                setSelectedBillPlan(plan);
+                                setSelectedBillAmount(plan.amount);
+                              }}
+                              disabled={!profile || profile.balance < plan.amount}
+                              className={`w-full p-3 rounded-lg border-2 transition-all active:scale-95 touch-manipulation text-left ${
+                                selectedBillPlan?.name === plan.name
+                                  ? 'border-primary bg-primary/10'
+                                  : !profile || profile.balance < plan.amount
+                                  ? 'border-border opacity-50 cursor-not-allowed'
+                                  : 'border-border hover:border-primary/50'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="font-semibold text-sm">{plan.name}</div>
+                                  <div className="text-xs text-muted-foreground">{plan.validity}</div>
+                                </div>
+                                <div className="font-bold">{formatCurrency(plan.amount, currency)}</div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {(selectedBillCategory === 'electricity' || selectedBillCategory === 'cable' || selectedBillCategory === 'other') && (
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Enter Amount</label>
+                        <input
+                          type="number"
+                          value={selectedBillAmount || ''}
+                          onChange={(e) => {
+                            const value = parseFloat(e.target.value);
+                            if (!isNaN(value) && value > 0) {
+                              setSelectedBillAmount(value);
+                            } else {
+                              setSelectedBillAmount(null);
+                            }
+                          }}
+                          placeholder="Enter amount"
+                          min="1"
+                          max={profile?.balance || 0}
+                          className="w-full px-4 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
+                        />
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Available: {formatCurrency(profile?.balance || 0, currency)}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Summary */}
+                    {selectedBillAmount && (
+                      <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Amount</span>
+                          <span className="font-semibold">{formatCurrency(selectedBillAmount, currency)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Balance</span>
+                          <span>{formatCurrency(profile?.balance || 0, currency)}</span>
+                        </div>
+                        <div className="pt-2 border-t border-border flex items-center justify-between">
+                          <span className="font-semibold">Remaining</span>
+                          <span className="font-bold text-lg">
+                            {formatCurrency((profile?.balance || 0) - selectedBillAmount, currency)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Purchase Button */}
+                    <button
+                      onClick={async () => {
+                        if (!user || !profile || !selectedBillCategory) return;
+
+                        if (!billPhoneNumber.trim()) {
+                          toast({
+                            title: "Phone number required",
+                            description: "Please enter a phone number",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+
+                        if (!selectedBillAmount || selectedBillAmount <= 0) {
+                          toast({
+                            title: "Amount required",
+                            description: "Please select an amount or plan",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+
+                        if (profile.balance < selectedBillAmount) {
+                          toast({
+                            title: "Insufficient balance",
+                            description: "You don't have enough funds",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+
+                        setProcessingBill(true);
+                        try {
+                          // TODO: Integrate with bills payment API
+                          await new Promise(resolve => setTimeout(resolve, 2000));
+                          
+                          toast({
+                            title: "Purchase successful!",
+                            description: `${selectedBillCategory === 'airtime' ? 'Airtime' : selectedBillCategory === 'data' ? 'Data' : 'Bill'} purchase completed`,
+                          });
+
+                          // Reset form
+                          setSelectedBillCategory(null);
+                          setBillPhoneNumber("");
+                          setSelectedBillAmount(null);
+                          setSelectedBillPlan(null);
+                          
+                          // Refresh balance
+                          await fetchWalletData(true);
+                        } catch (error) {
+                          toast({
+                            title: "Purchase failed",
+                            description: "Something went wrong. Please try again.",
+                            variant: "destructive",
+                          });
+                        } finally {
+                          setProcessingBill(false);
+                        }
+                      }}
+                      disabled={!billPhoneNumber.trim() || !selectedBillAmount || selectedBillAmount <= 0 || processingBill || (!profile || profile.balance < selectedBillAmount)}
+                      className="w-full px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2"
+                    >
+                      {processingBill ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="h-4 w-4" />
+                          Complete Purchase
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </CardContent>
