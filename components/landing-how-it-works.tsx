@@ -3,7 +3,6 @@
 import { UserPlus, Target, TrendingUp, Wallet, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { HowItWorksIllustration } from "./how-it-works-illustration";
 
 const steps = [
   {
@@ -66,13 +65,8 @@ export function LandingHowItWorks() {
               )}
               
               <div className="flex flex-col items-center text-center h-full">
-                {/* Illustration */}
-                <div className="mb-4 sm:mb-6 h-32 sm:h-40 w-full flex items-center justify-center opacity-70 group-hover:opacity-100 transition-opacity">
-                  <HowItWorksIllustration step={parseInt(step.number) as 1 | 2 | 3 | 4} className="w-full h-full text-primary" />
-                </div>
-                
                 {/* Number badge */}
-                <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br ${step.color} text-white flex items-center justify-center text-2xl sm:text-3xl font-bold mb-4 sm:mb-5 shadow-xl group-hover:scale-110 transition-transform relative z-10`}>
+                <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br ${step.color} text-white flex items-center justify-center text-2xl sm:text-3xl font-bold mb-4 sm:mb-5 shadow-xl group-hover:scale-110 transition-transform`}>
                   {step.number}
                 </div>
                 

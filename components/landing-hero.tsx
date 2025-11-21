@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { ArrowRight, TrendingUp, Users, Shield, Zap, Trophy, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { LandingHeroIllustration } from "./landing-hero-illustration";
 
 export function LandingHero() {
   return (
@@ -70,11 +69,8 @@ export function LandingHero() {
             </Button>
           </div>
 
-          {/* Hero Illustration */}
-          <LandingHeroIllustration />
-
           {/* Stats - Enhanced design */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 md:gap-8 max-w-4xl mx-auto px-2 mt-12 sm:mt-16">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 md:gap-8 max-w-4xl mx-auto px-2">
             {[
               { icon: Users, value: "10K+", label: "Active Traders", color: "text-blue-500" },
               { icon: TrendingUp, value: "50K+", label: "Wagers Created", color: "text-green-500" },
