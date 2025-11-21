@@ -29,9 +29,8 @@ function WalletContent() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, loading: authLoading } = useAuth({
-    requireAuth: true,
-    redirectTo: "/wagers?login=true"
+  const { user, loading: authLoading, refresh: refreshAuth } = useAuth({
+    requireAuth: false, // Don't auto-redirect, we'll handle it manually after checking payment callback
   });
   const [profile, setProfile] = useState<Profile | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -235,7 +234,7 @@ function WalletContent() {
     return () => clearTimeout(timeoutId);
   }, [accountNumber, bankCode, verifyAccount, processingWithdrawal]);
 
-  // Handle payment callback
+  // Handle payment callback - this must run before auth redirect check
   useEffect(() => {
     const success = searchParams.get('success');
     const error = searchParams.get('error');
@@ -246,6 +245,15 @@ function WalletContent() {
     if (!success && !error) {
       setProcessingPayment(false);
       return;
+    }
+
+    // If we have a payment callback, refresh auth to ensure session is restored
+    if ((success || error) && authLoading === false) {
+      // Small delay to allow session cookie to be restored after redirect
+      // Refresh auth state to ensure session is properly restored
+      setTimeout(() => {
+        refreshAuth();
+      }, 100);
     }
 
     if (success === 'true' && amount) {
@@ -314,7 +322,28 @@ function WalletContent() {
         router.replace('/wallet');
       }, 100);
     }
-  }, [searchParams, toast, currency, router, fetchWalletData]);
+  }, [searchParams, toast, currency, router, fetchWalletData, authLoading]);
+
+  // Handle auth redirect - only redirect if not processing payment callback
+  useEffect(() => {
+    // Don't redirect if auth is still loading
+    if (authLoading) return;
+
+    // Don't redirect if we're processing a payment callback
+    // Give session time to restore after Paystack redirect
+    const success = searchParams.get('success');
+    const error = searchParams.get('error');
+    if (success || error) {
+      // Payment callback is being processed - don't redirect
+      // Wait for payment callback handler to process and clear URL params
+      return;
+    }
+
+    // If user is not authenticated and not processing payment, redirect to login
+    if (!user) {
+      router.push("/wagers?login=true");
+    }
+  }, [user, authLoading, searchParams, router]);
 
   // Real-time subscription for profile balance updates
   useEffect(() => {
