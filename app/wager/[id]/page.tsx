@@ -186,14 +186,10 @@ export default function WagerDetail() {
     return true;
   }, [wager, isWithinCutoff]);
 
-  // Check if creator can unjoin (only if no other users have joined)
-  const creatorCanUnjoin = useMemo(() => {
-    if (!user || !wager || !userEntry) return true;
-    const isCreator = wager.creator_id === user.id;
-    if (!isCreator) return true; // Non-creators can always unjoin (subject to other restrictions)
-    const otherUserEntries = entries.filter(entry => entry.user_id !== user.id);
-    return otherUserEntries.length === 0; // Creator can only unjoin if no other users joined
-  }, [user, wager, userEntry, entries]);
+  // Check if user is the creator
+  const isCreator = useMemo(() => {
+    return user && wager && wager.creator_id === user.id;
+  }, [user, wager]);
 
   // Calculate total won for settled wagers (must be before any conditional returns)
   const totalWon = useMemo(() => {
@@ -256,19 +252,18 @@ export default function WagerDetail() {
 
     // Check if user already has an entry
     if (userEntry) {
-      // If user is on the same side, check if they can unjoin
+      // If user is on the same side
       if (userEntry.side === side) {
-        // If creator and others have joined, don't allow unjoin
-        const isCreator = wager.creator_id === user.id;
-        const otherUserEntries = entries.filter(entry => entry.user_id !== user.id);
-        if (isCreator && otherUserEntries.length > 0) {
+        // Creators cannot unjoin - they can only switch sides
+        if (isCreator) {
           toast({
-            title: "Cannot unjoin",
-            description: "As the creator, you cannot unjoin this wager because other users have placed bets. You can switch sides instead.",
-            variant: "destructive",
+            title: "Switch sides instead",
+            description: "As the creator, you cannot unjoin this wager. You can switch to the other side instead.",
+            variant: "default",
           });
           return;
         }
+        // Non-creators can unjoin
         setShowUnjoinDialog(true);
         return;
       }
@@ -481,14 +476,13 @@ export default function WagerDetail() {
         throw entriesError;
       }
 
-      // Check if user is the creator and if other users have joined
-      const isCreator = wager.creator_id === user.id;
-      const otherUserEntries = (freshEntries || []).filter(entry => entry.user_id !== user.id);
+      // Creators cannot unjoin at all - they can only switch sides
+      const isCreatorCheck = wager.creator_id === user.id;
       
-      if (isCreator && otherUserEntries.length > 0) {
+      if (isCreatorCheck) {
         toast({
           title: "Cannot unjoin",
-          description: "As the creator, you cannot unjoin this wager because other users have placed bets. You can switch sides instead.",
+          description: "As the creator, you cannot unjoin this wager. You can switch sides instead.",
           variant: "destructive",
         });
         setUnjoining(false);
@@ -1496,15 +1490,8 @@ export default function WagerDetail() {
                 {wager.status === "OPEN" && (
                   <>
                     {userEntry && userEntry.side === "a" ? (
-                      creatorCanUnjoin ? (
-                        <button
-                          onClick={() => setShowUnjoinDialog(true)}
-                          disabled={unjoining || !canBet}
-                          className="w-full bg-destructive text-destructive-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation"
-                        >
-                          {unjoining ? "Unjoining..." : !canBet ? "Cannot Unjoin" : "Unjoin"}
-                        </button>
-                      ) : (
+                      isCreator ? (
+                        // Creator: Only show switch side button
                         <button
                           onClick={() => {
                             setNewSide("b");
@@ -1515,20 +1502,30 @@ export default function WagerDetail() {
                         >
                           {changingSide ? "Changing..." : !canBet ? "Cannot Change" : `Switch to ${wager.side_b}`}
                         </button>
+                      ) : (
+                        // Non-creator: Show unjoin button
+                        <button
+                          onClick={() => setShowUnjoinDialog(true)}
+                          disabled={unjoining || !canBet}
+                          className="w-full bg-destructive text-destructive-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation"
+                        >
+                          {unjoining ? "Unjoining..." : !canBet ? "Cannot Unjoin" : "Unjoin"}
+                        </button>
                       )
                     ) : userEntry && userEntry.side === "b" ? (
-                      creatorCanUnjoin ? (
+                      // User is on side B - only show switch button if they're NOT the creator
+                      // Creators should only see switch button on the side they're currently on
+                      isCreator ? (
+                        // Creator on side B - don't show switch button on side A, show join button (disabled)
                         <button
-                          onClick={() => {
-                            setNewSide("a");
-                            setShowChangeSideDialog(true);
-                          }}
-                          disabled={changingSide || !canBet}
-                          className="w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl"
+                          onClick={() => handleJoinClick("a")}
+                          disabled={true}
+                          className="w-full bg-muted text-muted-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base opacity-50 cursor-not-allowed transition-all"
                         >
-                          {changingSide ? "Changing..." : !canBet ? "Cannot Change" : `Switch to ${wager.side_a}`}
+                          Already Joined
                         </button>
                       ) : (
+                        // Non-creator on side B - show switch to A button
                         <button
                           onClick={() => {
                             setNewSide("a");
@@ -1615,15 +1612,8 @@ export default function WagerDetail() {
                 {wager.status === "OPEN" && (
                   <>
                     {userEntry && userEntry.side === "b" ? (
-                      creatorCanUnjoin ? (
-                        <button
-                          onClick={() => setShowUnjoinDialog(true)}
-                          disabled={unjoining || !canBet}
-                          className="w-full bg-destructive text-destructive-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation"
-                        >
-                          {unjoining ? "Unjoining..." : !canBet ? "Cannot Unjoin" : "Unjoin"}
-                        </button>
-                      ) : (
+                      isCreator ? (
+                        // Creator: Only show switch side button
                         <button
                           onClick={() => {
                             setNewSide("a");
@@ -1634,20 +1624,30 @@ export default function WagerDetail() {
                         >
                           {changingSide ? "Changing..." : !canBet ? "Cannot Change" : `Switch to ${wager.side_a}`}
                         </button>
+                      ) : (
+                        // Non-creator: Show unjoin button
+                        <button
+                          onClick={() => setShowUnjoinDialog(true)}
+                          disabled={unjoining || !canBet}
+                          className="w-full bg-destructive text-destructive-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation"
+                        >
+                          {unjoining ? "Unjoining..." : !canBet ? "Cannot Unjoin" : "Unjoin"}
+                        </button>
                       )
                     ) : userEntry && userEntry.side === "a" ? (
-                      creatorCanUnjoin ? (
+                      // User is on side A - only show switch button if they're NOT the creator
+                      // Creators should only see switch button on the side they're currently on
+                      isCreator ? (
+                        // Creator on side A - don't show switch button on side B, show join button (disabled)
                         <button
-                          onClick={() => {
-                            setNewSide("b");
-                            setShowChangeSideDialog(true);
-                          }}
-                          disabled={changingSide || !canBet}
-                          className="w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl"
+                          onClick={() => handleJoinClick("b")}
+                          disabled={true}
+                          className="w-full bg-muted text-muted-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base opacity-50 cursor-not-allowed transition-all"
                         >
-                          {changingSide ? "Changing..." : !canBet ? "Cannot Change" : `Switch to ${wager.side_b}`}
+                          Already Joined
                         </button>
                       ) : (
+                        // Non-creator on side A - show switch to B button
                         <button
                           onClick={() => {
                             setNewSide("b");
