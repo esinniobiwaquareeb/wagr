@@ -7,10 +7,12 @@ import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
-import { Loader2, Send, User, ArrowRight } from "lucide-react";
+import { Loader2, Send, User, ArrowRight, Wallet as WalletIcon, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
 import Link from "next/link";
 import { BackButton } from "@/components/back-button";
 import { UsernameInput } from "@/components/username-input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface Profile {
   balance: number;
@@ -52,6 +54,7 @@ function WalletContent() {
   const [transferDescription, setTransferDescription] = useState("");
   const [processingTransfer, setProcessingTransfer] = useState(false);
   const [selectedRecipient, setSelectedRecipient] = useState<{ id: string; username: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<"deposit" | "withdraw" | "transfer">("deposit");
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
 
@@ -786,220 +789,273 @@ function WalletContent() {
           <p className="text-xs md:text-base text-muted-foreground">Manage your funds and transactions</p>
         </div>
 
-        <div className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-lg p-3 md:p-6 mb-3 md:mb-6">
-          <p className="text-[10px] md:text-sm opacity-90 mb-1 md:mb-2">Current Balance</p>
-          <h2 className="text-lg md:text-4xl font-bold mb-1.5 md:mb-4">{formatCurrency(profile?.balance || 0, currency)}</h2>
-          <p className="text-[9px] md:text-sm opacity-75 break-all leading-tight">User: {user.email}</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6 mb-3 md:mb-6">
-          {/* Deposit Section */}
-          <div className="bg-card border border-border rounded-lg p-3 md:p-5">
-            <h3 className="text-sm md:text-lg font-semibold mb-2 md:mb-3">Add Funds</h3>
-            <div className="space-y-2">
-              <div className="flex flex-col gap-2">
-                <input
-                  type="number"
-                  value={depositAmount}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    // Allow only positive numbers
-                    if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
-                      setDepositAmount(value);
-                    }
-                  }}
-                  placeholder="Enter amount (minimum ₦100)"
-                  className="w-full px-3 md:px-4 py-2 md:py-2.5 border border-input rounded-lg md:rounded-md bg-background text-foreground text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  min="100"
-                  step="0.01"
-                  disabled={processingPayment}
-                />
-                <button
-                  onClick={handleDeposit}
-                  disabled={processingPayment || !depositAmount.trim()}
-                  className="w-full px-4 md:px-6 py-2 md:py-2.5 bg-primary text-primary-foreground rounded-lg md:rounded-md font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.98] touch-manipulation text-sm md:text-base flex items-center justify-center gap-2"
-                >
-                  {processingPayment ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    'Deposit'
-                  )}
-                </button>
+        {/* Balance Card */}
+        <Card className="mb-4 md:mb-6 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground border-primary/20">
+          <CardContent className="p-4 md:p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs md:text-sm opacity-90 mb-1 md:mb-2">Current Balance</p>
+                <h2 className="text-2xl md:text-4xl font-bold">{formatCurrency(profile?.balance || 0, currency)}</h2>
               </div>
-              <p className="text-[10px] md:text-xs text-muted-foreground">
-                Minimum deposit: ₦100. Secure payment powered by Paystack.
-              </p>
+              <WalletIcon className="h-8 w-8 md:h-12 md:w-12 opacity-75" />
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Withdrawal Section */}
-          <div className="bg-card border border-border rounded-lg p-3 md:p-5">
-            <h3 className="text-sm md:text-lg font-semibold mb-2 md:mb-3">Withdraw Funds</h3>
-            <div className="space-y-2">
-              <input
-                type="number"
-                value={withdrawAmount}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
-                    setWithdrawAmount(value);
-                  }
-                }}
-                placeholder="Enter amount (minimum ₦100)"
-                className="w-full px-3 md:px-4 py-2 md:py-2.5 border border-input rounded-lg md:rounded-md bg-background text-foreground text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
-                min="100"
-                step="0.01"
-                disabled={processingWithdrawal}
-              />
-              <select
-                value={bankCode}
-                onChange={(e) => setBankCode(e.target.value)}
-                className="w-full px-3 md:px-4 py-2 md:py-2.5 border border-input rounded-lg md:rounded-md bg-background text-foreground text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
-                disabled={processingWithdrawal || loadingBanks}
-              >
-                <option value="">Select Bank</option>
-                {banks.map((bank) => {
-                  // Use a combination of code and name to ensure uniqueness
-                  const uniqueKey = `${bank.code}-${bank.name}`;
-                  return (
-                    <option key={uniqueKey} value={bank.code}>
-                      {bank.name}
-                    </option>
-                  );
-                })}
-              </select>
-              <input
-                type="text"
-                value={accountNumber}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                  setAccountNumber(value);
-                }}
-                placeholder="Account Number (10 digits)"
-                className="w-full px-3 md:px-4 py-2 md:py-2.5 border border-input rounded-lg md:rounded-md bg-background text-foreground text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
-                maxLength={10}
-                disabled={processingWithdrawal}
-              />
-              {accountName && (
-                <p className="text-[10px] md:text-xs text-green-600 dark:text-green-400">
-                  Account Name: {accountName}
-                </p>
-              )}
-              <button
-                onClick={handleWithdraw}
-                disabled={processingWithdrawal || verifyingAccount || !withdrawAmount.trim() || !accountNumber || !bankCode || !accountName}
-                className="w-full px-4 md:px-6 py-2 md:py-2.5 bg-primary text-primary-foreground rounded-lg md:rounded-md font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.98] touch-manipulation text-sm md:text-base flex items-center justify-center gap-2"
-              >
-                {processingWithdrawal ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : verifyingAccount ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Verifying Account...
-                  </>
-                ) : (
-                  'Withdraw'
-                )}
-              </button>
-              <p className="text-[10px] md:text-xs text-muted-foreground">
-                Minimum withdrawal: ₦100. Funds will be transferred to your bank account.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Transfer Section */}
-        <div className="bg-card border border-border rounded-lg p-3 md:p-5 mb-3 md:mb-6">
-          <div className="flex items-center gap-2 mb-2 md:mb-3">
-            <Send className="h-4 w-4 md:h-5 md:w-5 text-primary" />
-            <h3 className="text-sm md:text-lg font-semibold">Transfer to User</h3>
-          </div>
-          <div className="space-y-2 md:space-y-3">
-            <UsernameInput
-              value={transferUsername}
-              onChange={(value) => {
-                setTransferUsername(value);
-                // Clear selected recipient if user manually changes the input
-                if (!value.startsWith('@') || value !== `@${selectedRecipient?.username}`) {
-                  setSelectedRecipient(null);
-                }
-              }}
-              onUserSelect={(user) => {
-                if (user) {
-                  setSelectedRecipient({ id: user.id, username: user.username });
-                } else {
-                  setSelectedRecipient(null);
-                }
-              }}
-              placeholder="Enter username (e.g., @username)"
-              disabled={processingTransfer}
-            />
-            <input
-              type="number"
-              value={transferAmount}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
-                  setTransferAmount(value);
-                }
-              }}
-              placeholder="Enter amount (minimum ₦1)"
-              className="w-full px-3 md:px-4 py-2 md:py-2.5 border border-input rounded-lg md:rounded-md bg-background text-foreground text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
-              min="1"
-              step="0.01"
-              disabled={processingTransfer}
-            />
-            <input
-              type="text"
-              value={transferDescription}
-              onChange={(e) => setTransferDescription(e.target.value)}
-              placeholder="Optional: Add a note (e.g., 'For winning the bet')"
-              className="w-full px-3 md:px-4 py-2 md:py-2.5 border border-input rounded-lg md:rounded-md bg-background text-foreground text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
-              maxLength={100}
-              disabled={processingTransfer}
-            />
-            <button
-              onClick={handleTransfer}
-              disabled={processingTransfer || !transferUsername.trim() || !transferAmount.trim() || !selectedRecipient}
-              className="w-full px-4 md:px-6 py-2 md:py-2.5 bg-primary text-primary-foreground rounded-lg md:rounded-md font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.98] touch-manipulation text-sm md:text-base flex items-center justify-center gap-2"
-            >
-              {processingTransfer ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
+        {/* Actions Tabs */}
+        <Card className="mb-4 md:mb-6">
+          <CardHeader>
+            <CardTitle>Wallet Actions</CardTitle>
+            <CardDescription>Deposit, withdraw, or transfer funds</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "deposit" | "withdraw" | "transfer")} className="w-full">
+              <TabsList className="grid w-full grid-cols-3 mb-4 md:mb-6">
+                <TabsTrigger value="deposit" className="flex items-center gap-2">
+                  <ArrowDownCircle className="h-4 w-4" />
+                  <span className="hidden sm:inline">Deposit</span>
+                </TabsTrigger>
+                <TabsTrigger value="withdraw" className="flex items-center gap-2">
+                  <ArrowUpCircle className="h-4 w-4" />
+                  <span className="hidden sm:inline">Withdraw</span>
+                </TabsTrigger>
+                <TabsTrigger value="transfer" className="flex items-center gap-2">
                   <Send className="h-4 w-4" />
-                  Send Transfer
-                </>
-              )}
-            </button>
-            <p className="text-[10px] md:text-xs text-muted-foreground">
-              Minimum transfer: ₦1. Transfers are instant and cannot be reversed.
-            </p>
-          </div>
-        </div>
+                  <span className="hidden sm:inline">Transfer</span>
+                </TabsTrigger>
+              </TabsList>
 
-        <div className="bg-card border border-border rounded-lg p-3 md:p-5">
-          <div className="flex items-center justify-between mb-3 md:mb-4">
-            <h3 className="text-sm md:text-lg font-semibold">Transaction History</h3>
-            {transactions.length > 0 && (
-              <Link
-                href="/wallet/transactions"
-                className="flex items-center gap-1 text-xs md:text-sm text-primary hover:text-primary/80 transition-colors"
-              >
-                View All
-                <ArrowRight className="h-3 w-3 md:h-4 md:w-4" />
-              </Link>
-            )}
-          </div>
+              {/* Deposit Tab */}
+              <TabsContent value="deposit" className="space-y-4 mt-0">
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Amount</label>
+                    <input
+                      type="number"
+                      value={depositAmount}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
+                          setDepositAmount(value);
+                        }
+                      }}
+                      placeholder="Enter amount (minimum ₦100)"
+                      className="w-full px-4 py-2.5 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      min="100"
+                      step="0.01"
+                      disabled={processingPayment}
+                    />
+                  </div>
+                  <button
+                    onClick={handleDeposit}
+                    disabled={processingPayment || !depositAmount.trim()}
+                    className="w-full px-6 py-2.5 bg-primary text-primary-foreground rounded-md font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2"
+                  >
+                    {processingPayment ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <ArrowDownCircle className="h-4 w-4" />
+                        Deposit Funds
+                      </>
+                    )}
+                  </button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Minimum deposit: ₦100. Secure payment powered by Paystack.
+                  </p>
+                </div>
+              </TabsContent>
+
+              {/* Withdraw Tab */}
+              <TabsContent value="withdraw" className="space-y-4 mt-0">
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Amount</label>
+                    <input
+                      type="number"
+                      value={withdrawAmount}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
+                          setWithdrawAmount(value);
+                        }
+                      }}
+                      placeholder="Enter amount (minimum ₦100)"
+                      className="w-full px-4 py-2.5 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      min="100"
+                      step="0.01"
+                      disabled={processingWithdrawal}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Bank</label>
+                    <select
+                      value={bankCode}
+                      onChange={(e) => setBankCode(e.target.value)}
+                      className="w-full px-4 py-2.5 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      disabled={processingWithdrawal || loadingBanks}
+                    >
+                      <option value="">Select Bank</option>
+                      {banks.map((bank) => {
+                        const uniqueKey = `${bank.code}-${bank.name}`;
+                        return (
+                          <option key={uniqueKey} value={bank.code}>
+                            {bank.name}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Account Number</label>
+                    <input
+                      type="text"
+                      value={accountNumber}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setAccountNumber(value);
+                      }}
+                      placeholder="Enter 10-digit account number"
+                      className="w-full px-4 py-2.5 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      maxLength={10}
+                      disabled={processingWithdrawal}
+                    />
+                    {accountName && (
+                      <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+                        ✓ Account Name: {accountName}
+                      </p>
+                    )}
+                    {verifyingAccount && !accountName && (
+                      <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Verifying account...
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleWithdraw}
+                    disabled={processingWithdrawal || verifyingAccount || !withdrawAmount.trim() || !accountNumber || !bankCode || !accountName}
+                    className="w-full px-6 py-2.5 bg-primary text-primary-foreground rounded-md font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2"
+                  >
+                    {processingWithdrawal ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <ArrowUpCircle className="h-4 w-4" />
+                        Withdraw Funds
+                      </>
+                    )}
+                  </button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Minimum withdrawal: ₦100. Funds will be transferred to your bank account.
+                  </p>
+                </div>
+              </TabsContent>
+
+              {/* Transfer Tab */}
+              <TabsContent value="transfer" className="space-y-4 mt-0">
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Recipient Username</label>
+                    <UsernameInput
+                      value={transferUsername}
+                      onChange={(value) => {
+                        setTransferUsername(value);
+                        if (!value.startsWith('@') || value !== `@${selectedRecipient?.username}`) {
+                          setSelectedRecipient(null);
+                        }
+                      }}
+                      onUserSelect={(user) => {
+                        if (user) {
+                          setSelectedRecipient({ id: user.id, username: user.username });
+                        } else {
+                          setSelectedRecipient(null);
+                        }
+                      }}
+                      placeholder="Enter username (e.g., @username)"
+                      disabled={processingTransfer}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Amount</label>
+                    <input
+                      type="number"
+                      value={transferAmount}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
+                          setTransferAmount(value);
+                        }
+                      }}
+                      placeholder="Enter amount (minimum ₦1)"
+                      className="w-full px-4 py-2.5 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      min="1"
+                      step="0.01"
+                      disabled={processingTransfer}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Note (Optional)</label>
+                    <input
+                      type="text"
+                      value={transferDescription}
+                      onChange={(e) => setTransferDescription(e.target.value)}
+                      placeholder="Add a note (e.g., 'For winning the bet')"
+                      className="w-full px-4 py-2.5 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      maxLength={100}
+                      disabled={processingTransfer}
+                    />
+                  </div>
+                  <button
+                    onClick={handleTransfer}
+                    disabled={processingTransfer || !transferUsername.trim() || !transferAmount.trim() || !selectedRecipient}
+                    className="w-full px-6 py-2.5 bg-primary text-primary-foreground rounded-md font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2"
+                  >
+                    {processingTransfer ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4" />
+                        Send Transfer
+                      </>
+                    )}
+                  </button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Minimum transfer: ₦1. Transfers are instant and cannot be reversed.
+                  </p>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+
+        {/* Transaction History */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Transaction History</CardTitle>
+              {transactions.length > 0 && (
+                <Link
+                  href="/wallet/transactions"
+                  className="flex items-center gap-1 text-sm text-primary hover:text-primary/80 transition-colors"
+                >
+                  View All
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              )}
+            </div>
+            <CardDescription>Recent wallet transactions</CardDescription>
+          </CardHeader>
+          <CardContent>
           {transactions.length === 0 ? (
             <p className="text-sm text-muted-foreground">No transactions yet</p>
           ) : (
@@ -1044,7 +1100,8 @@ function WalletContent() {
               ))}
             </div>
           )}
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </main>
   );
