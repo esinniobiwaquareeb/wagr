@@ -11,12 +11,13 @@ import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireAdmin();
     const supabase = createServiceRoleClient();
-    const wagerId = params.id;
+    const { id } = await params;
+    const wagerId = id;
     const body = await request.json();
     const { winningSide } = body;
 

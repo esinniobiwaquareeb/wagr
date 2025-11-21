@@ -11,11 +11,12 @@ import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
-    const wagerId = params.id;
+    const { id } = await params;
+    const wagerId = id;
 
     // Try to find by short_id first, then by id
     const { data: wager, error } = await supabase
@@ -77,12 +78,13 @@ export async function GET(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await requireAuth();
     const supabase = await createClient();
-    const wagerId = params.id;
+    const { id } = await params;
+    const wagerId = id;
 
     // Get wager
     const { data: wager, error: wagerError } = await supabase

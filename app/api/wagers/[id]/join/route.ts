@@ -11,14 +11,15 @@ import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await requireAuth();
     const body = await request.json();
     const { side } = body; // 'a' or 'b'
     const supabase = await createClient();
-    const wagerId = params.id;
+    const { id } = await params;
+    const wagerId = id;
 
     if (!side || (side !== 'a' && side !== 'b')) {
       throw new AppError(ErrorCode.INVALID_INPUT, 'Side must be "a" or "b"');
