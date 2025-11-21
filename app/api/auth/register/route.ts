@@ -65,25 +65,40 @@ export async function POST(request: NextRequest) {
         }
 
         const supabase = await createClient();
+        const trimmedEmail = email.trim().toLowerCase();
 
-        // Check if email already exists
-        const { data: existingEmail } = await supabase
+        // Check if email already exists (use maybeSingle to handle not found gracefully)
+        const { data: existingEmail, error: emailCheckError } = await supabase
           .from('profiles')
-          .select('id')
-          .eq('email', email.trim().toLowerCase())
-          .single();
+          .select('id, email_verified')
+          .eq('email', trimmedEmail)
+          .maybeSingle();
 
+        // If query error (not just "not found"), handle it
+        if (emailCheckError && emailCheckError.code !== 'PGRST116') {
+          logError(new Error(`Error checking email: ${emailCheckError.message}`));
+          throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to verify email availability');
+        }
+
+        // If email exists, reject registration
         if (existingEmail) {
           throw new AppError(ErrorCode.VALIDATION_ERROR, 'An account with this email already exists');
         }
 
-        // Check if username already exists
-        const { data: existingUsername } = await supabase
+        // Check if username already exists (use maybeSingle to handle not found gracefully)
+        const { data: existingUsername, error: usernameCheckError } = await supabase
           .from('profiles')
           .select('id')
           .eq('username', trimmedUsername)
-          .single();
+          .maybeSingle();
 
+        // If query error (not just "not found"), handle it
+        if (usernameCheckError && usernameCheckError.code !== 'PGRST116') {
+          logError(new Error(`Error checking username: ${usernameCheckError.message}`));
+          throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to verify username availability');
+        }
+
+        // If username exists, reject registration
         if (existingUsername) {
           throw new AppError(ErrorCode.VALIDATION_ERROR, 'This username is already taken');
         }
@@ -103,7 +118,7 @@ export async function POST(request: NextRequest) {
           .from('profiles')
           .insert({
             id: userId,
-            email: email.trim().toLowerCase(),
+            email: trimmedEmail,
             username: trimmedUsername,
             password_hash: passwordHash,
             email_verified: false,
@@ -113,7 +128,24 @@ export async function POST(request: NextRequest) {
           .single();
 
         if (profileError || !profile) {
-          logError(new Error(`Failed to create profile: ${profileError?.message}`));
+          // Check for unique constraint violations
+          if (profileError?.code === '23505') {
+            // PostgreSQL unique constraint violation
+            const detail = profileError.details || '';
+            if (detail.includes('email') || profileError.message?.includes('email')) {
+              throw new AppError(ErrorCode.VALIDATION_ERROR, 'An account with this email already exists');
+            }
+            if (detail.includes('username') || profileError.message?.includes('username')) {
+              throw new AppError(ErrorCode.VALIDATION_ERROR, 'This username is already taken');
+            }
+            throw new AppError(ErrorCode.VALIDATION_ERROR, 'An account with this information already exists');
+          }
+          
+          logError(new Error(`Failed to create profile: ${profileError?.message}`), {
+            error: profileError,
+            email: trimmedEmail,
+            username: trimmedUsername,
+          });
           throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to create account. Please try again.');
         }
 
@@ -137,7 +169,7 @@ export async function POST(request: NextRequest) {
 
         // Send verification email in background (non-blocking)
         sendEmailAsync({
-          to: email.trim().toLowerCase(),
+          to: trimmedEmail,
           type: 'verification',
           data: {
             recipientName: trimmedUsername,
