@@ -24,7 +24,7 @@ interface WithdrawTabProps {
   processingWithdrawal: boolean;
   balance: number;
   onWithdraw: () => void;
-  onVerifyAccount: (accountNumber: string, bankCode: string) => void;
+  onVerifyAccount: (accountNumber: string, bankCode: string) => Promise<void>;
   onLoadBanks: () => void;
 }
 

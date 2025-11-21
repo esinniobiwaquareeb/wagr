@@ -717,52 +717,54 @@ function WagersPageContent() {
               <Filter className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium text-muted-foreground">Filter by Category</span>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setSelectedCategory(null)}
-                className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition-all ${
-                  selectedCategory === null
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                }`}
-              >
-                All Categories
-              </button>
-              {WAGER_CATEGORIES.map((category) => {
-                const getTabWagers = () => {
-                  if (activeTab === 'system') return systemWagers;
-                  if (activeTab === 'user') return userWagers;
-                  if (activeTab === 'expired') return expiredWagers;
-                  return settledWagers;
-                };
-                const categoryWagerCount = getTabWagers().filter(
-                  w => w.category === category.id
-                ).length;
-                
-                return (
-                  <button
-                    key={category.id}
-                    onClick={() => setSelectedCategory(category.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition-all flex items-center gap-1.5 ${
-                      selectedCategory === category.id
-                        ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                    }`}
-                  >
-                    <span>{category.icon}</span>
-                    <span>{category.label}</span>
-                    {categoryWagerCount > 0 && (
-                      <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${
+            <div className="overflow-x-auto scrollbar-hide -mx-3 md:-mx-6 px-3 md:px-6">
+              <div className="flex gap-2 min-w-max pb-2">
+                <button
+                  onClick={() => setSelectedCategory(null)}
+                  className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${
+                    selectedCategory === null
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}
+                >
+                  All Categories
+                </button>
+                {WAGER_CATEGORIES.map((category) => {
+                  const getTabWagers = () => {
+                    if (activeTab === 'system') return systemWagers;
+                    if (activeTab === 'user') return userWagers;
+                    if (activeTab === 'expired') return expiredWagers;
+                    return settledWagers;
+                  };
+                  const categoryWagerCount = getTabWagers().filter(
+                    w => w.category === category.id
+                  ).length;
+                  
+                  return (
+                    <button
+                      key={category.id}
+                      onClick={() => setSelectedCategory(category.id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
                         selectedCategory === category.id
-                          ? 'bg-primary-foreground/20 text-primary-foreground'
-                          : 'bg-background/50 text-muted-foreground'
-                      }`}>
-                        {categoryWagerCount}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                      }`}
+                    >
+                      <span>{category.icon}</span>
+                      <span>{category.label}</span>
+                      {categoryWagerCount > 0 && (
+                        <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${
+                          selectedCategory === category.id
+                            ? 'bg-primary-foreground/20 text-primary-foreground'
+                            : 'bg-background/50 text-muted-foreground'
+                        }`}>
+                          {categoryWagerCount}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
