@@ -55,8 +55,15 @@ function WalletContent() {
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
 
+  const fetchingRef = useRef(false);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const fetchWalletData = useCallback(async (force = false) => {
     if (!user) return;
+
+    // Prevent concurrent fetches
+    if (fetchingRef.current && !force) return;
+    fetchingRef.current = true;
 
     // Always fetch fresh data from API (no cache)
     try {
@@ -76,19 +83,24 @@ function WalletContent() {
       // Update transactions
       // API returns { transactions: [...], meta: {...} }
       const transData = transactionsResponse?.transactions || [];
-      
-      if (transData.length > 0) {
-        console.log('Fetched transactions:', transData.length);
-      } else {
-        console.log('No transactions found. Response:', transactionsResponse);
-      }
       setTransactions(transData);
     } catch (error) {
       console.error("Error fetching wallet data:", error);
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   }, [user]);
+
+  // Debounced refetch function for subscriptions
+  const debouncedRefetch = useCallback(() => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    debounceTimeoutRef.current = setTimeout(() => {
+      fetchWalletData(true);
+    }, 1000); // Debounce by 1 second
+  }, [fetchWalletData]);
 
   useEffect(() => {
     if (user) {
@@ -257,10 +269,7 @@ function WalletContent() {
         description: `${formatCurrency(parseFloat(amount), currency)} has been added to your wallet.`,
       });
       fetchWalletData(true);
-      setTimeout(() => {
-        fetchWalletData(true);
-        router.replace('/wallet');
-      }, 500);
+      setTimeout(() => router.replace('/wallet'), 500);
     } else if (success === 'pending' && amount) {
       setProcessingPayment(false);
       toast({
@@ -334,8 +343,7 @@ function WalletContent() {
           filter: `id=eq.${user.id}`,
         },
         () => {
-          // Force refresh when balance changes (clear cache)
-          fetchWalletData(true);
+          debouncedRefetch();
         }
       )
       .subscribe();
@@ -352,8 +360,7 @@ function WalletContent() {
           filter: `user_id=eq.${user.id}`,
         },
         () => {
-          // Force refresh when transactions change (clear cache)
-          fetchWalletData(true);
+          debouncedRefetch();
         }
       )
       .subscribe();
@@ -361,8 +368,11 @@ function WalletContent() {
     return () => {
       profileChannel.unsubscribe();
       transactionsChannel.unsubscribe();
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
     };
-  }, [user, supabase, fetchWalletData]);
+  }, [user, supabase]); // Removed fetchWalletData and debouncedRefetch from dependencies
 
   const handleWithdraw = async () => {
     // Validate amount

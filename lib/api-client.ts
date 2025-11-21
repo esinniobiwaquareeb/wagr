@@ -9,27 +9,39 @@ const API_BASE = '/api';
 
 /**
  * Generic API fetch function with error handling
+ * Supports smart caching - GET requests can be cached, mutations always bypass cache
  */
 async function apiFetch<T>(
   endpoint: string,
-  options?: RequestInit & { cache?: RequestCache }
+  options?: RequestInit & { cache?: RequestCache; forceRefresh?: boolean }
 ): Promise<ApiResponse<T>> {
-  // Always bypass cache for all endpoints to ensure fresh data
-  const separator = endpoint.includes('?') ? '&' : '?';
-  const urlString = `${API_BASE}${endpoint}${separator}t=${Date.now()}`;
+  const method = options?.method || 'GET';
+  const forceRefresh = options?.forceRefresh || false;
+  const isMutation = method !== 'GET';
+  
+  // Only add timestamp for mutations or when force refresh is requested
+  let urlString = `${API_BASE}${endpoint}`;
+  if (isMutation || forceRefresh) {
+    const separator = endpoint.includes('?') ? '&' : '?';
+    urlString = `${urlString}${separator}t=${Date.now()}`;
+  }
   
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'Cache-Control': 'no-cache, no-store, must-revalidate',
-    'Pragma': 'no-cache',
-    'Expires': '0',
     ...(options?.headers as Record<string, string>),
   };
   
+  // Only bypass cache for mutations or when explicitly requested
+  if (isMutation || forceRefresh) {
+    headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+    headers['Pragma'] = 'no-cache';
+    headers['Expires'] = '0';
+  }
+  
   const response = await fetch(urlString, {
     ...options,
-    credentials: 'include', // Include cookies for session
-    cache: 'no-store', // Always bypass cache
+    credentials: 'include',
+    cache: (isMutation || forceRefresh) ? 'no-store' : (options?.cache || 'default'),
     headers,
   });
 
@@ -44,9 +56,11 @@ async function apiFetch<T>(
 
 /**
  * GET request helper
+ * @param endpoint - API endpoint
+ * @param forceRefresh - If true, bypasses cache even for GET requests
  */
-export async function apiGet<T>(endpoint: string): Promise<T> {
-  const response = await apiFetch<T>(endpoint, { method: 'GET' });
+export async function apiGet<T>(endpoint: string, forceRefresh = false): Promise<T> {
+  const response = await apiFetch<T>(endpoint, { method: 'GET', forceRefresh });
   return response.data as T;
 }
 
@@ -199,7 +213,7 @@ export const leaderboardApi = {
   get: (params?: {
     page?: number;
     limit?: number;
-    type?: 'balance' | 'winnings';
+    type?: 'balance' | 'wins' | 'win_rate' | 'winnings';
   }) => {
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.set('page', params.page.toString());

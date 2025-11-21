@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback, Suspense } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef, Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { WagerCard } from "@/components/wager-card";
 import { WagerRow } from "@/components/wager-row";
@@ -171,7 +171,14 @@ function WagersPageContent() {
     disabled: loading,
   });
 
+  const fetchingRef = useRef(false);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const fetchWagers = useCallback(async (force = false) => {
+    // Prevent concurrent fetches
+    if (fetchingRef.current && !force) return;
+    fetchingRef.current = true;
+
     // Always fetch user entries if user is logged in (user-specific data)
     let userEntriesMap = new Map<string, { amount: number; side: string }>();
     if (user) {
@@ -243,20 +250,28 @@ function WagersPageContent() {
       
       setAllWagers(wagersWithCounts);
     } catch (error) {
-      console.error("Error fetching wagers:", error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error("Full error details:", error);
       toast({
         title: "Error",
         description: `Failed to load wagers: ${errorMessage}`,
         variant: "destructive",
       });
-      // Set empty array on error to prevent infinite loading state
       setAllWagers([]);
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   }, [supabase, user, toast]);
+
+  // Debounced refetch function for subscriptions
+  const debouncedRefetch = useCallback(() => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    debounceTimeoutRef.current = setTimeout(() => {
+      fetchWagers(true);
+    }, 1000); // Debounce by 1 second
+  }, [fetchWagers]);
 
   useEffect(() => {
     const shouldShowLogin = searchParams.get('login') === 'true' && !user;
@@ -280,7 +295,7 @@ function WagersPageContent() {
           filter: "is_public=eq.true"
         },
         () => {
-          fetchWagers(true);
+          debouncedRefetch();
         }
       )
       .subscribe();
@@ -291,7 +306,7 @@ function WagersPageContent() {
         "postgres_changes",
         { event: "*", schema: "public", table: "wager_entries" },
         () => {
-          fetchWagers(true);
+          debouncedRefetch();
         }
       )
       .subscribe();
@@ -299,8 +314,11 @@ function WagersPageContent() {
     return () => {
       wagersChannel.unsubscribe();
       entriesChannel.unsubscribe();
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
     };
-  }, [fetchWagers, supabase]);
+  }, [supabase]); // Removed fetchWagers and debouncedRefetch from dependencies
 
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);

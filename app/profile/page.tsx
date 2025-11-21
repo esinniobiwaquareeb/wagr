@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
@@ -47,8 +47,15 @@ export default function Profile() {
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
 
+  const fetchingRef = useRef(false);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const fetchProfile = useCallback(async (force = false) => {
     if (!user) return;
+
+    // Prevent concurrent fetches
+    if (fetchingRef.current && !force) return;
+    fetchingRef.current = true;
 
     // Always fetch fresh data from API (no cache)
     try {
@@ -66,8 +73,19 @@ export default function Profile() {
       console.error("Error fetching profile:", error);
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   }, [user, supabase]);
+
+  // Debounced refetch function for subscriptions
+  const debouncedRefetchProfile = useCallback(() => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    debounceTimeoutRef.current = setTimeout(() => {
+      fetchProfile(true);
+    }, 1000); // Debounce by 1 second
+  }, [fetchProfile]);
 
   useEffect(() => {
     if (user) {
@@ -80,37 +98,42 @@ export default function Profile() {
     
     setLoadingWagers(true);
     try {
-      const { data, error } = await supabase
+      const { data: wagers, error: wagersError } = await supabase
         .from("wagers")
         .select("*")
         .eq("creator_id", user.id)
         .order("created_at", { ascending: false })
         .limit(50);
 
-      if (error) {
-        console.error("Error fetching wagers:", error);
+      if (wagersError) {
         return;
       }
 
-      if (data) {
-        // Get entry counts for each wager
-        const wagersWithCounts = await Promise.all(
-          data.map(async (wager) => {
-            const { count } = await supabase
-              .from("wager_entries")
-              .select("*", { count: "exact", head: true })
-              .eq("wager_id", wager.id);
-            
-            return {
-              ...wager,
-              entries_count: count || 0,
-            };
-          })
-        );
+      if (wagers && wagers.length > 0) {
+        // Fetch all entry counts in a single query
+        const wagerIds = wagers.map(w => w.id);
+        const { data: entries } = await supabase
+          .from("wager_entries")
+          .select("wager_id")
+          .in("wager_id", wagerIds);
+
+        // Count entries per wager
+        const entryCounts = entries?.reduce((acc, entry) => {
+          acc[entry.wager_id] = (acc[entry.wager_id] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>) || {};
+
+        const wagersWithCounts = wagers.map(wager => ({
+          ...wager,
+          entries_count: entryCounts[wager.id] || 0,
+        }));
+
         setMyWagers(wagersWithCounts);
+      } else {
+        setMyWagers([]);
       }
     } catch (error) {
-      console.error("Error fetching my wagers:", error);
+      setMyWagers([]);
     } finally {
       setLoadingWagers(false);
     }
@@ -138,15 +161,18 @@ export default function Profile() {
           filter: `id=eq.${user.id}`,
         },
         () => {
-          fetchProfile();
+          debouncedRefetchProfile();
         }
       )
       .subscribe();
 
     return () => {
       channel.unsubscribe();
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
     };
-  }, [user, supabase, fetchProfile]);
+  }, [user, supabase]); // Removed fetchProfile and debouncedRefetchProfile from dependencies
 
   const handleSave = async () => {
     if (!user) {

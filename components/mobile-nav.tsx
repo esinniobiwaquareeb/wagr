@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from 'next/navigation';
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Home, Plus, Wallet, Trophy, User, Settings, Bell, History, LogOut } from "lucide-react";
 import { AuthModal } from "@/components/auth-modal";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -59,12 +59,19 @@ export function MobileNav() {
     };
   }, []);
 
+  const fetchingProfileRef = useRef(false);
+  const debounceProfileTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Fetch user profile
   const fetchProfile = useCallback(async () => {
     if (!user) {
       setProfile(null);
       return;
     }
+
+    // Prevent concurrent fetches
+    if (fetchingProfileRef.current) return;
+    fetchingProfileRef.current = true;
 
     try {
       const { data, error } = await supabase
@@ -74,15 +81,26 @@ export function MobileNav() {
         .single();
 
       if (error && error.code !== 'PGRST116') {
-        console.error("Error fetching profile:", error);
         return;
       }
 
       setProfile(data);
     } catch (error) {
-      console.error("Error fetching profile:", error);
+      // Silent fail for nav
+    } finally {
+      fetchingProfileRef.current = false;
     }
   }, [user, supabase]);
+
+  // Debounced refetch function for subscriptions
+  const debouncedRefetchProfile = useCallback(() => {
+    if (debounceProfileTimeoutRef.current) {
+      clearTimeout(debounceProfileTimeoutRef.current);
+    }
+    debounceProfileTimeoutRef.current = setTimeout(() => {
+      fetchProfile();
+    }, 1000); // Debounce by 1 second
+  }, [fetchProfile]);
 
   useEffect(() => {
     fetchProfile();
@@ -100,23 +118,26 @@ export function MobileNav() {
             filter: `id=eq.${user.id}`,
           },
           () => {
-            fetchProfile();
+            debouncedRefetchProfile();
           }
         )
         .subscribe();
 
       return () => {
         channel.unsubscribe();
+        if (debounceProfileTimeoutRef.current) {
+          clearTimeout(debounceProfileTimeoutRef.current);
+        }
       };
     }
-  }, [user, supabase, fetchProfile]);
+  }, [user, supabase]); // Removed fetchProfile and debouncedRefetchProfile from dependencies
 
   // Listen for custom profile update events
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const handleProfileUpdate = () => {
-      fetchProfile();
+      debouncedRefetchProfile();
     };
 
     window.addEventListener('profile-updated', handleProfileUpdate);
@@ -124,7 +145,7 @@ export function MobileNav() {
     return () => {
       window.removeEventListener('profile-updated', handleProfileUpdate);
     };
-  }, [fetchProfile]);
+  }, []); // Empty deps - only set up listener once
 
   // Set profile from user data if available
   useEffect(() => {
@@ -136,12 +157,19 @@ export function MobileNav() {
     }
   }, [user]);
 
+  const fetchingNotificationsRef = useRef(false);
+  const debounceNotificationsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Fetch unread notification count
   const fetchUnreadCount = useCallback(async () => {
     if (!user) {
       setUnreadCount(0);
       return;
     }
+
+    // Prevent concurrent fetches
+    if (fetchingNotificationsRef.current) return;
+    fetchingNotificationsRef.current = true;
 
     try {
       const { count, error } = await supabase
@@ -153,9 +181,21 @@ export function MobileNav() {
       if (error) throw error;
       setUnreadCount(count || 0);
     } catch (error) {
-      console.error("Error fetching unread count:", error);
+      // Silent fail for nav
+    } finally {
+      fetchingNotificationsRef.current = false;
     }
   }, [user, supabase]);
+
+  // Debounced refetch function for notifications
+  const debouncedRefetchNotifications = useCallback(() => {
+    if (debounceNotificationsTimeoutRef.current) {
+      clearTimeout(debounceNotificationsTimeoutRef.current);
+    }
+    debounceNotificationsTimeoutRef.current = setTimeout(() => {
+      fetchUnreadCount();
+    }, 1000); // Debounce by 1 second
+  }, [fetchUnreadCount]);
 
   useEffect(() => {
     fetchUnreadCount();
@@ -173,16 +213,19 @@ export function MobileNav() {
             filter: `user_id=eq.${user.id}`,
           },
           () => {
-            fetchUnreadCount();
+            debouncedRefetchNotifications();
           }
         )
         .subscribe();
 
       return () => {
         channel.unsubscribe();
+        if (debounceNotificationsTimeoutRef.current) {
+          clearTimeout(debounceNotificationsTimeoutRef.current);
+        }
       };
     }
-  }, [user, supabase, fetchUnreadCount]);
+  }, [user, supabase]); // Removed fetchUnreadCount and debouncedRefetchNotifications from dependencies
 
   // Listen for custom notification update events
   useEffect(() => {

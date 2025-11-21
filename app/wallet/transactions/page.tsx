@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
@@ -33,8 +33,15 @@ export default function TransactionsPage() {
   const [loading, setLoading] = useState(true);
   const currency = DEFAULT_CURRENCY as Currency;
 
+  const fetchingRef = useRef(false);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const fetchTransactions = useCallback(async () => {
     if (!user) return;
+
+    // Prevent concurrent fetches
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
 
     try {
       setLoading(true);
@@ -44,7 +51,6 @@ export default function TransactionsPage() {
       const transData = response?.transactions || [];
       setTransactions(transData);
     } catch (error) {
-      console.error("Error fetching transactions:", error);
       toast({
         title: "Error",
         description: "Failed to load transactions",
@@ -52,8 +58,19 @@ export default function TransactionsPage() {
       });
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   }, [user, toast]);
+
+  // Debounced refetch function for subscriptions
+  const debouncedRefetch = useCallback(() => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    debounceTimeoutRef.current = setTimeout(() => {
+      fetchTransactions();
+    }, 1000); // Debounce by 1 second
+  }, [fetchTransactions]);
 
   useEffect(() => {
     if (user) {
@@ -71,16 +88,19 @@ export default function TransactionsPage() {
             filter: `user_id=eq.${user.id}`,
           },
           () => {
-            fetchTransactions();
+            debouncedRefetch();
           }
         )
         .subscribe();
 
       return () => {
         channel.unsubscribe();
+        if (debounceTimeoutRef.current) {
+          clearTimeout(debounceTimeoutRef.current);
+        }
       };
     }
-  }, [user, fetchTransactions, supabase]);
+  }, [user, supabase]); // Removed fetchTransactions and debouncedRefetch from dependencies
 
   const getTransactionTypeLabel = (type: string) => {
     const labels: Record<string, string> = {

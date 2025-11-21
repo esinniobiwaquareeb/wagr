@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useParams } from 'next/navigation';
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -83,7 +83,14 @@ export default function WagerDetail() {
   // A/B Testing
   const buttonVariant = useMemo(() => getVariant(AB_TESTS.BUTTON_STYLE), []);
 
+  const fetchingRef = useRef(false);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const fetchWager = useCallback(async (force = false) => {
+    // Prevent concurrent fetches
+    if (fetchingRef.current && !force) return;
+    fetchingRef.current = true;
+
     // No cache or forced refresh - fetch from API
     // Support both UUID and short_id
     const isUUID = wagerId.length === 36 && wagerId.includes('-');
@@ -96,6 +103,7 @@ export default function WagerDetail() {
 
     if (error || !wagerData) {
       setLoading(false);
+      fetchingRef.current = false;
       return;
     }
 
@@ -157,7 +165,18 @@ export default function WagerDetail() {
 
     }
     setLoading(false);
+    fetchingRef.current = false;
   }, [wagerId, supabase, user]);
+
+  // Debounced refetch function for subscriptions
+  const debouncedRefetch = useCallback(() => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    debounceTimeoutRef.current = setTimeout(() => {
+      fetchWager(true);
+    }, 1000); // Debounce by 1 second
+  }, [fetchWager]);
 
   // Use deadline countdown hook
   const deadlineCountdown = useDeadlineCountdown(wager?.deadline);
@@ -218,7 +237,7 @@ export default function WagerDetail() {
         "postgres_changes",
         { event: "*", schema: "public", table: "wager_entries", filter: `wager_id=eq.${wagerId}` },
         () => {
-          fetchWager();
+          debouncedRefetch();
         }
       )
       .subscribe();
@@ -230,7 +249,7 @@ export default function WagerDetail() {
         "postgres_changes",
         { event: "*", schema: "public", table: "wagers", filter: `id=eq.${wagerId}` },
         () => {
-          fetchWager();
+          debouncedRefetch();
         }
       )
       .subscribe();
@@ -238,8 +257,11 @@ export default function WagerDetail() {
     return () => {
       entriesChannel.unsubscribe();
       wagerChannel.unsubscribe();
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
     };
-  }, [wagerId, fetchWager, supabase]);
+  }, [wagerId, supabase]); // Removed fetchWager and debouncedRefetch from dependencies
 
   const handleJoinClick = (side: "a" | "b") => {
     if (!user) {
@@ -736,6 +758,16 @@ export default function WagerDetail() {
       toast({
         title: "Cannot delete",
         description: "Only open wagers can be deleted.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if deadline has elapsed
+    if (isDeadlineElapsed(wager.deadline)) {
+      toast({
+        title: "Cannot delete",
+        description: "This wager has expired and cannot be deleted. It must be resolved instead.",
         variant: "destructive",
       });
       return;
@@ -1257,8 +1289,8 @@ export default function WagerDetail() {
             <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
               <BackButton fallbackHref="/wagers" />
               <h1 className="text-xl md:text-4xl font-bold flex-1 break-words">{wager.title}</h1>
-              {/* Edit and Delete Buttons - Only show for creator when no other users have bet */}
-              {user && wager.creator_id === user.id && wager.status === "OPEN" && entries.filter(e => e.user_id !== user.id).length === 0 && (
+              {/* Edit and Delete Buttons - Only show for creator when no other users have bet and deadline hasn't elapsed */}
+              {user && wager.creator_id === user.id && wager.status === "OPEN" && entries.filter(e => e.user_id !== user.id).length === 0 && !isDeadlineElapsed(wager.deadline) && (
                 <>
                   <button
                     onClick={handleEdit}

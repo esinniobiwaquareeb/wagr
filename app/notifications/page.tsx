@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useAuth } from "@/hooks/use-auth";
@@ -36,11 +36,18 @@ export default function NotificationsPage() {
   const [markingRead, setMarkingRead] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  const fetchingRef = useRef(false);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const fetchNotifications = useCallback(async () => {
     if (!user) {
       setLoading(false);
       return;
     }
+
+    // Prevent concurrent fetches
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
 
     try {
       setLoading(true);
@@ -48,7 +55,6 @@ export default function NotificationsPage() {
       setNotifications(response.notifications || []);
       setUnreadCount(response.unreadCount || 0);
     } catch (error) {
-      console.error("Error fetching notifications:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to load notifications";
       toast({
         title: "Error",
@@ -59,8 +65,19 @@ export default function NotificationsPage() {
       setUnreadCount(0);
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   }, [user, toast]);
+
+  // Debounced refetch function for subscriptions
+  const debouncedRefetchNotifications = useCallback(() => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    debounceTimeoutRef.current = setTimeout(() => {
+      fetchNotifications();
+    }, 1000); // Debounce by 1 second
+  }, [fetchNotifications]);
 
   useEffect(() => {
     if (user && !authLoading) {
@@ -78,18 +95,21 @@ export default function NotificationsPage() {
             filter: `user_id=eq.${user.id}`,
           },
           () => {
-            fetchNotifications();
+            debouncedRefetchNotifications();
           }
         )
         .subscribe();
 
       return () => {
         channel.unsubscribe();
+        if (debounceTimeoutRef.current) {
+          clearTimeout(debounceTimeoutRef.current);
+        }
       };
     } else if (!user && !authLoading) {
       setLoading(false);
     }
-  }, [user, authLoading, fetchNotifications, supabase]);
+  }, [user, authLoading, supabase]); // Removed fetchNotifications and debouncedRefetchNotifications from dependencies
 
   const markAsRead = async (notificationId: string) => {
     if (!user) return;
@@ -107,7 +127,6 @@ export default function NotificationsPage() {
         window.dispatchEvent(new Event('notifications-updated'));
       }
     } catch (error) {
-      console.error("Error marking notification as read:", error);
       toast({
         title: "Error",
         description: "Failed to mark notification as read",
@@ -126,7 +145,6 @@ export default function NotificationsPage() {
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       setUnreadCount(0);
       
-      // Trigger notification update event for sidebar
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('notifications-updated'));
       }
@@ -136,7 +154,6 @@ export default function NotificationsPage() {
         description: "All notifications marked as read",
       });
     } catch (error) {
-      console.error("Error marking all as read:", error);
       toast({
         title: "Error",
         description: "Failed to mark all as read",
@@ -160,12 +177,10 @@ export default function NotificationsPage() {
 
       setNotifications(prev => prev.filter(n => n.id !== notificationId));
       
-      // Trigger notification update event for sidebar
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('notifications-updated'));
       }
     } catch (error) {
-      console.error("Error deleting notification:", error);
       toast({
         title: "Error",
         description: "Failed to delete notification",

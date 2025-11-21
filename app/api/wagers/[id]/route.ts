@@ -89,7 +89,7 @@ export async function DELETE(
     // Get wager
     const { data: wager, error: wagerError } = await supabase
       .from('wagers')
-      .select('creator_id, status')
+      .select('creator_id, status, deadline')
       .or(`id.eq.${wagerId},short_id.eq.${wagerId}`)
       .single();
 
@@ -105,6 +105,15 @@ export async function DELETE(
     // Check if wager is already resolved
     if (wager.status !== 'OPEN') {
       throw new AppError(ErrorCode.VALIDATION_ERROR, 'Cannot delete a resolved wager');
+    }
+
+    // Check if deadline has elapsed
+    if (wager.deadline) {
+      const deadlineDate = new Date(wager.deadline);
+      const now = new Date();
+      if (deadlineDate.getTime() <= now.getTime()) {
+        throw new AppError(ErrorCode.VALIDATION_ERROR, 'Cannot delete an expired wager. It must be resolved instead.');
+      }
     }
 
     // Check if there are any participants (other than creator)

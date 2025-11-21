@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, Suspense } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef, Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
@@ -75,13 +75,22 @@ function HistoryPageContent() {
 
   const currency = DEFAULT_CURRENCY as Currency;
 
-  const fetchHistory = async (force = false) => {
+  const fetchingRef = useRef(false);
+
+  const fetchHistory = useCallback(async (force = false) => {
     if (!user) {
       setLoading(false);
       return;
     }
 
-    if (refreshing && !force) return;
+    // Prevent concurrent fetches
+    if (fetchingRef.current && !force) return;
+    fetchingRef.current = true;
+
+    if (refreshing && !force) {
+      fetchingRef.current = false;
+      return;
+    }
     if (force) setRefreshing(true);
 
     try {
@@ -126,12 +135,13 @@ function HistoryPageContent() {
 
       setEntries(transformedData as WagerEntry[]);
     } catch (error) {
-      console.error("Error fetching wager history:", error);
+      // Silent fail - user can retry
     } finally {
       setLoading(false);
       setRefreshing(false);
+      fetchingRef.current = false;
     }
-  };
+  }, [user, supabase, refreshing]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -141,7 +151,7 @@ function HistoryPageContent() {
         fetchHistory();
       }
     }
-  }, [user, authLoading]);
+  }, [user, authLoading]); // Removed fetchHistory from dependencies to prevent re-renders
 
   const { isRefreshing, pullDistance } = usePullToRefresh({
     onRefresh: () => fetchHistory(true),

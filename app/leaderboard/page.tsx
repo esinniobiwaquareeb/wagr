@@ -1,16 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { Trophy, Medal, Award, TrendingUp, Users, Target, Zap } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { Trophy, Medal, Award, Users, Target, Zap } from "lucide-react";
 import { BackButton } from "@/components/back-button";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { Skeleton } from "@/components/ui/skeleton";
+import { leaderboardApi } from "@/lib/api-client";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface LeaderboardUser {
   id: string;
-  email: string;
-  username: string | null;
+  username: string;
   total_wagers: number;
   wins: number;
   win_rate: number;
@@ -23,205 +30,43 @@ export default function Leaderboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"wins" | "win_rate" | "winnings">("wins");
-  const supabase = createClient();
+  const { toast } = useToast();
+
+  const fetchLeaderboard = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const type = sortBy === "wins" ? "wins" : sortBy === "win_rate" ? "win_rate" : "winnings";
+      const response = await leaderboardApi.get({ type, limit: 100 });
+      
+      const leaderboardData: LeaderboardUser[] = (response.leaderboard || []).map((item: any) => ({
+        id: item.id,
+        username: item.username,
+        total_wagers: item.total_wagers,
+        wins: item.wins,
+        win_rate: item.win_rate,
+        total_winnings: item.total_winnings,
+        rank: item.rank,
+      }));
+
+      setUsers(leaderboardData);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to load leaderboard";
+      setError(errorMessage);
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [sortBy, toast]);
 
   useEffect(() => {
-    const fetchLeaderboard = async () => {
-      try {
-        // Fetch all profiles
-        const { data: profiles, error: profilesError } = await supabase
-          .from("profiles")
-          .select("id, username");
-
-        if (profilesError) throw profilesError;
-
-        // Fetch all wager entries with amounts
-        const { data: wagerEntries, error: entriesError } = await supabase
-          .from("wager_entries")
-          .select("user_id, wager_id, side, amount");
-
-        if (entriesError) {
-          console.error("Error fetching wager entries:", entriesError);
-          throw entriesError;
-        }
-
-        // Fetch resolved wagers with fee percentage to calculate winnings
-        const { data: resolvedWagers, error: wagersError } = await supabase
-          .from("wagers")
-          .select("id, status, winning_side, fee_percentage")
-          .in("status", ["RESOLVED", "SETTLED"])
-          .not("winning_side", "is", null);
-
-        if (wagersError) {
-          console.error("Error fetching resolved wagers:", wagersError);
-          throw wagersError;
-        }
-
-        // Calculate stats for each user
-        const userStats = new Map<string, {
-          total_wagers: number;
-          wins: number;
-          total_winnings: number;
-        }>();
-
-        // Count total wagers per user (count unique wager_ids per user)
-        if (wagerEntries && wagerEntries.length > 0) {
-          const userWagerSet = new Map<string, Set<string>>();
-          
-          wagerEntries.forEach((entry: any) => {
-            const userId = entry.user_id;
-            const wagerId = entry.wager_id;
-            
-            if (!userWagerSet.has(userId)) {
-              userWagerSet.set(userId, new Set());
-            }
-            userWagerSet.get(userId)!.add(wagerId);
-          });
-          
-          // Set total_wagers based on unique wager count
-          userWagerSet.forEach((wagerSet, userId) => {
-            if (!userStats.has(userId)) {
-              userStats.set(userId, { total_wagers: 0, wins: 0, total_winnings: 0 });
-            }
-            const stats = userStats.get(userId)!;
-            stats.total_wagers = wagerSet.size;
-          });
-        }
-
-        // Calculate wins and winnings from resolved wagers
-        if (resolvedWagers && wagerEntries) {
-          resolvedWagers.forEach((wager: any) => {
-            const winningSide = wager.winning_side?.toLowerCase() === "a" ? "a" : "b";
-            const feePercentage = Number(wager.fee_percentage) || 0.05;
-            
-            // Get all entries for this wager
-            const allWagerEntries = wagerEntries.filter((e: any) => e.wager_id === wager.id);
-            
-            // Skip if no entries
-            if (allWagerEntries.length === 0) return;
-            
-            // Calculate total pool
-            const totalPool = allWagerEntries.reduce((sum: number, e: any) => sum + Number(e.amount || 0), 0);
-            
-            // Calculate platform fee and winnings pool
-            const platformFee = totalPool * feePercentage;
-            const winningsPool = totalPool - platformFee;
-            
-            // Get winning side entries
-            const winningEntries = allWagerEntries.filter((e: any) => e.side === winningSide);
-            const winningSideTotal = winningEntries.reduce((sum: number, e: any) => sum + Number(e.amount || 0), 0);
-            
-            // Calculate winnings for each winner (same formula as settlement function)
-            if (winningSideTotal > 0 && winningsPool > 0) {
-              winningEntries.forEach((entry: any) => {
-                const userId = entry.user_id;
-                const entryAmount = Number(entry.amount || 0);
-                
-                // Initialize user stats if not exists
-                if (!userStats.has(userId)) {
-                  userStats.set(userId, { total_wagers: 0, wins: 0, total_winnings: 0 });
-                }
-                
-                const stats = userStats.get(userId)!;
-                stats.wins += 1;
-                
-                // Calculate proportional winnings: (entryAmount / winningSideTotal) * winningsPool
-                const userWinnings = (entryAmount / winningSideTotal) * winningsPool;
-                stats.total_winnings += userWinnings;
-              });
-            }
-          });
-        }
-
-        // Combine profile data with stats - only include users who have won
-        const leaderboardData: LeaderboardUser[] = (profiles || [])
-          .map((profile) => {
-            const stats = userStats.get(profile.id) || { total_wagers: 0, wins: 0, total_winnings: 0 };
-            const winRate = stats.total_wagers > 0 
-              ? (stats.wins / stats.total_wagers) * 100 
-              : 0;
-
-            return {
-              id: profile.id,
-              email: "",
-              username: profile.username || `User ${profile.id.slice(0, 8)}`,
-              total_wagers: stats.total_wagers,
-              wins: stats.wins,
-              win_rate: winRate,
-              total_winnings: stats.total_winnings,
-              rank: 0, // Will be set after sorting
-            };
-          })
-          // Filter to only show users who have won at least one wager
-          .filter((user) => user.wins > 0);
-
-        // Sort by selected criteria
-        leaderboardData.sort((a, b) => {
-          if (sortBy === "wins") {
-            return b.wins - a.wins;
-          } else if (sortBy === "win_rate") {
-            return b.win_rate - a.win_rate;
-          } else {
-            return b.total_winnings - a.total_winnings;
-          }
-        });
-
-        // Assign ranks
-        leaderboardData.forEach((user, index) => {
-          user.rank = index + 1;
-        });
-
-        setUsers(leaderboardData);
-      } catch (error) {
-        console.error("Error fetching leaderboard:", error);
-        setError(error instanceof Error ? error.message : "Failed to load leaderboard");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchLeaderboard();
-
-    // Subscribe to real-time updates
-    const profilesChannel = supabase
-      .channel("leaderboard-profiles")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "profiles" },
-        () => {
-          fetchLeaderboard();
-        }
-      )
-      .subscribe();
-
-    const entriesChannel = supabase
-      .channel("leaderboard-entries")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "wager_entries" },
-        () => {
-          fetchLeaderboard();
-        }
-      )
-      .subscribe();
-
-    const wagersChannel = supabase
-      .channel("leaderboard-wagers")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "wagers" },
-        () => {
-          fetchLeaderboard();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      profilesChannel.unsubscribe();
-      entriesChannel.unsubscribe();
-      wagersChannel.unsubscribe();
-    };
-  }, [supabase, sortBy]);
+  }, [fetchLeaderboard]);
 
   const getRankIcon = (rank: number) => {
     if (rank === 1) return <Trophy className="h-6 w-6 text-yellow-500" />;
@@ -260,45 +105,24 @@ export default function Leaderboard() {
           <BackButton fallbackHref="/wagers" />
         </div>
         <div className="mb-4 md:mb-6">
-          <h1 className="text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2">Leaderboard</h1>
+          <div className="flex items-center justify-between gap-3 md:gap-4 mb-1 md:mb-2">
+            <h1 className="text-xl md:text-3xl lg:text-4xl font-bold">Leaderboard</h1>
+            <Select value={sortBy} onValueChange={(value) => setSortBy(value as "wins" | "win_rate" | "winnings")}>
+              <SelectTrigger className="w-[140px] md:w-[180px]">
+                <SelectValue>
+                  {sortBy === "wins" ? "Most Wins" : sortBy === "win_rate" ? "Best Win Rate" : "Total Winnings"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="wins">Most Wins</SelectItem>
+                <SelectItem value="win_rate">Best Win Rate</SelectItem>
+                <SelectItem value="winnings">Total Winnings</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <p className="text-xs md:text-base text-muted-foreground">
             Top winners and successful bettors on wagr
           </p>
-        </div>
-
-        <div className="bg-card border border-border rounded-lg p-3 md:p-5 mb-3 md:mb-6">
-          <div className="flex flex-wrap gap-1.5 md:gap-2">
-            <button
-              onClick={() => setSortBy("wins")}
-              className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition active:scale-[0.95] touch-manipulation ${
-                sortBy === "wins"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              Most Wins
-            </button>
-            <button
-              onClick={() => setSortBy("win_rate")}
-              className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition active:scale-[0.95] touch-manipulation ${
-                sortBy === "win_rate"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              Best Win Rate
-            </button>
-            <button
-              onClick={() => setSortBy("winnings")}
-              className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition active:scale-[0.95] touch-manipulation ${
-                sortBy === "winnings"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              Total Winnings
-            </button>
-          </div>
         </div>
 
         {error ? (
