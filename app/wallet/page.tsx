@@ -234,27 +234,21 @@ function WalletContent() {
     return () => clearTimeout(timeoutId);
   }, [accountNumber, bankCode, verifyAccount, processingWithdrawal]);
 
-  // Handle payment callback - this must run before auth redirect check
+  // Handle payment callback from Paystack
   useEffect(() => {
+    if (authLoading) return;
+
     const success = searchParams.get('success');
     const error = searchParams.get('error');
     const amount = searchParams.get('amount');
 
-    // Reset processing state when returning to wallet page
-    // (in case user closed payment modal without completing)
     if (!success && !error) {
       setProcessingPayment(false);
       return;
     }
 
-    // If we have a payment callback, refresh auth to ensure session is restored
-    if ((success || error) && authLoading === false) {
-      // Small delay to allow session cookie to be restored after redirect
-      // Refresh auth state to ensure session is properly restored
-      setTimeout(() => {
-        refreshAuth();
-      }, 100);
-    }
+    // Refresh auth after Paystack redirect to restore session
+    setTimeout(() => refreshAuth(), 100);
 
     if (success === 'true' && amount) {
       setProcessingPayment(false);
@@ -262,10 +256,7 @@ function WalletContent() {
         title: "Money added!",
         description: `${formatCurrency(parseFloat(amount), currency)} has been added to your wallet.`,
       });
-      // Immediately refresh wallet data to show updated balance
-      // Clear cache and force refresh
       fetchWalletData(true);
-      // Also refresh after a short delay to ensure we get the latest data
       setTimeout(() => {
         fetchWalletData(true);
         router.replace('/wallet');
@@ -276,12 +267,10 @@ function WalletContent() {
         title: "Payment processing...",
         description: `Your payment of ${formatCurrency(parseFloat(amount), currency)} is being processed. Your balance will update shortly.`,
       });
-      // Refresh wallet data immediately
       fetchWalletData(true);
       
-      // Poll for updates every 2 seconds for up to 30 seconds
       let pollCount = 0;
-      const maxPolls = 15; // 15 * 2 seconds = 30 seconds
+      const maxPolls = 15;
       const pollInterval = setInterval(() => {
         pollCount++;
         fetchWalletData(true);
@@ -290,15 +279,9 @@ function WalletContent() {
         }
       }, 2000);
       
-      // Clean URL after a short delay
-      setTimeout(() => {
-        router.replace('/wallet');
-      }, 100);
+      setTimeout(() => router.replace('/wallet'), 100);
       
-      // Clean up polling on unmount or when component updates
-      return () => {
-        clearInterval(pollInterval);
-      };
+      return () => clearInterval(pollInterval);
     } else if (error) {
       setProcessingPayment(false);
       const errorMessages: Record<string, string> = {
@@ -317,29 +300,20 @@ function WalletContent() {
         description: errorMessages[error] || "Something went wrong with the payment. Please try again.",
         variant: "destructive",
       });
-      // Clean URL after a short delay
-      setTimeout(() => {
-        router.replace('/wallet');
-      }, 100);
+      setTimeout(() => router.replace('/wallet'), 100);
     }
-  }, [searchParams, toast, currency, router, fetchWalletData, authLoading]);
+  }, [searchParams, toast, currency, router, fetchWalletData, authLoading, refreshAuth]);
 
-  // Handle auth redirect - only redirect if not processing payment callback
+  // Redirect to login if not authenticated (but not during payment callback)
   useEffect(() => {
-    // Don't redirect if auth is still loading
     if (authLoading) return;
 
-    // Don't redirect if we're processing a payment callback
-    // Give session time to restore after Paystack redirect
     const success = searchParams.get('success');
     const error = searchParams.get('error');
-    if (success || error) {
-      // Payment callback is being processed - don't redirect
-      // Wait for payment callback handler to process and clear URL params
-      return;
-    }
+    
+    // Don't redirect during payment callback
+    if (success || error) return;
 
-    // If user is not authenticated and not processing payment, redirect to login
     if (!user) {
       router.push("/wagers?login=true");
     }
