@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
-import { User, Mail, Calendar, Settings, Edit2, Save, X, ChevronRight, Shield, ShieldCheck, Trophy, Eye, EyeOff, Key, History, LogOut, Upload, Camera } from "lucide-react";
+import { User, Mail, Calendar, Settings, Edit2, Save, X, ChevronRight, Shield, ShieldCheck, Trophy, Eye, EyeOff, Key, History, LogOut, Upload, Camera, Wallet as WalletIcon, Plus, TrendingUp, Users } from "lucide-react";
 import { BackButton } from "@/components/back-button";
 import { format } from "date-fns";
 import Link from "next/link";
@@ -462,11 +462,12 @@ export default function Profile() {
         <div className="flex flex-col md:grid md:grid-cols-3 gap-3 md:gap-6">
           {/* Profile Card */}
           <div className="md:col-span-2 space-y-3 md:space-y-6 order-2 md:order-1">
-            <div className="bg-card border border-border rounded-lg p-3 md:p-6">
-              <div className="flex items-start justify-between gap-2 mb-3 md:mb-6">
-                <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
+            {/* Enhanced Profile Header Card */}
+            <div className="bg-gradient-to-br from-card via-card to-primary/5 border border-border rounded-xl p-4 md:p-6 shadow-sm">
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
                   <div className="relative group">
-                    <div className="h-12 w-12 md:h-20 md:w-20 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    <div className="h-16 w-16 md:h-24 md:w-24 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden ring-2 ring-primary/20">
                       {profile.avatar_url ? (
                         <img
                           src={profile.avatar_url}
@@ -474,18 +475,18 @@ export default function Profile() {
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <User className="h-6 w-6 md:h-10 md:w-10 text-primary" />
+                        <User className="h-8 w-8 md:h-12 md:w-12 text-primary" />
                       )}
                     </div>
                     <label
                       htmlFor="avatar-upload"
-                      className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity"
+                      className="absolute inset-0 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity backdrop-blur-sm"
                       title="Upload avatar"
                     >
                       {uploadingAvatar ? (
                         <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent" />
                       ) : (
-                        <Camera className="h-4 w-4 md:h-6 md:w-6 text-white" />
+                        <Camera className="h-5 w-5 md:h-6 md:w-6 text-white" />
                       )}
                     </label>
                     <input
@@ -498,129 +499,112 @@ export default function Profile() {
                     />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h2 className="text-base md:text-2xl font-bold truncate">
-                      {editing ? (
-                        <input
-                          type="text"
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          className="w-full px-2 py-1.5 md:px-3 md:py-2 border border-input rounded-md bg-background text-foreground text-sm md:text-2xl"
-                          placeholder="Username"
-                          autoFocus
-                        />
-                      ) : (
-                        profile.username || "User"
+                    <div className="flex items-center gap-2 mb-1">
+                      <h2 className="text-lg md:text-2xl font-bold truncate">
+                        {editing ? (
+                          <input
+                            type="text"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            className="w-full px-2 py-1.5 md:px-3 md:py-2 border border-input rounded-md bg-background text-foreground text-sm md:text-xl font-bold"
+                            placeholder="Username"
+                            autoFocus
+                          />
+                        ) : (
+                          profile.username || "User"
+                        )}
+                      </h2>
+                      {!editing && (
+                        <button
+                          onClick={() => {
+                            const currentUsername = profile.username || "";
+                            setUsername(currentUsername);
+                            setEditing(true);
+                          }}
+                          className="p-1 hover:bg-muted rounded transition active:scale-95 touch-manipulation"
+                          title="Edit username"
+                        >
+                          <Edit2 className="h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground" />
+                        </button>
                       )}
-                    </h2>
-                    <p className="text-[9px] md:text-sm text-muted-foreground mt-0.5 md:mt-1 break-all leading-tight">
-                      <Mail className="h-2.5 w-2.5 md:h-4 md:w-4 inline mr-0.5 md:mr-1 align-middle" />
-                      <span className="align-middle">{user.email}</span>
+                    </div>
+                    <p className="text-xs md:text-sm text-muted-foreground flex items-center gap-1.5 mb-2">
+                      <Mail className="h-3 w-3 md:h-4 md:w-4" />
+                      <span className="truncate">{user.email}</span>
                     </p>
+                    <div className="flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground">
+                      <Calendar className="h-3 w-3 md:h-4 md:w-4" />
+                      <span>
+                        Member since {(() => {
+                          if (!profile.created_at || typeof profile.created_at !== 'string' || profile.created_at.trim() === '') {
+                            return "N/A";
+                          }
+                          try {
+                            const date = new Date(profile.created_at);
+                            if (isNaN(date.getTime()) || date.getTime() === 0) {
+                              return "N/A";
+                            }
+                            const now = Date.now();
+                            const dateTime = date.getTime();
+                            if (dateTime < 0 || dateTime > now + (100 * 365 * 24 * 60 * 60 * 1000)) {
+                              return "N/A";
+                            }
+                            return format(date, "MMM yyyy");
+                          } catch (error) {
+                            return "N/A";
+                          }
+                        })()}
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <div className="flex gap-1.5 md:gap-2 flex-shrink-0">
-                  {editing ? (
-                    <>
-                      <button
-                        onClick={handleSave}
-                        className="p-1.5 md:p-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition active:scale-[0.95] touch-manipulation"
-                        title="Save"
-                      >
-                        <Save className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setEditing(false);
-                          setUsername(profile.username || "");
-                        }}
-                        className="p-1.5 md:p-2 bg-muted text-muted-foreground rounded-md hover:bg-muted/80 transition active:scale-[0.95] touch-manipulation"
-                        title="Cancel"
-                      >
-                        <X className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                      </button>
-                    </>
-                  ) : (
+                {editing && (
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button
+                      onClick={handleSave}
+                      className="p-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition active:scale-95 touch-manipulation"
+                      title="Save"
+                    >
+                      <Save className="h-4 w-4" />
+                    </button>
                     <button
                       onClick={() => {
-                        const currentUsername = profile.username || "";
-                        setUsername(currentUsername);
-                        setEditing(true);
+                        setEditing(false);
+                        setUsername(profile.username || "");
                       }}
-                      className="p-1.5 md:p-2 bg-muted text-muted-foreground rounded-md hover:bg-muted/80 transition active:scale-[0.95] touch-manipulation"
-                      title="Edit"
+                      className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition active:scale-95 touch-manipulation"
+                      title="Cancel"
                     >
-                      <Edit2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                      <X className="h-4 w-4" />
                     </button>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 md:gap-4 pt-3 md:pt-4 border-t border-border">
-                <div>
-                  <p className="text-[10px] md:text-sm text-muted-foreground mb-0.5 md:mb-1">Member Since</p>
-                  <p className="font-medium text-xs md:text-base flex items-center gap-1 md:gap-2">
-                    <Calendar className="h-3 w-3 md:h-4 md:w-4" />
-                    <span className="truncate">
-                      {(() => {
-                        // Validate created_at exists and is not empty
-                        if (!profile.created_at || typeof profile.created_at !== 'string' || profile.created_at.trim() === '') {
-                          return "N/A";
-                        }
-                        
-                        try {
-                          const date = new Date(profile.created_at);
-                          // Check if date is valid
-                          if (isNaN(date.getTime()) || date.getTime() === 0) {
-                            return "N/A";
-                          }
-                          // Additional validation: check if date is reasonable (not too far in past/future)
-                          const now = Date.now();
-                          const dateTime = date.getTime();
-                          // Allow dates from 1970 to 100 years in the future
-                          if (dateTime < 0 || dateTime > now + (100 * 365 * 24 * 60 * 60 * 1000)) {
-                            return "N/A";
-                          }
-                          return format(date, "MMM d, yyyy");
-                        } catch (error) {
-                          console.error('Error formatting date:', error);
-                          return "N/A";
-                        }
-                      })()}
-                    </span>
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] md:text-sm text-muted-foreground mb-0.5 md:mb-1">Balance</p>
-                  <p className="font-medium text-sm md:text-lg truncate">{formatCurrency(profile.balance, currency)}</p>
-                </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="bg-card border border-border rounded-lg p-3 md:p-6">
-              <h3 className="text-sm md:text-lg font-semibold mb-3 md:mb-4 flex items-center gap-2">
-                <Settings className="h-4 w-4 md:h-5 md:w-5" />
-                Settings
-              </h3>
-              <div className="space-y-2">
+            {/* Streamlined Settings */}
+            <div className="bg-card border border-border rounded-xl p-4 md:p-6">
+              <h3 className="text-sm md:text-base font-semibold mb-3 md:mb-4 text-muted-foreground uppercase tracking-wide">Account Settings</h3>
+              <div className="space-y-1.5">
                 <Link
                   href="/preferences"
-                  className="w-full flex items-center justify-between p-2.5 md:p-4 bg-muted/50 hover:bg-muted rounded-lg transition active:scale-[0.98] touch-manipulation"
+                  className="w-full flex items-center justify-between p-3 hover:bg-muted rounded-lg transition active:scale-[0.98] touch-manipulation group"
                 >
-                  <div className="flex items-center gap-2 md:gap-3">
-                    <Settings className="h-4 w-4 md:h-5 md:w-5" />
-                    <span className="font-medium text-xs md:text-base">Preferences</span>
+                  <div className="flex items-center gap-3">
+                    <Settings className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                    <span className="font-medium text-sm">Preferences</span>
                   </div>
-                  <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </Link>
                 <button
                   onClick={() => setShowChangePassword(true)}
-                  className="w-full flex items-center justify-between p-2.5 md:p-4 bg-muted/50 hover:bg-muted rounded-lg transition active:scale-[0.98] touch-manipulation"
+                  className="w-full flex items-center justify-between p-3 hover:bg-muted rounded-lg transition active:scale-[0.98] touch-manipulation group"
                 >
-                  <div className="flex items-center gap-2 md:gap-3">
-                    <Key className="h-4 w-4 md:h-5 md:w-5" />
-                    <span className="font-medium text-xs md:text-base">Change Password</span>
+                  <div className="flex items-center gap-3">
+                    <Key className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                    <span className="font-medium text-sm">Change Password</span>
                   </div>
-                  <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </button>
                 <PushNotificationSettings />
                 <button
@@ -631,22 +615,22 @@ export default function Profile() {
                       setShow2FASetup(true);
                     }
                   }}
-                  className="w-full flex items-center justify-between p-2.5 md:p-4 bg-muted/50 hover:bg-muted rounded-lg transition active:scale-[0.98] touch-manipulation"
+                  className="w-full flex items-center justify-between p-3 hover:bg-muted rounded-lg transition active:scale-[0.98] touch-manipulation group"
                 >
-                  <div className="flex items-center gap-2 md:gap-3">
+                  <div className="flex items-center gap-3">
                     {profile.two_factor_enabled ? (
-                      <ShieldCheck className="h-4 w-4 md:h-5 md:w-5 text-green-600 dark:text-green-400" />
+                      <ShieldCheck className="h-4 w-4 text-green-600 dark:text-green-400" />
                     ) : (
-                      <Shield className="h-4 w-4 md:h-5 md:w-5" />
+                      <Shield className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
                     )}
                     <div className="flex flex-col items-start">
-                      <span className="font-medium text-xs md:text-base">Two-Factor Authentication</span>
-                      <span className="text-[10px] md:text-xs text-muted-foreground">
-                        {profile.two_factor_enabled ? "Enabled" : "Not enabled"}
+                      <span className="font-medium text-sm">Two-Factor Auth</span>
+                      <span className="text-xs text-muted-foreground">
+                        {profile.two_factor_enabled ? "Active" : "Inactive"}
                       </span>
                     </div>
                   </div>
-                  <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </button>
               </div>
             </div>
@@ -698,43 +682,52 @@ export default function Profile() {
               }}
             />
 
-            {/* My Wagers Section */}
-            <div className="bg-card border border-border rounded-lg p-3 md:p-6">
-              <div className="flex items-center justify-between mb-3 md:mb-4">
-                <h3 className="text-sm md:text-lg font-semibold flex items-center gap-2">
-                  <Trophy className="h-4 w-4 md:h-5 md:w-5" />
-                  My Wagers
+            {/* Enhanced My Wagers Section */}
+            <div className="bg-card border border-border rounded-xl p-4 md:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm md:text-base font-semibold flex items-center gap-2">
+                  <Trophy className="h-4 w-4 text-primary" />
+                  <span>My Wagers</span>
+                  {myWagers.length > 0 && (
+                    <span className="text-xs text-muted-foreground font-normal">({myWagers.length})</span>
+                  )}
                 </h3>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <Link
                     href="/history"
-                    className="text-xs md:text-sm text-primary hover:underline font-medium flex items-center gap-1"
+                    className="p-2 hover:bg-muted rounded-lg transition active:scale-95 touch-manipulation"
+                    title="View history"
                   >
-                    <History className="h-3 w-3 md:h-4 md:w-4" />
-                    History
+                    <History className="h-4 w-4 text-muted-foreground" />
                   </Link>
                   <button
                     onClick={() => setShowCreateWagerModal(true)}
-                    className="text-xs md:text-sm text-primary hover:underline font-medium"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition active:scale-95 touch-manipulation text-xs font-medium"
                   >
-                    Create New →
+                    <Plus className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">New</span>
                   </button>
                 </div>
               </div>
               
               {loadingWagers ? (
-                <div className="text-center py-8">
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground">Loading wagers...</p>
                 </div>
               ) : myWagers.length === 0 ? (
-                <div className="text-center py-8">
-                  <Trophy className="h-8 w-8 md:h-12 md:w-12 text-muted-foreground mx-auto mb-2 opacity-50" />
-                  <p className="text-sm text-muted-foreground mb-2">You haven't created any wagers yet</p>
+                <div className="text-center py-12 border-2 border-dashed border-muted rounded-xl">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
+                    <Trophy className="h-8 w-8 text-primary/60" />
+                  </div>
+                  <p className="text-sm font-medium mb-1">No wagers yet</p>
+                  <p className="text-xs text-muted-foreground mb-4">Start creating and sharing wagers with others</p>
                   <button
                     onClick={() => setShowCreateWagerModal(true)}
-                    className="text-xs md:text-sm text-primary hover:underline font-medium"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition active:scale-95 touch-manipulation text-sm font-medium"
                   >
-                    Create your first wager →
+                    <Plus className="h-4 w-4" />
+                    Create Your First Wager
                   </button>
                 </div>
               ) : (
@@ -743,39 +736,38 @@ export default function Profile() {
                     <Link
                       key={wager.id}
                       href={`/wager/${wager.id}`}
-                      className="block p-3 bg-muted/50 hover:bg-muted rounded-lg transition active:scale-[0.98] touch-manipulation"
+                      className="block p-3 bg-muted/30 hover:bg-muted rounded-lg transition-all active:scale-[0.98] touch-manipulation border border-transparent hover:border-border"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="text-xs md:text-sm font-semibold truncate">{wager.title}</h4>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <h4 className="text-sm font-semibold truncate">{wager.title}</h4>
                             {wager.is_public ? (
                               <div title="Public">
-                                <Eye className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground flex-shrink-0" />
+                                <Eye className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                               </div>
                             ) : (
                               <div title="Private">
-                                <EyeOff className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground flex-shrink-0" />
+                                <EyeOff className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                               </div>
                             )}
-                          </div>
-                          <div className="flex items-center gap-3 text-[10px] md:text-xs text-muted-foreground">
-                            <span>{wager.entries_count} {wager.entries_count === 1 ? 'entry' : 'entries'}</span>
-                            <span>•</span>
-                            <span>{formatCurrency(wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}</span>
-                            <span>•</span>
-                            <span className={`${
+                            <span className={`text-xs px-1.5 py-0.5 rounded ${
                               wager.status === "OPEN" 
-                                ? "text-green-600 dark:text-green-400" 
+                                ? "bg-green-500/10 text-green-600 dark:text-green-400" 
                                 : wager.status === "RESOLVED" || wager.status === "SETTLED"
-                                ? "text-blue-600 dark:text-blue-400"
-                                : "text-gray-600 dark:text-gray-400"
+                                ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                                : "bg-gray-500/10 text-gray-600 dark:text-gray-400"
                             }`}>
                               {wager.status === "SETTLED" ? "Settled" : wager.status === "RESOLVED" ? "Resolved" : wager.status}
                             </span>
                           </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span className="font-medium">{wager.entries_count} {wager.entries_count === 1 ? 'entry' : 'entries'}</span>
+                            <span>•</span>
+                            <span>{formatCurrency(wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}</span>
+                          </div>
                         </div>
-                        <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground flex-shrink-0" />
+                        <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       </div>
                     </Link>
                   ))}
@@ -784,18 +776,93 @@ export default function Profile() {
             </div>
           </div>
 
-          {/* Stats Card */}
+          {/* Quick Actions Sidebar */}
           <div className="space-y-3 md:space-y-6 order-1 md:order-2">
-            <div className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-lg p-3 md:p-6">
-              <p className="text-[10px] md:text-sm opacity-90 mb-1 md:mb-2">Total Balance</p>
-              <h2 className="text-lg md:text-3xl font-bold mb-2 md:mb-4">{formatCurrency(profile.balance, currency)}</h2>
-              <button
-                onClick={() => router.push("/wallet")}
-                className="text-[10px] md:text-sm underline opacity-90 hover:opacity-100 active:opacity-100 touch-manipulation"
-              >
-                View Wallet →
-              </button>
+            <button
+              onClick={() => router.push("/wallet")}
+              className="w-full bg-gradient-to-br from-primary to-primary/90 text-primary-foreground rounded-xl p-4 md:p-6 shadow-sm hover:shadow-md transition-all active:scale-[0.98] touch-manipulation text-left"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <WalletIcon className="h-5 w-5" />
+                <span className="text-xs md:text-sm font-medium opacity-90">Wallet</span>
+              </div>
+              <h2 className="text-xl md:text-3xl font-bold mb-3">{formatCurrency(profile.balance, currency)}</h2>
+              <span className="text-xs md:text-sm opacity-80 flex items-center gap-1">
+                Manage funds
+                <ChevronRight className="h-3 w-3 md:h-4 md:w-4" />
+              </span>
+            </button>
+
+            {/* Quick Actions */}
+            <div className="bg-card border border-border rounded-xl p-4 md:p-6">
+              <h3 className="text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Quick Actions</h3>
+              <div className="space-y-2">
+                <Link
+                  href="/history"
+                  className="flex items-center justify-between p-3 hover:bg-muted rounded-lg transition active:scale-95 touch-manipulation group"
+                >
+                  <div className="flex items-center gap-3">
+                    <History className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                    <span className="text-sm font-medium">Wager History</span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </Link>
+                <Link
+                  href="/leaderboard"
+                  className="flex items-center justify-between p-3 hover:bg-muted rounded-lg transition active:scale-95 touch-manipulation group"
+                >
+                  <div className="flex items-center gap-3">
+                    <Trophy className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                    <span className="text-sm font-medium">Leaderboard</span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </Link>
+                <button
+                  onClick={() => setShowCreateWagerModal(true)}
+                  className="w-full flex items-center justify-between p-3 hover:bg-muted rounded-lg transition active:scale-95 touch-manipulation group"
+                >
+                  <div className="flex items-center gap-3">
+                    <Plus className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                    <span className="text-sm font-medium">Create Wager</span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </div>
             </div>
+
+            {/* Stats Summary */}
+            {myWagers.length > 0 && (
+              <div className="bg-card border border-border rounded-xl p-4 md:p-6">
+                <h3 className="text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Your Stats</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="h-4 w-4 text-primary" />
+                      <span className="text-sm text-muted-foreground">Wagers Created</span>
+                    </div>
+                    <span className="text-sm font-bold">{myWagers.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-primary" />
+                      <span className="text-sm text-muted-foreground">Total Entries</span>
+                    </div>
+                    <span className="text-sm font-bold">
+                      {myWagers.reduce((sum, w) => sum + (w.entries_count || 0), 0)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-primary" />
+                      <span className="text-sm text-muted-foreground">Open Wagers</span>
+                    </div>
+                    <span className="text-sm font-bold text-green-600 dark:text-green-400">
+                      {myWagers.filter(w => w.status === 'OPEN').length}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
