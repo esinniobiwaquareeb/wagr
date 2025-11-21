@@ -6,6 +6,7 @@
 
 import { generateEmailHTML, generateEmailText, getEmailSubject, type EmailTemplateData } from './email-templates';
 import { logger } from './logger';
+import { sendEmailAsync } from './email-queue';
 
 // Dynamic import for nodemailer to avoid issues if not installed
 let nodemailer: any = null;
@@ -109,19 +110,19 @@ export async function sendEmail(options: SendEmailOptions): Promise<boolean> {
 }
 
 /**
- * Send email notification for wager settlement
+ * Send email notification for wager settlement (non-blocking)
  */
-export async function sendWagerSettlementEmail(
+export function sendWagerSettlementEmail(
   userEmail: string,
   userName: string | null,
   wagerTitle: string,
   won: boolean,
   amount: number,
   wagerId: string
-): Promise<boolean> {
+): void {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://wagr.app';
   
-  return sendEmail({
+  sendEmailAsync({
     to: userEmail,
     type: 'welcome', // We'll create a specific type for this
     data: {
@@ -135,15 +136,15 @@ export async function sendWagerSettlementEmail(
 }
 
 /**
- * Send welcome email to new users
+ * Send welcome email to new users (non-blocking)
  */
-export async function sendWelcomeEmail(
+export function sendWelcomeEmail(
   userEmail: string,
   userName: string | null
-): Promise<boolean> {
+): void {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://wagr.app';
   
-  return sendEmail({
+  sendEmailAsync({
     to: userEmail,
     type: 'welcome',
     data: {
@@ -154,18 +155,18 @@ export async function sendWelcomeEmail(
 }
 
 /**
- * Send email when someone joins a user's wager
+ * Send email when someone joins a user's wager (non-blocking)
  */
-export async function sendWagerJoinedEmail(
+export function sendWagerJoinedEmail(
   creatorEmail: string,
   creatorName: string | null,
   wagerTitle: string,
   participantCount: number,
   wagerId: string
-): Promise<boolean> {
+): void {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://wagr.app';
   
-  return sendEmail({
+  sendEmailAsync({
     to: creatorEmail,
     type: 'welcome', // We'll extend this
     data: {
@@ -177,17 +178,17 @@ export async function sendWagerJoinedEmail(
 }
 
 /**
- * Send email for balance updates (deposits, withdrawals, winnings)
+ * Send email for balance updates (deposits, withdrawals, winnings) (non-blocking)
  */
-export async function sendBalanceUpdateEmail(
+export function sendBalanceUpdateEmail(
   userEmail: string,
   userName: string | null,
   amount: number,
   type: 'deposit' | 'withdrawal' | 'wager_win' | 'wager_loss'
-): Promise<boolean> {
+): void {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://wagr.app';
   
-  return sendEmail({
+  sendEmailAsync({
     to: userEmail,
     type: 'welcome', // We'll extend this
     data: {

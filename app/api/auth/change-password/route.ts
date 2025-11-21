@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUserId } from '@/lib/auth/session';
 import { verifyPassword, hashPassword } from '@/lib/auth/password';
-import { sendEmail } from '@/lib/email-service';
+import { sendEmailAsync } from '@/lib/email-queue';
 import { AppError, logError } from '@/lib/error-handler';
 import { ErrorCode } from '@/lib/error-handler';
 import { withRateLimit } from '@/lib/middleware-rate-limit';
@@ -66,20 +66,15 @@ export async function POST(request: NextRequest) {
           throw new AppError(ErrorCode.INTERNAL_ERROR, 'Failed to update password. Please try again');
         }
 
-        // Send password changed email
-        try {
-          await sendEmail({
-            to: profile.email,
-            type: 'password-changed',
-            data: {
-              recipientName: profile.username || undefined,
-              changeDate: new Date().toLocaleString(),
-            },
-          });
-        } catch (emailError) {
-          // Log but don't fail the password change
-          logError(emailError as Error);
-        }
+        // Send password changed email in background (non-blocking)
+        sendEmailAsync({
+          to: profile.email,
+          type: 'password-changed',
+          data: {
+            recipientName: profile.username || undefined,
+            changeDate: new Date().toLocaleString(),
+          },
+        });
 
         return successResponseNext({
           message: 'Password changed successfully',

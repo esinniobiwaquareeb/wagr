@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { hashPassword, validatePasswordStrength } from '@/lib/auth/password';
-import { sendEmail } from '@/lib/email-service';
+import { sendEmailAsync } from '@/lib/email-queue';
 import { AppError, logError } from '@/lib/error-handler';
 import { ErrorCode } from '@/lib/error-handler';
 import { withRateLimit } from '@/lib/middleware-rate-limit';
@@ -77,22 +77,17 @@ export async function POST(request: NextRequest) {
           .update({ used_at: new Date().toISOString() })
           .eq('id', resetRecord.id);
 
-        // Send password changed email
+        // Send password changed email in background (non-blocking)
         const profile = resetRecord.profiles as any;
         if (profile && profile.email) {
-          try {
-            await sendEmail({
-              to: profile.email,
-              type: 'password-changed',
-              data: {
-                recipientName: profile.username || undefined,
-                changeDate: new Date().toLocaleString(),
-              },
-            });
-          } catch (emailError) {
-            logError(emailError as Error);
-            // Don't fail the reset if email fails
-          }
+          sendEmailAsync({
+            to: profile.email,
+            type: 'password-changed',
+            data: {
+              recipientName: profile.username || undefined,
+              changeDate: new Date().toLocaleString(),
+            },
+          });
         }
 
         return successResponseNext({

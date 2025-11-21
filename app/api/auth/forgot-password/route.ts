@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { generatePasswordResetToken, getExpirationTime } from '@/lib/auth/tokens';
-import { sendEmail } from '@/lib/email-service';
+import { sendEmailAsync } from '@/lib/email-queue';
 import { AppError, logError } from '@/lib/error-handler';
 import { ErrorCode } from '@/lib/error-handler';
 import { withRateLimit } from '@/lib/middleware-rate-limit';
@@ -62,19 +62,15 @@ export async function POST(request: NextRequest) {
         const appUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://wagr.app';
         const resetUrl = `${appUrl}/reset-password?token=${resetToken}`;
 
-        try {
-          await sendEmail({
-            to: profile.email,
-            type: 'password-reset',
-            data: {
-              recipientName: profile.username || undefined,
-              resetUrl,
-            },
-          });
-        } catch (emailError) {
-          logError(emailError as Error);
-          // Don't fail the request if email fails
-        }
+        // Send password reset email in background (non-blocking)
+        sendEmailAsync({
+          to: profile.email,
+          type: 'password-reset',
+          data: {
+            recipientName: profile.username || undefined,
+            resetUrl,
+          },
+        });
 
         // Don't reveal if email exists or not for security
         return successResponseNext({

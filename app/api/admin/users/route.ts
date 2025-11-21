@@ -24,53 +24,46 @@ export async function GET(request: NextRequest) {
       throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch profiles');
     }
 
-    // Get user statistics
+    // Get user statistics in parallel (optimized)
     const userIds = profiles?.map(p => p.id) || [];
     
-    // Get wagers created count per user
-    const { data: wagersData, error: wagersError } = await supabase
-      .from("wagers")
-      .select("creator_id")
-      .in("creator_id", userIds);
+    // Fetch all statistics in parallel for better performance
+    const [wagersResult, entriesResult] = await Promise.all([
+      userIds.length > 0 ? supabase
+        .from("wagers")
+        .select("creator_id")
+        .in("creator_id", userIds)
+        .then(({ data, error }) => ({ data, error })) : Promise.resolve({ data: [], error: null }),
+      userIds.length > 0 ? supabase
+        .from("wager_entries")
+        .select("user_id, amount")
+        .in("user_id", userIds)
+        .then(({ data, error }) => ({ data, error })) : Promise.resolve({ data: [], error: null }),
+    ]);
     
-    if (wagersError) {
+    if (wagersResult.error) {
       throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch wagers');
     }
     
+    if (entriesResult.error) {
+      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch entries');
+    }
+    
+    // Process statistics efficiently
     const wagersCountByUser = new Map<string, number>();
-    wagersData?.forEach((wager: { creator_id: string | null }) => {
+    wagersResult.data?.forEach((wager: { creator_id: string | null }) => {
       if (wager.creator_id) {
         wagersCountByUser.set(wager.creator_id, (wagersCountByUser.get(wager.creator_id) || 0) + 1);
       }
     });
     
-    // Get entries count per user
-    const { data: entriesData, error: entriesError } = await supabase
-      .from("wager_entries")
-      .select("user_id")
-      .in("user_id", userIds);
-    
-    if (entriesError) {
-      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch entries');
-    }
-    
     const entriesCountByUser = new Map<string, number>();
-    entriesData?.forEach((entry: { user_id: string }) => {
-      entriesCountByUser.set(entry.user_id, (entriesCountByUser.get(entry.user_id) || 0) + 1);
-    });
-    
-    // Get total wagered amount per user
-    const { data: entriesWithAmounts, error: amountsError } = await supabase
-      .from("wager_entries")
-      .select("user_id, amount")
-      .in("user_id", userIds);
-    
-    if (amountsError) {
-      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch entry amounts');
-    }
-    
     const totalWageredByUser = new Map<string, number>();
-    entriesWithAmounts?.forEach((entry: { user_id: string; amount: string | number }) => {
+    
+    entriesResult.data?.forEach((entry: { user_id: string; amount: string | number }) => {
+      // Count entries
+      entriesCountByUser.set(entry.user_id, (entriesCountByUser.get(entry.user_id) || 0) + 1);
+      // Sum amounts
       const current = totalWageredByUser.get(entry.user_id) || 0;
       totalWageredByUser.set(entry.user_id, current + Number(entry.amount || 0));
     });

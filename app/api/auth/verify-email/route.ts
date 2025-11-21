@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createSession, setSessionCookie } from '@/lib/auth/session';
-import { sendEmail } from '@/lib/email-service';
+import { sendEmailAsync } from '@/lib/email-queue';
 import { AppError, logError } from '@/lib/error-handler';
 import { ErrorCode } from '@/lib/error-handler';
 import { withRateLimit } from '@/lib/middleware-rate-limit';
@@ -71,21 +71,16 @@ export async function GET(request: NextRequest) {
           .update({ verified_at: new Date().toISOString() })
           .eq('id', verification.id);
 
-        // Send welcome email
+        // Send welcome email in background (non-blocking)
         const profile = verification.profiles as any;
         if (profile && profile.email) {
-          try {
-            await sendEmail({
-              to: profile.email,
-              type: 'welcome',
-              data: {
-                recipientName: profile.username || undefined,
-              },
-            });
-          } catch (emailError) {
-            logError(emailError as Error);
-            // Don't fail verification if welcome email fails
-          }
+          sendEmailAsync({
+            to: profile.email,
+            type: 'welcome',
+            data: {
+              recipientName: profile.username || undefined,
+            },
+          });
         }
 
         // Check if user already has a session (from registration)
@@ -184,18 +179,15 @@ export async function POST(request: NextRequest) {
         const appUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://wagr.app';
         const verificationUrl = `${appUrl}/verify-email?token=${verificationToken}`;
 
-        try {
-          await sendEmail({
-            to: profile.email,
-            type: 'verification',
-            data: {
-              recipientName: profile.username || undefined,
-              verificationUrl,
-            },
-          });
-        } catch (emailError) {
-          logError(emailError as Error);
-        }
+        // Send verification email in background (non-blocking)
+        sendEmailAsync({
+          to: profile.email,
+          type: 'verification',
+          data: {
+            recipientName: profile.username || undefined,
+            verificationUrl,
+          },
+        });
 
         return successResponseNext({
           message: 'If an account with that email exists and is not verified, a verification email has been sent.',

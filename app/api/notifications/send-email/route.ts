@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { sendEmail, sendWagerSettlementEmail } from '@/lib/email-service';
+import { sendWagerSettlementEmail, sendWagerJoinedEmail, sendBalanceUpdateEmail, sendWelcomeEmail } from '@/lib/email-service';
 import { logger } from '@/lib/logger';
 
 /**
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
             .single();
 
           if (wager) {
-            emailSent = await sendWagerSettlementEmail(
+            sendWagerSettlementEmail(
               userEmail,
               userName,
               wager.title,
@@ -90,6 +90,7 @@ export async function POST(request: NextRequest) {
               metadata.amount || 0,
               metadata.wager_id
             );
+            emailSent = true; // Email queued successfully
           }
         }
         break;
@@ -103,33 +104,33 @@ export async function POST(request: NextRequest) {
             .single();
 
           if (wager) {
-            const { sendWagerJoinedEmail } = await import('@/lib/email-service');
-            emailSent = await sendWagerJoinedEmail(
+            sendWagerJoinedEmail(
               userEmail,
               userName,
               wager.title,
               metadata.participant_count || 1,
               metadata.wager_id
             );
+            emailSent = true; // Email queued successfully
           }
         }
         break;
 
       case 'balance_update':
         if (metadata?.amount && metadata?.type) {
-          const { sendBalanceUpdateEmail } = await import('@/lib/email-service');
-          emailSent = await sendBalanceUpdateEmail(
+          sendBalanceUpdateEmail(
             userEmail,
             userName,
             metadata.amount,
             metadata.type
           );
+          emailSent = true; // Email queued successfully
         }
         break;
 
       case 'welcome':
-        const { sendWelcomeEmail } = await import('@/lib/email-service');
-        emailSent = await sendWelcomeEmail(userEmail, userName);
+        sendWelcomeEmail(userEmail, userName);
+        emailSent = true; // Email queued successfully
         break;
 
       default:
