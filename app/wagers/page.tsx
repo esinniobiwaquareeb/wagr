@@ -330,76 +330,6 @@ function WagersPageContent() {
     trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'search_performed', { query_length: query.length });
   };
 
-  // Render horizontal scrollable section
-  const renderHorizontalSection = (wagersList: WagerWithEntries[], title: string, emptyMessage: string) => {
-    if (loading) {
-      return (
-        <div className="flex gap-3 md:gap-4 overflow-x-auto pb-4 scrollbar-hide">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="flex-shrink-0 w-[280px] md:w-[320px]">
-              <div className="bg-card border border-border rounded-lg p-4">
-                <Skeleton className="h-6 w-3/4 mb-2" />
-                <Skeleton className="h-4 w-full mb-3" />
-                <Skeleton className="h-4 w-2/3 mb-4" />
-                <div className="flex justify-between">
-                  <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-4 w-24" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      );
-    }
-
-    if (wagersList.length === 0) {
-      return (
-        <div className="text-center py-12 bg-card border border-border rounded-lg">
-          <div className="max-w-md mx-auto">
-            <div className="h-12 w-12 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-              <HomeIcon className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <h3 className="text-base font-semibold mb-2">{emptyMessage}</h3>
-            <p className="text-sm text-muted-foreground">Check back later for new wagers!</p>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="flex gap-3 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
-        {wagersList.map((wager) => (
-          <div key={wager.id} className="flex-shrink-0 w-[280px] md:w-[320px] snap-start">
-            <WagerCard
-              id={wager.id}
-              title={wager.title}
-              description={wager.description || ""}
-              sideA={wager.side_a}
-              sideB={wager.side_b}
-              amount={wager.amount}
-              status={wager.status}
-              entriesCount={wager.entries_count}
-              deadline={wager.deadline}
-              currency={wager.currency}
-              category={wager.category}
-              sideACount={wager.side_a_count || 0}
-              sideBCount={wager.side_b_count || 0}
-              sideATotal={wager.side_a_total || 0}
-              sideBTotal={wager.side_b_total || 0}
-              feePercentage={wager.fee_percentage || PLATFORM_FEE_PERCENTAGE}
-              isSystemGenerated={wager.is_system_generated || false}
-              createdAt={wager.created_at}
-              winningSide={wager.winning_side}
-              shortId={wager.short_id}
-              userEntryAmount={userEntries.get(wager.id)?.amount}
-              userEntrySide={userEntries.get(wager.id)?.side}
-              onClick={() => trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'wager_clicked', { wager_id: wager.id, tab: activeTab })}
-            />
-          </div>
-        ))}
-      </div>
-    );
-  };
 
   // Render row view
   const renderRowView = () => {
@@ -473,9 +403,9 @@ function WagersPageContent() {
   const renderVerticalGrid = () => {
     if (loading) {
       return (
-        <div className="grid gap-3 md:gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 w-full">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="bg-card border border-border rounded-lg p-4">
+            <div key={i} className="bg-card border border-border rounded-lg p-4 w-full">
               <Skeleton className="h-6 w-3/4 mb-2" />
               <Skeleton className="h-4 w-full mb-3" />
               <Skeleton className="h-4 w-2/3 mb-4" />
@@ -506,7 +436,7 @@ function WagersPageContent() {
     }
 
     return (
-      <div className="grid gap-3 md:gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 w-full">
         {filteredWagers.map((wager) => (
             <WagerCard
               key={wager.id}
@@ -540,7 +470,7 @@ function WagersPageContent() {
   };
 
   return (
-    <main className="flex-1 pb-24 md:pb-0 relative">
+    <main className="flex-1 pb-24 md:pb-0 relative w-full overflow-x-hidden">
       {/* Pull to refresh indicator */}
       {pullDistance > 0 && (
         <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center pt-4 pointer-events-none">
@@ -840,9 +770,9 @@ function WagersPageContent() {
         {/* Render based on view mode */}
         {!mounted ? (
           // Show loading state during hydration to prevent mismatch
-          <div className="grid gap-3 md:gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 w-full">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-card border border-border rounded-lg p-4">
+              <div key={i} className="bg-card border border-border rounded-lg p-4 w-full">
                 <Skeleton className="h-6 w-3/4 mb-2" />
                 <Skeleton className="h-4 w-full mb-3" />
                 <Skeleton className="h-4 w-2/3 mb-4" />
@@ -856,40 +786,9 @@ function WagersPageContent() {
         ) : viewMode === 'row' ? (
           /* Row View */
           renderRowView()
-        ) : viewMode === 'card' && layoutVariant === 'A' ? (
-          <>
-            {/* Horizontal Scrollable Sections */}
-            {activeTab === 'system' ? (
-              <div>
-                <h2 className="text-lg md:text-xl font-semibold mb-4 flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-primary" />
-                  System Generated Wagers
-                </h2>
-                {renderHorizontalSection(
-                  filteredWagers,
-                  "System Wagers",
-                  "No system wagers available at the moment"
-                )}
-              </div>
-            ) : (
-              <div>
-                <h2 className="text-lg md:text-xl font-semibold mb-4 flex items-center gap-2">
-                  <Users className="h-5 w-5 text-primary" />
-                  Community Wagers
-                </h2>
-                {renderHorizontalSection(
-                  filteredWagers,
-                  "User Wagers",
-                  "No user-created wagers yet. Be the first to create one!"
-                )}
-              </div>
-            )}
-          </>
         ) : (
-          /* Variant B: Vertical Grid */
-          <>
-            {renderVerticalGrid()}
-          </>
+          /* Card View: Always use grid layout */
+          renderVerticalGrid()
         )}
       </div>
       
@@ -917,11 +816,11 @@ function WagersPageContent() {
 export default function WagersPage() {
   return (
     <Suspense fallback={
-      <main className="flex-1 pb-24 md:pb-0">
-        <div className="max-w-7xl mx-auto p-3 md:p-6">
-          <div className="grid gap-3 md:gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <main className="flex-1 pb-24 md:pb-0 w-full overflow-x-hidden">
+        <div className="max-w-7xl mx-auto p-3 md:p-6 w-full">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 w-full">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-card border border-border rounded-lg p-4">
+              <div key={i} className="bg-card border border-border rounded-lg p-4 w-full">
                 <Skeleton className="h-6 w-3/4 mb-2" />
                 <Skeleton className="h-4 w-full mb-3" />
                 <Skeleton className="h-4 w-2/3 mb-4" />

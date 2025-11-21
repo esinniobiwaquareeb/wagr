@@ -79,6 +79,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Call the database function to check and settle expired wagers
+    // This function already handles single-participant refunds internally
     const { data, error } = await supabase.rpc("check_and_settle_expired_wagers");
 
     if (error) {
@@ -87,14 +88,6 @@ export async function GET(request: NextRequest) {
         error: error.message,
         details: error 
       }, { status: 500 });
-    }
-
-    // Also check for single-participant wagers that need refunds
-    const { error: refundError } = await supabase.rpc("check_and_refund_single_participants");
-
-    if (refundError) {
-      console.error("Error refunding single participants:", refundError);
-      // Don't fail the request, just log the error
     }
 
     return NextResponse.json({ 

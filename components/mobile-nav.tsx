@@ -387,7 +387,7 @@ export function MobileNav() {
       )}
 
       {/* Desktop Sidebar */}
-      <nav className="hidden md:flex md:flex-col md:w-64 md:border-r md:border-border md:bg-card md:sticky md:top-0 md:h-screen md:overflow-hidden">
+      <nav className="hidden md:flex md:flex-col md:w-64 md:min-w-[16rem] md:max-w-[16rem] md:flex-shrink-0 md:border-r md:border-border md:bg-card md:sticky md:top-0 md:h-screen md:overflow-hidden">
         <div className="flex flex-col h-full">
           {/* Main Navigation Links */}
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
