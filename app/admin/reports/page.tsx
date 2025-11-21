@@ -9,6 +9,7 @@ import { format, startOfDay, endOfDay, subDays, subMonths, startOfMonth, endOfMo
 import { ArrowUp, ArrowDown, TrendingUp, TrendingDown, DollarSign, Users, Calendar, Filter } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
+import { getCurrentUser } from "@/lib/auth/client";
 
 interface Transaction {
   id: string;
@@ -54,27 +55,15 @@ export default function AdminReportsPage() {
   const [customDateRange, setCustomDateRange] = useState(false);
 
   const checkAdmin = useCallback(async () => {
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
-    if (!currentUser) {
+    const currentUser = await getCurrentUser();
+    if (!currentUser || !currentUser.is_admin) {
       router.push("/admin/login");
       return;
     }
 
     setUser(currentUser);
-
-    const { data: profile, error } = await supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", currentUser.id)
-      .single();
-
-    if (error || !profile?.is_admin) {
-      router.push("/admin/login");
-      return;
-    }
-
     setIsAdmin(true);
-  }, [supabase, router]);
+  }, [router]);
 
   const getDateFilter = () => {
     const now = new Date();
@@ -99,7 +88,7 @@ export default function AdminReportsPage() {
     return { start: start.toISOString(), end: end.toISOString() };
   };
 
-  const fetchTransactions = useCallback(async (force = false) => {
+  const fetchTransactions = useCallback(async () => {
     if (!isAdmin) return;
 
     try {

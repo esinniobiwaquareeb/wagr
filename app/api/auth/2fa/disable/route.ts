@@ -1,7 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { AppError, formatErrorResponse, logError } from '@/lib/error-handler';
+import { getCurrentUserId } from '@/lib/auth/session';
+import { verifyPassword } from '@/lib/auth/password';
+import { AppError, logError } from '@/lib/error-handler';
 import { ErrorCode } from '@/lib/error-handler';
+import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,20 +15,27 @@ export async function POST(request: NextRequest) {
       throw new AppError(ErrorCode.INVALID_INPUT, 'Password is required to disable 2FA');
     }
 
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    const userId = await getCurrentUserId();
+    if (!userId) {
       throw new AppError(ErrorCode.UNAUTHORIZED, 'You must be logged in');
     }
 
-    // Verify password
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: user.email!,
-      password,
-    });
+    const supabase = await createClient();
 
-    if (signInError) {
+    // Get user profile with password hash
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('password_hash')
+      .eq('id', userId)
+      .single();
+
+    if (profileError || !profile) {
+      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch profile');
+    }
+
+    // Verify password
+    const passwordMatch = await verifyPassword(password, profile.password_hash);
+    if (!passwordMatch) {
       throw new AppError(ErrorCode.INVALID_CREDENTIALS, 'Invalid password');
     }
 
@@ -37,25 +47,18 @@ export async function POST(request: NextRequest) {
         two_factor_secret: null,
         two_factor_backup_codes: null,
       })
-      .eq('id', user.id);
+      .eq('id', userId);
 
     if (updateError) {
       throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to disable 2FA');
     }
 
-    return NextResponse.json({
-      success: true,
+    return successResponseNext({
       message: '2FA has been disabled',
     });
   } catch (error) {
     logError(error as Error);
-    if (error instanceof AppError) {
-      return NextResponse.json(formatErrorResponse(error), { status: error.statusCode });
-    }
-    return NextResponse.json(
-      formatErrorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 'Failed to disable 2FA')),
-      { status: 500 }
-    );
+    return appErrorToResponse(error);
   }
 }
 

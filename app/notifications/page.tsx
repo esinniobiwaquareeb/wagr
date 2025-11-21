@@ -3,11 +3,14 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
+import { useAuth } from "@/hooks/use-auth";
 import { formatDistanceToNow, format } from "date-fns";
 import { Bell, Check, CheckCheck, Trash2, ExternalLink } from "lucide-react";
+import { BackButton } from "@/components/back-button";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
+import { notificationsApi } from "@/lib/api-client";
 
 interface Notification {
   id: string;
@@ -24,65 +27,43 @@ export default function NotificationsPage() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const { toast } = useToast();
-  const [user, setUser] = useState<any>(null);
+  const { user, loading: authLoading } = useAuth({
+    requireAuth: true,
+    redirectTo: "/wagers?login=true"
+  });
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [markingRead, setMarkingRead] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  useEffect(() => {
-    const getUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!data?.user) {
-        router.push("/wagers?login=true");
-        return;
-      }
-      setUser(data.user);
-    };
-
-    getUser();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(() => {
-      getUser();
-    });
-
-    return () => {
-      authListener?.subscription?.unsubscribe?.();
-    };
-  }, [supabase, router]);
-
   const fetchNotifications = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     try {
-      const { data, error } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(100);
-
-      if (error) throw error;
-
-      if (data) {
-        setNotifications(data);
-        const unread = data.filter(n => !n.read).length;
-        setUnreadCount(unread);
-      }
+      setLoading(true);
+      const response = await notificationsApi.list({ limit: 100 });
+      setNotifications(response.notifications || []);
+      setUnreadCount(response.unreadCount || 0);
     } catch (error) {
       console.error("Error fetching notifications:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to load notifications";
       toast({
         title: "Error",
-        description: "Failed to load notifications",
+        description: errorMessage,
         variant: "destructive",
       });
+      setNotifications([]);
+      setUnreadCount(0);
     } finally {
       setLoading(false);
     }
-  }, [user, supabase, toast]);
+  }, [user, toast]);
 
   useEffect(() => {
-    if (user) {
+    if (user && !authLoading) {
       fetchNotifications();
 
       // Subscribe to real-time updates
@@ -105,41 +86,50 @@ export default function NotificationsPage() {
       return () => {
         channel.unsubscribe();
       };
+    } else if (!user && !authLoading) {
+      setLoading(false);
     }
-  }, [user, fetchNotifications, supabase]);
+  }, [user, authLoading, fetchNotifications, supabase]);
 
   const markAsRead = async (notificationId: string) => {
+    if (!user) return;
+    
     try {
-      const { error } = await supabase
-        .from("notifications")
-        .update({ read: true })
-        .eq("id", notificationId)
-        .eq("user_id", user.id);
-
-      if (error) throw error;
+      await notificationsApi.markRead(notificationId);
 
       setNotifications(prev =>
         prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
       );
       setUnreadCount(prev => Math.max(0, prev - 1));
+      
+      // Trigger notification update event for sidebar
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('notifications-updated'));
+      }
     } catch (error) {
       console.error("Error marking notification as read:", error);
+      toast({
+        title: "Error",
+        description: "Failed to mark notification as read",
+        variant: "destructive",
+      });
     }
   };
 
   const markAllAsRead = async () => {
-    if (unreadCount === 0) return;
+    if (unreadCount === 0 || !user) return;
     
     setMarkingRead(true);
     try {
-      const { error } = await supabase.rpc("mark_all_notifications_read", {
-        user_id_param: user.id,
-      });
-
-      if (error) throw error;
+      await notificationsApi.markAllRead();
 
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       setUnreadCount(0);
+      
+      // Trigger notification update event for sidebar
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('notifications-updated'));
+      }
       
       toast({
         title: "Success",
@@ -158,14 +148,10 @@ export default function NotificationsPage() {
   };
 
   const deleteNotification = async (notificationId: string) => {
+    if (!user) return;
+    
     try {
-      const { error } = await supabase
-        .from("notifications")
-        .delete()
-        .eq("id", notificationId)
-        .eq("user_id", user.id);
-
-      if (error) throw error;
+      await notificationsApi.delete(notificationId);
 
       const deleted = notifications.find(n => n.id === notificationId);
       if (deleted && !deleted.read) {
@@ -173,6 +159,11 @@ export default function NotificationsPage() {
       }
 
       setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      
+      // Trigger notification update event for sidebar
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('notifications-updated'));
+      }
     } catch (error) {
       console.error("Error deleting notification:", error);
       toast({
@@ -243,6 +234,9 @@ export default function NotificationsPage() {
   return (
     <main className="flex-1 pb-24 md:pb-0">
       <div className="max-w-6xl mx-auto p-3 md:p-6">
+        <div className="mb-3 md:mb-4">
+          <BackButton fallbackHref="/wagers" />
+        </div>
         <div className="mb-4 md:mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 md:gap-4">
             <div>

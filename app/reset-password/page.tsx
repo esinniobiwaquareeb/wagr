@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, Suspense, useEffect } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Lock, CheckCircle } from "lucide-react";
 import Link from "next/link";
@@ -10,7 +9,6 @@ import Link from "next/link";
 function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = createClient();
   const { toast } = useToast();
   
   const [password, setPassword] = useState("");
@@ -20,64 +18,13 @@ function ResetPasswordContent() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sessionReady, setSessionReady] = useState(false);
+  const [tokenValid, setTokenValid] = useState<boolean | null>(null);
 
-  // Handle Supabase password reset flow
-  useEffect(() => {
-    const handlePasswordReset = async () => {
-      try {
-        // Check if we have a hash in the URL (Supabase password reset token)
-        const hash = window.location.hash;
-        
-        if (hash) {
-          // Extract the access token from the hash
-          const hashParams = new URLSearchParams(hash.substring(1));
-          const accessToken = hashParams.get('access_token');
-          const refreshToken = hashParams.get('refresh_token');
-          const type = hashParams.get('type');
-
-          // If this is a password recovery flow
-          if (type === 'recovery' && accessToken && refreshToken) {
-            // Set the session using the tokens from the hash
-            const { error: sessionError } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
-            });
-
-            if (sessionError) {
-              setError("Invalid or expired reset link. Please request a new password reset.");
-              return;
-            }
-
-            // Clear the hash from URL
-            window.history.replaceState(null, '', window.location.pathname);
-            setSessionReady(true);
-          } else {
-            // Check if we already have a session
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-              setSessionReady(true);
-            } else {
-              setError("Invalid or expired reset link. Please request a new password reset.");
-            }
-          }
-        } else {
-          // No hash, check if we have an existing session
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session) {
-            setSessionReady(true);
-          } else {
-            setError("Invalid or expired reset link. Please request a new password reset.");
-          }
-        }
-      } catch (err) {
-        console.error('Error handling password reset:', err);
-        setError("Something went wrong. Please request a new password reset.");
-      }
-    };
-
-    handlePasswordReset();
-  }, [supabase]);
+  // Check if token is present
+  useState(() => {
+    const token = searchParams.get('token');
+    setTokenValid(!!token);
+  });
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,17 +32,10 @@ function ResetPasswordContent() {
     setError(null);
 
     try {
-      // Check if session is ready
-      if (!sessionReady) {
-        setError("Please wait while we verify your reset link...");
-        setLoading(false);
-        return;
-      }
+      const token = searchParams.get('token');
 
-      // Verify we have a valid session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) {
-        setError("Your reset link has expired. Please request a new password reset.");
+      if (!token) {
+        setError("Invalid reset link. Please request a new password reset.");
         setLoading(false);
         return;
       }
@@ -119,13 +59,24 @@ function ResetPasswordContent() {
         return;
       }
       
-      // Update password using Supabase
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: password,
+      // Reset password using custom auth API
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          token,
+          password,
+        }),
       });
 
-      if (updateError) {
-        throw new Error(updateError.message || "Failed to reset password");
+      const data = await response.json();
+
+      if (!response.ok) {
+        const { extractErrorFromResponse } = await import('@/lib/error-extractor');
+        const errorMessage = await extractErrorFromResponse(response, 'Password reset failed');
+        throw new Error(errorMessage);
       }
 
       setSuccess(true);
@@ -172,6 +123,32 @@ function ResetPasswordContent() {
     );
   }
 
+  if (tokenValid === false) {
+    return (
+      <main className="flex-1 pb-24 md:pb-0 flex items-center justify-center min-h-[60vh]">
+        <div className="max-w-md w-full mx-auto p-6">
+          <div className="bg-card border border-border rounded-lg p-8 text-center">
+            <div className="mb-4 flex justify-center">
+              <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center">
+                <Lock className="h-8 w-8 text-destructive" />
+              </div>
+            </div>
+            <h1 className="text-2xl font-bold mb-2">Invalid Reset Link</h1>
+            <p className="text-muted-foreground mb-6">
+              This password reset link is invalid or has expired. Please request a new one.
+            </p>
+            <Link
+              href="/wagers?login=true"
+              className="inline-block bg-primary text-primary-foreground px-6 py-3 rounded-lg font-medium hover:opacity-90 transition"
+            >
+              Go to Login
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="flex-1 pb-24 md:pb-0 flex items-center justify-center min-h-[60vh]">
       <div className="max-w-md w-full mx-auto p-6">
@@ -184,17 +161,10 @@ function ResetPasswordContent() {
             </div>
             <h1 className="text-2xl font-bold mb-2">Reset Your Password</h1>
             <p className="text-sm text-muted-foreground">
-              {sessionReady ? "Enter your new password below" : "Verifying your reset link..."}
+              Enter your new password below
             </p>
           </div>
 
-          {!sessionReady && !error && (
-            <div className="text-center py-4">
-              <p className="text-sm text-muted-foreground">Loading...</p>
-            </div>
-          )}
-
-          {sessionReady && (
           <form onSubmit={handleReset} className="space-y-4">
             <div>
               <label htmlFor="password" className="block text-sm font-medium mb-2">
@@ -280,7 +250,6 @@ function ResetPasswordContent() {
               </Link>
             </div>
           </form>
-          )}
         </div>
       </div>
     </main>
@@ -302,4 +271,3 @@ export default function ResetPasswordPage() {
     </Suspense>
   );
 }
-

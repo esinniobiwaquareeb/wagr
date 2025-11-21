@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { getCurrentUser, logout as clientLogout, type AuthUser } from '@/lib/auth/client';
 
 export interface UseAuthOptions {
   redirectTo?: string;
@@ -9,9 +9,10 @@ export interface UseAuthOptions {
 }
 
 export interface UseAuthResult {
-  user: any;
+  user: AuthUser | null;
   loading: boolean;
-  supabase: ReturnType<typeof createClient>;
+  logout: () => Promise<void>;
+  refresh: () => Promise<void>;
 }
 
 /**
@@ -25,60 +26,72 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthResult {
     requireAuth = false,
   } = options;
 
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
 
-  useEffect(() => {
-    const checkUser = async () => {
-      try {
-        const { data: { user: currentUser }, error } = await supabase.auth.getUser();
-        
-        if (error) {
-          console.error('Auth error:', error);
-          setUser(null);
-          setLoading(false);
-          
-          if (requireAuth && redirectTo) {
-            router.push(redirectTo);
-          }
-          return;
-        }
+  const fetchUser = useCallback(async () => {
+    try {
+      const currentUser = await getCurrentUser();
+      setUser(currentUser);
+      setLoading(false);
 
-        setUser(currentUser);
-        setLoading(false);
-
-        // Handle redirects
-        if (redirectIfAuthenticated && currentUser && redirectTo) {
-          router.push(redirectTo);
-        } else if (requireAuth && !currentUser && redirectTo) {
-          router.push(redirectTo);
-        }
-      } catch (error) {
-        console.error('Error checking auth:', error);
-        setUser(null);
-        setLoading(false);
-        
-        if (requireAuth && redirectTo) {
-          router.push(redirectTo);
-        }
+      // Handle redirects
+      if (redirectIfAuthenticated && currentUser && redirectTo) {
+        router.push(redirectTo);
+      } else if (requireAuth && !currentUser && redirectTo) {
+        router.push(redirectTo);
       }
+    } catch (error) {
+      console.error('Error checking auth:', error);
+      setUser(null);
+      setLoading(false);
+      
+      if (requireAuth && redirectTo) {
+        router.push(redirectTo);
+      }
+    }
+  }, [router, redirectTo, redirectIfAuthenticated, requireAuth]);
+
+  const handleLogout = useCallback(async () => {
+    await clientLogout();
+    setUser(null);
+    router.refresh();
+    
+    // Trigger auth state change event
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('auth-state-changed'));
+    }
+  }, [router]);
+
+  const refresh = useCallback(async () => {
+    await fetchUser();
+  }, [fetchUser]);
+
+  useEffect(() => {
+    fetchUser();
+
+    // Listen for auth state changes
+    const handleAuthStateChanged = () => {
+      fetchUser();
     };
 
-    checkUser();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('auth-state-changed', handleAuthStateChanged);
+    }
 
-    // Subscribe to auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    // Poll for auth changes (fallback)
+    const interval = setInterval(() => {
+      fetchUser();
+    }, 60000); // Check every minute
 
     return () => {
-      subscription.unsubscribe();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('auth-state-changed', handleAuthStateChanged);
+      }
+      clearInterval(interval);
     };
-  }, [supabase, router, redirectTo, redirectIfAuthenticated, requireAuth]);
+  }, [fetchUser]);
 
-  return { user, loading, supabase };
+  return { user, loading, logout: handleLogout, refresh };
 }
-

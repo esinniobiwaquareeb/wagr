@@ -3,12 +3,15 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from 'next/navigation';
 import { useAuth } from "@/hooks/use-auth";
+import { createClient } from "@/lib/supabase/client";
 import { LoadingSpinner } from "@/components/loading-spinner";
 import Link from 'next/link';
 import { useToast } from "@/hooks/use-toast";
 import { DEFAULT_CURRENCY, type Currency, CURRENCY_SYMBOLS, formatCurrency } from "@/lib/currency";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
 import { Globe, Lock, Tag } from "lucide-react";
+import { BackButton } from "@/components/back-button";
+import { wagersApi, walletApi } from "@/lib/api-client";
 
 import { WAGER_CATEGORIES, COMMON_SIDES, DEFAULT_WAGER_AMOUNT, PLATFORM_FEE_PERCENTAGE, UI } from "@/lib/constants";
 
@@ -17,10 +20,11 @@ const AMOUNT_PRESETS = [10, 25, 50, 100, 250, 500, 1000];
 
 export default function CreateWager() {
   const router = useRouter();
-  const { user, loading, supabase } = useAuth({ 
+  const { user, loading } = useAuth({ 
     requireAuth: true, 
     redirectTo: "/wagers?login=true" 
   });
+  const supabase = createClient(); // Create Supabase client for database operations
   const [submitting, setSubmitting] = useState(false);
   const [userBalance, setUserBalance] = useState<number | null>(null);
   const [checkingBalance, setCheckingBalance] = useState(false);
@@ -39,7 +43,6 @@ export default function CreateWager() {
     currency: DEFAULT_CURRENCY,
     isPublic: true,
     category: "",
-    tags: [] as string[],
     selectedSideTemplate: null as { sideA: string; sideB: string } | null,
     creatorSide: "a" as "a" | "b", // Which side the creator will join
   });
@@ -118,6 +121,17 @@ export default function CreateWager() {
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      toast({
+        title: "Please log in",
+        description: "You need to be logged in to create a wager.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // TypeScript guard - user is guaranteed to be non-null after this check
+    const currentUser = user;
     setSubmitting(true);
 
     try {
@@ -238,26 +252,21 @@ export default function CreateWager() {
       }
 
       // Check user balance before creating wager
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("balance")
-        .eq("id", user.id)
-        .single();
-
-      if (!profile) {
+      try {
+        const balanceResponse = await walletApi.getBalance();
+        if (balanceResponse.balance < amount) {
+          toast({
+            title: "Insufficient balance",
+            description: `You need ${formatCurrency(amount, formData.currency)} to create this wager. Your current balance is ${formatCurrency(balanceResponse.balance, formData.currency)}.`,
+            variant: "destructive",
+          });
+          setSubmitting(false);
+          return;
+        }
+      } catch (error) {
         toast({
-          title: "Profile not found",
+          title: "Error checking balance",
           description: "Please try again or contact support.",
-          variant: "destructive",
-        });
-        setSubmitting(false);
-        return;
-      }
-
-      if (profile.balance < amount) {
-        toast({
-          title: "Insufficient balance",
-          description: `You need ${formatCurrency(amount, formData.currency)} to create this wager. Your current balance is ${formatCurrency(profile.balance, formData.currency)}.`,
           variant: "destructive",
         });
         setSubmitting(false);
@@ -312,79 +321,21 @@ export default function CreateWager() {
         return;
       }
 
-      // Deduct entry fee from creator's balance (for the entry, not separate creation fee)
-      const { error: balanceError } = await supabase.rpc("increment_balance", {
-        user_id: user.id,
-        amt: -amount,
+      // Create the wager via API (handles balance deduction, wager creation, entry, and transactions)
+      const response = await wagersApi.create({
+        title: trimmedTitle,
+        description: formData.description.trim() || undefined,
+        amount: amount,
+        sideA: trimmedSideA,
+        sideB: trimmedSideB,
+        deadline: deadlineUTC,
+        category: formData.category || undefined,
+        currency: formData.currency,
+        isPublic: formData.isPublic,
+        creatorSide: formData.creatorSide,
       });
 
-      if (balanceError) {
-        throw new Error("Failed to deduct entry fee from your wallet. Please try again.");
-      }
-
-      // Create the wager
-      const { data: newWager, error } = await supabase.from("wagers").insert({
-        creator_id: user.id,
-        title: trimmedTitle,
-        description: formData.description.trim() || null,
-        amount: amount,
-        side_a: trimmedSideA,
-        side_b: trimmedSideB,
-        deadline: deadlineUTC, // Use UTC deadline
-        fee_percentage: PLATFORM_FEE_PERCENTAGE,
-        currency: formData.currency,
-        is_system_generated: false,
-        is_public: formData.isPublic,
-        category: formData.category || null,
-        tags: formData.tags.length > 0 ? formData.tags : [],
-      }).select().single();
-
-      if (error) {
-        // Refund the deducted amount if wager creation fails
-        await supabase.rpc("increment_balance", {
-          user_id: user.id,
-          amt: amount,
-        });
-        throw error;
-      }
-
-      // Update transaction reference with wager ID
-      if (newWager) {
-        await supabase
-          .from("transactions")
-          .update({ reference: newWager.id })
-          .eq("user_id", user.id)
-          .eq("type", "wager_create")
-          .order("created_at", { ascending: false })
-          .limit(1);
-
-        // Automatically create entry for creator (they're automatically joined)
-        const { error: entryError } = await supabase.from("wager_entries").insert({
-          wager_id: newWager.id,
-          user_id: user.id,
-          side: formData.creatorSide,
-          amount: amount,
-        });
-
-        if (entryError) {
-          console.error("Error creating creator entry:", entryError);
-          // Refund if entry creation fails
-          await supabase.rpc("increment_balance", {
-            user_id: user.id,
-            amt: amount,
-          });
-          throw new Error("Failed to join you to the wager. Please try again.");
-        }
-
-        // Record transaction for the entry
-        await supabase.from("transactions").insert({
-          user_id: user.id,
-          type: "wager_join",
-          amount: -amount,
-          reference: newWager.id,
-          description: `Wager Entry: "${trimmedTitle}" - Joined ${formData.creatorSide === "a" ? trimmedSideA : trimmedSideB}`,
-        });
-      }
+      const newWager = response.wager;
 
       trackABTestEvent(AB_TESTS.CREATE_FORM_LAYOUT, formVariant, 'wager_created', {
         has_deadline: true, // Deadline is now required
@@ -393,31 +344,14 @@ export default function CreateWager() {
         has_category: !!formData.category,
       });
       
-      // Invalidate cache to ensure new wager shows up immediately
-      if (typeof window !== 'undefined') {
-        try {
-          sessionStorage.removeItem('wagers_cache');
-          // Also clear any individual wager caches
-          Object.keys(sessionStorage).forEach(key => {
-            if (key.startsWith('wager_')) {
-              sessionStorage.removeItem(key);
-            }
-          });
-        } catch (e) {
-          // Ignore
-        }
-      }
-      
       toast({
         title: "Your wager is live!",
         description: `${formData.isPublic ? 'Everyone can see it now and start wagering.' : 'It\'s private for now - only you can see it.'}`,
       });
       
-      // Small delay to ensure database is updated, then redirect
-      setTimeout(() => {
-        router.push("/wagers");
-        router.refresh(); // Force refresh to show new wager
-      }, 100);
+      // Redirect immediately - data will be fresh from API
+      router.push("/wagers");
+      router.refresh();
     } catch (error) {
       console.error("Error creating wager:", error);
       const { extractErrorMessage } = await import('@/lib/error-extractor');
@@ -446,6 +380,9 @@ export default function CreateWager() {
   return (
     <main className="flex-1 pb-24 md:pb-0">
       <div className="max-w-6xl mx-auto p-3 md:p-6">
+        <div className="mb-3 md:mb-4">
+          <BackButton fallbackHref="/wagers" />
+        </div>
         <div className="mb-4 md:mb-8">
           <h1 className="text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2">Create Wager</h1>
           <p className="text-xs md:text-base text-muted-foreground">Start a new wagering opportunity</p>

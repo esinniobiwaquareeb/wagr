@@ -3,26 +3,39 @@
 import Link from "next/link";
 import { usePathname } from 'next/navigation';
 import { BarChart3, Home, Users, CreditCard, Settings, Shield, LogOut, Wallet, FileText } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from "react";
+import { getCurrentUser, logout } from "@/lib/auth/client";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 export function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
-  const supabase = createClient();
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
   useEffect(() => {
     const getUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      setUser(data?.user || null);
+      const currentUser = await getCurrentUser();
+      setUser(currentUser);
     };
     getUser();
-  }, [supabase]);
+    
+    // Listen for auth state changes
+    const handleAuthChange = () => {
+      getUser();
+    };
+    window.addEventListener('auth-state-changed', handleAuthChange);
+    return () => window.removeEventListener('auth-state-changed', handleAuthChange);
+  }, []);
+
+  const handleLogoutClick = () => {
+    setShowLogoutDialog(true);
+  };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await logout();
+    window.dispatchEvent(new Event('auth-state-changed'));
     router.push("/admin/login");
   };
 
@@ -119,7 +132,7 @@ export function AdminSidebar() {
           </Link>
           {user && (
             <button
-              onClick={handleLogout}
+              onClick={handleLogoutClick}
               className="flex flex-col items-center justify-center flex-1 py-2 rounded-lg text-muted-foreground hover:text-foreground transition-all duration-200"
               title="Logout"
             >
@@ -231,7 +244,7 @@ export function AdminSidebar() {
           </Link>
           {user && (
             <button
-              onClick={handleLogout}
+              onClick={handleLogoutClick}
               className="flex items-center gap-3 py-2 px-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition w-full text-left"
             >
               <LogOut className="h-5 w-5" />
@@ -240,6 +253,17 @@ export function AdminSidebar() {
           )}
         </div>
       </nav>
+      
+      <ConfirmDialog
+        open={showLogoutDialog}
+        onOpenChange={setShowLogoutDialog}
+        title="Logout"
+        description="Are you sure you want to log out of the admin panel?"
+        confirmText="Logout"
+        cancelText="Cancel"
+        variant="default"
+        onConfirm={handleLogout}
+      />
     </>
   );
 }

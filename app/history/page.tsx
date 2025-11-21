@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { History, Trophy, XCircle, Clock, Filter, CheckCircle2, Loader2 } from "lucide-react";
+import { BackButton } from "@/components/back-button";
 import Link from "next/link";
 import { AuthModal } from "@/components/auth-modal";
 import { useAuth } from "@/hooks/use-auth";
@@ -63,7 +64,8 @@ function HistoryPageSkeleton() {
 }
 
 function HistoryPageContent() {
-  const { user, loading: authLoading, supabase } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const supabase = useMemo(() => createClient(), []); // Create Supabase client for database operations
   const router = useRouter();
   const [entries, setEntries] = useState<WagerEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -226,6 +228,9 @@ function HistoryPageContent() {
 
       <div className="container mx-auto px-4 py-6 md:py-8 max-w-6xl">
         {/* Header */}
+        <div className="mb-3 md:mb-4">
+          <BackButton fallbackHref="/wagers" />
+        </div>
         <div className="mb-6 md:mb-8">
           <div className="flex items-center gap-3 mb-4">
             <h1 className="text-2xl md:text-3xl font-bold">Wager History</h1>

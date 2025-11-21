@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useEffect } from "react";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { TwoFactorVerify } from "@/components/two-factor-verify";
@@ -25,9 +24,27 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
   const [forgotPasswordSent, setForgotPasswordSent] = useState(false);
-  const supabase = createClient();
+  const [username, setUsername] = useState("");
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [verificationSuccess, setVerificationSuccess] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+
+  // Check if user just verified their email
+  useEffect(() => {
+    if (isOpen && typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('verified') === 'true') {
+        setVerificationSuccess(true);
+        // Remove the query parameter
+        urlParams.delete('verified');
+        const newUrl = urlParams.toString() 
+          ? `${window.location.pathname}?${urlParams.toString()}`
+          : window.location.pathname;
+        router.replace(newUrl);
+      }
+    }
+  }, [isOpen, router]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +76,26 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       }
 
       if (isSignUp) {
+        // Validate username for sign up
+        const trimmedUsername = username.trim();
+        if (!trimmedUsername) {
+          setError("Username is required");
+          setIsLoading(false);
+          return;
+        }
+
+        if (trimmedUsername.length < 3) {
+          setError("Username must be at least 3 characters long");
+          setIsLoading(false);
+          return;
+        }
+
+        if (trimmedUsername.length > 30) {
+          setError("Username must be less than 30 characters");
+          setIsLoading(false);
+          return;
+        }
+
         // Password strength validation for sign up
         if (password.length < 6) {
           setError("Your password needs to be at least 6 characters");
@@ -72,20 +109,38 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           return;
         }
 
-        const { error } = await supabase.auth.signUp({
-          email: trimmedEmail,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}`,
+        // Register using custom auth API
+        const response = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
+          body: JSON.stringify({
+            email: trimmedEmail,
+            password,
+            username: trimmedUsername,
+          }),
         });
-        if (error) throw error;
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          const { extractErrorFromResponse } = await import('@/lib/error-extractor');
+          const errorMessage = await extractErrorFromResponse(response, 'Registration failed');
+          throw new Error(errorMessage);
+        }
+
+        // Show success message in modal instead of closing
+        setRegistrationSuccess(true);
         setEmail("");
         setPassword("");
-        toast({
-          title: "You're all set!",
-          description: "Check your email to confirm your account and get started.",
-        });
+        setUsername("");
+        setIsLoading(false);
+        
+        // Trigger auth state change event (user is logged in after registration)
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('auth-state-changed'));
+        }
       } else {
         // Login validation
         if (password.length < 1) {
@@ -108,73 +163,31 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
         const data = await response.json();
 
-        if (!response.ok) {
+        if (!response.ok || !data.success) {
           const { extractErrorFromResponse } = await import('@/lib/error-extractor');
           const errorMessage = await extractErrorFromResponse(response, 'Login failed');
           throw new Error(errorMessage);
         }
 
-        // Check if 2FA is required
-        if (data.requires2FA) {
+        // Check if 2FA is required (new API format: data.data.requires2FA)
+        if (data.data?.requires2FA) {
           setRequires2FA(true);
           setIsLoading(false);
           return;
         }
 
-        // Check if user is an admin - admins should use admin login
-        if (data.user) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("is_admin")
-            .eq("id", data.user.id)
-            .single();
-
-          if (profile?.is_admin) {
-            // Sign out admin and redirect to admin login
-            await supabase.auth.signOut();
-            toast({
-              title: "Admin login required",
-              description: "Please use the admin login page to access your account.",
-              variant: "destructive",
-            });
-            onClose();
-            setTimeout(() => {
-              router.push("/admin/login");
-            }, 1500);
-            return;
-          }
-          
-          // Mark session as 2FA verified if 2FA was used (for users without 2FA, this won't be set)
-          if (data.twoFactorVerified) {
-            markSessionAs2FAVerified(data.user.id);
-          }
-        }
-
-        // After successful login, the session is created server-side via cookies
-        // We need to ensure the client reads the session and triggers auth state updates
-        // Wait a bit for cookies to be set, then refresh session
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Get session to sync cookies from server
-        const { data: sessionData } = await supabase.auth.getSession();
-        
-        // Get user to trigger auth state change listeners in all components
-        const { data: userData } = await supabase.auth.getUser();
-        
-        // Mark session as 2FA verified if 2FA was used (for users without 2FA, this won't be set)
-        if (data.twoFactorVerified && userData?.user) {
-          markSessionAs2FAVerified(userData.user.id);
+        // Mark session as 2FA verified if 2FA was used
+        if (data.data?.twoFactorVerified && data.data?.user) {
+          markSessionAs2FAVerified(data.data.user.id);
         }
         
         // Force router refresh to update server components
         router.refresh();
         
         // Trigger a manual auth state change event to ensure all listeners are notified
-        // This ensures the sidebar and other components update immediately
-        // Use a small delay to ensure session is fully synced
-        setTimeout(() => {
+        if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('auth-state-changed'));
-        }, 150);
+        }
         
         // Close modal after a brief delay to allow UI to update
         setTimeout(() => {
@@ -210,54 +223,15 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
       const data = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || !data.success) {
         const { extractErrorFromResponse } = await import('@/lib/error-extractor');
         const errorMessage = await extractErrorFromResponse(response, 'Verification failed');
         throw new Error(errorMessage);
       }
 
-      // Check if user is an admin
-      if (data.user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("is_admin")
-          .eq("id", data.user.id)
-          .single();
-
-        if (profile?.is_admin) {
-          await supabase.auth.signOut();
-          toast({
-            title: "Admin Access Required",
-            description: "Admins must use the admin login page. Redirecting...",
-            variant: "destructive",
-          });
-          onClose();
-          setTimeout(() => {
-            router.push("/admin/login");
-          }, 1500);
-          return;
-        }
-      }
-
-      // Mark session as 2FA verified if 2FA was used
-      if (data.twoFactorVerified && data.user) {
-        markSessionAs2FAVerified(data.user.id);
-      }
-
-      // After successful 2FA login, the session is created server-side via cookies
-      // We need to ensure the client reads the session and triggers auth state updates
-      // Wait a bit for cookies to be set, then refresh session
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Get session to sync cookies from server
-      await supabase.auth.getSession();
-      
-      // Get user to trigger auth state change listeners in all components
-      await supabase.auth.getUser();
-      
-      // Mark session as 2FA verified if 2FA was used
-      if (data.twoFactorVerified && data.user) {
-        markSessionAs2FAVerified(data.user.id);
+      // Mark session as 2FA verified if 2FA was used (new API format: data.data)
+      if (data.data?.twoFactorVerified && data.data?.user) {
+        markSessionAs2FAVerified(data.data.user.id);
       }
       
       setRequires2FA(false);
@@ -265,13 +239,12 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       // Force router refresh to update server components
       router.refresh();
       
-      // Trigger a manual auth state change event to ensure all listeners are notified
-      // Use a small delay to ensure session is fully synced
-      setTimeout(() => {
+      // Trigger a manual auth state change event
+      if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('auth-state-changed'));
-      }, 150);
+      }
       
-      // Close modal after a brief delay to allow UI to update
+      // Close modal after a brief delay
       setTimeout(() => {
         onClose();
       }, 300);
@@ -328,6 +301,76 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   };
 
   if (!isOpen) return null;
+
+  // Show verification success message
+  if (verificationSuccess) {
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+        <div className="bg-card rounded-lg p-5 md:p-6 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="flex justify-between items-center mb-5 md:mb-6">
+            <h2 className="text-lg md:text-xl font-bold">Email Verified!</h2>
+            <button
+              onClick={() => {
+                setVerificationSuccess(false);
+                onClose();
+              }}
+              className="text-muted-foreground hover:text-foreground text-xl md:text-2xl leading-none w-6 h-6 flex items-center justify-center rounded hover:bg-muted transition active:scale-95 touch-manipulation"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="space-y-4">
+            <div className="p-4 bg-green-500/10 text-green-700 dark:text-green-400 rounded-lg text-sm">
+              <p className="font-medium mb-1">Verification successful!</p>
+              <p>Your email has been verified. You can now log in to your account.</p>
+            </div>
+            <button
+              onClick={() => {
+                setVerificationSuccess(false);
+                onClose();
+              }}
+              className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-medium hover:opacity-90 transition active:scale-[0.98] touch-manipulation text-base"
+            >
+              Continue to Login
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show registration success message
+  if (registrationSuccess) {
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+        <div className="bg-card rounded-lg p-5 md:p-6 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="flex justify-between items-center mb-5 md:mb-6">
+            <h2 className="text-lg md:text-xl font-bold">Registration Successful!</h2>
+            <button
+              onClick={onClose}
+              className="text-muted-foreground hover:text-foreground text-xl md:text-2xl leading-none w-6 h-6 flex items-center justify-center rounded hover:bg-muted transition active:scale-95 touch-manipulation"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="space-y-4">
+            <div className="p-4 bg-green-500/10 text-green-700 dark:text-green-400 rounded-lg text-sm">
+              <p className="font-medium mb-1">Check your email</p>
+              <p>We've sent a verification link to your email address. Please click the link to verify your account and get started.</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-medium hover:opacity-90 transition active:scale-[0.98] touch-manipulation text-base"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Show forgot password form
   if (showForgotPassword) {
@@ -449,6 +492,22 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         </div>
 
         <form onSubmit={handleAuth} className="space-y-4">
+          {isSignUp && (
+            <div>
+              <label className="block text-sm font-medium mb-2">Username</label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                className="w-full px-4 py-3 text-base border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
+                placeholder="Choose a username"
+                autoComplete="username"
+                minLength={3}
+                maxLength={30}
+              />
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium mb-2">Email</label>
             <input

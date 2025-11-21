@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
@@ -25,6 +24,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { getCurrentUser } from "@/lib/auth/client";
+import { apiGet } from "@/lib/api-client";
+import { createClient } from "@/lib/supabase/client";
 
 interface Stats {
   totalUsers: number;
@@ -68,27 +70,13 @@ export default function AdminPage() {
   const [resolving, setResolving] = useState<string | null>(null);
 
   const checkAdmin = useCallback(async () => {
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    const currentUser = await getCurrentUser();
     if (!currentUser) {
       router.push("/admin/login");
       return;
     }
 
-    setUser(currentUser);
-
-    const { data: profile, error } = await supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", currentUser.id)
-      .single();
-
-    if (error) {
-      console.error("Error checking admin status:", error);
-      router.push("/admin/login");
-      return;
-    }
-
-    if (!profile?.is_admin) {
+    if (!currentUser.is_admin) {
       toast({
         title: "Access Denied",
         description: "You don't have admin privileges.",
@@ -98,192 +86,83 @@ export default function AdminPage() {
       return;
     }
 
+    setUser(currentUser);
     setIsAdmin(true);
-  }, [supabase, router, toast]);
+  }, [router, toast]);
 
-  const fetchStats = useCallback(async (force = false) => {
+  const fetchStats = useCallback(async () => {
     if (!isAdmin) return;
-
-    // Check cache first
-    if (!force) {
-      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
-      const cached = cache.get<Stats>(CACHE_KEYS.ADMIN_STATS);
-      
-      if (cached) {
-        setStats(cached);
-        
-        // Check if cache is stale - refresh in background if needed
-        const cacheEntry = cache.memoryCache.get(CACHE_KEYS.ADMIN_STATS);
-        if (cacheEntry) {
-          const age = Date.now() - cacheEntry.timestamp;
-          const staleThreshold = CACHE_TTL.ADMIN_DATA / 2;
-          
-          if (age > staleThreshold) {
-            fetchStats(true).catch(() => {});
-          }
-        }
-        return;
-      }
-    }
 
     try {
-      // Get total users
-      const { count: userCount } = await supabase
-        .from("profiles")
-        .select("*", { count: "exact", head: true });
-
-      // Get wager stats
-      const { data: wagersData } = await supabase
-        .from("wagers")
-        .select("status, amount");
-
-      const openWagers = wagersData?.filter(w => w.status === "OPEN").length || 0;
-      const resolvedWagers = wagersData?.filter(w => w.status === "RESOLVED" || w.status === "SETTLED").length || 0;
-
-      // Get transaction stats
-      const { data: transactionsData } = await supabase
-        .from("transactions")
-        .select("amount, type");
-
-      const totalVolume = transactionsData
-        ?.filter(t => t.type === "deposit" || t.type === "wager_join")
-        .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0) || 0;
-
-      const statsData: Stats = {
-        totalUsers: userCount || 0,
-        totalWagers: wagersData?.length || 0,
-        openWagers,
-        resolvedWagers,
-        totalTransactions: transactionsData?.length || 0,
-        totalVolume,
-      };
-
-      setStats(statsData);
-      
-      // Cache the results
-      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
-      cache.set(CACHE_KEYS.ADMIN_STATS, statsData, CACHE_TTL.ADMIN_DATA);
+      const response = await apiGet<{ stats: Stats }>('/admin/stats');
+      setStats(response.stats);
     } catch (error) {
       console.error("Error fetching stats:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load statistics.",
+        variant: "destructive",
+      });
     }
-  }, [supabase, isAdmin]);
+  }, [isAdmin, toast]);
 
-  const fetchRecentWagers = useCallback(async (force = false) => {
+  const fetchRecentWagers = useCallback(async () => {
     if (!isAdmin) return;
 
-    // Check cache first
-    if (!force) {
-      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
-      const cached = cache.get<Wager[]>(CACHE_KEYS.ADMIN_WAGERS);
-      
-      if (cached) {
-        setRecentWagers(cached);
-        
-        // Check if cache is stale - refresh in background if needed
-        const cacheEntry = cache.memoryCache.get(CACHE_KEYS.ADMIN_WAGERS);
-        if (cacheEntry) {
-          const age = Date.now() - cacheEntry.timestamp;
-          const staleThreshold = CACHE_TTL.ADMIN_DATA / 2;
-          
-          if (age > staleThreshold) {
-            fetchRecentWagers(true).catch(() => {});
-          }
-        }
-        return;
-      }
+    try {
+      const response = await apiGet<{ wagers: Wager[] }>('/wagers?limit=10');
+      setRecentWagers(response.wagers || []);
+    } catch (error) {
+      console.error("Error fetching recent wagers:", error);
     }
+  }, [isAdmin]);
 
-    const { data } = await supabase
-      .from("wagers")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(10);
-
-    if (data) {
-      setRecentWagers(data);
-      
-      // Cache the results
-      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
-      cache.set(CACHE_KEYS.ADMIN_WAGERS, data, CACHE_TTL.ADMIN_DATA);
-    }
-  }, [supabase, isAdmin]);
-
-  const fetchRecentTransactions = useCallback(async (force = false) => {
+  const fetchRecentTransactions = useCallback(async () => {
     if (!isAdmin) return;
 
-    // Check cache first
-    if (!force) {
-      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
-      const cached = cache.get<Transaction[]>(CACHE_KEYS.ADMIN_TRANSACTIONS);
-      
-      if (cached) {
-        setRecentTransactions(cached);
-        
-        // Check if cache is stale - refresh in background if needed
-        const cacheEntry = cache.memoryCache.get(CACHE_KEYS.ADMIN_TRANSACTIONS);
-        if (cacheEntry) {
-          const age = Date.now() - cacheEntry.timestamp;
-          const staleThreshold = CACHE_TTL.ADMIN_DATA / 2;
-          
-          if (age > staleThreshold) {
-            fetchRecentTransactions(true).catch(() => {});
-          }
-        }
-        return;
-      }
-    }
+    try {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(20);
 
-    const { data } = await supabase
-      .from("transactions")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(20);
-
-    if (data) {
-      setRecentTransactions(data);
-      
-      // Cache the results
-      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
-      cache.set(CACHE_KEYS.ADMIN_TRANSACTIONS, data, CACHE_TTL.ADMIN_DATA);
+      if (error) throw error;
+      setRecentTransactions(data || []);
+    } catch (error) {
+      console.error("Error fetching recent transactions:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch recent transactions.",
+        variant: "destructive",
+      });
     }
-  }, [supabase, isAdmin]);
+  }, [isAdmin, supabase, toast]);
 
   const handleResolveWager = async (wagerId: string, winningSide: "a" | "b") => {
     if (!isAdmin) return;
 
     setResolving(wagerId);
     try {
-      // Update wager with winning side
-      const { error } = await supabase
-        .from("wagers")
-        .update({ 
-          winning_side: winningSide,
-          status: "OPEN" // Keep as OPEN so settlement function can process it
-        })
-        .eq("id", wagerId);
-
-      if (error) throw error;
-
-      // Only set the winning side - cron job will handle settlement
-      // If deadline has passed, settlement will happen on next cron run
-      // If deadline hasn't passed, settlement will happen when deadline passes
+      const { apiPost } = await import('@/lib/api-client');
+      const response = await apiPost<{ message: string }>(`/admin/wagers/${wagerId}/resolve`, {
+        winningSide,
+      });
 
       toast({
         title: "Winning side set",
-        description: "Winning side has been set. The wager will be automatically settled by the system when the deadline passes.",
+        description: response.message || "Winning side has been set. The wager will be automatically settled by the system when the deadline passes.",
       });
 
-      // Invalidate cache and refresh
-      const { cache, CACHE_KEYS } = await import('@/lib/cache');
-      cache.remove(CACHE_KEYS.ADMIN_WAGERS);
-      cache.remove(CACHE_KEYS.ADMIN_STATS);
-      fetchRecentWagers(true);
-      fetchStats(true);
+      // Refresh data
+      fetchRecentWagers();
+      fetchStats();
     } catch (error) {
       console.error("Error resolving wager:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to resolve wager.";
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to resolve wager.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

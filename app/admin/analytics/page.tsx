@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { format, startOfDay, endOfDay, subDays, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, parseISO } from "date-fns";
 import { BarChart3, TrendingUp, DollarSign, Users, Calendar, Filter } from "lucide-react";
+import { getCurrentUser } from "@/lib/auth/client";
 import {
   LineChart,
   Line,
@@ -88,29 +89,17 @@ export default function AdminAnalyticsPage() {
   const [customDateRange, setCustomDateRange] = useState(false);
 
   const checkAdmin = useCallback(async () => {
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
-    if (!currentUser) {
+    const currentUser = await getCurrentUser();
+    if (!currentUser || !currentUser.is_admin) {
       router.push("/admin/login");
       return;
     }
 
     setUser(currentUser);
-
-    const { data: profile, error } = await supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", currentUser.id)
-      .single();
-
-    if (error || !profile?.is_admin) {
-      router.push("/admin/login");
-      return;
-    }
-
     setIsAdmin(true);
-  }, [supabase, router]);
+  }, [router]);
 
-  const getDateFilter = () => {
+  const getDateFilter = useCallback(() => {
     const now = new Date();
     let start: Date;
     let end: Date = endOfDay(now);
@@ -131,7 +120,7 @@ export default function AdminAnalyticsPage() {
     }
 
     return { start: start.toISOString(), end: end.toISOString() };
-  };
+  }, [dateRange]);
 
   const fetchData = useCallback(async () => {
     if (!isAdmin) return;
@@ -263,7 +252,7 @@ export default function AdminAnalyticsPage() {
         variant: "destructive",
       });
     }
-  }, [supabase, isAdmin, toast, dateRange, startDate, endDate, customDateRange]);
+  }, [supabase, isAdmin, toast, dateRange, startDate, endDate, customDateRange, getDateFilter]);
 
   useEffect(() => {
     checkAdmin().then(() => {

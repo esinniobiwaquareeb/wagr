@@ -8,6 +8,7 @@ import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency"
 import { format } from "date-fns";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { DataTable } from "@/components/data-table";
+import { getCurrentUser } from "@/lib/auth/client";
 
 interface Transaction {
   id: string;
@@ -29,27 +30,15 @@ export default function AdminTransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   const checkAdmin = useCallback(async () => {
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
-    if (!currentUser) {
+    const currentUser = await getCurrentUser();
+    if (!currentUser || !currentUser.is_admin) {
       router.push("/admin/login");
       return;
     }
 
     setUser(currentUser);
-
-    const { data: profile, error } = await supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", currentUser.id)
-      .single();
-
-    if (error || !profile?.is_admin) {
-      router.push("/admin/login");
-      return;
-    }
-
     setIsAdmin(true);
-  }, [supabase, router]);
+  }, [router]);
 
   const fetchTransactions = useCallback(async (force = false) => {
     if (!isAdmin) return;

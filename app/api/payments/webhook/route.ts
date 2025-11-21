@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/server';
+import { logError } from '@/lib/error-handler';
 import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
@@ -51,9 +52,20 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const supabase = await createClient();
+      // Use service role client to bypass RLS for webhook processing
+      // This is safe because we've already verified the webhook signature
+      let supabase;
+      try {
+        supabase = createServiceRoleClient();
+      } catch (error) {
+        console.error('Supabase service role key not configured');
+        return NextResponse.json(
+          { error: 'Server configuration error' },
+          { status: 500 }
+        );
+      }
 
-      // Check if already processed
+      // Check if already processed (idempotency check)
       const { data: existingTransaction } = await supabase
         .from('transactions')
         .select('*')
@@ -62,26 +74,12 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (existingTransaction) {
-        // Already processed
+        // Already processed - return success to acknowledge webhook
         return NextResponse.json({ status: 'already_processed' });
       }
 
       // Amount in kobo, convert to main currency
       const amount = transaction.amount / 100;
-
-      // Update balance
-      const { error: balanceError } = await supabase.rpc('increment_balance', {
-        user_id: userId,
-        amt: amount,
-      });
-
-      if (balanceError) {
-        console.error('Error updating balance from webhook:', balanceError);
-        return NextResponse.json(
-          { error: 'Failed to update balance' },
-          { status: 500 }
-        );
-      }
 
       // Delete any pending transaction if exists (cleanup from old code)
       await supabase
@@ -90,8 +88,8 @@ export async function POST(request: NextRequest) {
         .eq('reference', reference)
         .eq('type', 'deposit_pending');
 
-      // Create successful transaction
-      await supabase
+      // Create transaction record first (with unique constraint, this will fail if duplicate)
+      const { data: newTransaction, error: transactionError } = await supabase
         .from('transactions')
         .insert({
           user_id: userId,
@@ -99,7 +97,73 @@ export async function POST(request: NextRequest) {
           amount: amount,
           reference: reference,
           created_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      // If transaction insert fails due to duplicate, it was already processed
+      if (transactionError) {
+        // Check if it's a unique constraint violation (duplicate)
+        if (transactionError.code === '23505' || transactionError.message?.includes('duplicate')) {
+          // Already processed - return success to acknowledge webhook
+          return NextResponse.json({ status: 'already_processed' });
+        }
+        logError(new Error(`Error creating transaction record: ${transactionError.message}`), { 
+          transactionError,
+          reference,
+          userId,
+          amount 
         });
+        // Don't update balance if transaction creation failed
+        return NextResponse.json(
+          { error: 'Failed to create transaction record' },
+          { status: 500 }
+        );
+      }
+
+      // Only update balance if transaction was successfully created
+      if (!newTransaction) {
+        logError(new Error('Transaction insert returned no data'), {
+          reference,
+          userId,
+          amount
+        });
+        return NextResponse.json(
+          { error: 'Failed to create transaction record' },
+          { status: 500 }
+        );
+      }
+
+      // Update balance after transaction record is created
+      const { error: balanceError } = await supabase.rpc('increment_balance', {
+        user_id: userId,
+        amt: amount,
+      });
+
+      if (balanceError) {
+        logError(new Error(`Error updating balance from webhook: ${balanceError.message}`), {
+          balanceError,
+          reference,
+          userId,
+          amount,
+          transactionId: newTransaction.id
+        });
+        // Transaction record was created but balance update failed
+        // This is a critical error - log it for manual intervention
+        return NextResponse.json(
+          { error: 'Failed to update balance' },
+          { status: 500 }
+        );
+      }
+
+      // Successfully processed - transaction created and balance updated
+      // Log success for debugging (using console.log instead of logError for success)
+      console.log('Payment processed successfully via webhook', {
+        reference,
+        userId,
+        amount,
+        transactionId: newTransaction.id
+      });
     }
 
     // Handle transfer events (withdrawals)
@@ -114,7 +178,18 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const supabase = await createClient();
+      // Use service role client to bypass RLS for webhook processing
+      // This is safe because we've already verified the webhook signature
+      let supabase;
+      try {
+        supabase = createServiceRoleClient();
+      } catch (error) {
+        console.error('Supabase service role key not configured');
+        return NextResponse.json(
+          { error: 'Server configuration error' },
+          { status: 500 }
+        );
+      }
 
       // Find withdrawal by reference
       const { data: withdrawal, error: withdrawalError } = await supabase
@@ -159,7 +234,18 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const supabase = await createClient();
+      // Use service role client to bypass RLS for webhook processing
+      // This is safe because we've already verified the webhook signature
+      let supabase;
+      try {
+        supabase = createServiceRoleClient();
+      } catch (error) {
+        console.error('Supabase service role key not configured');
+        return NextResponse.json(
+          { error: 'Server configuration error' },
+          { status: 500 }
+        );
+      }
 
       // Find withdrawal by reference
       const { data: withdrawal, error: withdrawalError } = await supabase

@@ -3,15 +3,18 @@
 import { useEffect, useState, useMemo, useCallback, Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { WagerCard } from "@/components/wager-card";
+import { WagerRow } from "@/components/wager-row";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
-import { Home as HomeIcon, Plus, Search, Sparkles, Users, X, Tag, Filter, Loader2 } from "lucide-react";
+import { Home as HomeIcon, Plus, Search, Sparkles, Users, X, Tag, Filter, Loader2, LayoutGrid, List } from "lucide-react";
 import Link from "next/link";
 import { AuthModal } from "@/components/auth-modal";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { PLATFORM_FEE_PERCENTAGE, WAGER_CATEGORIES } from "@/lib/constants";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
+import { wagersApi } from "@/lib/api-client";
+import { useToast } from "@/hooks/use-toast";
 
 interface Wager {
   id: string;
@@ -25,7 +28,7 @@ interface Wager {
   created_at?: string;
   currency?: string;
   category?: string;
-  tags?: string[];
+  tags?: string[]; // Kept for backward compatibility
   is_system_generated?: boolean;
   is_public?: boolean;
   fee_percentage?: number;
@@ -54,9 +57,14 @@ function WagersPageContent() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [userEntries, setUserEntries] = useState<Map<string, { amount: number; side: string }>>(new Map());
-  const { user, loading: authLoading, supabase } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const supabase = createClient(); // Create Supabase client for real-time subscriptions
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { toast } = useToast();
+  
+  // View mode: 'card' or 'row'
+  const [viewMode, setViewMode] = useState<'card' | 'row'>('card');
   
   // A/B Testing - Layout variant (client-side only to prevent hydration mismatch)
   const [layoutVariant, setLayoutVariant] = useState<'A' | 'B'>('A');
@@ -162,21 +170,15 @@ function WagersPageContent() {
   });
 
   const fetchWagers = useCallback(async (force = false) => {
-    const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
-    const cacheKey = CACHE_KEYS.WAGERS;
-    
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
-    
-    // Always fetch user entries if user is logged in
+    // Always fetch user entries if user is logged in (user-specific data)
     let userEntriesMap = new Map<string, { amount: number; side: string }>();
-    if (currentUser) {
+    if (user) {
       const { data: userEntriesData } = await supabase
         .from("wager_entries")
         .select("wager_id, amount, side")
-        .eq("user_id", currentUser.id);
+        .eq("user_id", user.id);
 
       // Store user entries in a map for quick lookup
-      // If user has multiple entries on same wager, sum the amounts
       userEntriesData?.forEach(entry => {
         const existing = userEntriesMap.get(entry.wager_id);
         if (existing) {
@@ -194,96 +196,38 @@ function WagersPageContent() {
       });
       setUserEntries(userEntriesMap);
     }
-    
-    if (!force) {
-      const cached = cache.get<WagerWithEntries[]>(cacheKey);
-      if (cached) {
-        setAllWagers(cached);
-        setLoading(false);
-        
-        const cacheEntry = (cache as any).memoryCache.get(cacheKey);
-        if (cacheEntry) {
-          const age = Date.now() - cacheEntry.timestamp;
-          const staleThreshold = CACHE_TTL.WAGERS / 2;
-          
-          if (age > staleThreshold) {
-            fetchWagers(true).catch(() => {});
-          }
-        }
-        return;
-      }
-    }
 
-    let wagersData: any[] = [];
-    let error: any = null;
-
-    if (currentUser) {
-      const joinedWagerIds = Array.from(userEntriesMap.keys());
+    try {
+      setLoading(true);
+      // Fetch wagers from API (always fresh, no cache)
+      const response = await wagersApi.list({ limit: 200 });
       
-      const { data: publicWagers, error: publicError } = await supabase
-        .from("wagers")
-        .select("*, created_at")
-        .eq("is_public", true)
-        .order("deadline", { ascending: true })
-        .limit(200);
+      // Handle both response formats for backward compatibility
+      // API returns { wagers: [...], meta: {...} }
+      const wagersData = response?.wagers || (Array.isArray(response) ? response : []);
 
-      if (publicError) {
-        error = publicError;
-      } else if (publicWagers) {
-        wagersData = [...publicWagers];
-      }
-
-      const { data: createdWagers, error: createdError } = await supabase
-        .from("wagers")
-        .select("*, created_at")
-        .eq("is_public", false)
-        .eq("creator_id", currentUser.id)
-        .order("deadline", { ascending: true })
-        .limit(100);
-
-      if (!error && createdError) {
-        error = createdError;
-      } else if (createdWagers) {
-        const existingIds = new Set(wagersData.map(w => w.id));
-        createdWagers.forEach(w => {
-          if (!existingIds.has(w.id)) {
-            wagersData.push(w);
-            existingIds.add(w.id);
-          }
-        });
-      }
-
-      if (joinedWagerIds.length > 0) {
-        const { data: joinedWagers, error: joinedError } = await supabase
-          .from("wagers")
-          .select("*, created_at")
-          .eq("is_public", false)
-          .in("id", joinedWagerIds)
-          .order("deadline", { ascending: true })
-          .limit(100);
-
-        if (!error && joinedError) {
-          error = joinedError;
-        } else if (joinedWagers) {
-          const existingIds = new Set(wagersData.map(w => w.id));
-          joinedWagers.forEach(w => {
-            if (!existingIds.has(w.id)) {
-              wagersData.push(w);
-              existingIds.add(w.id);
-            }
-          });
-        }
-      }
-
-      // Sort by deadline (earliest first, expired last)
-      const isExpiredWager = (w: any) => {
+      // Transform API response to match component expectations
+      const wagersWithCounts: WagerWithEntries[] = wagersData.map((wager: any) => {
+        const entryCounts = wager.entryCounts || { sideA: 0, sideB: 0, total: 0 };
+        return {
+          ...wager,
+          entries_count: entryCounts.total > 0 ? Math.ceil(entryCounts.total / wager.amount) : 0,
+          side_a_count: Math.ceil(entryCounts.sideA / wager.amount),
+          side_b_count: Math.ceil(entryCounts.sideB / wager.amount),
+          side_a_total: entryCounts.sideA,
+          side_b_total: entryCounts.sideB,
+        };
+      });
+      
+      // Sort by deadline (earliest deadline first, expired last)
+      const isExpiredWagerWithCounts = (w: WagerWithEntries) => {
         if (!w.deadline || w.status !== "OPEN") return false;
         return new Date(w.deadline).getTime() < Date.now();
       };
       
-      wagersData.sort((a, b) => {
-        const aExpired = isExpiredWager(a);
-        const bExpired = isExpiredWager(b);
+      wagersWithCounts.sort((a, b) => {
+        const aExpired = isExpiredWagerWithCounts(a);
+        const bExpired = isExpiredWagerWithCounts(b);
         
         // Expired wagers go to the end
         if (aExpired && !bExpired) return 1;
@@ -292,94 +236,25 @@ function WagersPageContent() {
         // Both expired or both not expired - sort by deadline
         const deadlineA = a.deadline ? new Date(a.deadline).getTime() : Infinity;
         const deadlineB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
-        return deadlineA - deadlineB;
+        return deadlineA - deadlineB; // Earliest deadline first
       });
-    } else {
-      const { data: publicWagers, error: publicError } = await supabase
-        .from("wagers")
-        .select("*, created_at")
-        .eq("is_public", true)
-        .order("deadline", { ascending: true })
-        .limit(200);
-
-      if (publicError) {
-        error = publicError;
-      } else if (publicWagers) {
-        wagersData = publicWagers;
-      }
-    }
-
-    if (error) {
+      
+      setAllWagers(wagersWithCounts);
+    } catch (error) {
       console.error("Error fetching wagers:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("Full error details:", error);
+      toast({
+        title: "Error",
+        description: `Failed to load wagers: ${errorMessage}`,
+        variant: "destructive",
+      });
+      // Set empty array on error to prevent infinite loading state
+      setAllWagers([]);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    if (wagersData) {
-      const wagerIds = wagersData.map(w => w.id);
-      if (wagerIds.length > 0) {
-        const { data: allEntriesData } = await supabase
-          .from("wager_entries")
-          .select("wager_id, side, amount")
-          .in("wager_id", wagerIds);
-
-        const counts = new Map<string, number>();
-        const sideACounts = new Map<string, number>();
-        const sideBCounts = new Map<string, number>();
-        const sideATotals = new Map<string, number>();
-        const sideBTotals = new Map<string, number>();
-
-        allEntriesData?.forEach(entry => {
-          counts.set(entry.wager_id, (counts.get(entry.wager_id) || 0) + 1);
-          
-          if (entry.side === "a") {
-            sideACounts.set(entry.wager_id, (sideACounts.get(entry.wager_id) || 0) + 1);
-            sideATotals.set(entry.wager_id, (sideATotals.get(entry.wager_id) || 0) + Number(entry.amount));
-          } else if (entry.side === "b") {
-            sideBCounts.set(entry.wager_id, (sideBCounts.get(entry.wager_id) || 0) + 1);
-            sideBTotals.set(entry.wager_id, (sideBTotals.get(entry.wager_id) || 0) + Number(entry.amount));
-          }
-        });
-
-        const wagersWithCounts = wagersData.map((wager: Wager) => ({
-          ...wager,
-          entries_count: counts.get(wager.id) || 0,
-          side_a_count: sideACounts.get(wager.id) || 0,
-          side_b_count: sideBCounts.get(wager.id) || 0,
-          side_a_total: sideATotals.get(wager.id) || 0,
-          side_b_total: sideBTotals.get(wager.id) || 0,
-        }));
-        
-        // Sort by deadline (earliest deadline first, expired last)
-        const isExpiredWagerWithCounts = (w: WagerWithEntries) => {
-          if (!w.deadline || w.status !== "OPEN") return false;
-          return new Date(w.deadline).getTime() < Date.now();
-        };
-        
-        wagersWithCounts.sort((a, b) => {
-          const aExpired = isExpiredWagerWithCounts(a);
-          const bExpired = isExpiredWagerWithCounts(b);
-          
-          // Expired wagers go to the end
-          if (aExpired && !bExpired) return 1;
-          if (!aExpired && bExpired) return -1;
-          
-          // Both expired or both not expired - sort by deadline
-          const deadlineA = a.deadline ? new Date(a.deadline).getTime() : Infinity;
-          const deadlineB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
-          return deadlineA - deadlineB; // Earliest deadline first
-        });
-        
-        setAllWagers(wagersWithCounts);
-        
-        const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
-        cache.set(CACHE_KEYS.WAGERS, wagersWithCounts, CACHE_TTL.WAGERS);
-      } else {
-        setAllWagers([]);
-      }
-    }
-    setLoading(false);
-  }, [supabase]);
+  }, [supabase, user, toast]);
 
   useEffect(() => {
     const shouldShowLogin = searchParams.get('login') === 'true' && !user;
@@ -403,12 +278,7 @@ function WagersPageContent() {
           filter: "is_public=eq.true"
         },
         () => {
-          if (typeof window !== 'undefined') {
-            try {
-              sessionStorage.removeItem('wagers_cache');
-            } catch (e) {}
-          }
-          fetchWagers();
+          fetchWagers(true);
         }
       )
       .subscribe();
@@ -419,7 +289,7 @@ function WagersPageContent() {
         "postgres_changes",
         { event: "*", schema: "public", table: "wager_entries" },
         () => {
-          fetchWagers();
+          fetchWagers(true);
         }
       )
       .subscribe();
@@ -506,6 +376,74 @@ function WagersPageContent() {
               onClick={() => trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'wager_clicked', { wager_id: wager.id, tab: activeTab })}
             />
           </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Render row view
+  const renderRowView = () => {
+    if (loading) {
+      return (
+        <div className="space-y-2">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="bg-card border border-border rounded-lg p-4">
+              <div className="flex items-center gap-4">
+                <Skeleton className="h-4 flex-1" />
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (filteredWagers.length === 0) {
+      return (
+        <div className="text-center py-16 bg-card border border-border rounded-lg">
+          <div className="max-w-md mx-auto">
+            <div className="h-16 w-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+              <HomeIcon className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">No wagers found</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              {searchQuery ? "Try a different search term" : "Be the first to create a wager!"}
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-2 md:space-y-3">
+        {filteredWagers.map((wager) => (
+          <WagerRow
+            key={wager.id}
+            id={wager.id}
+            title={wager.title}
+            description={wager.description || ""}
+            sideA={wager.side_a}
+            sideB={wager.side_b}
+            amount={wager.amount}
+            status={wager.status}
+            entriesCount={wager.entries_count}
+            deadline={wager.deadline}
+            currency={wager.currency}
+            category={wager.category}
+            sideACount={wager.side_a_count || 0}
+            sideBCount={wager.side_b_count || 0}
+            sideATotal={wager.side_a_total || 0}
+            sideBTotal={wager.side_b_total || 0}
+            feePercentage={wager.fee_percentage || PLATFORM_FEE_PERCENTAGE}
+            isSystemGenerated={wager.is_system_generated || false}
+            createdAt={wager.created_at}
+            winningSide={wager.winning_side}
+            shortId={wager.short_id}
+            userEntryAmount={userEntries.get(wager.id)?.amount}
+            userEntrySide={userEntries.get(wager.id)?.side}
+            onClick={() => trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'wager_clicked', { wager_id: wager.id, tab: activeTab })}
+          />
         ))}
       </div>
     );
@@ -625,7 +563,84 @@ function WagersPageContent() {
 
         {/* Tabs */}
         <div className="mb-6">
-          <div className="flex gap-2 border-b border-border mb-4 overflow-x-auto scrollbar-hide -mx-3 md:mx-0 px-3 md:px-0">
+          {/* Mobile Tabs - Grid Layout */}
+          <div className="md:hidden grid grid-cols-4 gap-1 mb-4 border-b border-border pb-1">
+            <button
+              onClick={() => handleTabChange('system')}
+              className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg transition-all relative ${
+                activeTab === 'system'
+                  ? 'text-primary bg-primary/10'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              }`}
+            >
+              <Sparkles className={`h-4 w-4 transition-transform ${activeTab === 'system' ? 'scale-110' : ''}`} />
+              <span className="text-[9px] font-medium leading-tight text-center">System</span>
+              <span className={`text-[8px] px-1 py-0.5 rounded-full ${
+                activeTab === 'system'
+                  ? 'bg-primary/20 text-primary'
+                  : 'bg-muted text-muted-foreground'
+              }`}>
+                {systemWagers.length}
+              </span>
+            </button>
+            <button
+              onClick={() => handleTabChange('user')}
+              className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg transition-all relative ${
+                activeTab === 'user'
+                  ? 'text-primary bg-primary/10'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              }`}
+            >
+              <Users className={`h-4 w-4 transition-transform ${activeTab === 'user' ? 'scale-110' : ''}`} />
+              <span className="text-[9px] font-medium leading-tight text-center">User</span>
+              <span className={`text-[8px] px-1 py-0.5 rounded-full ${
+                activeTab === 'user'
+                  ? 'bg-primary/20 text-primary'
+                  : 'bg-muted text-muted-foreground'
+              }`}>
+                {userWagers.length}
+              </span>
+            </button>
+            <button
+              onClick={() => handleTabChange('expired')}
+              className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg transition-all relative ${
+                activeTab === 'expired'
+                  ? 'text-primary bg-primary/10'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              }`}
+            >
+              <X className={`h-4 w-4 transition-transform ${activeTab === 'expired' ? 'scale-110' : ''}`} />
+              <span className="text-[9px] font-medium leading-tight text-center">Expired</span>
+              <span className={`text-[8px] px-1 py-0.5 rounded-full ${
+                activeTab === 'expired'
+                  ? 'bg-primary/20 text-primary'
+                  : 'bg-muted text-muted-foreground'
+              }`}>
+                {expiredWagers.length}
+              </span>
+            </button>
+            <button
+              onClick={() => handleTabChange('settled')}
+              className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg transition-all relative ${
+                activeTab === 'settled'
+                  ? 'text-primary bg-primary/10'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              }`}
+            >
+              <Tag className={`h-4 w-4 transition-transform ${activeTab === 'settled' ? 'scale-110' : ''}`} />
+              <span className="text-[9px] font-medium leading-tight text-center">Settled</span>
+              <span className={`text-[8px] px-1 py-0.5 rounded-full ${
+                activeTab === 'settled'
+                  ? 'bg-primary/20 text-primary'
+                  : 'bg-muted text-muted-foreground'
+              }`}>
+                {settledWagers.length}
+              </span>
+            </button>
+          </div>
+
+          {/* Desktop Tabs - Horizontal Layout */}
+          <div className="hidden md:flex gap-2 border-b border-border mb-4">
             <button
               onClick={() => handleTabChange('system')}
               className={`flex items-center gap-2 px-4 py-3 font-medium transition-all relative whitespace-nowrap flex-shrink-0 ${
@@ -634,7 +649,7 @@ function WagersPageContent() {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <Sparkles className="h-4 w-4 hidden md:block" />
+              <Sparkles className="h-4 w-4" />
               <span>System Wagers</span>
               <span className="ml-1 px-2 py-0.5 text-xs bg-muted rounded-full">
                 {systemWagers.length}
@@ -648,7 +663,7 @@ function WagersPageContent() {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <Users className="h-4 w-4 hidden md:block" />
+              <Users className="h-4 w-4" />
               <span>User Wagers</span>
               <span className="ml-1 px-2 py-0.5 text-xs bg-muted rounded-full">
                 {userWagers.length}
@@ -662,7 +677,7 @@ function WagersPageContent() {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <X className="h-4 w-4 hidden md:block" />
+              <X className="h-4 w-4" />
               <span>Expired</span>
               <span className="ml-1 px-2 py-0.5 text-xs bg-muted rounded-full">
                 {expiredWagers.length}
@@ -676,7 +691,7 @@ function WagersPageContent() {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <Tag className="h-4 w-4 hidden md:block" />
+              <Tag className="h-4 w-4" />
               <span>Settled</span>
               <span className="ml-1 px-2 py-0.5 text-xs bg-muted rounded-full">
                 {settledWagers.length}
@@ -684,7 +699,7 @@ function WagersPageContent() {
             </button>
           </div>
 
-          {/* Enhanced Search Bar */}
+          {/* Enhanced Search Bar with View Toggle */}
           <div className="relative group mb-4">
             <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-primary/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
             <div className="relative bg-card/50 backdrop-blur-sm border border-border rounded-xl p-1 shadow-sm hover:shadow-md transition-all">
@@ -713,6 +728,33 @@ function WagersPageContent() {
                     {filteredWagers.length} {filteredWagers.length === 1 ? 'result' : 'results'}
                   </div>
                 )}
+                {/* View Toggle */}
+                <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+                  <button
+                    onClick={() => setViewMode('card')}
+                    className={`p-1.5 rounded transition-colors ${
+                      viewMode === 'card'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                    aria-label="Card view"
+                    title="Card view"
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('row')}
+                    className={`p-1.5 rounded transition-colors ${
+                      viewMode === 'row'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                    aria-label="Row view"
+                    title="Row view"
+                  >
+                    <List className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -773,7 +815,7 @@ function WagersPageContent() {
           </div>
         </div>
 
-        {/* Variant A: Tabs with Horizontal Scroll */}
+        {/* Render based on view mode */}
         {!mounted ? (
           // Show loading state during hydration to prevent mismatch
           <div className="grid gap-3 md:gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -789,7 +831,10 @@ function WagersPageContent() {
               </div>
             ))}
           </div>
-        ) : layoutVariant === 'A' ? (
+        ) : viewMode === 'row' ? (
+          /* Row View */
+          renderRowView()
+        ) : viewMode === 'card' && layoutVariant === 'A' ? (
           <>
             {/* Horizontal Scrollable Sections */}
             {activeTab === 'system' ? (

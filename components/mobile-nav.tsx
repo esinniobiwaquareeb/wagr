@@ -4,17 +4,18 @@ import Link from "next/link";
 import { usePathname } from 'next/navigation';
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Home, Plus, Wallet, Trophy, User, Settings, Bell, History, LogOut } from "lucide-react";
 import { AuthModal } from "@/components/auth-modal";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { clear2FAVerification } from "@/lib/session-2fa";
+import { getCurrentUser, type AuthUser } from "@/lib/auth/client";
 
 export function MobileNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [profile, setProfile] = useState<any>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
@@ -28,11 +29,9 @@ export function MobileNav() {
 
     const getUser = async () => {
       try {
-        // First get the session to ensure it's synced
-        await supabase.auth.getSession();
-        // Then get the user
-        const { data } = await supabase.auth.getUser();
-        setUser(data?.user || null);
+        // Use custom auth API
+        const currentUser = await getCurrentUser();
+        setUser(currentUser);
       } catch (error) {
         console.error('Error getting user:', error);
         setUser(null);
@@ -41,19 +40,7 @@ export function MobileNav() {
     
     getUser();
 
-    // Listen to Supabase auth state changes
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Update user state immediately when auth state changes
-      if (session?.user) {
-        setUser(session.user);
-      } else {
-        setUser(null);
-      }
-      // Also fetch fresh user data to ensure consistency
-      getUser();
-    });
-
-    // Also listen to custom auth state change events (triggered after login)
+    // Listen to custom auth state change events (triggered after login/logout)
     const handleAuthStateChanged = async () => {
       // Small delay to ensure session is fully established
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -61,93 +48,177 @@ export function MobileNav() {
     };
     window.addEventListener('auth-state-changed', handleAuthStateChanged);
 
+    // Poll for auth changes (fallback)
+    const interval = setInterval(() => {
+      getUser();
+    }, 60000); // Check every minute
+
     return () => {
-      authListener?.subscription?.unsubscribe?.();
       window.removeEventListener('auth-state-changed', handleAuthStateChanged);
+      clearInterval(interval);
     };
-  }, [supabase]);
+  }, []);
 
   // Fetch user profile
-  useEffect(() => {
+  const fetchProfile = useCallback(async () => {
     if (!user) {
       setProfile(null);
       return;
     }
 
-    const fetchProfile = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("username, avatar_url")
-          .eq("id", user.id)
-          .single();
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("username, avatar_url")
+        .eq("id", user.id)
+        .single();
 
-        if (error && error.code !== 'PGRST116') {
-          console.error("Error fetching profile:", error);
-          return;
-        }
-
-        setProfile(data);
-      } catch (error) {
+      if (error && error.code !== 'PGRST116') {
         console.error("Error fetching profile:", error);
+        return;
       }
-    };
 
-    fetchProfile();
+      setProfile(data);
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+    }
   }, [user, supabase]);
 
-  // Fetch unread notification count
   useEffect(() => {
+    fetchProfile();
+
+    // Subscribe to real-time profile updates
+    if (user) {
+      const channel = supabase
+        .channel(`nav-profile:${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "profiles",
+            filter: `id=eq.${user.id}`,
+          },
+          () => {
+            fetchProfile();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        channel.unsubscribe();
+      };
+    }
+  }, [user, supabase, fetchProfile]);
+
+  // Listen for custom profile update events
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleProfileUpdate = () => {
+      fetchProfile();
+    };
+
+    window.addEventListener('profile-updated', handleProfileUpdate);
+
+    return () => {
+      window.removeEventListener('profile-updated', handleProfileUpdate);
+    };
+  }, [fetchProfile]);
+
+  // Set profile from user data if available
+  useEffect(() => {
+    if (user) {
+      setProfile({
+        username: user.username,
+        avatar_url: null,
+      });
+    }
+  }, [user]);
+
+  // Fetch unread notification count
+  const fetchUnreadCount = useCallback(async () => {
     if (!user) {
       setUnreadCount(0);
       return;
     }
 
-    const fetchUnreadCount = async () => {
-      try {
-        const { count, error } = await supabase
-          .from("notifications")
-          .select("*", { count: "exact", head: true })
-          .eq("user_id", user.id)
-          .eq("read", false);
+    try {
+      const { count, error } = await supabase
+        .from("notifications")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("read", false);
 
-        if (error) throw error;
-        setUnreadCount(count || 0);
-      } catch (error) {
-        console.error("Error fetching unread count:", error);
-      }
-    };
+      if (error) throw error;
+      setUnreadCount(count || 0);
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
+    }
+  }, [user, supabase]);
 
+  useEffect(() => {
     fetchUnreadCount();
 
     // Subscribe to real-time updates
-    const channel = supabase
-      .channel(`nav-notifications:${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          fetchUnreadCount();
-        }
-      )
-      .subscribe();
+    if (user) {
+      const channel = supabase
+        .channel(`nav-notifications:${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            fetchUnreadCount();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        channel.unsubscribe();
+      };
+    }
+  }, [user, supabase, fetchUnreadCount]);
+
+  // Listen for custom notification update events
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleNotificationUpdate = () => {
+      fetchUnreadCount();
+    };
+
+    window.addEventListener('notifications-updated', handleNotificationUpdate);
 
     return () => {
-      channel.unsubscribe();
+      window.removeEventListener('notifications-updated', handleNotificationUpdate);
     };
-  }, [user, supabase]);
+  }, [fetchUnreadCount]);
 
   const handleLogout = async () => {
     try {
       clear2FAVerification();
-      await supabase.auth.signOut();
+      
+      // Call logout API
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Logout failed');
+      }
+
       setUser(null);
       setProfile(null);
+      
+      // Trigger auth state change
+      window.dispatchEvent(new Event('auth-state-changed'));
+      
       toast({
         title: "You're signed out",
         description: "Come back soon!",
@@ -170,44 +241,44 @@ export function MobileNav() {
     <>
       {/* Mobile Navigation */}
     <nav className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-lg border-t border-border md:hidden z-50 safe-area-inset-bottom">
-      <div className="flex justify-around items-center h-16 px-1">
+      <div className="flex justify-around items-center h-20 px-1">
         <Link
           href="/wagers"
-          className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
+          className={`flex flex-col items-center justify-center flex-1 py-1.5 rounded-lg transition-all duration-200 min-w-0 ${
             isActive("/wagers")
               ? "text-primary"
               : "text-muted-foreground hover:text-foreground"
           }`}
           title="Wagers"
         >
-          <Home className={`h-6 w-6 transition-transform ${isActive("/wagers") ? "scale-110" : ""}`} />
-          <span className="text-[10px] mt-0.5 font-medium">{isActive("/wagers") ? "Wagers" : ""}</span>
+          <Home className={`h-5 w-5 transition-transform mb-0.5 ${isActive("/wagers") ? "scale-110" : ""}`} />
+          <span className="text-[9px] font-medium leading-tight text-center">Wagers</span>
         </Link>
         
         <Link
           href="/leaderboard"
-          className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
+          className={`flex flex-col items-center justify-center flex-1 py-1.5 rounded-lg transition-all duration-200 min-w-0 ${
             isActive("/leaderboard")
               ? "text-primary"
               : "text-muted-foreground hover:text-foreground"
           }`}
           title="Leaderboard"
         >
-          <Trophy className={`h-6 w-6 transition-transform ${isActive("/leaderboard") ? "scale-110" : ""}`} />
-          <span className="text-[10px] mt-0.5 font-medium">{isActive("/leaderboard") ? "Top" : ""}</span>
+          <Trophy className={`h-5 w-5 transition-transform mb-0.5 ${isActive("/leaderboard") ? "scale-110" : ""}`} />
+          <span className="text-[9px] font-medium leading-tight text-center">Top</span>
         </Link>
 
         {/* Floating Create Button */}
         <Link
           href="/create"
-          className={`relative flex items-center justify-center w-14 h-14 -mt-6 rounded-full shadow-lg transition-all duration-300 active:scale-95 touch-manipulation ${
+          className={`relative flex items-center justify-center w-12 h-12 -mt-4 rounded-full shadow-lg transition-all duration-300 active:scale-95 touch-manipulation ${
             isActive("/create")
               ? "bg-primary text-primary-foreground shadow-primary/50"
               : "bg-primary text-primary-foreground hover:shadow-xl hover:scale-105"
           }`}
           title="Create Wager"
         >
-          <Plus className="h-7 w-7" strokeWidth={2.5} />
+          <Plus className="h-6 w-6" strokeWidth={2.5} />
           {isActive("/create") && (
             <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary-foreground" />
           )}
@@ -215,38 +286,38 @@ export function MobileNav() {
 
         <Link
           href="/wallet"
-          className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
+          className={`flex flex-col items-center justify-center flex-1 py-1.5 rounded-lg transition-all duration-200 min-w-0 ${
             isActive("/wallet")
               ? "text-primary"
               : "text-muted-foreground hover:text-foreground"
           }`}
           title="Wallet"
         >
-          <Wallet className={`h-6 w-6 transition-transform ${isActive("/wallet") ? "scale-110" : ""}`} />
-          <span className="text-[10px] mt-0.5 font-medium">{isActive("/wallet") ? "Wallet" : ""}</span>
+          <Wallet className={`h-5 w-5 transition-transform mb-0.5 ${isActive("/wallet") ? "scale-110" : ""}`} />
+          <span className="text-[9px] font-medium leading-tight text-center">Wallet</span>
         </Link>
 
         {user ? (
           <Link
             href="/profile"
-            className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
+            className={`flex flex-col items-center justify-center flex-1 py-1.5 rounded-lg transition-all duration-200 min-w-0 ${
               isActive("/profile")
                 ? "text-primary"
                 : "text-muted-foreground hover:text-foreground"
             }`}
             title="Profile"
           >
-            <User className={`h-6 w-6 transition-transform ${isActive("/profile") ? "scale-110" : ""}`} />
-            <span className="text-[10px] mt-0.5 font-medium">{isActive("/profile") ? "Profile" : ""}</span>
+            <User className={`h-5 w-5 transition-transform mb-0.5 ${isActive("/profile") ? "scale-110" : ""}`} />
+            <span className="text-[9px] font-medium leading-tight text-center">Profile</span>
           </Link>
         ) : (
           <button
             onClick={() => setShowAuthModal(true)}
-            className="flex flex-col items-center justify-center flex-1 py-2 rounded-lg text-muted-foreground hover:text-foreground transition-all duration-200"
+            className="flex flex-col items-center justify-center flex-1 py-1.5 rounded-lg text-muted-foreground hover:text-foreground transition-all duration-200 min-w-0"
             title="Login"
           >
-            <User className="h-6 w-6" />
-            <span className="text-[10px] mt-0.5 font-medium">Login</span>
+            <User className="h-5 w-5 mb-0.5" />
+            <span className="text-[9px] font-medium leading-tight text-center">Login</span>
           </button>
         )}
       </div>
@@ -366,11 +437,11 @@ export function MobileNav() {
                       : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
                 >
-                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
                     {profile?.avatar_url ? (
                       <img
                         src={profile.avatar_url}
-                        alt={profile.username || user.email?.split("@")[0] || "User"}
+                        alt={profile.username || "User"}
                         className="h-8 w-8 rounded-full object-cover"
                       />
                     ) : (
@@ -379,7 +450,7 @@ export function MobileNav() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium truncate">
-                      {profile?.username || user.email?.split("@")[0] || "User"}
+                      {profile?.username || "User"}
                     </div>
                     <div className="text-xs text-muted-foreground truncate">
                       {user.email}

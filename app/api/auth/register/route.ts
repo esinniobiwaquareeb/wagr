@@ -1,0 +1,179 @@
+import { NextRequest } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { hashPassword, validatePasswordStrength } from '@/lib/auth/password';
+import { generateEmailVerificationToken, getExpirationTime, generateUUID } from '@/lib/auth/tokens';
+import { createSession, setSessionCookie } from '@/lib/auth/session';
+import { sendEmail } from '@/lib/email-service';
+import { AppError, logError } from '@/lib/error-handler';
+import { ErrorCode } from '@/lib/error-handler';
+import { withRateLimit } from '@/lib/middleware-rate-limit';
+import { getClientIP } from '@/lib/rate-limit';
+import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
+
+export async function POST(request: NextRequest) {
+  return withRateLimit(
+    request,
+    {
+      limit: 5, // 5 registrations per hour
+      window: 3600, // 1 hour
+      endpoint: '/api/auth/register',
+    },
+    async (req) => {
+      try {
+        const body = await req.json();
+        const { email, password, username } = body;
+
+        // Validate input
+        if (!email || typeof email !== 'string') {
+          throw new AppError(ErrorCode.INVALID_INPUT, 'Email is required');
+        }
+
+        if (!password || typeof password !== 'string') {
+          throw new AppError(ErrorCode.INVALID_INPUT, 'Password is required');
+        }
+
+        if (!username || typeof username !== 'string') {
+          throw new AppError(ErrorCode.INVALID_INPUT, 'Username is required');
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email.trim())) {
+          throw new AppError(ErrorCode.INVALID_INPUT, 'Please enter a valid email address');
+        }
+
+        // Validate password strength
+        const passwordValidation = validatePasswordStrength(password);
+        if (!passwordValidation.valid) {
+          throw new AppError(ErrorCode.VALIDATION_ERROR, passwordValidation.error || 'Invalid password');
+        }
+
+        // Validate username
+        const trimmedUsername = username.trim();
+        if (trimmedUsername.length < 3) {
+          throw new AppError(ErrorCode.VALIDATION_ERROR, 'Username must be at least 3 characters long');
+        }
+
+        if (trimmedUsername.length > 30) {
+          throw new AppError(ErrorCode.VALIDATION_ERROR, 'Username must be less than 30 characters');
+        }
+
+        // Check for valid username format (alphanumeric, underscore, hyphen)
+        const usernameRegex = /^[a-zA-Z0-9_-]+$/;
+        if (!usernameRegex.test(trimmedUsername)) {
+          throw new AppError(ErrorCode.VALIDATION_ERROR, 'Username can only contain letters, numbers, underscores, and hyphens');
+        }
+
+        const supabase = await createClient();
+
+        // Check if email already exists
+        const { data: existingEmail } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', email.trim().toLowerCase())
+          .single();
+
+        if (existingEmail) {
+          throw new AppError(ErrorCode.VALIDATION_ERROR, 'An account with this email already exists');
+        }
+
+        // Check if username already exists
+        const { data: existingUsername } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('username', trimmedUsername)
+          .single();
+
+        if (existingUsername) {
+          throw new AppError(ErrorCode.VALIDATION_ERROR, 'This username is already taken');
+        }
+
+        // Hash password
+        const passwordHash = await hashPassword(password);
+
+        // Generate email verification token
+        const verificationToken = await generateEmailVerificationToken();
+        const expiresAt = getExpirationTime(24); // 24 hours
+
+        // Generate UUID for user profile
+        const userId = generateUUID();
+
+        // Create user profile
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: userId,
+            email: email.trim().toLowerCase(),
+            username: trimmedUsername,
+            password_hash: passwordHash,
+            email_verified: false,
+            balance: 0,
+          })
+          .select()
+          .single();
+
+        if (profileError || !profile) {
+          logError(new Error(`Failed to create profile: ${profileError?.message}`));
+          throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to create account. Please try again.');
+        }
+
+        // Create email verification record
+        const { error: verificationError } = await supabase
+          .from('email_verifications')
+          .insert({
+            user_id: profile.id,
+            token: verificationToken,
+            expires_at: expiresAt.toISOString(),
+          });
+
+        if (verificationError) {
+          logError(new Error(`Failed to create verification: ${verificationError.message}`));
+          // Don't fail registration, but log the error
+        }
+
+        // Send verification email
+        const appUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://wagr.app';
+        const verificationUrl = `${appUrl}/verify-email?token=${verificationToken}`;
+
+        try {
+          await sendEmail({
+            to: email.trim().toLowerCase(),
+            type: 'verification',
+            data: {
+              recipientName: trimmedUsername,
+              verificationUrl,
+            },
+          });
+        } catch (emailError) {
+          logError(emailError as Error);
+          // Don't fail registration if email fails
+        }
+
+        // Create session and set cookie
+        const clientIP = getClientIP(req);
+        const userAgent = req.headers.get('user-agent') || undefined;
+        const sessionToken = await createSession(profile.id, clientIP, userAgent);
+
+        // Send welcome email (after verification)
+        // This will be sent after email is verified
+
+        const response = successResponseNext({
+          message: 'Account created successfully. Please check your email to verify your account.',
+          user: {
+            id: profile.id,
+            email: profile.email,
+            username: profile.username,
+            email_verified: false,
+          },
+        });
+
+        // Set session cookie on the response
+        return await setSessionCookie(sessionToken, response) || response;
+      } catch (error) {
+        logError(error as Error);
+        return appErrorToResponse(error);
+      }
+    }
+  );
+}
+

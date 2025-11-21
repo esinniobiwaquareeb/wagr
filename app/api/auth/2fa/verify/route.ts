@@ -1,8 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUserId } from '@/lib/auth/session';
 import { verify2FACode, verifyBackupCode } from '@/lib/two-factor';
-import { AppError, formatErrorResponse, logError } from '@/lib/error-handler';
+import { AppError, logError } from '@/lib/error-handler';
 import { ErrorCode } from '@/lib/error-handler';
+import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,18 +15,18 @@ export async function POST(request: NextRequest) {
       throw new AppError(ErrorCode.INVALID_INPUT, 'Verification code is required');
     }
 
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    const userId = await getCurrentUserId();
+    if (!userId) {
       throw new AppError(ErrorCode.UNAUTHORIZED, 'You must be logged in');
     }
+
+    const supabase = await createClient();
 
     // Get user profile
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('two_factor_secret, two_factor_backup_codes, two_factor_enabled')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single();
 
     if (profileError || !profile) {
@@ -52,7 +54,7 @@ export async function POST(request: NextRequest) {
         await supabase
           .from('profiles')
           .update({ two_factor_backup_codes: updatedCodes })
-          .eq('id', user.id);
+          .eq('id', userId);
       }
     } else {
       // Verify TOTP code
@@ -68,26 +70,19 @@ export async function POST(request: NextRequest) {
       const { error: enableError } = await supabase
         .from('profiles')
         .update({ two_factor_enabled: true })
-        .eq('id', user.id);
+        .eq('id', userId);
 
       if (enableError) {
         throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to enable 2FA');
       }
     }
 
-    return NextResponse.json({
-      success: true,
+    return successResponseNext({
       message: 'Verification successful',
     });
   } catch (error) {
     logError(error as Error);
-    if (error instanceof AppError) {
-      return NextResponse.json(formatErrorResponse(error), { status: error.statusCode });
-    }
-    return NextResponse.json(
-      formatErrorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 'Verification failed')),
-      { status: 500 }
-    );
+    return appErrorToResponse(error);
   }
 }
 

@@ -3,11 +3,13 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams } from 'next/navigation';
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import { AuthModal } from "@/components/auth-modal";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
-import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Award, Coins, Trash2, Edit2, Share2 } from "lucide-react";
+import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Award, Coins, Trash2, Edit2, Share2, Crown, Star } from "lucide-react";
+import { BackButton } from "@/components/back-button";
 import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -47,7 +49,7 @@ export default function WagerDetail() {
   const wagerId = params.id as string;
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
-  const [user, setUser] = useState<any>(null);
+  const { user } = useAuth();
   const [wager, setWager] = useState<Wager | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [sideCount, setSideCount] = useState({ a: 0, b: 0 });
@@ -79,23 +81,6 @@ export default function WagerDetail() {
   // A/B Testing
   const buttonVariant = useMemo(() => getVariant(AB_TESTS.BUTTON_STYLE), []);
 
-  const getUser = useCallback(async () => {
-    const { data } = await supabase.auth.getUser();
-    setUser(data?.user || null);
-  }, [supabase]);
-
-  useEffect(() => {
-    getUser();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(() => {
-      getUser();
-    });
-
-    return () => {
-      authListener?.subscription?.unsubscribe?.();
-    };
-  }, [getUser, supabase]);
-
   const fetchWager = useCallback(async (force = false) => {
     // No cache or forced refresh - fetch from API
     // Support both UUID and short_id
@@ -115,71 +100,7 @@ export default function WagerDetail() {
     // Use the actual UUID for cache key and entry queries (not short_id)
     const actualWagerId = wagerData.id;
     
-    // Check cache first using centralized cache utility (use actual UUID)
-    const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
-    const cacheKey = CACHE_KEYS.WAGER(actualWagerId);
-    
-    if (!force) {
-      const cached = cache.get<{ wager: Wager; entries: Entry[]; sideCount: { a: number; b: number } }>(cacheKey);
-      
-      if (cached) {
-        setWager(cached.wager);
-        setEntries(cached.entries || []);
-        setSideCount(cached.sideCount || { a: 0, b: 0 });
-        
-        // Fetch usernames for cached entries
-        const uniqueUserIds = [...new Set((cached.entries || []).map((e: Entry) => e.user_id))];
-        if (uniqueUserIds.length > 0) {
-          const { data: profiles } = await supabase
-            .from("profiles")
-            .select("id, username")
-            .in("id", uniqueUserIds);
-          
-          if (profiles) {
-            const userNameMap: Record<string, string> = {};
-            profiles.forEach((profile: { id: string; username: string }) => {
-              userNameMap[profile.id] = profile.username || `User ${profile.id.slice(0, 8)}`;
-            });
-            setUserNames(userNameMap);
-          }
-        }
-        
-        setLoading(false);
-        
-        // Check if wager expired with single participant and auto-refund
-        if (cached.wager.deadline && new Date(cached.wager.deadline) <= new Date() && cached.wager.status === "OPEN") {
-          const uniqueParticipants = new Set((cached.entries || []).map((e: Entry) => e.user_id));
-          if (uniqueParticipants.size === 1) {
-            // Trigger auto-refund in background (don't block UI)
-            (async () => {
-              try {
-                await supabase.rpc("check_and_refund_single_participants");
-                // Refresh after refund
-                setTimeout(() => fetchWager(true), 1000);
-              } catch (error) {
-                console.error("Error auto-refunding:", error);
-              }
-            })();
-          }
-        }
-        
-        // Check if cache is stale - if so, refresh in background
-        const cacheEntry = (cache as any).memoryCache.get(cacheKey);
-        if (cacheEntry) {
-          const age = Date.now() - cacheEntry.timestamp;
-          const staleThreshold = CACHE_TTL.WAGER / 2; // Consider stale after half TTL
-          
-          if (age > staleThreshold) {
-            // Cache is getting stale, refresh in background (don't block UI)
-            fetchWager(true).catch(() => {
-              // Ignore errors in background refresh
-            });
-          }
-        }
-        return; // Don't fetch if we have fresh cache
-      }
-    }
-
+    // Always fetch fresh data (no cache)
     // For private wagers, allow access via direct link (simple sharing)
     // Anyone with the link can access private wagers
     // This enables simple sharing via WhatsApp, etc.
@@ -232,13 +153,6 @@ export default function WagerDetail() {
         }
       }
 
-        // Cache the results using centralized cache utility
-        const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
-        cache.set(cacheKey, {
-          wager: wagerData,
-          entries: entriesData || [],
-          sideCount,
-        }, CACHE_TTL.WAGER);
     }
     setLoading(false);
   }, [wagerId, supabase, user]);
@@ -1205,6 +1119,9 @@ export default function WagerDetail() {
       <div className="max-w-7xl mx-auto p-3 md:p-6">
         {/* Header Section */}
         <div className="mb-4 md:mb-6">
+          <div className="mb-3 md:mb-4">
+            <BackButton fallbackHref="/wagers" />
+          </div>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 md:gap-3 mb-3 md:mb-4">
             <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
               <h1 className="text-xl md:text-4xl font-bold flex-1 break-words">{wager.title}</h1>
@@ -1583,27 +1500,52 @@ export default function WagerDetail() {
               <h3 className="text-base md:text-xl font-bold">Participants ({totalParticipants})</h3>
             </div>
             <div className="space-y-2 md:space-y-3 max-h-64 md:max-h-80 overflow-y-auto">
-              {entries.map((entry) => (
-                <div 
-                  key={entry.id} 
-                  className="flex items-center justify-between p-2.5 md:p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition"
-                >
-                  <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
-                    <div className={`w-2 h-2 md:w-3 md:h-3 rounded-full flex-shrink-0 ${
-                      entry.side === "a" ? "bg-primary" : "bg-primary/60"
-                    }`} />
-                    <span className="text-xs md:text-sm font-medium text-foreground truncate">
-                      {userNames[entry.user_id] || `User ${entry.user_id.slice(0, 8)}`}
-                    </span>
-                    <span className="text-[10px] md:text-xs text-muted-foreground">
-                      {entry.side === "a" ? wager.side_a : wager.side_b}
+              {entries.map((entry) => {
+                const isCreator = wager.creator_id === entry.user_id;
+                const isWinner = (wager.status === "RESOLVED" || wager.status === "SETTLED") && 
+                                 wager.winning_side && 
+                                 entry.side === wager.winning_side.toLowerCase();
+                
+                return (
+                  <div 
+                    key={entry.id} 
+                    className={`flex items-center justify-between p-2.5 md:p-3 rounded-lg hover:bg-muted/50 transition ${
+                      isWinner ? "bg-green-500/10 border border-green-500/30" : 
+                      isCreator ? "bg-blue-500/10 border border-blue-500/30" : 
+                      "bg-muted/30"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+                      <div className={`w-2 h-2 md:w-3 md:h-3 rounded-full flex-shrink-0 ${
+                        entry.side === "a" ? "bg-primary" : "bg-primary/60"
+                      }`} />
+                      <span className="text-xs md:text-sm font-medium text-foreground truncate">
+                        {userNames[entry.user_id] || `User ${entry.user_id.slice(0, 8)}`}
+                      </span>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {isCreator && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-700 dark:text-blue-400 text-[9px] md:text-[10px] font-semibold">
+                            <Crown className="h-2.5 w-2.5 md:h-3 md:w-3" />
+                            Creator
+                          </span>
+                        )}
+                        {isWinner && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-green-500/20 text-green-700 dark:text-green-400 text-[9px] md:text-[10px] font-semibold">
+                            <Trophy className="h-2.5 w-2.5 md:h-3 md:w-3" />
+                            Winner
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] md:text-xs text-muted-foreground">
+                        {entry.side === "a" ? wager.side_a : wager.side_b}
+                      </span>
+                    </div>
+                    <span className="text-xs md:text-sm font-semibold text-foreground whitespace-nowrap">
+                      {formatCurrency(entry.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}
                     </span>
                   </div>
-                  <span className="text-xs md:text-sm font-semibold text-foreground whitespace-nowrap">
-                    {formatCurrency(entry.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

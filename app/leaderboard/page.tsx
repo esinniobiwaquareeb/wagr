@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Trophy, Medal, Award, TrendingUp, Users, Target, Zap } from "lucide-react";
+import { BackButton } from "@/components/back-button";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -35,16 +36,26 @@ export default function Leaderboard() {
         if (profilesError) throw profilesError;
 
         // Fetch all wager entries with amounts
-        const { data: wagerEntries } = await supabase
+        const { data: wagerEntries, error: entriesError } = await supabase
           .from("wager_entries")
           .select("user_id, wager_id, side, amount");
 
+        if (entriesError) {
+          console.error("Error fetching wager entries:", entriesError);
+          throw entriesError;
+        }
+
         // Fetch resolved wagers with fee percentage to calculate winnings
-        const { data: resolvedWagers } = await supabase
+        const { data: resolvedWagers, error: wagersError } = await supabase
           .from("wagers")
           .select("id, status, winning_side, fee_percentage")
           .in("status", ["RESOLVED", "SETTLED"])
           .not("winning_side", "is", null);
+
+        if (wagersError) {
+          console.error("Error fetching resolved wagers:", wagersError);
+          throw wagersError;
+        }
 
         // Calculate stats for each user
         const userStats = new Map<string, {
@@ -53,15 +64,27 @@ export default function Leaderboard() {
           total_winnings: number;
         }>();
 
-        // Count total wagers per user
-        if (wagerEntries) {
+        // Count total wagers per user (count unique wager_ids per user)
+        if (wagerEntries && wagerEntries.length > 0) {
+          const userWagerSet = new Map<string, Set<string>>();
+          
           wagerEntries.forEach((entry: any) => {
             const userId = entry.user_id;
+            const wagerId = entry.wager_id;
+            
+            if (!userWagerSet.has(userId)) {
+              userWagerSet.set(userId, new Set());
+            }
+            userWagerSet.get(userId)!.add(wagerId);
+          });
+          
+          // Set total_wagers based on unique wager count
+          userWagerSet.forEach((wagerSet, userId) => {
             if (!userStats.has(userId)) {
               userStats.set(userId, { total_wagers: 0, wins: 0, total_winnings: 0 });
             }
             const stats = userStats.get(userId)!;
-            stats.total_wagers += 1;
+            stats.total_wagers = wagerSet.size;
           });
         }
 
@@ -233,6 +256,9 @@ export default function Leaderboard() {
   return (
     <main className="flex-1 pb-24 md:pb-0">
       <div className="max-w-6xl mx-auto p-3 md:p-6">
+        <div className="mb-3 md:mb-4">
+          <BackButton fallbackHref="/wagers" />
+        </div>
         <div className="mb-4 md:mb-6">
           <h1 className="text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2">Leaderboard</h1>
           <p className="text-xs md:text-base text-muted-foreground">

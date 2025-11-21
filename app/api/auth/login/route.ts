@@ -1,9 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { verifyPassword } from '@/lib/auth/password';
+import { createSession, setSessionCookie, deleteAllUserSessions } from '@/lib/auth/session';
 import { verify2FACode, verifyBackupCode } from '@/lib/two-factor';
-import { AppError, formatErrorResponse, logError } from '@/lib/error-handler';
+import { markSessionAs2FAVerified } from '@/lib/session-2fa';
+import { AppError, logError } from '@/lib/error-handler';
 import { ErrorCode } from '@/lib/error-handler';
 import { withRateLimit } from '@/lib/middleware-rate-limit';
+import { getClientIP } from '@/lib/rate-limit';
+import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 
 export async function POST(request: NextRequest) {
   return withRateLimit(
@@ -24,47 +29,41 @@ export async function POST(request: NextRequest) {
 
         const supabase = await createClient();
 
-        // Attempt login
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        // Find user by email
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, email, username, password_hash, two_factor_enabled, two_factor_secret, two_factor_backup_codes, is_admin')
+          .eq('email', email.trim().toLowerCase())
+          .single();
 
-        if (authError || !authData.user) {
+        if (profileError || !profile) {
           throw new AppError(ErrorCode.INVALID_CREDENTIALS, "The email or password you entered doesn't match our records");
         }
 
-        // Check if user has 2FA enabled
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('two_factor_enabled, two_factor_secret, two_factor_backup_codes')
-          .eq('id', authData.user.id)
-          .single();
-
-        if (profileError) {
-          throw new AppError(ErrorCode.DATABASE_ERROR, "We couldn't load your account info. Please try again");
+        if (!profile.password_hash) {
+          throw new AppError(ErrorCode.INVALID_CREDENTIALS, "The email or password you entered doesn't match our records");
         }
 
-        // If 2FA is enabled, ALWAYS require verification on login
-        // This ensures 2FA is required on every new login, not just the first time
-        if (profile?.two_factor_enabled) {
+        // Verify password
+        const passwordValid = await verifyPassword(password, profile.password_hash);
+        if (!passwordValid) {
+          throw new AppError(ErrorCode.INVALID_CREDENTIALS, "The email or password you entered doesn't match our records");
+        }
+
+        // Check if 2FA is enabled
+        if (profile.two_factor_enabled) {
           if (!twoFactorCode) {
-            // Sign out and return 2FA required
-            await supabase.auth.signOut();
-            return NextResponse.json(
-              {
-                requires2FA: true,
-                message: 'Please enter the code from your authenticator app to continue',
-              },
-              { status: 200 }
-            );
+            // Return 2FA required (don't create session yet)
+            return successResponseNext({
+              requires2FA: true,
+              message: 'Please enter the code from your authenticator app to continue',
+            });
           }
 
           // Verify 2FA code
           let isValid = false;
           if (isBackupCode) {
             if (!profile.two_factor_backup_codes || profile.two_factor_backup_codes.length === 0) {
-              await supabase.auth.signOut();
               throw new AppError(ErrorCode.TWO_FACTOR_INVALID, "That backup code doesn't look right. Please check and try again");
             }
             isValid = verifyBackupCode(profile.two_factor_backup_codes, twoFactorCode);
@@ -77,51 +76,52 @@ export async function POST(request: NextRequest) {
               await supabase
                 .from('profiles')
                 .update({ two_factor_backup_codes: updatedCodes })
-                .eq('id', authData.user.id);
+                .eq('id', profile.id);
             }
           } else {
             if (!profile.two_factor_secret) {
-              await supabase.auth.signOut();
               throw new AppError(ErrorCode.TWO_FACTOR_INVALID, "We couldn't verify your security settings. Please contact support");
             }
             isValid = verify2FACode(profile.two_factor_secret, twoFactorCode);
           }
 
           if (!isValid) {
-            await supabase.auth.signOut();
             throw new AppError(ErrorCode.TWO_FACTOR_INVALID, "That code doesn't match. Make sure you're using the latest code from your authenticator app");
           }
-          
-          // Mark that 2FA was verified for this login session
-          // We'll return a flag that the client can use to mark the session
-          return NextResponse.json({
-            success: true,
-            user: {
-              id: authData.user.id,
-              email: authData.user.email,
-            },
-            twoFactorVerified: true, // Flag to indicate 2FA was verified
-          });
         }
 
-        return NextResponse.json({
-          success: true,
+        // Check if user is admin - admins should use admin login
+        if (profile.is_admin) {
+          // For now, allow admin login here, but you can redirect to admin login if needed
+          // return NextResponse.json(
+          //   { error: 'Admins must use the admin login page' },
+          //   { status: 403 }
+          // );
+        }
+
+        // Create session
+        const clientIP = getClientIP(req);
+        const userAgent = req.headers.get('user-agent') || undefined;
+        const sessionToken = await createSession(profile.id, clientIP, userAgent);
+        
+        // Create response first
+        const response = successResponseNext({
           user: {
-            id: authData.user.id,
-            email: authData.user.email,
+            id: profile.id,
+            email: profile.email,
+            username: profile.username,
+            is_admin: profile.is_admin || false,
           },
+          requires2FA: profile.two_factor_enabled && !twoFactorCode ? true : undefined,
+          twoFactorVerified: profile.two_factor_enabled && twoFactorCode ? true : undefined,
         });
+
+        // Set session cookie on the response
+        return await setSessionCookie(sessionToken, response) || response;
       } catch (error) {
         logError(error as Error);
-        if (error instanceof AppError) {
-          return NextResponse.json(formatErrorResponse(error), { status: error.statusCode });
-        }
-        return NextResponse.json(
-          formatErrorResponse(new AppError(ErrorCode.INTERNAL_ERROR, "We're having trouble signing you in. Please try again in a moment")),
-          { status: 500 }
-        );
+        return appErrorToResponse(error);
       }
     }
   );
 }
-

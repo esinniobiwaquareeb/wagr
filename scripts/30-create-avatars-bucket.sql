@@ -1,0 +1,80 @@
+-- Create avatars storage bucket for user profile pictures
+-- This script should be run in Supabase SQL Editor
+-- Note: Storage buckets are created via Supabase Dashboard or Storage API, not SQL
+-- This file documents the required bucket configuration
+
+-- Bucket Name: avatars
+-- Public: true (so images can be accessed via public URL)
+-- File size limit: 5MB
+-- Allowed MIME types: image/*
+
+-- To create the bucket:
+-- 1. Go to Supabase Dashboard > Storage
+-- 2. Click "New bucket"
+-- 3. Name: avatars
+-- 4. Public bucket: Yes
+-- 5. Click "Create bucket"
+
+-- Then set up RLS policies:
+-- Allow authenticated users to upload their own avatars
+-- Allow public read access
+
+-- ============================================================
+-- STORAGE POLICIES SETUP (Must be done via Supabase Dashboard)
+-- ============================================================
+-- Storage policies cannot be created via SQL - they must be set up
+-- through the Supabase Dashboard or Storage API.
+--
+-- After creating the bucket, set up policies in Dashboard:
+-- 1. Go to Supabase Dashboard > Storage > avatars bucket
+-- 2. Click "Policies" tab
+-- 3. Add the following policies:
+--
+-- POLICY 1: Public Read Access
+--   Name: "Public can view avatars"
+--   Allowed operation: SELECT
+--   Policy definition: bucket_id = 'avatars'
+--
+-- POLICY 2: Authenticated Upload
+--   Name: "Users can upload avatars"
+--   Allowed operation: INSERT
+--   Policy definition: bucket_id = 'avatars'
+--   Note: Since we use custom auth, this allows any authenticated user
+--         Application code validates ownership via filename
+--
+-- POLICY 3: Authenticated Update
+--   Name: "Users can update avatars"
+--   Allowed operation: UPDATE
+--   Policy definition: bucket_id = 'avatars'
+--
+-- POLICY 4: Authenticated Delete
+--   Name: "Users can delete avatars"
+--   Allowed operation: DELETE
+--   Policy definition: bucket_id = 'avatars'
+--
+-- ============================================================
+-- RECOMMENDED: Disable RLS on Bucket (Required for Custom Auth)
+-- ============================================================
+-- Since we're using custom auth, storage RLS policies that use auth.uid()
+-- will NOT work. You MUST disable RLS on the bucket:
+--
+-- Steps to disable RLS:
+-- 1. Go to Supabase Dashboard > Storage > avatars bucket
+-- 2. Click on "Policies" tab
+-- 3. You should see "Row Level Security" toggle - DISABLE IT
+--    OR delete all existing policies
+-- 4. Make sure the bucket is set to "Public" (for read access)
+--
+-- Security is handled entirely by application code:
+-- - Files named with user_id prefix: {user_id}-{timestamp}.{ext}
+-- - Application validates user authentication before upload
+-- - Application validates filename matches user_id before update/delete
+-- - Only authenticated users can access the upload endpoint
+--
+-- This is secure because:
+-- - All uploads go through authenticated API routes (/api routes)
+-- - File naming ensures users can only access their own files
+-- - Application validates ownership before any operation
+-- - Unauthenticated users cannot upload (API enforces this)
+-- ============================================================
+

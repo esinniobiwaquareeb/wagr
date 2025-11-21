@@ -1,45 +1,42 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Shield, Lock, Mail, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { TwoFactorVerify } from "@/components/two-factor-verify";
-import { markSessionAs2FAVerified } from "@/lib/session-2fa";
+import { getCurrentUser } from "@/lib/auth/client";
 
 export default function AdminLogin() {
-  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState<any>(null);
   const [requires2FA, setRequires2FA] = useState(false);
 
   useEffect(() => {
+    let mounted = true;
+    
     const checkAdmin = async () => {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (currentUser) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("is_admin")
-          .eq("id", currentUser.id)
-          .single();
-
-        if (profile?.is_admin) {
+      try {
+        const currentUser = await getCurrentUser();
+        if (mounted && currentUser?.is_admin) {
           router.push("/admin");
-        } else {
-          setUser(null);
         }
+      } catch (error) {
+        console.error("Error checking admin status on login page:", error);
       }
     };
 
     checkAdmin();
-  }, [supabase, router]);
+    
+    return () => {
+      mounted = false;
+    };
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,32 +86,29 @@ export default function AdminLogin() {
         }),
       });
 
-      const data = await response.json();
+      const apiResponse = await response.json();
 
       if (!response.ok) {
-        if (data.error) {
-          throw new Error(data.error.message || 'Login failed');
-        }
-        throw new Error('Login failed');
+        const errorMessage = apiResponse.error?.message || 'Login failed';
+        throw new Error(errorMessage);
       }
 
+      // Parse uniform API response format
+      const userData = apiResponse.data?.user;
+      const requires2FA = apiResponse.data?.requires2FA;
+
       // Check if 2FA is required
-      if (data.requires2FA) {
+      if (requires2FA) {
         setRequires2FA(true);
         setLoading(false);
         return;
       }
 
-      if (data.user) {
+      if (userData) {
         // Check if user is admin
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("is_admin")
-          .eq("id", data.user.id)
-          .single();
-
-        if (!profile?.is_admin) {
-          await supabase.auth.signOut();
+        if (!userData.is_admin) {
+          // Logout by clearing session
+          await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
           toast({
             title: "Access Denied",
             description: "You don't have admin privileges.",
@@ -124,23 +118,10 @@ export default function AdminLogin() {
           return;
         }
 
-        // After successful login, the session is created server-side via cookies
-        // We need to ensure the client reads the session and triggers auth state updates
-        // Wait a bit for cookies to be set, then refresh session
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Trigger auth state update
+        window.dispatchEvent(new Event('auth-state-changed'));
         
-        // Get session to sync cookies from server
-        const { data: sessionData } = await supabase.auth.getSession();
-        
-        // Get user to trigger auth state change listeners in all components
-        const { data: userData } = await supabase.auth.getUser();
-        
-        // Mark session as 2FA verified if 2FA was used (for admins without 2FA, this won't be set)
-        if (data.twoFactorVerified && userData?.user) {
-          markSessionAs2FAVerified(userData.user.id);
-        }
-        
-        // Force router refresh to update server components
+        // Force router refresh
         router.refresh();
         
         // Redirect after a brief delay to allow UI to update
@@ -180,24 +161,21 @@ export default function AdminLogin() {
         }),
       });
 
-      const data = await response.json();
+      const apiResponse = await response.json();
 
       if (!response.ok) {
-        const { extractErrorFromResponse } = await import('@/lib/error-extractor');
-        const errorMessage = await extractErrorFromResponse(response, 'Verification failed');
+        const errorMessage = apiResponse.error?.message || 'Verification failed';
         throw new Error(errorMessage);
       }
 
-      if (data.user) {
-        // Check if user is admin
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("is_admin")
-          .eq("id", data.user.id)
-          .single();
+      // Parse uniform API response format
+      const userData = apiResponse.data?.user;
 
-        if (!profile?.is_admin) {
-          await supabase.auth.signOut();
+      if (userData) {
+        // Check if user is admin
+        if (!userData.is_admin) {
+          // Logout by clearing session
+          await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
           toast({
             title: "Access Denied",
             description: "You don't have admin privileges.",
@@ -207,25 +185,12 @@ export default function AdminLogin() {
           return;
         }
 
-        // After successful 2FA login, the session is created server-side via cookies
-        // We need to ensure the client reads the session and triggers auth state updates
-        // Wait a bit for cookies to be set, then refresh session
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Get session to sync cookies from server
-        const { data: sessionData } = await supabase.auth.getSession();
-        
-        // Get user to trigger auth state change listeners in all components
-        const { data: userData } = await supabase.auth.getUser();
-        
-        // Mark session as 2FA verified if 2FA was used
-        if (data.twoFactorVerified && userData?.user) {
-          markSessionAs2FAVerified(userData.user.id);
-        }
-        
         setRequires2FA(false);
         
-        // Force router refresh to update server components
+        // Trigger auth state update
+        window.dispatchEvent(new Event('auth-state-changed'));
+        
+        // Force router refresh
         router.refresh();
         
         // Redirect after a brief delay to allow UI to update

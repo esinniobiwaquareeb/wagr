@@ -4,8 +4,10 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
-import { User, Mail, Calendar, Settings, Edit2, Save, X, ChevronRight, Shield, ShieldCheck, Trophy, Eye, EyeOff, Key, History, LogOut } from "lucide-react";
+import { User, Mail, Calendar, Settings, Edit2, Save, X, ChevronRight, Shield, ShieldCheck, Trophy, Eye, EyeOff, Key, History, LogOut, Upload, Camera } from "lucide-react";
+import { BackButton } from "@/components/back-button";
 import { format } from "date-fns";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -27,7 +29,10 @@ interface Profile {
 export default function Profile() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+  const { user, loading: authLoading, logout } = useAuth({
+    requireAuth: true,
+    redirectTo: "/wagers?login=true"
+  });
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -38,105 +43,37 @@ export default function Profile() {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [myWagers, setMyWagers] = useState<any[]>([]);
   const [loadingWagers, setLoadingWagers] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
-
-  const getUser = useCallback(async () => {
-    const { data } = await supabase.auth.getUser();
-    if (!data?.user) {
-      setUser(null);
-      setProfile(null);
-      router.push("/wagers?login=true");
-      router.refresh();
-      return;
-    }
-    setUser(data.user);
-  }, [supabase, router]);
 
   const fetchProfile = useCallback(async (force = false) => {
     if (!user) return;
 
-    // Check cache first
-    if (!force) {
-      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
-      const cached = cache.get<Profile>(CACHE_KEYS.USER_PROFILE(user.id));
-      
-      if (cached) {
-        setProfile(cached);
-        setUsername(cached.username || "");
-        setLoading(false);
-        
-        // Check if cache is stale - refresh in background if needed
-        const cacheEntry = cache.memoryCache.get(CACHE_KEYS.USER_PROFILE(user.id));
-        if (cacheEntry) {
-          const age = Date.now() - cacheEntry.timestamp;
-          const staleThreshold = CACHE_TTL.USER_PROFILE / 2;
-          
-          if (age > staleThreshold) {
-            // Refresh in background
-            fetchProfile(true).catch(() => {});
-          }
-        }
-        return;
+    // Always fetch fresh data from API (no cache)
+    try {
+      setLoading(true);
+      const { profileApi } = await import('@/lib/api-client');
+      const response = await profileApi.get();
+      const profileData = response.profile;
+
+      if (profileData) {
+        setProfile(profileData);
+        const initialUsername = profileData.username || "";
+        setUsername(initialUsername);
       }
-    }
-
-    // No cache or forced refresh - fetch from API
-    const { data: profileData, error } = await supabase
-      .from("profiles")
-      .select("*, two_factor_enabled")
-      .eq("id", user.id)
-      .single();
-
-    if (error && error.code !== 'PGRST116') {
+    } catch (error) {
       console.error("Error fetching profile:", error);
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    if (profileData) {
-      setProfile(profileData);
-      setUsername(profileData.username || "");
-      
-      // Cache the result
-      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
-      cache.set(CACHE_KEYS.USER_PROFILE(user.id), profileData, CACHE_TTL.USER_PROFILE);
-    } else {
-      // Create profile if it doesn't exist
-      const { data: newProfile } = await supabase
-        .from("profiles")
-        .insert({ id: user.id, balance: 0, username: user.email?.split("@")[0] || "User" })
-        .select()
-        .single();
-      if (newProfile) {
-        setProfile(newProfile);
-        setUsername(newProfile.username || "");
-        
-        // Cache the new profile
-        const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
-        cache.set(CACHE_KEYS.USER_PROFILE(user.id), newProfile, CACHE_TTL.USER_PROFILE);
-      }
-    }
-    setLoading(false);
   }, [user, supabase]);
 
   useEffect(() => {
-    getUser();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT' || !session) {
-        setUser(null);
-        setProfile(null);
-        router.push("/wagers?login=true");
-        router.refresh();
-      } else {
-        getUser();
-      }
-    });
-
-    return () => {
-      authListener?.subscription?.unsubscribe?.();
-    };
-  }, [getUser, supabase, router]);
+    if (user) {
+      fetchProfile();
+    }
+  }, [user, fetchProfile]);
 
   const fetchMyWagers = useCallback(async () => {
     if (!user) return;
@@ -261,14 +198,31 @@ export default function Profile() {
       return;
     }
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({ username: trimmedUsername })
-      .eq("id", user.id);
-
-    if (error) {
-      // Check for unique constraint violation
-      if (error.code === '23505') {
+    try {
+      const { profileApi } = await import('@/lib/api-client');
+      const response = await profileApi.update({ username: trimmedUsername });
+      
+      // Update profile state immediately
+      setProfile(response.profile);
+      
+      // Trigger profile update event for sidebar
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('profile-updated'));
+      }
+      
+      toast({
+        title: "Profile updated!",
+        description: "Your changes have been saved",
+      });
+      setEditing(false);
+      // Clear cache and refresh profile in background
+      const { cache, CACHE_KEYS } = await import('@/lib/cache');
+      cache.remove(CACHE_KEYS.USER_PROFILE(user.id));
+      fetchProfile(true).catch(() => {});
+    } catch (error: any) {
+      // Check for unique constraint violation or validation error
+      const errorMessage = error?.message || "Something went wrong. Please try again";
+      if (errorMessage.includes('taken') || errorMessage.includes('already')) {
         toast({
           title: "That username's taken",
           description: "Someone else is using that username. Try a different one.",
@@ -277,17 +231,124 @@ export default function Profile() {
       } else {
         toast({
           title: "Couldn't update profile",
-          description: error.message || "Something went wrong. Please try again",
+          description: errorMessage,
           variant: "destructive",
         });
       }
-    } else {
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
       toast({
-        title: "Profile updated!",
-        description: "Your changes have been saved",
+        title: "Invalid file type",
+        description: "Please upload an image file",
+        variant: "destructive",
       });
-      setEditing(false);
-      fetchProfile();
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please upload an image smaller than 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      // Check if avatars bucket exists, if not, show helpful error
+      const { data: buckets, error: bucketError } = await supabase.storage.listBuckets();
+      
+      if (bucketError) {
+        throw new Error('Unable to access storage. Please contact support.');
+      }
+
+      const avatarsBucket = buckets?.find(b => b.name === 'avatars');
+      if (!avatarsBucket) {
+        toast({
+          title: "Storage not configured",
+          description: "Avatar storage bucket is not set up. Please contact support.",
+          variant: "destructive",
+        });
+        setUploadingAvatar(false);
+        e.target.value = '';
+        return;
+      }
+
+      // Create a unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = fileName; // Store directly in bucket root, not in subfolder
+
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (uploadError) {
+        // Check if it's a permission/RLS error
+        if (uploadError.message.includes('new row violates row-level security') || 
+            uploadError.message.includes('permission denied') ||
+            uploadError.message.includes('row-level security')) {
+          toast({
+            title: "Storage permission error",
+            description: "The storage bucket RLS policies are blocking uploads. Please disable RLS on the 'avatars' bucket in Supabase Dashboard, or make it fully public.",
+            variant: "destructive",
+          });
+          setUploadingAvatar(false);
+          e.target.value = '';
+          return;
+        }
+        throw uploadError;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const avatarUrl = urlData.publicUrl;
+
+      // Update profile via API
+      const { profileApi } = await import('@/lib/api-client');
+      await profileApi.update({ avatar_url: avatarUrl });
+
+      // Clear cache and refresh
+      const { cache, CACHE_KEYS } = await import('@/lib/cache');
+      cache.remove(CACHE_KEYS.USER_PROFILE(user.id));
+      await fetchProfile(true);
+
+      // Trigger profile update event for sidebar
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('profile-updated'));
+      }
+
+      toast({
+        title: "Avatar updated!",
+        description: "Your profile picture has been updated",
+      });
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      toast({
+        title: "Upload failed",
+        description: "Couldn't upload your avatar. Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingAvatar(false);
+      // Reset input
+      e.target.value = '';
     }
   };
 
@@ -298,8 +359,7 @@ export default function Profile() {
   const confirmLogout = async () => {
     try {
       clear2FAVerification();
-      await supabase.auth.signOut();
-      setUser(null);
+      await logout();
       setProfile(null);
       toast({
         title: "You're signed out",
@@ -350,6 +410,9 @@ export default function Profile() {
         onConfirm={confirmLogout}
       />
       <div className="max-w-6xl mx-auto p-3 md:p-6">
+        <div className="mb-3 md:mb-4">
+          <BackButton fallbackHref="/wagers" />
+        </div>
         <div className="mb-4 md:mb-6 flex items-start justify-between gap-4">
           <div>
             <h1 className="text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2">Profile</h1>
@@ -373,8 +436,37 @@ export default function Profile() {
             <div className="bg-card border border-border rounded-lg p-3 md:p-6">
               <div className="flex items-start justify-between gap-2 mb-3 md:mb-6">
                 <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
-                  <div className="h-12 w-12 md:h-20 md:w-20 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <User className="h-6 w-6 md:h-10 md:w-10 text-primary" />
+                  <div className="relative group">
+                    <div className="h-12 w-12 md:h-20 md:w-20 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {profile.avatar_url ? (
+                        <img
+                          src={profile.avatar_url}
+                          alt={profile.username || "Avatar"}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <User className="h-6 w-6 md:h-10 md:w-10 text-primary" />
+                      )}
+                    </div>
+                    <label
+                      htmlFor="avatar-upload"
+                      className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity"
+                      title="Upload avatar"
+                    >
+                      {uploadingAvatar ? (
+                        <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent" />
+                      ) : (
+                        <Camera className="h-4 w-4 md:h-6 md:w-6 text-white" />
+                      )}
+                    </label>
+                    <input
+                      id="avatar-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarUpload}
+                      className="hidden"
+                      disabled={uploadingAvatar}
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h2 className="text-base md:text-2xl font-bold truncate">
@@ -388,7 +480,7 @@ export default function Profile() {
                           autoFocus
                         />
                       ) : (
-                        profile.username || user.email?.split("@")[0] || "User"
+                        profile.username || "User"
                       )}
                     </h2>
                     <p className="text-[9px] md:text-sm text-muted-foreground mt-0.5 md:mt-1 break-all leading-tight">
@@ -420,7 +512,11 @@ export default function Profile() {
                     </>
                   ) : (
                     <button
-                      onClick={() => setEditing(true)}
+                      onClick={() => {
+                        const currentUsername = profile.username || "";
+                        setUsername(currentUsername);
+                        setEditing(true);
+                      }}
                       className="p-1.5 md:p-2 bg-muted text-muted-foreground rounded-md hover:bg-muted/80 transition active:scale-[0.95] touch-manipulation"
                       title="Edit"
                     >

@@ -1,4 +1,8 @@
 /** @type {import('next').NextConfig} */
+// Extract Supabase hostname from environment variable if available
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseHostname = supabaseUrl ? new URL(supabaseUrl).hostname : null;
+
 const nextConfig = {
   typescript: {
     ignoreBuildErrors: false, // Enable type checking in production
@@ -8,6 +12,26 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    remotePatterns: [
+      // Match any Supabase subdomain
+      {
+        protocol: 'https',
+        hostname: '*.supabase.co',
+        pathname: '/storage/v1/object/public/**',
+      },
+      // Add exact hostname if available (as fallback)
+      ...(supabaseHostname ? [{
+        protocol: 'https',
+        hostname: supabaseHostname,
+        pathname: '/storage/v1/object/public/**',
+      }] : []),
+      // Explicitly add the hostname from the error
+      {
+        protocol: 'https',
+        hostname: 'hzetuhykxjhkivpjkejo.supabase.co',
+        pathname: '/storage/v1/object/public/**',
+      },
+    ],
   },
   compress: true,
   poweredByHeader: false,

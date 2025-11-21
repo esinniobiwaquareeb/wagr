@@ -3,10 +3,14 @@
 import { useEffect, useState, useMemo, useCallback, useRef, Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
-import { Loader2 } from "lucide-react";
+import { Loader2, Send, User, ArrowRight } from "lucide-react";
+import Link from "next/link";
+import { BackButton } from "@/components/back-button";
+import { UsernameInput } from "@/components/username-input";
 
 interface Profile {
   balance: number;
@@ -25,7 +29,10 @@ function WalletContent() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [user, setUser] = useState<any>(null);
+  const { user, loading: authLoading } = useAuth({
+    requireAuth: true,
+    redirectTo: "/wagers?login=true"
+  });
   const [profile, setProfile] = useState<Profile | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,101 +48,48 @@ function WalletContent() {
   const [verifyingAccount, setVerifyingAccount] = useState(false);
   const verifyingAccountRef = useRef(false);
   const lastVerifiedRef = useRef<{ accountNumber: string; bankCode: string } | null>(null);
+  const [transferUsername, setTransferUsername] = useState("");
+  const [transferAmount, setTransferAmount] = useState("");
+  const [transferDescription, setTransferDescription] = useState("");
+  const [processingTransfer, setProcessingTransfer] = useState(false);
+  const [selectedRecipient, setSelectedRecipient] = useState<{ id: string; username: string } | null>(null);
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
 
   const fetchWalletData = useCallback(async (force = false) => {
     if (!user) return;
 
-    // Check cache first
-    if (!force) {
-      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
-      const cachedProfile = cache.get<Profile>(CACHE_KEYS.USER_PROFILE(user.id));
-      const cachedTransactions = cache.get<Transaction[]>(CACHE_KEYS.TRANSACTIONS(user.id));
+    // Always fetch fresh data from API (no cache)
+    try {
+      setLoading(true);
+      const { walletApi } = await import('@/lib/api-client');
       
-      if (cachedProfile && cachedTransactions) {
-        setProfile(cachedProfile);
-        setTransactions(cachedTransactions);
-        setLoading(false);
-        
-        // Check if cache is stale - refresh in background if needed
-        const profileCacheEntry = cache.memoryCache.get(CACHE_KEYS.USER_PROFILE(user.id));
-        const transCacheEntry = cache.memoryCache.get(CACHE_KEYS.TRANSACTIONS(user.id));
-        
-        const profileAge = profileCacheEntry ? Date.now() - profileCacheEntry.timestamp : Infinity;
-        const transAge = transCacheEntry ? Date.now() - transCacheEntry.timestamp : Infinity;
-        const staleThreshold = Math.min(CACHE_TTL.USER_PROFILE, CACHE_TTL.TRANSACTIONS) / 2;
-        
-        if (profileAge > staleThreshold || transAge > staleThreshold) {
-          // Refresh in background
-          fetchWalletData(true).catch(() => {});
-        }
-        return;
-      }
-    }
+      // Fetch balance and transactions in parallel
+      const [balanceResponse, transactionsResponse] = await Promise.all([
+        walletApi.getBalance(),
+        walletApi.getTransactions({ limit: 5 }), // Only fetch 5 for wallet page preview
+      ]);
 
-    // No cache or forced refresh - fetch from API
-    // Fetch profile
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("balance")
-      .eq("id", user.id)
-      .single();
-
-    if (profileData) {
+      // Update profile with balance
+      const profileData = { balance: balanceResponse.balance };
       setProfile(profileData);
-    } else {
-      // Create profile if it doesn't exist
-      const { data: newProfile } = await supabase
-        .from("profiles")
-        .insert({ id: user.id, balance: 0 })
-        .select()
-        .single();
-      if (newProfile) {
-        setProfile(newProfile);
-      }
-    }
 
-    // Fetch transactions
-    const { data: transData } = await supabase
-      .from("transactions")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (transData) {
-      setTransactions(transData);
+      // Update transactions
+      // API returns { transactions: [...], meta: {...} }
+      const transData = transactionsResponse?.transactions || [];
       
-      // Cache the results
-      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
-      if (profileData) {
-        cache.set(CACHE_KEYS.USER_PROFILE(user.id), profileData, CACHE_TTL.USER_PROFILE);
+      if (transData.length > 0) {
+        console.log('Fetched transactions:', transData.length);
+      } else {
+        console.log('No transactions found. Response:', transactionsResponse);
       }
-      cache.set(CACHE_KEYS.TRANSACTIONS(user.id), transData, CACHE_TTL.TRANSACTIONS);
+      setTransactions(transData);
+    } catch (error) {
+      console.error("Error fetching wallet data:", error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, [user, supabase]);
-
-  useEffect(() => {
-    const getUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!data?.user) {
-        router.push("/wagers?login=true");
-        return;
-      }
-      setUser(data.user);
-    };
-
-    getUser();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(() => {
-      getUser();
-    });
-
-    return () => {
-      authListener?.subscription?.unsubscribe?.();
-    };
-  }, [supabase, router]);
+  }, [user]);
 
   useEffect(() => {
     if (user) {
@@ -287,15 +241,58 @@ function WalletContent() {
     const error = searchParams.get('error');
     const amount = searchParams.get('amount');
 
+    // Reset processing state when returning to wallet page
+    // (in case user closed payment modal without completing)
+    if (!success && !error) {
+      setProcessingPayment(false);
+      return;
+    }
+
     if (success === 'true' && amount) {
+      setProcessingPayment(false);
       toast({
         title: "Money added!",
         description: `${formatCurrency(parseFloat(amount), currency)} has been added to your wallet.`,
       });
-      fetchWalletData();
-      // Clean URL
-      router.replace('/wallet');
+      // Immediately refresh wallet data to show updated balance
+      // Clear cache and force refresh
+      fetchWalletData(true);
+      // Also refresh after a short delay to ensure we get the latest data
+      setTimeout(() => {
+        fetchWalletData(true);
+        router.replace('/wallet');
+      }, 500);
+    } else if (success === 'pending' && amount) {
+      setProcessingPayment(false);
+      toast({
+        title: "Payment processing...",
+        description: `Your payment of ${formatCurrency(parseFloat(amount), currency)} is being processed. Your balance will update shortly.`,
+      });
+      // Refresh wallet data immediately
+      fetchWalletData(true);
+      
+      // Poll for updates every 2 seconds for up to 30 seconds
+      let pollCount = 0;
+      const maxPolls = 15; // 15 * 2 seconds = 30 seconds
+      const pollInterval = setInterval(() => {
+        pollCount++;
+        fetchWalletData(true);
+        if (pollCount >= maxPolls) {
+          clearInterval(pollInterval);
+        }
+      }, 2000);
+      
+      // Clean URL after a short delay
+      setTimeout(() => {
+        router.replace('/wallet');
+      }, 100);
+      
+      // Clean up polling on unmount or when component updates
+      return () => {
+        clearInterval(pollInterval);
+      };
     } else if (error) {
+      setProcessingPayment(false);
       const errorMessages: Record<string, string> = {
         missing_reference: "Payment reference is missing.",
         config_error: "Payment service is not configured.",
@@ -312,8 +309,10 @@ function WalletContent() {
         description: errorMessages[error] || "Something went wrong with the payment. Please try again.",
         variant: "destructive",
       });
-      // Clean URL
-      router.replace('/wallet');
+      // Clean URL after a short delay
+      setTimeout(() => {
+        router.replace('/wallet');
+      }, 100);
     }
   }, [searchParams, toast, currency, router, fetchWalletData]);
 
@@ -332,7 +331,8 @@ function WalletContent() {
           filter: `id=eq.${user.id}`,
         },
         () => {
-          fetchWalletData();
+          // Force refresh when balance changes (clear cache)
+          fetchWalletData(true);
         }
       )
       .subscribe();
@@ -349,7 +349,8 @@ function WalletContent() {
           filter: `user_id=eq.${user.id}`,
         },
         () => {
-          fetchWalletData();
+          // Force refresh when transactions change (clear cache)
+          fetchWalletData(true);
         }
       )
       .subscribe();
@@ -427,6 +428,7 @@ function WalletContent() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Include cookies for session
         body: JSON.stringify({
           amount: amount,
           accountNumber: accountNumber,
@@ -437,7 +439,7 @@ function WalletContent() {
 
       const data = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || !data.success) {
         const { extractErrorFromResponse } = await import('@/lib/error-extractor');
         const errorMessage = await extractErrorFromResponse(response, 'Failed to process withdrawal');
         
@@ -449,8 +451,8 @@ function WalletContent() {
         return;
       }
 
-      // Check if withdrawal was successful
-      if (data.success) {
+      // Check if withdrawal was successful (new API format: data.data)
+      if (data.success && data.data) {
         toast({
           title: "Withdrawal on the way!",
           description: `We've received your request for ${formatCurrency(amount, currency)}. It should be in your bank account soon.`,
@@ -484,6 +486,156 @@ function WalletContent() {
       });
     } finally {
       setProcessingWithdrawal(false);
+    }
+  };
+
+  const handleTransfer = async () => {
+    if (!user) {
+      toast({
+        title: "Please log in",
+        description: "You need to be logged in to transfer funds.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate username
+    const trimmedUsername = transferUsername.trim().replace('@', '');
+    if (!trimmedUsername) {
+      toast({
+        title: "Who are you sending to?",
+        description: "Enter the username of the person you want to send money to.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedRecipient) {
+      toast({
+        title: "Please select a user",
+        description: "Select a user from the suggestions or enter a valid username.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate amount
+    const trimmedAmount = transferAmount.trim();
+    if (!trimmedAmount) {
+      toast({
+        title: "How much to send?",
+        description: "Enter the amount you want to transfer.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const amount = parseFloat(trimmedAmount);
+    
+    if (isNaN(amount)) {
+      toast({
+        title: "Invalid amount",
+        description: "Please enter a valid number.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (amount <= 0) {
+      toast({
+        title: "Amount needs to be more than zero",
+        description: "You can only transfer amounts greater than ₦0.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (amount < 1) {
+      toast({
+        title: "Minimum transfer is ₦1",
+        description: "You need to transfer at least ₦1.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Round to 2 decimal places to avoid floating point precision issues
+    const roundedAmount = Math.round(amount * 100) / 100;
+
+    // Check balance
+    if (!profile || profile.balance < roundedAmount) {
+      toast({
+        title: "Not enough in your wallet",
+        description: "You don't have enough money to transfer that amount.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Process transfer
+    setProcessingTransfer(true);
+    try {
+      const response = await fetch('/api/wallet/transfer', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          username: trimmedUsername,
+          amount: roundedAmount,
+          description: transferDescription.trim() || undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        const { extractErrorFromResponse } = await import('@/lib/error-extractor');
+        const errorMessage = await extractErrorFromResponse(response, 'Failed to process transfer');
+        
+        toast({
+          title: "Transfer failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Success
+      if (data.success && data.data) {
+        toast({
+          title: "Transfer successful!",
+          description: `${formatCurrency(roundedAmount, currency)} has been sent to @${selectedRecipient.username}`,
+        });
+
+        // Reset form
+        setTransferUsername("");
+        setTransferAmount("");
+        setTransferDescription("");
+        setSelectedRecipient(null);
+        
+        // Refresh wallet data
+        fetchWalletData(true);
+      } else {
+        toast({
+          title: "Transfer failed",
+          description: data.error || data.message || "Something went wrong. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error processing transfer:", error);
+      const { extractErrorMessage } = await import('@/lib/error-extractor');
+      const errorMessage = extractErrorMessage(error, "Something went wrong. Please try again.");
+      
+      toast({
+        title: "Transfer failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingTransfer(false);
     }
   };
 
@@ -531,11 +683,22 @@ function WalletContent() {
     // Initialize Paystack payment
     setProcessingPayment(true);
     try {
+      if (!user) {
+        toast({
+          title: "Please log in",
+          description: "You need to be logged in to make a deposit.",
+          variant: "destructive",
+        });
+        setProcessingPayment(false);
+        return;
+      }
+
       const response = await fetch('/api/payments/initialize', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Include cookies for session
         body: JSON.stringify({
           amount: amount * 100, // Convert to kobo (Paystack uses smallest currency unit)
           email: user.email,
@@ -551,11 +714,22 @@ function WalletContent() {
         throw new Error(errorMessage);
       }
 
-      // Open Paystack checkout
-      if (data.authorization_url && typeof window !== 'undefined') {
-        window.location.href = data.authorization_url;
-      } else {
-        throw new Error('Payment URL not received');
+      // Check for API error format
+      if (!data.success) {
+        const errorMessage = data.error?.message || 'Failed to initialize payment';
+        throw new Error(errorMessage);
+      }
+
+      // Open Paystack checkout (new API format: data.data.authorization_url)
+      const authUrl = data.data?.authorization_url;
+      if (!authUrl) {
+        console.error('Payment response data:', data);
+        console.error('Expected authorization_url in data.data.authorization_url');
+        throw new Error('Payment URL not received from server. Please try again.');
+      }
+      
+      if (typeof window !== 'undefined') {
+        window.location.href = authUrl;
       }
     } catch (error) {
       console.error("Error initializing payment:", error);
@@ -727,8 +901,92 @@ function WalletContent() {
           </div>
         </div>
 
+        {/* Transfer Section */}
+        <div className="bg-card border border-border rounded-lg p-3 md:p-5 mb-3 md:mb-6">
+          <div className="flex items-center gap-2 mb-2 md:mb-3">
+            <Send className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+            <h3 className="text-sm md:text-lg font-semibold">Transfer to User</h3>
+          </div>
+          <div className="space-y-2 md:space-y-3">
+            <UsernameInput
+              value={transferUsername}
+              onChange={(value) => {
+                setTransferUsername(value);
+                // Clear selected recipient if user manually changes the input
+                if (!value.startsWith('@') || value !== `@${selectedRecipient?.username}`) {
+                  setSelectedRecipient(null);
+                }
+              }}
+              onUserSelect={(user) => {
+                if (user) {
+                  setSelectedRecipient({ id: user.id, username: user.username });
+                } else {
+                  setSelectedRecipient(null);
+                }
+              }}
+              placeholder="Enter username (e.g., @username)"
+              disabled={processingTransfer}
+            />
+            <input
+              type="number"
+              value={transferAmount}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
+                  setTransferAmount(value);
+                }
+              }}
+              placeholder="Enter amount (minimum ₦1)"
+              className="w-full px-3 md:px-4 py-2 md:py-2.5 border border-input rounded-lg md:rounded-md bg-background text-foreground text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
+              min="1"
+              step="0.01"
+              disabled={processingTransfer}
+            />
+            <input
+              type="text"
+              value={transferDescription}
+              onChange={(e) => setTransferDescription(e.target.value)}
+              placeholder="Optional: Add a note (e.g., 'For winning the bet')"
+              className="w-full px-3 md:px-4 py-2 md:py-2.5 border border-input rounded-lg md:rounded-md bg-background text-foreground text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
+              maxLength={100}
+              disabled={processingTransfer}
+            />
+            <button
+              onClick={handleTransfer}
+              disabled={processingTransfer || !transferUsername.trim() || !transferAmount.trim() || !selectedRecipient}
+              className="w-full px-4 md:px-6 py-2 md:py-2.5 bg-primary text-primary-foreground rounded-lg md:rounded-md font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.98] touch-manipulation text-sm md:text-base flex items-center justify-center gap-2"
+            >
+              {processingTransfer ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4" />
+                  Send Transfer
+                </>
+              )}
+            </button>
+            <p className="text-[10px] md:text-xs text-muted-foreground">
+              Minimum transfer: ₦1. Transfers are instant and cannot be reversed.
+            </p>
+          </div>
+        </div>
+
         <div className="bg-card border border-border rounded-lg p-3 md:p-5">
-          <h3 className="text-sm md:text-lg font-semibold mb-3 md:mb-4">Transaction History</h3>
+          <div className="flex items-center justify-between mb-3 md:mb-4">
+            <h3 className="text-sm md:text-lg font-semibold">Transaction History</h3>
+            {transactions.length > 0 && (
+              <Link
+                href="/wallet/transactions"
+                className="flex items-center gap-1 text-xs md:text-sm text-primary hover:text-primary/80 transition-colors"
+              >
+                View All
+                <ArrowRight className="h-3 w-3 md:h-4 md:w-4" />
+              </Link>
+            )}
+          </div>
           {transactions.length === 0 ? (
             <p className="text-sm text-muted-foreground">No transactions yet</p>
           ) : (
@@ -740,7 +998,9 @@ function WalletContent() {
                 >
                   <div className="flex-1 min-w-0 pr-2">
                     <p className="font-medium capitalize text-foreground text-xs md:text-sm">
-                      {trans.type.replace("_", " ")}
+                      {trans.type === 'transfer_out' ? 'Transfer Sent' : 
+                       trans.type === 'transfer_in' ? 'Transfer Received' :
+                       trans.type.replace(/_/g, " ")}
                     </p>
                     {trans.description ? (
                       <>

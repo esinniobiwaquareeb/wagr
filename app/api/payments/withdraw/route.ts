@@ -1,6 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { requireAuth } from '@/lib/auth/server';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
+import { AppError, logError } from '@/lib/error-handler';
+import { ErrorCode } from '@/lib/error-handler';
+import { successResponseNext, appErrorToResponse, errorResponse } from '@/lib/api-response';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,20 +18,13 @@ export async function POST(request: NextRequest) {
     });
 
     if (!rateLimit.allowed) {
-      return NextResponse.json(
+      return errorResponse(
+        ErrorCode.RATE_LIMIT_EXCEEDED,
+        'Too many withdrawal requests. Please try again later.',
         {
-          error: 'Too many withdrawal requests. Please try again later.',
           retryAfter: Math.ceil((rateLimit.resetAt.getTime() - Date.now()) / 1000),
         },
-        {
-          status: 429,
-          headers: {
-            'Retry-After': Math.ceil((rateLimit.resetAt.getTime() - Date.now()) / 1000).toString(),
-            'X-RateLimit-Limit': '10',
-            'X-RateLimit-Remaining': rateLimit.remaining.toString(),
-            'X-RateLimit-Reset': rateLimit.resetAt.toISOString(),
-          },
-        }
+        429
       );
     }
 
@@ -36,37 +33,21 @@ export async function POST(request: NextRequest) {
 
     // Validate input
     if (!amount || typeof amount !== 'number' || amount <= 0) {
-      return NextResponse.json(
-        { error: 'Invalid amount' },
-        { status: 400 }
-      );
+      throw new AppError(ErrorCode.INVALID_INPUT, 'Invalid amount');
     }
 
     // Minimum withdrawal amount (₦100)
     if (amount < 100) {
-      return NextResponse.json(
-        { error: 'Minimum withdrawal amount is ₦100' },
-        { status: 400 }
-      );
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Minimum withdrawal amount is ₦100');
     }
 
     if (!accountNumber || !bankCode || !accountName) {
-      return NextResponse.json(
-        { error: 'Bank account details are required' },
-        { status: 400 }
-      );
+      throw new AppError(ErrorCode.INVALID_INPUT, 'Bank account details are required');
     }
 
-    // Verify user is authenticated
+    // Verify user is authenticated using custom auth
+    const user = await requireAuth();
     const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
 
     // Check user balance
     const { data: profile, error: profileError } = await supabase
@@ -76,17 +57,11 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (profileError || !profile) {
-      return NextResponse.json(
-        { error: 'Failed to fetch user balance' },
-        { status: 500 }
-      );
+      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch user balance');
     }
 
     if (profile.balance < amount) {
-      return NextResponse.json(
-        { error: 'Insufficient balance' },
-        { status: 400 }
-      );
+      throw new AppError(ErrorCode.INSUFFICIENT_BALANCE, 'Insufficient balance');
     }
 
     // Check withdrawal limits
@@ -97,28 +72,19 @@ export async function POST(request: NextRequest) {
       });
 
     if (limitError || !limitCheck || limitCheck.length === 0) {
-      return NextResponse.json(
-        { error: 'Failed to check withdrawal limits' },
-        { status: 500 }
-      );
+      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to check withdrawal limits');
     }
 
     const limitResult = limitCheck[0];
     if (!limitResult.allowed) {
-      return NextResponse.json(
-        { error: limitResult.reason || 'Withdrawal limit exceeded' },
-        { status: 400 }
-      );
+      throw new AppError(ErrorCode.WITHDRAWAL_LIMIT_EXCEEDED, limitResult.reason || 'Withdrawal limit exceeded');
     }
 
     // Get Paystack secret key
     const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
     if (!paystackSecretKey) {
-      console.error('PAYSTACK_SECRET_KEY is not set');
-      return NextResponse.json(
-        { error: 'Payment service not configured' },
-        { status: 500 }
-      );
+      logError(new Error('PAYSTACK_SECRET_KEY is not set'));
+      throw new AppError(ErrorCode.EXTERNAL_SERVICE_ERROR, 'Payment service not configured');
     }
 
     // Generate unique reference
@@ -142,11 +108,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (withdrawalError) {
-      console.error('Error creating withdrawal:', withdrawalError);
-      return NextResponse.json(
-        { error: 'Failed to create withdrawal request' },
-        { status: 500 }
-      );
+      logError(new Error(`Error creating withdrawal: ${withdrawalError.message}`));
+      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to create withdrawal request');
     }
 
     // Reserve the amount by deducting from balance
@@ -163,10 +126,7 @@ export async function POST(request: NextRequest) {
         .delete()
         .eq('id', withdrawal.id);
 
-      return NextResponse.json(
-        { error: 'Failed to process withdrawal' },
-        { status: 500 }
-      );
+      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to process withdrawal');
     }
 
     // Create pending transaction record
@@ -215,9 +175,11 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', withdrawal.id);
 
-      return NextResponse.json(
-        { error: recipientData.message || 'Failed to process withdrawal' },
-        { status: recipientResponse.status || 500 }
+      throw new AppError(
+        ErrorCode.PAYMENT_FAILED,
+        recipientData.message || 'Failed to process withdrawal',
+        { paystackError: recipientData },
+        recipientResponse.status || 500
       );
     }
 
@@ -266,9 +228,11 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', withdrawal.id);
 
-      return NextResponse.json(
-        { error: transferData.message || 'Failed to process withdrawal' },
-        { status: transferResponse.status || 500 }
+      throw new AppError(
+        ErrorCode.PAYMENT_FAILED,
+        transferData.message || 'Failed to process withdrawal',
+        { paystackError: transferData },
+        transferResponse.status || 500
       );
     }
 
@@ -297,8 +261,7 @@ export async function POST(request: NextRequest) {
       // Note: Paystack will send a webhook when transfer is completed
       // We'll handle the final status update in the webhook handler
 
-      return NextResponse.json({
-        success: true,
+      return successResponseNext({
         message: 'Withdrawal request submitted successfully',
         withdrawal: {
           id: withdrawal.id,
@@ -308,11 +271,8 @@ export async function POST(request: NextRequest) {
         },
       });
   } catch (error) {
-    console.error('Error processing withdrawal:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    logError(error as Error);
+    return appErrorToResponse(error);
   }
 }
 

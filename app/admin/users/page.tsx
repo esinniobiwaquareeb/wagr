@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
@@ -9,6 +8,8 @@ import { format } from "date-fns";
 import { Shield, User as UserIcon, Lock, Coins, TrendingUp, Calendar } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import Image from "next/image";
+import { getCurrentUser } from "@/lib/auth/client";
+import { apiGet } from "@/lib/api-client";
 
 interface User {
   id: string;
@@ -25,7 +26,6 @@ interface User {
 }
 
 export default function AdminUsersPage() {
-  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
@@ -34,64 +34,22 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
 
   const checkAdmin = useCallback(async () => {
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
-    if (!currentUser) {
+    const currentUser = await getCurrentUser();
+    if (!currentUser || !currentUser.is_admin) {
       router.push("/admin/login");
       return;
     }
 
     setUser(currentUser);
-
-    const { data: profile, error } = await supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", currentUser.id)
-      .single();
-
-    if (error || !profile?.is_admin) {
-      router.push("/admin/login");
-      return;
-    }
-
     setIsAdmin(true);
-  }, [supabase, router]);
+  }, [router]);
 
-  const fetchUsers = useCallback(async (force = false) => {
+  const fetchUsers = useCallback(async () => {
     if (!isAdmin) return;
 
-    // Check cache first
-    if (!force) {
-      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
-      const cached = cache.get<User[]>(CACHE_KEYS.ADMIN_USERS);
-      
-      if (cached) {
-        setUsers(cached);
-        
-        // Check if cache is stale - refresh in background if needed
-        const cacheEntry = cache.memoryCache.get(CACHE_KEYS.ADMIN_USERS);
-        if (cacheEntry) {
-          const age = Date.now() - cacheEntry.timestamp;
-          const staleThreshold = CACHE_TTL.ADMIN_DATA / 2;
-          
-          if (age > staleThreshold) {
-            fetchUsers(true).catch(() => {});
-          }
-        }
-        return;
-      }
-    }
-
     try {
-      const response = await fetch("/api/admin/users");
-      if (!response.ok) {
-        throw new Error("Failed to fetch users");
-      }
-      const { users: usersData } = await response.json();
-      setUsers(usersData || []);
-      
-      // Cache the results
-      const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
-      cache.set(CACHE_KEYS.ADMIN_USERS, usersData || [], CACHE_TTL.ADMIN_DATA);
+      const response = await apiGet<{ users: User[] }>('/admin/users');
+      setUsers(response.users || []);
     } catch (error) {
       console.error("Error fetching users:", error);
       toast({

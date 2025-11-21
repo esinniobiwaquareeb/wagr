@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { NextRequest } from 'next/server';
+import { requireAuth } from '@/lib/auth/server';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
-import { AppError, formatErrorResponse, logError } from '@/lib/error-handler';
+import { AppError, logError } from '@/lib/error-handler';
 import { ErrorCode } from '@/lib/error-handler';
+import { successResponseNext, appErrorToResponse, errorResponse } from '@/lib/api-response';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,20 +17,13 @@ export async function POST(request: NextRequest) {
     });
 
     if (!rateLimit.allowed) {
-      return NextResponse.json(
+      return errorResponse(
+        ErrorCode.RATE_LIMIT_EXCEEDED,
+        'Too many payment requests. Please try again later.',
         {
-          error: 'Too many payment requests. Please try again later.',
           retryAfter: Math.ceil((rateLimit.resetAt.getTime() - Date.now()) / 1000),
         },
-        {
-          status: 429,
-          headers: {
-            'Retry-After': Math.ceil((rateLimit.resetAt.getTime() - Date.now()) / 1000).toString(),
-            'X-RateLimit-Limit': '20',
-            'X-RateLimit-Remaining': rateLimit.remaining.toString(),
-            'X-RateLimit-Reset': rateLimit.resetAt.toISOString(),
-          },
-        }
+        429
       );
     }
 
@@ -49,11 +43,11 @@ export async function POST(request: NextRequest) {
       throw new AppError(ErrorCode.INVALID_INPUT, 'User ID is required');
     }
 
-    // Verify user is authenticated
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Verify user is authenticated using custom auth
+    const user = await requireAuth();
 
-    if (authError || !user || user.id !== userId) {
+    // Verify the userId matches the authenticated user
+    if (user.id !== userId) {
       throw new AppError(ErrorCode.UNAUTHORIZED, 'Unauthorized');
     }
 
@@ -98,21 +92,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate Paystack response structure
+    if (!paystackData.data || !paystackData.data.authorization_url) {
+      logError(new Error('Invalid Paystack response structure'), { paystackData });
+      throw new AppError(
+        ErrorCode.EXTERNAL_SERVICE_ERROR,
+        'Invalid response from payment service',
+        { paystackData },
+        500
+      );
+    }
+
     // Don't create pending transaction - only create successful deposit when payment is verified
-    return NextResponse.json({
+    return successResponseNext({
       authorization_url: paystackData.data.authorization_url,
       access_code: paystackData.data.access_code,
       reference: paystackData.data.reference,
     });
   } catch (error) {
     logError(error as Error);
-    if (error instanceof AppError) {
-      return NextResponse.json(formatErrorResponse(error), { status: error.statusCode });
-    }
-    return NextResponse.json(
-      formatErrorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 'Payment initialization failed')),
-      { status: 500 }
-    );
+    return appErrorToResponse(error);
   }
 }
 

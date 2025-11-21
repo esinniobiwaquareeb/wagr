@@ -72,6 +72,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Skip wallet/balance and wallet/transactions endpoints - never cache these
+  if (url.pathname.includes('/api/wallet/balance') || url.pathname.includes('/api/wallet/transactions')) {
+    // Always fetch fresh from network, never cache
+    event.respondWith(fetch(request));
+    return;
+  }
+
   event.respondWith(
     (async () => {
       // Determine cache strategy based on request type

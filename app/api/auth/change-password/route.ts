@@ -1,8 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { AppError, formatErrorResponse, logError } from '@/lib/error-handler';
+import { getCurrentUserId } from '@/lib/auth/session';
+import { verifyPassword, hashPassword } from '@/lib/auth/password';
+import { sendEmail } from '@/lib/email-service';
+import { AppError, logError } from '@/lib/error-handler';
 import { ErrorCode } from '@/lib/error-handler';
 import { withRateLimit } from '@/lib/middleware-rate-limit';
+import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 
 export async function POST(request: NextRequest) {
   return withRateLimit(
@@ -25,27 +29,38 @@ export async function POST(request: NextRequest) {
           throw new AppError(ErrorCode.VALIDATION_ERROR, 'New password must be at least 6 characters long');
         }
 
-        const supabase = await createClient();
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-        if (authError || !user || !user.email) {
+        const userId = await getCurrentUserId();
+        if (!userId) {
           throw new AppError(ErrorCode.UNAUTHORIZED, 'You must be logged in to change your password');
         }
 
-        // Verify current password by attempting to sign in
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: user.email,
-          password: currentPassword,
-        });
+        const supabase = await createClient();
 
-        if (signInError) {
+        // Get user profile with password hash
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('password_hash, email, username')
+          .eq('id', userId)
+          .single();
+
+        if (profileError || !profile) {
+          throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch profile');
+        }
+
+        // Verify current password
+        const passwordMatch = await verifyPassword(currentPassword, profile.password_hash);
+        if (!passwordMatch) {
           throw new AppError(ErrorCode.INVALID_CREDENTIALS, 'Current password is incorrect');
         }
 
+        // Hash new password
+        const newPasswordHash = await hashPassword(newPassword);
+
         // Update password
-        const { error: updateError } = await supabase.auth.updateUser({
-          password: newPassword,
-        });
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ password_hash: newPasswordHash })
+          .eq('id', userId);
 
         if (updateError) {
           throw new AppError(ErrorCode.INTERNAL_ERROR, 'Failed to update password. Please try again');
@@ -53,41 +68,25 @@ export async function POST(request: NextRequest) {
 
         // Send password changed email
         try {
-          const { generateEmailHTML, generateEmailText, getEmailSubject } = await import('@/lib/email-templates');
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('username')
-            .eq('id', user.id)
-            .single();
-
-          const emailData = {
-            type: 'password-changed' as const,
-            recipientEmail: user.email,
-            recipientName: profile?.username || undefined,
-            changeDate: new Date().toLocaleString(),
-          };
-
-          // Note: In production, you'd send this via your email service
-          // For now, Supabase handles password change notifications automatically
-          // This template can be used if you set up custom email sending
+          await sendEmail({
+            to: profile.email,
+            type: 'password-changed',
+            data: {
+              recipientName: profile.username || undefined,
+              changeDate: new Date().toLocaleString(),
+            },
+          });
         } catch (emailError) {
           // Log but don't fail the password change
           logError(emailError as Error);
         }
 
-        return NextResponse.json({
-          success: true,
+        return successResponseNext({
           message: 'Password changed successfully',
         });
       } catch (error) {
         logError(error as Error);
-        if (error instanceof AppError) {
-          return NextResponse.json(formatErrorResponse(error), { status: error.statusCode });
-        }
-        return NextResponse.json(
-          formatErrorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 'Failed to change password. Please try again')),
-          { status: 500 }
-        );
+        return appErrorToResponse(error);
       }
     }
   );
