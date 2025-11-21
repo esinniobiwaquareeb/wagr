@@ -7,12 +7,15 @@ import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
-import { Loader2, Send, User, ArrowRight, Wallet as WalletIcon, ArrowDownCircle, ArrowUpCircle, Smartphone, Sparkles, Wifi, Zap, Home, CreditCard, Phone, CheckCircle2, TrendingUp } from "lucide-react";
-import Link from "next/link";
-import { BackButton } from "@/components/back-button";
-import { UsernameInput } from "@/components/username-input";
+import { Send, ArrowDownCircle, ArrowUpCircle, Smartphone } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { BalanceCard } from "@/components/wallet/balance-card";
+import { DepositTab } from "@/components/wallet/deposit-tab";
+import { WithdrawTab } from "@/components/wallet/withdraw-tab";
+import { TransferTab } from "@/components/wallet/transfer-tab";
+import { BillsTab } from "@/components/wallet/bills-tab";
+import { TransactionHistory } from "@/components/wallet/transaction-history";
 
 interface Profile {
   balance: number;
@@ -26,58 +29,6 @@ interface Transaction {
   reference: string | null;
   description?: string | null;
 }
-
-const BILL_CATEGORIES = [
-  {
-    id: "airtime",
-    name: "Airtime",
-    icon: Smartphone,
-    color: "from-blue-500 to-blue-600",
-    description: "Top up your phone",
-    popular: true,
-  },
-  {
-    id: "data",
-    name: "Data",
-    icon: Wifi,
-    color: "from-purple-500 to-purple-600",
-    description: "Buy internet data",
-    popular: true,
-  },
-  {
-    id: "electricity",
-    name: "Electricity",
-    icon: Zap,
-    color: "from-yellow-500 to-orange-500",
-    description: "Pay electricity bills",
-    popular: false,
-  },
-  {
-    id: "cable",
-    name: "Cable TV",
-    icon: Home,
-    color: "from-green-500 to-emerald-600",
-    description: "DSTV, GOtv & more",
-    popular: false,
-  },
-  {
-    id: "other",
-    name: "Other Bills",
-    icon: CreditCard,
-    color: "from-gray-500 to-gray-600",
-    description: "More bill types",
-    popular: false,
-  },
-];
-
-const AIRTIME_AMOUNTS = [100, 200, 500, 1000, 2000, 5000];
-const DATA_PLANS = [
-  { name: "500MB", amount: 200, validity: "30 days" },
-  { name: "1GB", amount: 350, validity: "30 days" },
-  { name: "2GB", amount: 600, validity: "30 days" },
-  { name: "5GB", amount: 1200, validity: "30 days" },
-  { name: "10GB", amount: 2000, validity: "30 days" },
-];
 
 function WalletContent() {
   const supabase = useMemo(() => createClient(), []);
@@ -107,11 +58,6 @@ function WalletContent() {
   const [processingTransfer, setProcessingTransfer] = useState(false);
   const [selectedRecipient, setSelectedRecipient] = useState<{ id: string; username: string } | null>(null);
   const [activeTab, setActiveTab] = useState<"deposit" | "withdraw" | "transfer" | "bills">("deposit");
-  const [selectedBillCategory, setSelectedBillCategory] = useState<string | null>(null);
-  const [billPhoneNumber, setBillPhoneNumber] = useState("");
-  const [selectedBillAmount, setSelectedBillAmount] = useState<number | null>(null);
-  const [selectedBillPlan, setSelectedBillPlan] = useState<typeof DATA_PLANS[0] | null>(null);
-  const [processingBill, setProcessingBill] = useState(false);
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
 
@@ -847,46 +793,7 @@ function WalletContent() {
         </div>
 
         {/* Balance Card */}
-        <Card className="mb-4 md:mb-6 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground border-primary/20">
-          <CardContent className="p-4 md:p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs md:text-sm opacity-90 mb-1 md:mb-2">Current Balance</p>
-                <h2 className="text-2xl md:text-4xl font-bold">{formatCurrency(profile?.balance || 0, currency)}</h2>
-              </div>
-              <WalletIcon className="h-8 w-8 md:h-12 md:w-12 opacity-75" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Bills Payment Card - Always Available */}
-        {profile && (
-          <Card className="mb-4 md:mb-6 border-2 border-primary/20 bg-gradient-to-br from-primary/5 via-primary/10 to-transparent hover:border-primary/40 transition-colors">
-            <CardContent className="p-4 md:p-6">
-              <div className="flex items-start gap-4">
-                <div className="p-3 bg-primary/20 rounded-xl flex-shrink-0">
-                  <Sparkles className="h-6 w-6 md:h-8 md:w-8 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-base md:text-lg font-bold mb-1 flex items-center gap-2">
-                    Pay Bills with Wallet
-                    <span className="px-2 py-0.5 text-xs bg-primary/20 text-primary rounded-full font-medium">New</span>
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Buy airtime, data, pay electricity bills, and more directly from your wallet balance. Fast, easy, and convenient!
-                  </p>
-                  <Link
-                    href="/wallet/bills"
-                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition active:scale-95 touch-manipulation font-medium text-sm"
-                  >
-                    <Smartphone className="h-4 w-4" />
-                    Pay Bills Now
-                  </Link>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {profile && <BalanceCard balance={profile.balance} currency={currency} />}
 
         {/* Actions Tabs */}
         <Card className="mb-4 md:mb-6">
@@ -917,545 +824,78 @@ function WalletContent() {
 
               {/* Deposit Tab */}
               <TabsContent value="deposit" className="space-y-4 mt-0">
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Amount</label>
-                    <input
-                      type="number"
-                      value={depositAmount}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
-                          setDepositAmount(value);
-                        }
-                      }}
-                      placeholder="Enter amount (minimum ₦100)"
-                      className="w-full px-4 py-2.5 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                      min="100"
-                      step="0.01"
-                      disabled={processingPayment}
-                    />
-                  </div>
-                  <button
-                    onClick={handleDeposit}
-                    disabled={processingPayment || !depositAmount.trim()}
-                    className="w-full px-6 py-2.5 bg-primary text-primary-foreground rounded-md font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2"
-                  >
-                    {processingPayment ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <ArrowDownCircle className="h-4 w-4" />
-                        Deposit Funds
-                      </>
-                    )}
-                  </button>
-                  <p className="text-xs text-muted-foreground text-center">
-                    Minimum deposit: ₦100. Secure payment powered by Paystack.
-                  </p>
-                </div>
+                <DepositTab
+                  depositAmount={depositAmount}
+                  setDepositAmount={setDepositAmount}
+                  processingPayment={processingPayment}
+                  onDeposit={handleDeposit}
+                />
               </TabsContent>
 
               {/* Withdraw Tab */}
               <TabsContent value="withdraw" className="space-y-4 mt-0">
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Amount</label>
-                    <input
-                      type="number"
-                      value={withdrawAmount}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
-                          setWithdrawAmount(value);
-                        }
-                      }}
-                      placeholder="Enter amount (minimum ₦100)"
-                      className="w-full px-4 py-2.5 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                      min="100"
-                      step="0.01"
-                      disabled={processingWithdrawal}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Bank</label>
-                    <select
-                      value={bankCode}
-                      onChange={(e) => setBankCode(e.target.value)}
-                      className="w-full px-4 py-2.5 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                      disabled={processingWithdrawal || loadingBanks}
-                    >
-                      <option value="">Select Bank</option>
-                      {banks.map((bank) => {
-                        const uniqueKey = `${bank.code}-${bank.name}`;
-                        return (
-                          <option key={uniqueKey} value={bank.code}>
-                            {bank.name}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Account Number</label>
-                    <input
-                      type="text"
-                      value={accountNumber}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                        setAccountNumber(value);
-                      }}
-                      placeholder="Enter 10-digit account number"
-                      className="w-full px-4 py-2.5 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                      maxLength={10}
-                      disabled={processingWithdrawal}
-                    />
-                    {accountName && (
-                      <p className="text-xs text-green-600 dark:text-green-400 mt-2">
-                        ✓ Account Name: {accountName}
-                      </p>
-                    )}
-                    {verifyingAccount && !accountName && (
-                      <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        Verifying account...
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    onClick={handleWithdraw}
-                    disabled={processingWithdrawal || verifyingAccount || !withdrawAmount.trim() || !accountNumber || !bankCode || !accountName}
-                    className="w-full px-6 py-2.5 bg-primary text-primary-foreground rounded-md font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2"
-                  >
-                    {processingWithdrawal ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <ArrowUpCircle className="h-4 w-4" />
-                        Withdraw Funds
-                      </>
-                    )}
-                  </button>
-                  <p className="text-xs text-muted-foreground text-center">
-                    Minimum withdrawal: ₦100. Funds will be transferred to your bank account.
-                  </p>
-                </div>
+                <WithdrawTab
+                  withdrawAmount={withdrawAmount}
+                  setWithdrawAmount={setWithdrawAmount}
+                  accountNumber={accountNumber}
+                  setAccountNumber={setAccountNumber}
+                  bankCode={bankCode}
+                  setBankCode={setBankCode}
+                  accountName={accountName}
+                  banks={banks}
+                  loadingBanks={loadingBanks}
+                  verifyingAccount={verifyingAccount}
+                  processingWithdrawal={processingWithdrawal}
+                  balance={profile?.balance || 0}
+                  onWithdraw={handleWithdraw}
+                  onVerifyAccount={verifyAccount}
+                  onLoadBanks={fetchBanks}
+                />
               </TabsContent>
 
               {/* Transfer Tab */}
               <TabsContent value="transfer" className="space-y-4 mt-0">
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Recipient Username</label>
-                    <UsernameInput
-                      value={transferUsername}
-                      onChange={(value) => {
-                        setTransferUsername(value);
-                        if (!value.startsWith('@') || value !== `@${selectedRecipient?.username}`) {
-                          setSelectedRecipient(null);
-                        }
-                      }}
-                      onUserSelect={(user) => {
-                        if (user) {
-                          setSelectedRecipient({ id: user.id, username: user.username });
-                        } else {
-                          setSelectedRecipient(null);
-                        }
-                      }}
-                      placeholder="Enter username (e.g., @username)"
-                      disabled={processingTransfer}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Amount</label>
-                    <input
-                      type="number"
-                      value={transferAmount}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
-                          setTransferAmount(value);
-                        }
-                      }}
-                      placeholder="Enter amount (minimum ₦1)"
-                      className="w-full px-4 py-2.5 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                      min="1"
-                      step="0.01"
-                      disabled={processingTransfer}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Note (Optional)</label>
-                    <input
-                      type="text"
-                      value={transferDescription}
-                      onChange={(e) => setTransferDescription(e.target.value)}
-                      placeholder="Add a note (e.g., 'For winning the bet')"
-                      className="w-full px-4 py-2.5 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                      maxLength={100}
-                      disabled={processingTransfer}
-                    />
-                  </div>
-                  <button
-                    onClick={handleTransfer}
-                    disabled={processingTransfer || !transferUsername.trim() || !transferAmount.trim() || !selectedRecipient}
-                    className="w-full px-6 py-2.5 bg-primary text-primary-foreground rounded-md font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2"
-                  >
-                    {processingTransfer ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="h-4 w-4" />
-                        Send Transfer
-                      </>
-                    )}
-                  </button>
-                  <p className="text-xs text-muted-foreground text-center">
-                    Minimum transfer: ₦1. Transfers are instant and cannot be reversed.
-                  </p>
-                </div>
+                <TransferTab
+                  transferUsername={transferUsername}
+                  setTransferUsername={setTransferUsername}
+                  transferAmount={transferAmount}
+                  setTransferAmount={setTransferAmount}
+                  transferDescription={transferDescription}
+                  setTransferDescription={setTransferDescription}
+                  selectedRecipient={selectedRecipient}
+                  setSelectedRecipient={setSelectedRecipient}
+                  processingTransfer={processingTransfer}
+                  balance={profile?.balance || 0}
+                  currency={currency}
+                  onTransfer={handleTransfer}
+                />
               </TabsContent>
 
               {/* Bills Payment Tab */}
               <TabsContent value="bills" className="space-y-4 mt-0">
-                {!selectedBillCategory ? (
-                  /* Category Selection */
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-sm font-medium mb-3">Select a service</h3>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {BILL_CATEGORIES.map((category) => {
-                          const Icon = category.icon;
-                          return (
-                            <button
-                              key={category.id}
-                              onClick={() => setSelectedBillCategory(category.id)}
-                              className="group relative p-4 bg-card border-2 border-border rounded-xl hover:border-primary/50 transition-all active:scale-95 touch-manipulation text-left"
-                            >
-                              {category.popular && (
-                                <span className="absolute top-2 right-2 px-2 py-0.5 text-[10px] font-medium bg-primary/10 text-primary rounded-full">
-                                  Popular
-                                </span>
-                              )}
-                              <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${category.color} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
-                                <Icon className="h-6 w-6 text-white" />
-                              </div>
-                              <h4 className="font-semibold text-sm mb-1">{category.name}</h4>
-                              <p className="text-xs text-muted-foreground">{category.description}</p>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  /* Purchase Form */
-                  <div className="space-y-4">
-                    <button
-                      onClick={() => {
-                        setSelectedBillCategory(null);
-                        setBillPhoneNumber("");
-                        setSelectedBillAmount(null);
-                        setSelectedBillPlan(null);
-                      }}
-                      className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition"
-                    >
-                      <ArrowRight className="h-4 w-4 rotate-180" />
-                      Back to categories
-                    </button>
-
-                    {/* Phone Number Input */}
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Phone Number</label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                        <input
-                          type="tel"
-                          value={billPhoneNumber}
-                          onChange={(e) => setBillPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 11))}
-                          placeholder="08012345678"
-                          className="w-full pl-10 pr-4 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
-                          maxLength={11}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Amount/Plan Selection */}
-                    {selectedBillCategory === 'airtime' && (
-                      <div>
-                        <label className="block text-sm font-medium mb-3">Select Amount</label>
-                        <div className="grid grid-cols-3 gap-2">
-                          {AIRTIME_AMOUNTS.map((amount) => (
-                            <button
-                              key={amount}
-                              onClick={() => {
-                                if (!profile || profile.balance < amount) {
-                                  toast({
-                                    title: "Insufficient balance",
-                                    description: `You need ${formatCurrency(amount, currency)} but only have ${formatCurrency(profile?.balance || 0, currency)}`,
-                                    variant: "destructive",
-                                  });
-                                  return;
-                                }
-                                setSelectedBillAmount(amount);
-                              }}
-                              disabled={!profile || profile.balance < amount}
-                              className={`p-3 rounded-lg border-2 transition-all active:scale-95 touch-manipulation ${
-                                selectedBillAmount === amount
-                                  ? 'border-primary bg-primary/10 font-semibold'
-                                  : !profile || profile.balance < amount
-                                  ? 'border-border opacity-50 cursor-not-allowed'
-                                  : 'border-border hover:border-primary/50'
-                              }`}
-                            >
-                              <div className="text-sm font-medium">{formatCurrency(amount, currency)}</div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {selectedBillCategory === 'data' && (
-                      <div>
-                        <label className="block text-sm font-medium mb-3">Select Data Plan</label>
-                        <div className="space-y-2">
-                          {DATA_PLANS.map((plan) => (
-                            <button
-                              key={plan.name}
-                              onClick={() => {
-                                if (!profile || profile.balance < plan.amount) {
-                                  toast({
-                                    title: "Insufficient balance",
-                                    description: `You need ${formatCurrency(plan.amount, currency)} but only have ${formatCurrency(profile?.balance || 0, currency)}`,
-                                    variant: "destructive",
-                                  });
-                                  return;
-                                }
-                                setSelectedBillPlan(plan);
-                                setSelectedBillAmount(plan.amount);
-                              }}
-                              disabled={!profile || profile.balance < plan.amount}
-                              className={`w-full p-3 rounded-lg border-2 transition-all active:scale-95 touch-manipulation text-left ${
-                                selectedBillPlan?.name === plan.name
-                                  ? 'border-primary bg-primary/10'
-                                  : !profile || profile.balance < plan.amount
-                                  ? 'border-border opacity-50 cursor-not-allowed'
-                                  : 'border-border hover:border-primary/50'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <div className="font-semibold text-sm">{plan.name}</div>
-                                  <div className="text-xs text-muted-foreground">{plan.validity}</div>
-                                </div>
-                                <div className="font-bold">{formatCurrency(plan.amount, currency)}</div>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {(selectedBillCategory === 'electricity' || selectedBillCategory === 'cable' || selectedBillCategory === 'other') && (
-                      <div>
-                        <label className="block text-sm font-medium mb-2">Enter Amount</label>
-                        <input
-                          type="number"
-                          value={selectedBillAmount || ''}
-                          onChange={(e) => {
-                            const value = parseFloat(e.target.value);
-                            if (!isNaN(value) && value > 0) {
-                              setSelectedBillAmount(value);
-                            } else {
-                              setSelectedBillAmount(null);
-                            }
-                          }}
-                          placeholder="Enter amount"
-                          min="1"
-                          max={profile?.balance || 0}
-                          className="w-full px-4 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
-                        />
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Available: {formatCurrency(profile?.balance || 0, currency)}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Summary */}
-                    {selectedBillAmount && (
-                      <div className="p-4 bg-muted/50 rounded-lg space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Amount</span>
-                          <span className="font-semibold">{formatCurrency(selectedBillAmount, currency)}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Balance</span>
-                          <span>{formatCurrency(profile?.balance || 0, currency)}</span>
-                        </div>
-                        <div className="pt-2 border-t border-border flex items-center justify-between">
-                          <span className="font-semibold">Remaining</span>
-                          <span className="font-bold text-lg">
-                            {formatCurrency((profile?.balance || 0) - selectedBillAmount, currency)}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Purchase Button */}
-                    <button
-                      onClick={async () => {
-                        if (!user || !profile || !selectedBillCategory) return;
-
-                        if (!billPhoneNumber.trim()) {
-                          toast({
-                            title: "Phone number required",
-                            description: "Please enter a phone number",
-                            variant: "destructive",
-                          });
-                          return;
-                        }
-
-                        if (!selectedBillAmount || selectedBillAmount <= 0) {
-                          toast({
-                            title: "Amount required",
-                            description: "Please select an amount or plan",
-                            variant: "destructive",
-                          });
-                          return;
-                        }
-
-                        if (profile.balance < selectedBillAmount) {
-                          toast({
-                            title: "Insufficient balance",
-                            description: "You don't have enough funds",
-                            variant: "destructive",
-                          });
-                          return;
-                        }
-
-                        setProcessingBill(true);
-                        try {
-                          // TODO: Integrate with bills payment API
-                          await new Promise(resolve => setTimeout(resolve, 2000));
-                          
-                          toast({
-                            title: "Purchase successful!",
-                            description: `${selectedBillCategory === 'airtime' ? 'Airtime' : selectedBillCategory === 'data' ? 'Data' : 'Bill'} purchase completed`,
-                          });
-
-                          // Reset form
-                          setSelectedBillCategory(null);
-                          setBillPhoneNumber("");
-                          setSelectedBillAmount(null);
-                          setSelectedBillPlan(null);
-                          
-                          // Refresh balance
-                          await fetchWalletData(true);
-                        } catch (error) {
-                          toast({
-                            title: "Purchase failed",
-                            description: "Something went wrong. Please try again.",
-                            variant: "destructive",
-                          });
-                        } finally {
-                          setProcessingBill(false);
-                        }
-                      }}
-                      disabled={!billPhoneNumber.trim() || !selectedBillAmount || selectedBillAmount <= 0 || processingBill || (!profile || profile.balance < selectedBillAmount)}
-                      className="w-full px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2"
-                    >
-                      {processingBill ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Processing...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="h-4 w-4" />
-                          Complete Purchase
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
+                <BillsTab
+                  balance={profile?.balance || 0}
+                  currency={currency}
+                  onPurchase={async (category, phoneNumber, amount) => {
+                    // TODO: Integrate with bills payment API
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    toast({
+                      title: "Purchase successful!",
+                      description: `${category === 'airtime' ? 'Airtime' : category === 'data' ? 'Data' : 'Bill'} purchase completed`,
+                    });
+                    
+                    // Refresh balance
+                    await fetchWalletData(true);
+                  }}
+                />
               </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
 
         {/* Transaction History */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Transaction History</CardTitle>
-              {transactions.length > 0 && (
-                <Link
-                  href="/wallet/transactions"
-                  className="flex items-center gap-1 text-sm text-primary hover:text-primary/80 transition-colors"
-                >
-                  View All
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              )}
-            </div>
-            <CardDescription>Recent wallet transactions</CardDescription>
-          </CardHeader>
-          <CardContent>
-          {transactions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No transactions yet</p>
-          ) : (
-            <div className="space-y-2 md:space-y-3">
-              {transactions.map((trans) => (
-                <div
-                  key={trans.id}
-                  className="flex justify-between items-start pb-2 md:pb-3 border-b border-border last:border-b-0 gap-2 md:gap-3"
-                >
-                  <div className="flex-1 min-w-0 pr-2">
-                    <p className="font-medium capitalize text-foreground text-xs md:text-sm">
-                      {trans.type === 'transfer_out' ? 'Transfer Sent' : 
-                       trans.type === 'transfer_in' ? 'Transfer Received' :
-                       trans.type.replace(/_/g, " ")}
-                    </p>
-                    {trans.description ? (
-                      <>
-                        <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                          {trans.description}
-                        </p>
-                        <p className="text-[9px] md:text-[10px] text-muted-foreground/70 mt-0.5">
-                          {format(new Date(trans.created_at), "MMM d, yyyy h:mm a")}
-                        </p>
-                      </>
-                    ) : (
-                      <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5">
-                        {format(new Date(trans.created_at), "MMM d, yyyy h:mm a")}
-                      </p>
-                    )}
-                  </div>
-                  <p
-                    className={`font-semibold text-xs md:text-base whitespace-nowrap flex-shrink-0 ${
-                      trans.amount > 0
-                        ? "text-green-600 dark:text-green-400"
-                        : "text-red-600 dark:text-red-400"
-                    }`}
-                  >
-                    {trans.amount > 0 ? "+" : ""}
-                    {formatCurrency(Math.abs(trans.amount), currency)}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-          </CardContent>
-        </Card>
+        <TransactionHistory transactions={transactions} currency={currency} />
       </div>
     </main>
   );
