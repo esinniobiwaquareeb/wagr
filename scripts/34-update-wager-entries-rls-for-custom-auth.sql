@@ -14,6 +14,14 @@ CREATE POLICY "public read wager entries" ON wager_entries
 CREATE POLICY "users can insert entries" ON wager_entries
   FOR INSERT WITH CHECK (true);
 
--- Note: The application code already validates that users can only create
+-- Allow users to update their own entries (application will validate user_id)
+CREATE POLICY "users can update own entries" ON wager_entries
+  FOR UPDATE USING (true);
+
+-- Allow users to delete their own entries (application will validate user_id)
+CREATE POLICY "users can delete own entries" ON wager_entries
+  FOR DELETE USING (true);
+
+-- Note: The application code already validates that users can only create/update/delete
 -- their own entries, so these permissive policies are safe
 

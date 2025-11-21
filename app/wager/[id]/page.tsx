@@ -256,8 +256,19 @@ export default function WagerDetail() {
 
     // Check if user already has an entry
     if (userEntry) {
-      // If user is on the same side, show unjoin dialog
+      // If user is on the same side, check if they can unjoin
       if (userEntry.side === side) {
+        // If creator and others have joined, don't allow unjoin
+        const isCreator = wager.creator_id === user.id;
+        const otherUserEntries = entries.filter(entry => entry.user_id !== user.id);
+        if (isCreator && otherUserEntries.length > 0) {
+          toast({
+            title: "Cannot unjoin",
+            description: "As the creator, you cannot unjoin this wager because other users have placed bets. You can switch sides instead.",
+            variant: "destructive",
+          });
+          return;
+        }
         setShowUnjoinDialog(true);
         return;
       }
@@ -460,14 +471,37 @@ export default function WagerDetail() {
 
     setUnjoining(true);
     try {
+      // Fetch fresh entries from database to ensure we have the latest data
+      const { data: freshEntries, error: entriesError } = await supabase
+        .from("wager_entries")
+        .select("*")
+        .eq("wager_id", wager.id);
+
+      if (entriesError) {
+        throw entriesError;
+      }
+
       // Check if user is the creator and if other users have joined
       const isCreator = wager.creator_id === user.id;
-      const otherUserEntries = entries.filter(entry => entry.user_id !== user.id);
+      const otherUserEntries = (freshEntries || []).filter(entry => entry.user_id !== user.id);
       
       if (isCreator && otherUserEntries.length > 0) {
         toast({
           title: "Cannot unjoin",
           description: "As the creator, you cannot unjoin this wager because other users have placed bets. You can switch sides instead.",
+          variant: "destructive",
+        });
+        setUnjoining(false);
+        setShowUnjoinDialog(false);
+        return;
+      }
+
+      // Verify the entry still exists and belongs to the user
+      const currentEntry = (freshEntries || []).find(entry => entry.id === userEntry.id && entry.user_id === user.id);
+      if (!currentEntry) {
+        toast({
+          title: "Entry not found",
+          description: "This entry no longer exists or doesn't belong to you.",
           variant: "destructive",
         });
         setUnjoining(false);
@@ -500,26 +534,47 @@ export default function WagerDetail() {
         return;
       }
 
-      // Delete the entry
+      // Delete the entry (use currentEntry to ensure we have the latest data)
       const { error: deleteError } = await supabase
         .from("wager_entries")
         .delete()
-        .eq("id", userEntry.id)
+        .eq("id", currentEntry.id)
         .eq("user_id", user.id);
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        // If deletion fails, check if it's because entry doesn't exist
+        if (deleteError.code === 'PGRST116' || deleteError.message?.includes('No rows')) {
+          toast({
+            title: "Entry not found",
+            description: "This entry no longer exists.",
+            variant: "destructive",
+          });
+          setUnjoining(false);
+          setShowUnjoinDialog(false);
+          await fetchWager(true);
+          return;
+        }
+        throw deleteError;
+      }
 
-      // Refund the user
-      await supabase.rpc("increment_balance", {
+      // Refund the user (use currentEntry amount)
+      const refundAmount = Number(currentEntry.amount);
+      const { error: balanceError } = await supabase.rpc("increment_balance", {
         user_id: user.id,
-        amt: userEntry.amount,
+        amt: refundAmount,
       });
 
-      // Record transaction
+      if (balanceError) {
+        // If refund fails, try to restore the entry (though this is unlikely to succeed)
+        console.error("Failed to refund balance, entry already deleted:", balanceError);
+        throw new Error("Failed to refund balance. Please contact support.");
+      }
+
+      // Record transaction (use currentEntry amount)
       await supabase.from("transactions").insert({
         user_id: user.id,
         type: "wager_refund",
-        amount: userEntry.amount,
+        amount: refundAmount,
         reference: wager.id,
         description: `Unjoined Wager: "${wager.title}" - Entry refunded`,
       });
@@ -552,6 +607,19 @@ export default function WagerDetail() {
 
     setChangingSide(true);
     try {
+      // Normalize side value to lowercase
+      const normalizedSide = newSide.toLowerCase();
+      if (normalizedSide !== 'a' && normalizedSide !== 'b') {
+        toast({
+          title: "Invalid side",
+          description: "Side must be 'a' or 'b'.",
+          variant: "destructive",
+        });
+        setChangingSide(false);
+        setShowChangeSideDialog(false);
+        return;
+      }
+
       // Check if deadline has passed
       if (isDeadlineElapsed(wager.deadline)) {
         toast({
@@ -577,21 +645,67 @@ export default function WagerDetail() {
         return;
       }
 
-      // Update the entry side
-      const { error: updateError } = await supabase
+      // Fetch fresh entry to ensure it still exists
+      const { data: freshEntry, error: fetchError } = await supabase
         .from("wager_entries")
-        .update({ side: newSide })
+        .select("*")
         .eq("id", userEntry.id)
-        .eq("user_id", user.id);
+        .eq("user_id", user.id)
+        .single();
 
-      if (updateError) throw updateError;
+      if (fetchError || !freshEntry) {
+        toast({
+          title: "Entry not found",
+          description: "This entry no longer exists or doesn't belong to you.",
+          variant: "destructive",
+        });
+        setChangingSide(false);
+        setShowChangeSideDialog(false);
+        await fetchWager(true);
+        return;
+      }
+
+      // Check if already on the requested side
+      if (freshEntry.side === normalizedSide) {
+        toast({
+          title: "Already on this side",
+          description: `You are already on ${normalizedSide === "a" ? wager.side_a : wager.side_b}.`,
+          variant: "default",
+        });
+        setChangingSide(false);
+        setShowChangeSideDialog(false);
+        return;
+      }
+
+      // Update the entry side (use freshEntry.id to ensure we have the correct ID)
+      const { data: updatedEntries, error: updateError } = await supabase
+        .from("wager_entries")
+        .update({ side: normalizedSide })
+        .eq("id", freshEntry.id)
+        .eq("user_id", user.id)
+        .select();
+
+      if (updateError) {
+        console.error("Update error:", updateError);
+        throw updateError;
+      }
+
+      // Verify the update succeeded - check if any rows were updated
+      if (!updatedEntries || updatedEntries.length === 0) {
+        throw new Error("No entry was updated. The entry may not exist or may have been deleted.");
+      }
+
+      const updatedEntry = updatedEntries[0];
+      if (updatedEntry.side !== normalizedSide) {
+        throw new Error("Failed to update side. Please try again.");
+      }
 
       toast({
         title: "Side changed",
-        description: `You've switched to ${newSide === "a" ? wager.side_a : wager.side_b}.`,
+        description: `You've switched to ${normalizedSide === "a" ? wager.side_a : wager.side_b}.`,
       });
 
-      // Refresh wager data
+      // Refresh wager data to get updated entries
       await fetchWager(true);
       setShowChangeSideDialog(false);
       setNewSide(null);
