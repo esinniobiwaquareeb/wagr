@@ -17,7 +17,6 @@ export interface WagerSuggestion {
   sideB: string;
   deadline: string;
   category: string;
-  tags: string[];
   reasoning: string; // Why this wager makes sense
 }
 
@@ -110,7 +109,6 @@ function extractSimpleWagers(
       sideB: sides.sideB,
       deadline: deadline.toISOString(),
       category: category,
-      tags: [category, 'news', 'trending'],
       reasoning: 'Based on recent news article',
     };
   });

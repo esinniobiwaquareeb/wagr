@@ -13,7 +13,6 @@ interface WagerSuggestion {
   sideB: string;
   deadline: string;
   category: string;
-  tags: string[];
   reasoning: string;
 }
 
@@ -54,7 +53,6 @@ Create wagers with:
 - Two sides: Choose the most appropriate side format based on category
 - Deadlines 1-7 days from now
 - Most appropriate category from the list above
-- Relevant tags (2-4 tags)
 - Reasoning for why it's a good wager
 
 Category-specific guidelines:
@@ -70,7 +68,7 @@ Category-specific guidelines:
 Focus on trending topics with clear, verifiable outcomes.
 
 Return JSON array:
-[{"title": "...", "description": "...", "sideA": "Appropriate side", "sideB": "Appropriate side", "deadline": "ISO date", "category": "one of the categories above", "tags": ["tag1", "tag2"], "reasoning": "..."}]`;
+[{"title": "...", "description": "...", "sideA": "Appropriate side", "sideB": "Appropriate side", "deadline": "ISO date", "category": "one of the categories above", "reasoning": "..."}]`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -114,7 +112,6 @@ Return JSON array:
       sideB: w.sideB || 'No',
       deadline: w.deadline || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
       category: w.category || 'politics',
-      tags: Array.isArray(w.tags) ? w.tags : ['politics', 'news'],
       reasoning: w.reasoning || '',
     })).slice(0, 5);
   } catch (error) {

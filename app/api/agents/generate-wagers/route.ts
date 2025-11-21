@@ -155,7 +155,6 @@ export async function GET(request: NextRequest) {
           amount: DEFAULT_WAGER_AMOUNT,
           deadline: suggestion.deadline,
           category: category,
-          tags: suggestion.tags,
           source_data: {
             reasoning: suggestion.reasoning,
             ai_generated: true,

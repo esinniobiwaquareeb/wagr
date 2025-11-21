@@ -13,7 +13,6 @@ interface SystemWagerRequest {
   side_b: string;
   deadline?: string;
   category: string;
-  tags?: string[];
   source_data?: Record<string, any>;
   currency?: string;
 }
@@ -90,7 +89,6 @@ export async function POST(request: Request) {
         side_b: body.side_b,
         deadline: body.deadline ? new Date(body.deadline).toISOString() : null,
         category: body.category,
-        tags: body.tags || [],
         is_system_generated: true,
         source_data: body.source_data || null,
         currency: body.currency || "NGN",

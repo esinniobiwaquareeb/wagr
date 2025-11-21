@@ -13,7 +13,6 @@ interface WagerSuggestion {
   sideB: string;
   deadline: string;
   category: string;
-  tags: string[];
   reasoning: string;
 }
 
@@ -61,8 +60,7 @@ For each article, create a wager with:
    - Use specific names/values for custom outcomes (e.g., team names, specific prices)
 4. A deadline within 1-7 days from now
 5. The most appropriate category from the list above
-6. Relevant tags (2-4 tags)
-7. Reasoning for why this is a good wager
+6. Reasoning for why this is a good wager
 
 Category-specific guidelines:
 - crypto: Use "Higher/Lower" or "Over/Under" for prices, "Yes/No" for events
@@ -89,7 +87,6 @@ Return JSON array with this structure:
     "sideB": "Appropriate side option (No, Lose, Under 100, False, Lower, or alternative)",
     "deadline": "ISO date string (1-7 days from now)",
     "category": "One of: crypto, finance, politics, sports, entertainment, technology, religion, weather",
-    "tags": ["tag1", "tag2", "tag3"],
     "reasoning": "Why this wager makes sense"
   }
 ]`;
@@ -142,7 +139,6 @@ Return JSON array with this structure:
       sideB: w.sideB || 'No',
       deadline: w.deadline || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
       category: w.category || 'politics',
-      tags: Array.isArray(w.tags) ? w.tags : ['politics', 'news'],
       reasoning: w.reasoning || '',
     })).slice(0, 5);
   } catch (error) {
