@@ -3,11 +3,14 @@
 
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // Use service role for creating notifications (bypasses RLS)
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+// Initialize only if both URL and key are available
+const supabaseAdmin = supabaseUrl && supabaseServiceKey
+  ? createClient(supabaseUrl, supabaseServiceKey)
+  : null;
 
 export interface NotificationData {
   user_id: string;
@@ -23,7 +26,13 @@ export interface NotificationData {
  */
 export async function createNotification(data: NotificationData): Promise<void> {
   try {
-    const { error } = await supabaseAdmin
+    // Validate service role key is configured
+    if (!supabaseServiceKey || !supabaseUrl || !supabaseAdmin) {
+      console.error("SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_URL is not configured. Cannot create notification.");
+      return;
+    }
+
+    const { data: insertedData, error } = await supabaseAdmin
       .from("notifications")
       .insert({
         user_id: data.user_id,
@@ -33,14 +42,41 @@ export async function createNotification(data: NotificationData): Promise<void> 
         link: data.link || null,
         metadata: data.metadata || null,
         read: false,
-      });
+      })
+      .select()
+      .single();
 
     if (error) {
-      console.error("Error creating notification:", error);
-      throw error;
+      console.error("Error creating notification:", {
+        error,
+        notificationData: {
+          user_id: data.user_id,
+          type: data.type,
+          title: data.title,
+        },
+      });
+      // Don't throw - notifications are non-critical, but log for debugging
+      return;
+    }
+
+    if (!insertedData) {
+      console.error("Notification insert returned no data:", {
+        notificationData: {
+          user_id: data.user_id,
+          type: data.type,
+          title: data.title,
+        },
+      });
     }
   } catch (error) {
-    console.error("Failed to create notification:", error);
+    console.error("Failed to create notification (exception):", {
+      error,
+      notificationData: {
+        user_id: data.user_id,
+        type: data.type,
+        title: data.title,
+      },
+    });
     // Don't throw - notifications are non-critical
   }
 }

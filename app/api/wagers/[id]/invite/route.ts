@@ -6,6 +6,7 @@ import { ErrorCode } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 import { sendEmailAsync } from '@/lib/email-queue';
 import { logger } from '@/lib/logger';
+import { createNotification } from '@/lib/notifications';
 
 /**
  * POST /api/wagers/[id]/invite
@@ -106,12 +107,13 @@ export async function POST(
             .maybeSingle();
 
           if (profile) {
-            // User exists - send notification
-            await supabase.from('notifications').insert({
+            // User exists - send notification using service role client
+            await createNotification({
               user_id: profile.id,
               type: 'wager_invitation',
               title: `${inviterName} invited you to a wager`,
               message: `"${wager.title}" - Join now!`,
+              link: wagerUrl,
               metadata: {
                 wager_id: wager.id,
                 inviter_id: user.id,
@@ -157,12 +159,13 @@ export async function POST(
             .maybeSingle();
 
           if (profile) {
-            // User exists - send notification
-            await supabase.from('notifications').insert({
+            // User exists - send notification using service role client
+            await createNotification({
               user_id: profile.id,
               type: 'wager_invitation',
               title: `${inviterName} invited you to a wager`,
               message: `"${wager.title}" - Join now!`,
+              link: wagerUrl,
               metadata: {
                 wager_id: wager.id,
                 inviter_id: user.id,
