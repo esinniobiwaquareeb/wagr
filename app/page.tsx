@@ -2,29 +2,19 @@
 
 import { LandingHero } from "@/components/landing-hero";
 import { LandingFeatures } from "@/components/landing-features";
+import { LandingShowcase } from "@/components/landing-showcase";
 import { LandingHowItWorks } from "@/components/landing-how-it-works";
 import { LandingCTA } from "@/components/landing-cta";
-import { LoadingSpinner } from "@/components/loading-spinner";
-import { useAuth } from "@/hooks/use-auth";
 
 export default function Home() {
-  const { user, loading } = useAuth({ 
-    redirectIfAuthenticated: true, 
-    redirectTo: "/wagers" 
-  });
-
-  if (loading) {
-    return (
-      <main className="flex-1">
-        <LoadingSpinner size="lg" fullScreen text="Loading..." />
-      </main>
-    );
-  }
-
+  // Landing page is accessible to everyone (authenticated and unauthenticated)
+  // No redirect needed - users can access the landing page anytime
+  
   return (
     <main className="flex-1">
       <LandingHero />
       <LandingFeatures />
+      <LandingShowcase />
       <LandingHowItWorks />
       <LandingCTA />
     </main>
