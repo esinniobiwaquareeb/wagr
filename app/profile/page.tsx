@@ -15,6 +15,7 @@ import { TwoFactorSetup } from "@/components/two-factor-setup";
 import { TwoFactorManage } from "@/components/two-factor-manage";
 import { ChangePasswordDialog } from "@/components/change-password-dialog";
 import { PushNotificationSettings } from "@/components/push-notification-settings";
+import { CreateWagerModal } from "@/components/create-wager-modal";
 import { clear2FAVerification } from "@/lib/session-2fa";
 
 interface Profile {
@@ -41,6 +42,7 @@ export default function Profile() {
   const [show2FAManage, setShow2FAManage] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [showCreateWagerModal, setShowCreateWagerModal] = useState(false);
   const [myWagers, setMyWagers] = useState<any[]>([]);
   const [loadingWagers, setLoadingWagers] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -436,12 +438,13 @@ export default function Profile() {
         onConfirm={confirmLogout}
       />
       <div className="max-w-6xl mx-auto p-3 md:p-6">
-        <div className="mb-3 md:mb-4">
-          <BackButton fallbackHref="/wagers" />
-        </div>
         <div className="mb-4 md:mb-6 flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2">Profile</h1>
+            <div className="flex items-center gap-2 md:gap-3 mb-1 md:mb-2 md:hidden">
+              <BackButton fallbackHref="/wagers" />
+              <h1 className="text-xl md:text-3xl lg:text-4xl font-bold">Profile</h1>
+            </div>
+            <h1 className="hidden md:block text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2">Profile</h1>
             <p className="text-xs md:text-base text-muted-foreground">Manage your account and preferences</p>
           </div>
           {user && (
@@ -710,12 +713,12 @@ export default function Profile() {
                     <History className="h-3 w-3 md:h-4 md:w-4" />
                     History
                   </Link>
-                  <Link
-                    href="/create"
+                  <button
+                    onClick={() => setShowCreateWagerModal(true)}
                     className="text-xs md:text-sm text-primary hover:underline font-medium"
                   >
                     Create New →
-                  </Link>
+                  </button>
                 </div>
               </div>
               
@@ -727,12 +730,12 @@ export default function Profile() {
                 <div className="text-center py-8">
                   <Trophy className="h-8 w-8 md:h-12 md:w-12 text-muted-foreground mx-auto mb-2 opacity-50" />
                   <p className="text-sm text-muted-foreground mb-2">You haven't created any wagers yet</p>
-                  <Link
-                    href="/create"
+                  <button
+                    onClick={() => setShowCreateWagerModal(true)}
                     className="text-xs md:text-sm text-primary hover:underline font-medium"
                   >
                     Create your first wager →
-                  </Link>
+                  </button>
                 </div>
               ) : (
                 <div className="space-y-2 max-h-96 overflow-y-auto">
@@ -796,6 +799,17 @@ export default function Profile() {
           </div>
         </div>
       </div>
+      
+      {user && (
+        <CreateWagerModal
+          open={showCreateWagerModal}
+          onOpenChange={setShowCreateWagerModal}
+          onSuccess={() => {
+            // Refresh wagers list when wager is successfully created
+            fetchMyWagers();
+          }}
+        />
+      )}
     </main>
   );
 }
