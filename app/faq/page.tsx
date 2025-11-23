@@ -22,7 +22,7 @@ export default function FAQPage() {
     },
     {
       question: "What are system-generated wagers?",
-      answer: "System-generated wagers are automatically created by wagr based on real-world events like sports, finance, politics, weather, and entertainment. They're marked with an 'Auto' badge.",
+      answer: "System-generated wagers are automatically created by iwagr based on real-world events like sports, finance, politics, weather, and entertainment. They're marked with an 'Auto' badge.",
     },
     {
       question: "How are wagers settled?",
@@ -37,7 +37,7 @@ export default function FAQPage() {
       answer: "Set your preferred categories and tags in the Preferences page. The home page will then show wagers matching your preferences.",
     },
     {
-      question: "Is wagr legal in my country?",
+      question: "Is iwagr legal in my country?",
       answer: "You are responsible for ensuring that wagering activities are legal in your jurisdiction. Please check your local laws before participating.",
     },
   ];
@@ -47,7 +47,7 @@ export default function FAQPage() {
       <div className="max-w-4xl mx-auto p-4 md:p-6">
         <h1 className="text-3xl md:text-4xl font-bold mb-4">Frequently Asked Questions</h1>
         <p className="text-muted-foreground mb-8">
-          Find answers to common questions about wagr.
+          Find answers to common questions about iwagr.
         </p>
 
         <div className="space-y-4">

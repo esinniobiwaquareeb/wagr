@@ -475,7 +475,7 @@ export function TopNav() {
               <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center transition-transform group-hover:scale-105">
                 <span className="text-primary-foreground font-bold text-xl">W</span>
               </div>
-              <span className="text-xl font-bold tracking-tight">wagr</span>
+              <span className="text-xl font-bold tracking-tight">iwagr</span>
             </Link>
 
             {/* Search Bar */}
@@ -586,6 +586,7 @@ export function TopNav() {
                           <span>History</span>
                         </Link>
                       </DropdownMenuItem>
+                      
                       <DropdownMenuItem asChild>
                         <Link href="/profile" className="flex items-center gap-2 cursor-pointer">
                           <User className="h-4 w-4" />

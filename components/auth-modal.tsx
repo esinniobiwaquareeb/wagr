@@ -483,7 +483,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       <div className="bg-card rounded-lg p-5 md:p-6 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-5 md:mb-6">
           <h2 className="text-lg md:text-xl font-bold">
-            {isSignUp ? "Create Account" : "Login to wagr"}
+            {isSignUp ? "Create Account" : "Login to iwagr"}
           </h2>
           <button
             onClick={onClose}

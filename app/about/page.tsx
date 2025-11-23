@@ -2,19 +2,19 @@ export default function AboutPage() {
   return (
     <main className="flex-1 pb-24 md:pb-0">
       <div className="max-w-4xl mx-auto p-4 md:p-6">
-        <h1 className="text-3xl md:text-4xl font-bold mb-4">About wagr</h1>
+        <h1 className="text-3xl md:text-4xl font-bold mb-4">About iwagr</h1>
 
         <div className="prose prose-sm dark:prose-invert max-w-none space-y-6">
           <section>
             <p className="text-muted-foreground mb-4 text-base">
-              wagr is a modern wagering platform that allows users to create and participate in wagers on various topics, from sports and entertainment to finance and politics.
+              iwagr is a modern wagering platform that allows users to create and participate in wagers on various topics, from sports and entertainment to finance and politics.
             </p>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold mb-3">Our Mission</h2>
             <p className="text-muted-foreground mb-4">
-              We aim to provide a fun, engaging, and transparent platform for users to wager on outcomes they care about. Whether you're passionate about sports, interested in financial markets, or curious about political events, wagr offers a space to put your predictions to the test.
+              We aim to provide a fun, engaging, and transparent platform for users to wager on outcomes they care about. Whether you're passionate about sports, interested in financial markets, or curious about political events, iwagr offers a space to put your predictions to the test.
             </p>
           </section>
 

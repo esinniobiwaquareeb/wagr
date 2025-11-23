@@ -9,7 +9,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-xl font-semibold mb-3">1. Introduction</h2>
             <p className="text-muted-foreground mb-4">
-              wagr ("we", "our", or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our platform.
+              iwagr ("we", "our", or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our platform.
             </p>
           </section>
 

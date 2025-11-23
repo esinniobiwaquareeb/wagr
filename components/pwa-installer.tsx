@@ -90,9 +90,9 @@ export function PWAInstaller() {
           <Download className="h-5 w-5 text-primary" />
         </div>
         <div className="flex-1">
-          <h3 className="font-semibold text-sm mb-1">Install wagr</h3>
+          <h3 className="font-semibold text-sm mb-1">Install iwagr</h3>
           <p className="text-xs text-muted-foreground mb-3">
-            Install wagr for a better experience with offline support.
+            Install iwagr for a better experience with offline support.
           </p>
           <div className="flex gap-2">
             <button
