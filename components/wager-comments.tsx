@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { commentsApi } from "@/lib/api-client";
 import { MessageSquare, Send, Reply, MoreVertical, Edit2, Trash2, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { formatDistanceToNow } from "date-fns";
@@ -44,48 +45,95 @@ export function WagerComments({ wagerId }: WagerCommentsProps) {
 
   const fetchComments = useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      const { data: commentsData, error: commentsError } = await supabase
         .from("wager_comments")
-        .select(`
-          *,
-          profiles:user_id (
-            username,
-            avatar_url
-          )
-        `)
+        .select("*")
         .eq("wager_id", wagerId)
         .is("parent_id", null)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (commentsError) {
+        setComments([]);
+        return;
+      }
+
+      if (!commentsData || commentsData.length === 0) {
+        setComments([]);
+        return;
+      }
+
+      // Fetch profiles for all comment authors
+      const userIds = [...new Set(commentsData.map((c: any) => c.user_id).filter(Boolean))];
+      let profilesMap = new Map();
+
+      if (userIds.length > 0) {
+        const { data: profilesData, error: profilesError } = await supabase
+          .from("profiles")
+          .select("id, username, avatar_url")
+          .in("id", userIds);
+
+        if (profilesData) {
+          profilesMap = new Map(profilesData.map((p: any) => [p.id, p]));
+        }
+      }
+
+      // Attach profiles to comments
+      const commentsWithProfiles = commentsData.map((comment: any) => ({
+        ...comment,
+        profiles: profilesMap.get(comment.user_id) || null,
+      }));
 
       // Fetch replies for each comment
-      if (data) {
-        const commentsWithReplies = await Promise.all(
-          data.map(async (comment) => {
-            const { data: replies } = await supabase
-              .from("wager_comments")
-              .select(`
-                *,
-                profiles:user_id (
-                  username,
-                  avatar_url
-                )
-              `)
-              .eq("parent_id", comment.id)
-              .order("created_at", { ascending: true });
+      const commentsWithReplies = await Promise.all(
+        commentsWithProfiles.map(async (comment: any) => {
+          const { data: replies, error: repliesError } = await supabase
+            .from("wager_comments")
+            .select("*")
+            .eq("parent_id", comment.id)
+            .order("created_at", { ascending: true });
 
+          if (repliesError) {
             return {
               ...comment,
-              replies: replies || [],
+              replies: [],
             };
-          })
-        );
+          }
 
-        setComments(commentsWithReplies);
-      }
+          if (!replies || replies.length === 0) {
+            return {
+              ...comment,
+              replies: [],
+            };
+          }
+
+          // Fetch profiles for reply authors
+          const replyUserIds = [...new Set(replies.map((r: any) => r.user_id).filter(Boolean))];
+          let replyProfilesMap = new Map();
+
+          if (replyUserIds.length > 0) {
+            const { data: replyProfiles, error: replyProfilesError } = await supabase
+              .from("profiles")
+              .select("id, username, avatar_url")
+              .in("id", replyUserIds);
+
+            if (replyProfiles) {
+              replyProfilesMap = new Map(replyProfiles.map((p: any) => [p.id, p]));
+            }
+          }
+
+          return {
+            ...comment,
+            replies: replies.map((reply: any) => ({
+              ...reply,
+              profiles: replyProfilesMap.get(reply.user_id) || null,
+            })),
+          };
+        })
+      );
+
+      setComments(commentsWithReplies);
     } catch (error) {
-      console.error("Error fetching comments:", error);
+      setComments([]);
     } finally {
       setLoading(false);
     }
@@ -142,22 +190,18 @@ export function WagerComments({ wagerId }: WagerCommentsProps) {
 
     setSubmitting(true);
     try {
-      const { error } = await supabase.from("wager_comments").insert({
-        wager_id: wagerId,
-        user_id: user.id,
+      await commentsApi.create(wagerId, {
         content: trimmedContent,
       });
-
-      if (error) throw error;
 
       setNewComment("");
       await fetchComments();
       setTimeout(scrollToBottom, 100);
     } catch (error) {
-      console.error("Error submitting comment:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to post comment. Please try again.";
       toast({
         title: "Failed to post comment",
-        description: "Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -187,23 +231,19 @@ export function WagerComments({ wagerId }: WagerCommentsProps) {
 
     setSubmitting(true);
     try {
-      const { error } = await supabase.from("wager_comments").insert({
-        wager_id: wagerId,
-        user_id: user.id,
-        parent_id: parentId,
+      await commentsApi.create(wagerId, {
         content: content,
+        parent_id: parentId,
       });
-
-      if (error) throw error;
 
       setReplyContent({ ...replyContent, [parentId]: "" });
       setReplyingTo(null);
       await fetchComments();
     } catch (error) {
-      console.error("Error submitting reply:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to post reply. Please try again.";
       toast({
         title: "Failed to post reply",
-        description: "Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -224,22 +264,18 @@ export function WagerComments({ wagerId }: WagerCommentsProps) {
 
     setSubmitting(true);
     try {
-      const { error } = await supabase
-        .from("wager_comments")
-        .update({ content })
-        .eq("id", commentId)
-        .eq("user_id", user?.id);
-
-      if (error) throw error;
+      await commentsApi.update(wagerId, commentId, {
+        content: content,
+      });
 
       setEditingId(null);
       setEditContent({ ...editContent, [commentId]: "" });
       await fetchComments();
     } catch (error) {
-      console.error("Error editing comment:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to update comment. Please try again.";
       toast({
-        title: "Failed to edit comment",
-        description: "Please try again.",
+        title: "Failed to update comment",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -252,20 +288,13 @@ export function WagerComments({ wagerId }: WagerCommentsProps) {
 
     setDeletingId(commentId);
     try {
-      const { error } = await supabase
-        .from("wager_comments")
-        .delete()
-        .eq("id", commentId)
-        .eq("user_id", user?.id);
-
-      if (error) throw error;
-
+      await commentsApi.delete(wagerId, commentId);
       await fetchComments();
     } catch (error) {
-      console.error("Error deleting comment:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete comment. Please try again.";
       toast({
         title: "Failed to delete comment",
-        description: "Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

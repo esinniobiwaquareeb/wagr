@@ -239,3 +239,17 @@ export const preferencesApi = {
   }) => apiPatch<{ preferences: any }>('/preferences', data),
 };
 
+/**
+ * Comments API
+ */
+export const commentsApi = {
+  create: (wagerId: string, data: { content: string; parent_id?: string }) =>
+    apiPost<{ comment: any }>(`/wagers/${wagerId}/comments`, data),
+  
+  update: (wagerId: string, commentId: string, data: { content: string }) =>
+    apiPatch<{ comment: any }>(`/wagers/${wagerId}/comments/${commentId}`, data),
+  
+  delete: (wagerId: string, commentId: string) =>
+    apiDelete<{ message: string }>(`/wagers/${wagerId}/comments/${commentId}`),
+};
+
