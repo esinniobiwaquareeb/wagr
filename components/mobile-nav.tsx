@@ -315,9 +315,15 @@ export function MobileNav() {
 
         {/* Floating Create Button */}
         <button
-          onClick={() => setShowCreateModal(true)}
+          onClick={() => {
+            if (user) {
+              setShowCreateModal(true);
+            } else {
+              setShowAuthModal(true);
+            }
+          }}
           className="relative flex items-center justify-center w-14 h-14 -mt-4 rounded-full shadow-lg transition-all duration-300 active:scale-95 touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[56px] bg-primary text-primary-foreground hover:shadow-xl hover:scale-105"
-          title="Create Wager"
+          title={user ? "Create Wager" : "Login to Create Wager"}
         >
           <Plus className="h-6 w-6" strokeWidth={2.5} />
         </button>
@@ -399,15 +405,13 @@ export function MobileNav() {
         variant="default"
         onConfirm={handleLogout}
       />
-      {user && (
-        <CreateWagerModal
-          open={showCreateModal}
-          onOpenChange={setShowCreateModal}
-          onSuccess={() => {
-            router.push('/wagers');
-          }}
-        />
-      )}
+      <CreateWagerModal
+        open={showCreateModal}
+        onOpenChange={setShowCreateModal}
+        onSuccess={() => {
+          router.push('/wagers');
+        }}
+      />
     </>
   );
 }
