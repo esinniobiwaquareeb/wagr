@@ -647,16 +647,6 @@ export function TopNav() {
                 </Link>
               );
             })}
-            <Link
-              href="/leaderboard"
-              className={`px-4 py-2 rounded-md whitespace-nowrap text-sm font-medium transition-colors ${
-                isActive("/leaderboard")
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-              }`}
-            >
-              Leaderboard
-            </Link>
           </div>
         </div>
       </nav>
