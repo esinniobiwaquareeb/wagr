@@ -39,9 +39,9 @@ export function TransferTab({
   onTransfer,
 }: TransferTabProps) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div>
-        <label className="text-sm font-medium mb-2 block text-foreground">Recipient Username</label>
+        <label className="text-xs font-medium mb-1.5 block text-foreground">Recipient Username</label>
         <UsernameInput
           value={transferUsername}
           onChange={(value) => {
@@ -62,7 +62,7 @@ export function TransferTab({
         />
       </div>
       <div>
-        <label className="text-sm font-medium mb-2 block text-foreground">Amount</label>
+        <label className="text-xs font-medium mb-1.5 block text-foreground">Amount</label>
         <input
           type="number"
           value={transferAmount}
@@ -73,23 +73,23 @@ export function TransferTab({
             }
           }}
           placeholder="Enter amount"
-          className="w-full px-4 py-3 border border-input rounded-lg bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           min="1"
           step="0.01"
           disabled={processingTransfer}
         />
-        <p className="text-xs text-muted-foreground mt-2">
+        <p className="text-xs text-muted-foreground mt-1">
           Available: <span className="font-medium">{formatCurrency(balance, currency)}</span>
         </p>
       </div>
       <div>
-        <label className="text-sm font-medium mb-2 block text-foreground">Description (Optional)</label>
+        <label className="text-xs font-medium mb-1.5 block text-foreground">Description (Optional)</label>
         <input
           type="text"
           value={transferDescription}
           onChange={(e) => setTransferDescription(e.target.value)}
           placeholder="Add a note (optional)"
-          className="w-full px-4 py-3 border border-input rounded-lg bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           maxLength={200}
           disabled={processingTransfer}
         />
@@ -97,7 +97,7 @@ export function TransferTab({
       <button
         onClick={onTransfer}
         disabled={processingTransfer || !transferUsername.trim() || !transferAmount.trim() || !selectedRecipient}
-        className="w-full px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/50"
+        className="w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-md font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2 min-h-[40px] focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
       >
         {processingTransfer ? (
           <>
@@ -112,7 +112,7 @@ export function TransferTab({
         )}
       </button>
       <p className="text-xs text-muted-foreground text-center">
-        Minimum transfer: ₦1. Transfers are instant and cannot be reversed.
+        Minimum: ₦1 • Instant • Cannot be reversed
       </p>
     </div>
   );

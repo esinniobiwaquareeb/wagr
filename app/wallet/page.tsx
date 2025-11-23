@@ -786,57 +786,62 @@ function WalletContent() {
 
   return (
     <main className="flex-1 pb-24 md:pb-0">
-      <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 md:py-6">
-        {/* Header */}
-        <div className="mb-6 md:mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">Wallet</h1>
-          <p className="text-sm text-muted-foreground">Manage your funds and transactions</p>
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6">
+        {/* Compact Header with Balance */}
+        <div className="mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl md:text-2xl font-bold">Wallet</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">Manage your funds</p>
+            </div>
+            {profile && (
+              <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 rounded-lg bg-muted/50 border border-border/50">
+                <div className="flex-1 sm:flex-none sm:text-right">
+                  <p className="text-xs text-muted-foreground mb-0.5">Balance</p>
+                  <p className="text-base sm:text-lg md:text-xl font-bold text-foreground truncate sm:whitespace-normal">{formatCurrency(profile.balance, currency)}</p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Balance Card */}
-        {profile && <BalanceCard balance={profile.balance} currency={currency} />}
-
-        {/* Actions Tabs */}
-        <Card className="mb-6">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-lg">Wallet Actions</CardTitle>
-            <CardDescription className="text-sm">Deposit, withdraw, transfer funds, or pay bills</CardDescription>
-          </CardHeader>
-          <CardContent>
+        {/* Compact Actions Tabs */}
+        <Card className="mb-4">
+          <CardContent className="p-4 md:p-5">
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "deposit" | "withdraw" | "transfer" | "bills")} className="w-full">
-              <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 mb-6 h-auto p-1 bg-muted/50">
+              <TabsList className="grid w-full grid-cols-4 mb-4 h-10 p-1 bg-muted/50">
                 <TabsTrigger 
                   value="deposit" 
-                  className="flex flex-col items-center gap-1.5 py-3 px-2 min-h-[60px] data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
+                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
                 >
-                  <ArrowDownCircle className="h-5 w-5" />
-                  <span className="text-xs font-medium">Deposit</span>
+                  <ArrowDownCircle className="h-3.5 w-3.5" />
+                  <span>Deposit</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="withdraw" 
-                  className="flex flex-col items-center gap-1.5 py-3 px-2 min-h-[60px] data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
+                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
                 >
-                  <ArrowUpCircle className="h-5 w-5" />
-                  <span className="text-xs font-medium">Withdraw</span>
+                  <ArrowUpCircle className="h-3.5 w-3.5" />
+                  <span>Withdraw</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="transfer" 
-                  className="flex flex-col items-center gap-1.5 py-3 px-2 min-h-[60px] data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
+                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
                 >
-                  <Send className="h-5 w-5" />
-                  <span className="text-xs font-medium">Transfer</span>
+                  <Send className="h-3.5 w-3.5" />
+                  <span>Transfer</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="bills" 
-                  className="flex flex-col items-center gap-1.5 py-3 px-2 min-h-[60px] data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
+                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
                 >
-                  <Smartphone className="h-5 w-5" />
-                  <span className="text-xs font-medium">Bills</span>
+                  <Smartphone className="h-3.5 w-3.5" />
+                  <span>Bills</span>
                 </TabsTrigger>
               </TabsList>
 
               {/* Deposit Tab */}
-              <TabsContent value="deposit" className="space-y-4 mt-0">
+              <TabsContent value="deposit" className="mt-0">
                 <DepositTab
                   depositAmount={depositAmount}
                   setDepositAmount={setDepositAmount}
@@ -846,7 +851,7 @@ function WalletContent() {
               </TabsContent>
 
               {/* Withdraw Tab */}
-              <TabsContent value="withdraw" className="space-y-4 mt-0">
+              <TabsContent value="withdraw" className="mt-0">
                 <WithdrawTab
                   withdrawAmount={withdrawAmount}
                   setWithdrawAmount={setWithdrawAmount}
@@ -867,7 +872,7 @@ function WalletContent() {
               </TabsContent>
 
               {/* Transfer Tab */}
-              <TabsContent value="transfer" className="space-y-4 mt-0">
+              <TabsContent value="transfer" className="mt-0">
                 <TransferTab
                   transferUsername={transferUsername}
                   setTransferUsername={setTransferUsername}
@@ -885,7 +890,7 @@ function WalletContent() {
               </TabsContent>
 
               {/* Bills Payment Tab */}
-              <TabsContent value="bills" className="space-y-4 mt-0">
+              <TabsContent value="bills" className="mt-0">
                 <BillsTab
                   balance={profile?.balance || 0}
                   currency={currency}

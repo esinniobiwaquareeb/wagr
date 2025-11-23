@@ -18,9 +18,9 @@ export function DepositTab({
   onDeposit,
 }: DepositTabProps) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div>
-        <label className="text-sm font-medium mb-2 block text-foreground">Amount</label>
+        <label className="text-xs font-medium mb-1.5 block text-foreground">Amount</label>
         <input
           type="number"
           value={depositAmount}
@@ -31,7 +31,7 @@ export function DepositTab({
             }
           }}
           placeholder="Enter amount (minimum ₦100)"
-          className="w-full px-4 py-3 border border-input rounded-lg bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           min="100"
           step="0.01"
           disabled={processingPayment}
@@ -40,7 +40,7 @@ export function DepositTab({
       <button
         onClick={onDeposit}
         disabled={processingPayment || !depositAmount.trim()}
-        className="w-full px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/50"
+        className="w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-md font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2 min-h-[40px] focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
       >
         {processingPayment ? (
           <>
@@ -55,7 +55,7 @@ export function DepositTab({
         )}
       </button>
       <p className="text-xs text-muted-foreground text-center">
-        Minimum deposit: ₦100. Secure payment powered by Paystack.
+        Minimum: ₦100 • Secure payment via Paystack
       </p>
     </div>
   );

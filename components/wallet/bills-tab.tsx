@@ -116,20 +116,20 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
 
   if (!selectedCategory) {
     return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-center gap-4">
+      <div className="space-y-3">
+        <div className="flex items-center justify-center gap-3">
           {BILL_CATEGORIES.map((category) => {
             const Icon = category.icon;
             return (
               <button
                 key={category.id}
                 onClick={() => setSelectedCategory(category.id)}
-                className="group relative flex flex-col items-center gap-2 p-4 rounded-2xl hover:bg-muted/50 transition-all duration-200 active:scale-95 touch-manipulation"
+                className="group relative flex flex-col items-center gap-1.5 p-3 rounded-lg hover:bg-muted/50 transition-all duration-200 active:scale-95 touch-manipulation"
               >
-                <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${category.color} flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:shadow-xl transition-all duration-200`}>
-                  <Icon className="h-8 w-8 text-white" />
+                <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${category.color} flex items-center justify-center shadow-md group-hover:scale-105 transition-all duration-200`}>
+                  <Icon className="h-6 w-6 text-white" />
                 </div>
-                <span className="text-sm font-semibold">{category.name}</span>
+                <span className="text-xs font-semibold">{category.name}</span>
               </button>
             );
           })}
@@ -139,9 +139,9 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Header with back button */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <button
           onClick={() => {
             setSelectedCategory(null);
@@ -149,17 +149,17 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
             setSelectedAmount(null);
             setSelectedPlan(null);
           }}
-          className="flex items-center justify-center w-9 h-9 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 transition-all duration-200 active:scale-95"
+          className="flex items-center justify-center w-8 h-8 rounded-md border border-border hover:border-primary/50 hover:bg-primary/5 transition-all duration-200 active:scale-95"
         >
-          <ArrowLeft className="h-4 w-4 text-muted-foreground" />
+          <ArrowLeft className="h-3.5 w-3.5 text-muted-foreground" />
         </button>
         <div className="flex items-center gap-2">
           {selectedCategoryData && (
             <>
-              <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${selectedCategoryData.color} flex items-center justify-center`}>
-                {selectedCategoryData.icon && <selectedCategoryData.icon className="h-4 w-4 text-white" />}
+              <div className={`w-7 h-7 rounded-md bg-gradient-to-br ${selectedCategoryData.color} flex items-center justify-center`}>
+                {selectedCategoryData.icon && <selectedCategoryData.icon className="h-3.5 w-3.5 text-white" />}
               </div>
-              <h3 className="text-base font-bold">{selectedCategoryData.name}</h3>
+              <h3 className="text-sm font-bold">{selectedCategoryData.name}</h3>
             </>
           )}
         </div>
@@ -167,15 +167,15 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
 
       {/* Phone Number Input */}
       <div>
-        <label className="block text-sm font-medium mb-2 text-foreground">Phone Number</label>
+        <label className="block text-xs font-medium mb-1.5 text-foreground">Phone Number</label>
         <div className="relative">
-          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="tel"
             value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 11))}
             placeholder="08012345678"
-            className="w-full pl-10 pr-4 py-3 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full pl-9 pr-3 py-2 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             maxLength={11}
             disabled={processing}
           />
@@ -185,7 +185,7 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
       {/* Amount/Plan Selection */}
       {selectedCategory === 'airtime' && (
         <div>
-          <label className="block text-sm font-medium mb-3">Select Amount</label>
+          <label className="block text-xs font-medium mb-2">Select Amount</label>
           <div className="grid grid-cols-3 gap-2">
             {AIRTIME_AMOUNTS.map((amount) => {
               const isSelected = selectedAmount === amount;
@@ -195,7 +195,7 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
                   key={amount}
                   onClick={() => handleAmountSelect(amount)}
                   disabled={isDisabled}
-                  className={`p-3 rounded-lg border-2 transition-all duration-200 active:scale-95 touch-manipulation ${
+                  className={`p-2 rounded-md border-2 transition-all duration-200 active:scale-95 touch-manipulation ${
                     isSelected
                       ? 'border-primary bg-primary/10 font-semibold'
                       : isDisabled
@@ -203,7 +203,7 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
                       : 'border-border hover:border-primary/50'
                   }`}
                 >
-                  <div className={`text-sm ${isSelected ? 'text-primary' : ''}`}>
+                  <div className={`text-xs ${isSelected ? 'text-primary' : ''}`}>
                     {formatCurrency(amount, currency)}
                   </div>
                 </button>
@@ -215,8 +215,8 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
 
       {selectedCategory === 'data' && (
         <div>
-          <label className="block text-sm font-medium mb-3">Select Data Plan</label>
-          <div className="space-y-2">
+          <label className="block text-xs font-medium mb-2">Select Data Plan</label>
+          <div className="space-y-1.5">
             {DATA_PLANS.map((plan) => {
               const isSelected = selectedPlan?.name === plan.name;
               const isDisabled = balance < plan.amount;
@@ -225,7 +225,7 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
                   key={plan.name}
                   onClick={() => handlePlanSelect(plan)}
                   disabled={isDisabled}
-                  className={`w-full p-3 rounded-lg border-2 transition-all duration-200 active:scale-[0.98] touch-manipulation text-left ${
+                  className={`w-full p-2.5 rounded-md border-2 transition-all duration-200 active:scale-[0.98] touch-manipulation text-left ${
                     isSelected
                       ? 'border-primary bg-primary/10'
                       : isDisabled
@@ -235,12 +235,12 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className={`font-semibold text-sm ${isSelected ? 'text-primary' : ''}`}>
+                      <div className={`font-semibold text-xs ${isSelected ? 'text-primary' : ''}`}>
                         {plan.name}
                       </div>
                       <div className="text-xs text-muted-foreground">{plan.validity}</div>
                     </div>
-                    <div className={`font-bold ${isSelected ? 'text-primary' : ''}`}>
+                    <div className={`font-bold text-xs ${isSelected ? 'text-primary' : ''}`}>
                       {formatCurrency(plan.amount, currency)}
                     </div>
                   </div>
@@ -253,18 +253,18 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
 
       {/* Summary */}
       {selectedAmount && (
-        <div className="p-4 bg-muted/50 rounded-lg space-y-2">
-          <div className="flex items-center justify-between text-sm">
+        <div className="p-3 bg-muted/50 rounded-md space-y-1.5">
+          <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground">Amount</span>
             <span className="font-semibold">{formatCurrency(selectedAmount, currency)}</span>
           </div>
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground">Balance</span>
             <span>{formatCurrency(balance, currency)}</span>
           </div>
-          <div className="pt-2 border-t border-border flex items-center justify-between">
-            <span className="font-semibold">Remaining</span>
-            <span className="font-bold text-lg text-primary">
+          <div className="pt-1.5 border-t border-border flex items-center justify-between">
+            <span className="font-semibold text-xs">Remaining</span>
+            <span className="font-bold text-sm text-primary">
               {formatCurrency(balance - selectedAmount, currency)}
             </span>
           </div>
@@ -275,7 +275,7 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
       <button
         onClick={handlePurchase}
         disabled={!phoneNumber.trim() || !selectedAmount || selectedAmount <= 0 || processing || balance < selectedAmount}
-        className="w-full px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/50"
+        className="w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-md font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2 min-h-[40px] focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
       >
         {processing ? (
           <>
