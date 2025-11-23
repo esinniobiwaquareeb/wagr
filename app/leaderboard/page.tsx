@@ -104,9 +104,6 @@ export default function Leaderboard() {
         <div className="mb-4 md:mb-6">
           <div className="flex items-center justify-between gap-3 md:gap-4 mb-1 md:mb-2">
             <div className="flex items-center gap-2 md:gap-3">
-              <div className="md:hidden">
-                <BackButton fallbackHref="/wagers" />
-              </div>
               <h1 className="text-xl md:text-3xl lg:text-4xl font-bold">Leaderboard</h1>
             </div>
             <Select value={sortBy} onValueChange={(value) => setSortBy(value as "wins" | "win_rate" | "winnings")}>
