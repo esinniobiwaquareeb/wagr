@@ -516,16 +516,6 @@ export function TopNav() {
                     <CirclePlus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
                   </Button>
 
-                  {/* Create Button */}
-                  <Button 
-                    size="sm" 
-                    className="h-9 px-4 gap-2 font-medium"
-                    onClick={() => setShowCreateModal(true)}
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span className="hidden xl:inline">Create</span>
-                  </Button>
-
                   {/* Notifications */}
                   {user && (
                     <NotificationsDropdown

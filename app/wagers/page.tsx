@@ -324,154 +324,221 @@ function WagersPageContent() {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6">
-        {/* Tabs - Grid on Mobile, Horizontal on Desktop */}
-        <div className="mb-4">
-          {/* Mobile: Grid Layout with Icons */}
-          <div className="lg:hidden grid grid-cols-4 gap-2">
-            <button
-              onClick={() => handleTabChange('system')}
-              className={`flex flex-col items-center justify-center gap-1 py-3 rounded-lg transition-all touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
-                activeTab === 'system'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
-              }`}
-            >
-              <Sparkles className="h-5 w-5" />
-              <span className="text-xs font-medium">System</span>
-              <span className="text-xs font-semibold">{systemWagers.length}</span>
-            </button>
-            <button
-              onClick={() => handleTabChange('user')}
-              className={`flex flex-col items-center justify-center gap-1 py-3 rounded-lg transition-all touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
-                activeTab === 'user'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
-              }`}
-            >
-              <User className="h-5 w-5" />
-              <span className="text-xs font-medium">User</span>
-              <span className="text-xs font-semibold">{userWagers.length}</span>
-            </button>
-            <button
-              onClick={() => handleTabChange('expired')}
-              className={`flex flex-col items-center justify-center gap-1 py-3 rounded-lg transition-all touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
-                activeTab === 'expired'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
-              }`}
-            >
-              <Clock className="h-5 w-5" />
-              <span className="text-xs font-medium">Expired</span>
-              <span className="text-xs font-semibold">{expiredWagers.length}</span>
-            </button>
-            <button
-              onClick={() => handleTabChange('settled')}
-              className={`flex flex-col items-center justify-center gap-1 py-3 rounded-lg transition-all touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
-                activeTab === 'settled'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
-              }`}
-            >
-              <CheckCircle className="h-5 w-5" />
-              <span className="text-xs font-medium">Settled</span>
-              <span className="text-xs font-semibold">{settledWagers.length}</span>
-            </button>
-          </div>
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 lg:py-8">
+        {/* Mobile: Grid Layout with Icons */}
+        <div className="lg:hidden grid grid-cols-4 gap-2 mb-4">
+          <button
+            onClick={() => handleTabChange('system')}
+            className={`flex flex-col items-center justify-center gap-1 py-3 rounded-lg transition-all touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+              activeTab === 'system'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+            }`}
+          >
+            <Sparkles className="h-5 w-5" />
+            <span className="text-xs font-medium">System</span>
+            <span className="text-xs font-semibold">{systemWagers.length}</span>
+          </button>
+          <button
+            onClick={() => handleTabChange('user')}
+            className={`flex flex-col items-center justify-center gap-1 py-3 rounded-lg transition-all touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+              activeTab === 'user'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+            }`}
+          >
+            <User className="h-5 w-5" />
+            <span className="text-xs font-medium">User</span>
+            <span className="text-xs font-semibold">{userWagers.length}</span>
+          </button>
+          <button
+            onClick={() => handleTabChange('expired')}
+            className={`flex flex-col items-center justify-center gap-1 py-3 rounded-lg transition-all touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+              activeTab === 'expired'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+            }`}
+          >
+            <Clock className="h-5 w-5" />
+            <span className="text-xs font-medium">Expired</span>
+            <span className="text-xs font-semibold">{expiredWagers.length}</span>
+          </button>
+          <button
+            onClick={() => handleTabChange('settled')}
+            className={`flex flex-col items-center justify-center gap-1 py-3 rounded-lg transition-all touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+              activeTab === 'settled'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+            }`}
+          >
+            <CheckCircle className="h-5 w-5" />
+            <span className="text-xs font-medium">Settled</span>
+            <span className="text-xs font-semibold">{settledWagers.length}</span>
+          </button>
+        </div>
 
-          {/* Desktop: Horizontal Layout */}
-          <div className="hidden lg:flex gap-2">
+        {/* Desktop: Sleek Tab Navigation with Stats */}
+        <div className="hidden lg:block mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-2xl font-bold mb-1">Active Markets</h1>
+              <p className="text-sm text-muted-foreground">
+                {filteredWagers.length} {filteredWagers.length === 1 ? 'wager' : 'wagers'} available
+              </p>
+            </div>
+            {user && (
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                <span className="text-lg">+</span>
+                <span>Create Market</span>
+              </button>
+            )}
+          </div>
+          
+          {/* Sleek Tab Bar */}
+          <div className="flex items-center gap-1 bg-muted/30 backdrop-blur-sm rounded-xl p-1 border border-border/50">
             <button
               onClick={() => handleTabChange('all')}
-              className={`px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all min-h-[44px] touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+              className={`relative flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all min-h-[44px] group ${
                 activeTab === 'all'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
               }`}
             >
-              All
+              <HomeIcon className="h-4 w-4" />
+              <span>All</span>
+              {activeTab === 'all' && (
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
+              )}
             </button>
             <button
               onClick={() => handleTabChange('system')}
-              className={`px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all min-h-[44px] touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+              className={`relative flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all min-h-[44px] group ${
                 activeTab === 'system'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
               }`}
             >
-              System ({systemWagers.length})
+              <Sparkles className="h-4 w-4" />
+              <span>System</span>
+              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                activeTab === 'system' 
+                  ? 'bg-primary/10 text-primary' 
+                  : 'bg-muted text-muted-foreground'
+              }`}>
+                {systemWagers.length}
+              </span>
+              {activeTab === 'system' && (
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
+              )}
             </button>
             <button
               onClick={() => handleTabChange('user')}
-              className={`px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all min-h-[44px] touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+              className={`relative flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all min-h-[44px] group ${
                 activeTab === 'user'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
               }`}
             >
-              User ({userWagers.length})
+              <User className="h-4 w-4" />
+              <span>User</span>
+              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                activeTab === 'user' 
+                  ? 'bg-primary/10 text-primary' 
+                  : 'bg-muted text-muted-foreground'
+              }`}>
+                {userWagers.length}
+              </span>
+              {activeTab === 'user' && (
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
+              )}
             </button>
             <button
               onClick={() => handleTabChange('expired')}
-              className={`px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all min-h-[44px] touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+              className={`relative flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all min-h-[44px] group ${
                 activeTab === 'expired'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
               }`}
             >
-              Expired ({expiredWagers.length})
+              <Clock className="h-4 w-4" />
+              <span>Expired</span>
+              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                activeTab === 'expired' 
+                  ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400' 
+                  : 'bg-muted text-muted-foreground'
+              }`}>
+                {expiredWagers.length}
+              </span>
+              {activeTab === 'expired' && (
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
+              )}
             </button>
             <button
               onClick={() => handleTabChange('settled')}
-              className={`px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all min-h-[44px] touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+              className={`relative flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all min-h-[44px] group ${
                 activeTab === 'settled'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
               }`}
             >
-              Settled ({settledWagers.length})
+              <CheckCircle className="h-4 w-4" />
+              <span>Settled</span>
+              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                activeTab === 'settled' 
+                  ? 'bg-green-500/10 text-green-600 dark:text-green-400' 
+                  : 'bg-muted text-muted-foreground'
+              }`}>
+                {settledWagers.length}
+              </span>
+              {activeTab === 'settled' && (
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
+              )}
             </button>
           </div>
         </div>
 
         {/* Wager Grid */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-card border border-border rounded-lg p-4">
-              <Skeleton className="h-6 w-3/4 mb-2" />
-              <Skeleton className="h-4 w-full mb-3" />
-              <Skeleton className="h-4 w-2/3 mb-4" />
-              <div className="flex justify-between">
-                <Skeleton className="h-4 w-20" />
-                <Skeleton className="h-4 w-24" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="bg-card border border-border rounded-lg p-4 lg:p-5">
+                <Skeleton className="h-6 w-3/4 mb-2" />
+                <Skeleton className="h-4 w-full mb-3" />
+                <Skeleton className="h-4 w-2/3 mb-4" />
+                <div className="flex justify-between">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
         ) : filteredWagers.length === 0 ? (
-        <div className="text-center py-16 bg-card border border-border rounded-lg">
-          <div className="max-w-md mx-auto">
-            <div className="h-16 w-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-              <HomeIcon className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">No wagers found</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              {searchQuery ? "Try a different search term" : "Be the first to create a wager!"}
-            </p>
+          <div className="text-center py-20 lg:py-24 bg-card border border-border rounded-xl lg:rounded-2xl">
+            <div className="max-w-md mx-auto px-4">
+              <div className="h-20 w-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
+                <HomeIcon className="h-10 w-10 text-primary" />
+              </div>
+              <h3 className="text-xl lg:text-2xl font-bold mb-3">No wagers found</h3>
+              <p className="text-sm lg:text-base text-muted-foreground mb-6">
+                {searchQuery ? "Try a different search term" : "Be the first to create a market!"}
+              </p>
               {user && (
                 <button
                   onClick={() => setShowCreateModal(true)}
-                  className="inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 rounded-lg font-medium hover:opacity-90 transition-all active:scale-95 touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px]"
+                  className="inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-lg font-medium hover:opacity-90 transition-all active:scale-95 touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px] shadow-sm hover:shadow-md"
                 >
-                  Create Wager
+                  <span className="text-lg">+</span>
+                  <span>Create Market</span>
                 </button>
               )}
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredWagers.map((wager) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5">
+            {filteredWagers.map((wager) => (
             <WagerCard
               key={`${wager.id}-${activeTab}-${userEntries.get(wager.id)?.side || 'none'}`}
               id={wager.id}

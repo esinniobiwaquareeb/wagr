@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
-import { Sparkles, User, Users, TrendingUp, Coins, Calendar, Trophy, CheckCircle2, Loader2 } from "lucide-react";
+import { Sparkles, User, Users, TrendingUp, Coins, Calendar, Trophy, CheckCircle2, Loader2, Check, X } from "lucide-react";
 import { format } from "date-fns";
 import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
 import { useDeadlineCountdown } from "@/hooks/use-deadline-countdown";
@@ -318,48 +318,58 @@ export function WagerCard({
         {/* Sides - Compact design with quick wager buttons */}
         <div className="grid grid-cols-2 gap-1.5 mb-2 flex-shrink-0">
           {isOpen && !userParticipated && user ? (
-            // Quick wager buttons for open wagers
+            // Quick wager buttons for open wagers - Colorblind accessible design
             <>
+              {/* Side A (Yes) - Blue with Check icon */}
               <button
                 key={`bet-a-${id}`}
                 onClick={(e) => handleQuickBet(e, "a")}
                 disabled={joiningSide !== null}
-                className={`relative rounded-lg p-2.5 min-h-[44px] transition-all touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                className={`relative rounded-lg p-2.5 min-h-[44px] transition-all touch-manipulation focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${
                   joiningSide === "a"
-                    ? "bg-primary/20 border-2 border-primary"
-                    : "bg-primary/10 hover:bg-primary/20 border border-primary/30 hover:border-primary"
+                    ? "bg-blue-500/20 border-2 border-blue-500"
+                    : "bg-blue-500/10 hover:bg-blue-500/20 border-2 border-blue-500/40 hover:border-blue-500"
                 } disabled:opacity-50 disabled:cursor-not-allowed active:scale-95`}
+                aria-label={`Wager on ${sideA}`}
               >
                 {joiningSide === "a" ? (
                   <div className="flex items-center justify-center gap-1.5">
-                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                    <span className="text-[10px] font-semibold text-primary">Joining...</span>
+                    <Loader2 className="h-3 w-3 animate-spin text-blue-600 dark:text-blue-400" />
+                    <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">Joining...</span>
                   </div>
                 ) : (
                   <>
-                    <p className="font-bold text-[11px] text-primary mb-0.5">{sideA}</p>
+                    <div className="flex items-center justify-center gap-1 mb-0.5">
+                      <Check className="h-3 w-3 text-blue-600 dark:text-blue-400" strokeWidth={3} />
+                      <p className="font-bold text-[11px] text-blue-600 dark:text-blue-400">{sideA}</p>
+                    </div>
                     <p className="text-[8px] text-muted-foreground">Click to wager</p>
                   </>
                 )}
               </button>
+              {/* Side B (No) - Orange with X icon */}
               <button
                 key={`bet-b-${id}`}
                 onClick={(e) => handleQuickBet(e, "b")}
                 disabled={joiningSide !== null}
-                className={`relative rounded-lg p-2.5 min-h-[44px] transition-all touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                className={`relative rounded-lg p-2.5 min-h-[44px] transition-all touch-manipulation focus:outline-none focus:ring-2 focus:ring-orange-500/50 ${
                   joiningSide === "b"
-                    ? "bg-primary/20 border-2 border-primary"
-                    : "bg-primary/10 hover:bg-primary/20 border border-primary/30 hover:border-primary"
+                    ? "bg-orange-500/20 border-2 border-orange-500"
+                    : "bg-orange-500/10 hover:bg-orange-500/20 border-2 border-orange-500/40 hover:border-orange-500"
                 } disabled:opacity-50 disabled:cursor-not-allowed active:scale-95`}
+                aria-label={`Wager on ${sideB}`}
               >
                 {joiningSide === "b" ? (
                   <div className="flex items-center justify-center gap-1.5">
-                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                    <span className="text-[10px] font-semibold text-primary">Joining...</span>
+                    <Loader2 className="h-3 w-3 animate-spin text-orange-600 dark:text-orange-400" />
+                    <span className="text-[10px] font-semibold text-orange-600 dark:text-orange-400">Joining...</span>
                   </div>
                 ) : (
                   <>
-                    <p className="font-bold text-[11px] text-primary mb-0.5">{sideB}</p>
+                    <div className="flex items-center justify-center gap-1 mb-0.5">
+                      <X className="h-3 w-3 text-orange-600 dark:text-orange-400" strokeWidth={3} />
+                      <p className="font-bold text-[11px] text-orange-600 dark:text-orange-400">{sideB}</p>
+                    </div>
                     <p className="text-[8px] text-muted-foreground">Click to wager</p>
                   </>
                 )}
