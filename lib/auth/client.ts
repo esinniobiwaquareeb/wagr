@@ -3,6 +3,8 @@
  */
 
 import { createClient } from '@/lib/supabase/client';
+import { requestDeduplication } from '@/lib/request-deduplication';
+import { authCache } from './cache';
 
 export interface AuthUser {
   id: string;
@@ -13,27 +15,53 @@ export interface AuthUser {
 }
 
 /**
- * Get current user from API
+ * Get current user from API with caching and deduplication
  */
-export async function getCurrentUser(): Promise<AuthUser | null> {
+export async function getCurrentUser(forceRefresh = false): Promise<AuthUser | null> {
+  // Check cache first (unless forced refresh)
+  if (!forceRefresh) {
+    const cached = authCache.get();
+    if (cached !== undefined) {
+      return cached;
+    }
+  }
+
+  // Use request deduplication to prevent multiple simultaneous calls
+  const requestKey = authCache.getRequestKey();
+  
   try {
-    const response = await fetch('/api/auth/me', {
-      credentials: 'include',
-    });
+    const user = await requestDeduplication.deduplicate(
+      requestKey,
+      async () => {
+        const response = await fetch('/api/auth/me', {
+          credentials: 'include',
+          cache: 'no-store', // Always fetch fresh from server
+        });
 
-    if (!response.ok) {
-      return null;
-    }
+        if (!response.ok) {
+          authCache.set(null);
+          return null;
+        }
 
-    const data = await response.json();
-    // New uniform API response format: { success: true, data: { user: ... } }
-    if (data.success && data.data?.user) {
-      return data.data.user;
-    }
-    return null;
+        const data = await response.json();
+        // New uniform API response format: { success: true, data: { user: ... } }
+        if (data.success && data.data?.user) {
+          const userData = data.data.user;
+          authCache.set(userData);
+          return userData;
+        }
+        
+        authCache.set(null);
+        return null;
+      }
+    );
+
+    return user;
   } catch (error) {
     console.error('Error fetching current user:', error);
-    return null;
+    // On error, return cached value if available, otherwise null
+    const cached = authCache.get();
+    return cached !== undefined ? cached : null;
   }
 }
 
@@ -46,6 +74,8 @@ export async function logout(): Promise<void> {
       method: 'POST',
       credentials: 'include',
     });
+    // Clear auth cache on logout
+    authCache.clear();
   } catch (error) {
     console.error('Error logging out:', error);
   }

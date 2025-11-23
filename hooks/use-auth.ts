@@ -32,11 +32,13 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthResult {
   const fetchingRef = useRef(false);
 
   const fetchUser = useCallback(async () => {
-    // Prevent concurrent fetches
+    // Prevent concurrent fetches within this hook instance
+    // Note: getCurrentUser() itself handles global deduplication
     if (fetchingRef.current) return;
     fetchingRef.current = true;
 
     try {
+      // getCurrentUser now uses caching and deduplication internally
       const currentUser = await getCurrentUser();
       setUser(currentUser);
       setLoading(false);
