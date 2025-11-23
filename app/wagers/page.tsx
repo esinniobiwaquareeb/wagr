@@ -13,6 +13,7 @@ import { PLATFORM_FEE_PERCENTAGE } from "@/lib/constants";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { wagersApi } from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
+import { HowItWorks } from "@/components/how-it-works";
 
 interface Wager {
   id: string;
@@ -501,6 +502,9 @@ function WagersPageContent() {
           </div>
         )}
       </div>
+
+      {/* How It Works Section */}
+      <HowItWorks />
       
       <AuthModal
         isOpen={showAuthModal}

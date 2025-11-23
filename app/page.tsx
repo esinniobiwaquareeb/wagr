@@ -1,20 +1,14 @@
 "use client";
 
-import { LandingHero } from "@/components/landing-hero";
-import { LandingFeatures } from "@/components/landing-features";
-import { LandingHowItWorks } from "@/components/landing-how-it-works";
-import { LandingCTA } from "@/components/landing-cta";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
-  // Landing page is accessible to everyone (authenticated and unauthenticated)
-  // No redirect needed - users can access the landing page anytime
+  const router = useRouter();
   
-  return (
-    <main className="flex-1">
-      <LandingHero />
-      <LandingFeatures />
-      <LandingHowItWorks />
-      <LandingCTA />
-    </main>
-  );
+  useEffect(() => {
+    router.replace("/wagers");
+  }, [router]);
+  
+  return null;
 }

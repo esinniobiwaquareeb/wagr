@@ -60,7 +60,7 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // App routes - include top nav (large screens) and mobile nav (small screens), no footer
+  // App routes - include top nav (large screens) and mobile nav (small screens), with footer
   if (isAppRoute) {
     return (
       <div className="flex flex-col min-h-screen">
@@ -69,6 +69,7 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
         </Suspense>
         <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden lg:pt-0 pt-14 pb-20 lg:pb-0">
           <div className="flex-1">{children}</div>
+          <Footer />
         </div>
         <MobileNav />
       </div>
