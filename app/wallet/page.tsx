@@ -105,7 +105,7 @@ function WalletContent() {
     }
     debounceTimeoutRef.current = setTimeout(() => {
       fetchWalletData(true);
-    }, 1000); // Debounce by 1 second
+    }, 2000); // Increased debounce to 2 seconds
   }, [fetchWalletData]);
 
   useEffect(() => {
@@ -113,9 +113,15 @@ function WalletContent() {
       fetchWalletData();
       fetchBanks();
     }
-  }, [user, fetchWalletData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]); // Only depend on user, not fetchWalletData to prevent re-renders
+
+  const banksFetchedRef = useRef(false);
 
   const fetchBanks = useCallback(async () => {
+    // Only fetch banks once per session
+    if (banksFetchedRef.current) return;
+    
     setLoadingBanks(true);
     try {
       const response = await fetch('/api/payments/banks');
@@ -134,6 +140,7 @@ function WalletContent() {
         uniqueBanks.sort((a, b) => a.name.localeCompare(b.name));
         // Deduplication is handled by the Map above
         setBanks(uniqueBanks);
+        banksFetchedRef.current = true;
       }
     } catch (error) {
       console.error('Error fetching banks:', error);

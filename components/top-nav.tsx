@@ -59,9 +59,16 @@ export function TopNav() {
     }
   }, [searchParams, pathname]);
 
+  const categoryCountsFetchingRef = useRef(false);
+  const categoryCountsDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
   // Fetch category counts
   useEffect(() => {
     const fetchCategoryCounts = async () => {
+      // Prevent concurrent fetches
+      if (categoryCountsFetchingRef.current) return;
+      categoryCountsFetchingRef.current = true;
+
       try {
         const response = await wagersApi.list({ limit: 200 });
         const wagersData = response?.wagers || (Array.isArray(response) ? response : []);
@@ -78,6 +85,8 @@ export function TopNav() {
       } catch (error) {
         // Silent fail - counts are not critical
         console.error('Error fetching category counts:', error);
+      } finally {
+        categoryCountsFetchingRef.current = false;
       }
     };
 
@@ -96,19 +105,30 @@ export function TopNav() {
         },
         () => {
           // Debounce refetch to avoid too many calls
-          setTimeout(fetchCategoryCounts, 500);
+          if (categoryCountsDebounceRef.current) {
+            clearTimeout(categoryCountsDebounceRef.current);
+          }
+          categoryCountsDebounceRef.current = setTimeout(() => {
+            fetchCategoryCounts();
+          }, 2000); // Increased debounce to 2 seconds
         }
       )
       .subscribe();
 
-    // Refresh counts periodically as fallback
-    const interval = setInterval(fetchCategoryCounts, 30000); // Every 30 seconds
+    // Refresh counts periodically as fallback - increased to 2 minutes
+    const interval = setInterval(fetchCategoryCounts, 120000); // Every 2 minutes
 
     return () => {
       wagersChannel.unsubscribe();
       clearInterval(interval);
+      if (categoryCountsDebounceRef.current) {
+        clearTimeout(categoryCountsDebounceRef.current);
+      }
     };
   }, [supabase]);
+
+  const walletBalanceFetchingRef = useRef(false);
+  const walletBalanceDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch wallet balance
   useEffect(() => {
@@ -118,6 +138,10 @@ export function TopNav() {
         return;
       }
 
+      // Prevent concurrent fetches
+      if (walletBalanceFetchingRef.current) return;
+      walletBalanceFetchingRef.current = true;
+
       try {
         const { walletApi } = await import('@/lib/api-client');
         const response = await walletApi.getBalance();
@@ -125,14 +149,16 @@ export function TopNav() {
       } catch (error) {
         // Silent fail - balance is not critical
         console.error('Error fetching wallet balance:', error);
+      } finally {
+        walletBalanceFetchingRef.current = false;
       }
     };
 
     if (user) {
       fetchWalletBalance();
       
-      // Refresh balance periodically
-      const interval = setInterval(fetchWalletBalance, 30000); // Every 30 seconds
+      // Refresh balance periodically - increased to 2 minutes
+      const interval = setInterval(fetchWalletBalance, 120000); // Every 2 minutes
       
       // Listen for wallet updates
       const walletChannel = supabase
@@ -146,7 +172,13 @@ export function TopNav() {
             filter: `id=eq.${user.id}`
           },
           () => {
-            setTimeout(fetchWalletBalance, 500);
+            // Debounce wallet balance updates
+            if (walletBalanceDebounceRef.current) {
+              clearTimeout(walletBalanceDebounceRef.current);
+            }
+            walletBalanceDebounceRef.current = setTimeout(() => {
+              fetchWalletBalance();
+            }, 2000); // Increased debounce to 2 seconds
           }
         )
         .subscribe();
@@ -154,6 +186,9 @@ export function TopNav() {
       return () => {
         clearInterval(interval);
         walletChannel.unsubscribe();
+        if (walletBalanceDebounceRef.current) {
+          clearTimeout(walletBalanceDebounceRef.current);
+        }
       };
     }
   }, [user, supabase]);
@@ -181,9 +216,10 @@ export function TopNav() {
     };
     window.addEventListener('auth-state-changed', handleAuthStateChanged);
 
+    // Reduced polling frequency - check every 5 minutes instead of 1 minute
     const interval = setInterval(() => {
       getUser();
-    }, 60000);
+    }, 300000); // Every 5 minutes
 
     return () => {
       window.removeEventListener('auth-state-changed', handleAuthStateChanged);
@@ -228,7 +264,7 @@ export function TopNav() {
     }
     debounceProfileTimeoutRef.current = setTimeout(() => {
       fetchProfile();
-    }, 1000);
+    }, 2000); // Increased debounce to 2 seconds
   }, [fetchProfile]);
 
   useEffect(() => {
