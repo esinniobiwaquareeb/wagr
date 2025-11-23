@@ -114,27 +114,12 @@ function WagersPageContent() {
   // Filter wagers based on active tab, search, and category
   const filteredWagers = useMemo(() => {
     let tabWagers: WagerWithEntries[];
-    if (activeTab === 'all') {
-      tabWagers = [...systemWagers, ...userWagers];
-    } else if (activeTab === 'system') {
-      tabWagers = systemWagers;
-    } else if (activeTab === 'user') {
-      tabWagers = userWagers;
-    } else if (activeTab === 'expired') {
-      tabWagers = expiredWagers;
-    } else {
-      tabWagers = settledWagers;
-    }
     
-    // Filter by category
-    if (selectedCategory) {
-      tabWagers = tabWagers.filter(wager => wager.category === selectedCategory);
-    }
-    
-    // Filter by search query
+    // If there's a search query, search across ALL wagers first
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
-      tabWagers = tabWagers.filter(wager => 
+      // Search across all wagers
+      const searchResults = allWagers.filter(wager => 
         wager.title.toLowerCase().includes(query) ||
         wager.description?.toLowerCase().includes(query) ||
         wager.side_a.toLowerCase().includes(query) ||
@@ -142,10 +127,41 @@ function WagersPageContent() {
         wager.category?.toLowerCase().includes(query) ||
         wager.tags?.some(tag => tag.toLowerCase().includes(query))
       );
+      
+      // Then apply tab filter
+      if (activeTab === 'all') {
+        tabWagers = searchResults;
+      } else if (activeTab === 'system') {
+        tabWagers = searchResults.filter(w => w.is_system_generated === true);
+      } else if (activeTab === 'user') {
+        tabWagers = searchResults.filter(w => w.is_system_generated !== true);
+      } else if (activeTab === 'expired') {
+        tabWagers = searchResults.filter(w => isExpired(w));
+      } else {
+        tabWagers = searchResults.filter(w => w.status === "SETTLED" || w.status === "RESOLVED");
+      }
+    } else {
+      // No search query - use normal tab filtering
+      if (activeTab === 'all') {
+        tabWagers = [...systemWagers, ...userWagers];
+      } else if (activeTab === 'system') {
+        tabWagers = systemWagers;
+      } else if (activeTab === 'user') {
+        tabWagers = userWagers;
+      } else if (activeTab === 'expired') {
+        tabWagers = expiredWagers;
+      } else {
+        tabWagers = settledWagers;
+      }
+    }
+    
+    // Filter by category (applies to both search results and normal tab results)
+    if (selectedCategory) {
+      tabWagers = tabWagers.filter(wager => wager.category === selectedCategory);
     }
     
     return tabWagers;
-  }, [activeTab, systemWagers, userWagers, expiredWagers, settledWagers, searchQuery, selectedCategory]);
+  }, [activeTab, systemWagers, userWagers, expiredWagers, settledWagers, searchQuery, selectedCategory, allWagers]);
 
   // Pull to refresh
   const { isRefreshing, pullDistance } = usePullToRefresh({

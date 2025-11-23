@@ -52,6 +52,7 @@ export const WAGER_CATEGORIES = [
   { id: "technology", label: "Technology", icon: "💻" },
   { id: "religion", label: "Religion", icon: "🙏" },
   { id: "weather", label: "Weather", icon: "🌤️" },
+  { id: "other", label: "Other", icon: "🌐" },
 ] as const;
 
 // Common side options

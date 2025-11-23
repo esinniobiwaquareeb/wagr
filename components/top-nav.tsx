@@ -51,11 +51,15 @@ export function TopNav() {
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
 
-  // Sync search query with URL params
+  // Sync search query with URL params only on wagers page
+  // Clear search query when navigating away from wagers page
   useEffect(() => {
     if (pathname === '/wagers') {
       const urlSearch = searchParams?.get('search') || '';
       setSearchQuery(urlSearch);
+    } else {
+      // Clear search query when not on wagers page
+      setSearchQuery('');
     }
   }, [searchParams, pathname]);
 
@@ -435,13 +439,36 @@ export function TopNav() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    const params = new URLSearchParams(searchParams?.toString() || '');
-    if (searchQuery.trim()) {
-      params.set('search', searchQuery.trim());
-    } else {
-      params.delete('search');
+    const trimmedQuery = searchQuery.trim();
+    
+    // Only perform search if we have a query or if we're clearing search on wagers page
+    // Create new URLSearchParams - start fresh to avoid carrying over unwanted params
+    const params = new URLSearchParams();
+    
+    // Preserve tab and category if we're on wagers page
+    if (pathname === '/wagers') {
+      const currentTab = searchParams?.get('tab');
+      const currentCategory = searchParams?.get('category');
+      
+      if (currentTab && currentTab !== 'all') {
+        params.set('tab', currentTab);
+      }
+      if (currentCategory) {
+        params.set('category', currentCategory);
+      }
     }
-    router.push(`/wagers?${params.toString()}`, { scroll: false });
+    
+    // Add search param only if there's a query
+    if (trimmedQuery) {
+      params.set('search', trimmedQuery);
+    }
+    
+    // Build the new URL
+    const queryString = params.toString();
+    const newUrl = queryString ? `/wagers?${queryString}` : '/wagers';
+    
+    // Navigate to wagers page with updated search params
+    router.push(newUrl);
   };
 
   const isActive = (path: string) => pathname === path;
@@ -487,8 +514,42 @@ export function TopNav() {
                   placeholder="Search wagers..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-4 h-10 bg-muted/50 border-border/50 focus:bg-background focus:border-primary/50 transition-colors"
+                  className={`pl-10 ${searchQuery ? 'pr-10' : 'pr-4'} h-10 bg-muted/50 border-border/50 focus:bg-background focus:border-primary/50 transition-colors`}
                 />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      // Clear search from URL and navigate
+                      const params = new URLSearchParams();
+                      if (pathname === '/wagers') {
+                        const currentTab = searchParams?.get('tab');
+                        const currentCategory = searchParams?.get('category');
+                        if (currentTab && currentTab !== 'all') {
+                          params.set('tab', currentTab);
+                        }
+                        if (currentCategory) {
+                          params.set('category', currentCategory);
+                        }
+                      }
+                      const queryString = params.toString();
+                      const newUrl = queryString ? `/wagers?${queryString}` : '/wagers';
+                      router.push(newUrl);
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 rounded"
+                    aria-label="Clear search"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  className="sr-only"
+                  aria-label="Search"
+                >
+                  Search
+                </button>
               </div>
             </form>
 
@@ -524,6 +585,9 @@ export function TopNav() {
                       onUnreadCountChange={setUnreadCount}
                     />
                   )}
+
+                  {/* Separator */}
+                  <div className="h-6 w-px bg-border mx-1" />
 
                   {/* User Menu */}
                   <DropdownMenu open={showUserMenu} onOpenChange={setShowUserMenu}>
@@ -645,7 +709,9 @@ export function TopNav() {
                 e.preventDefault();
                 const params = new URLSearchParams(searchParams?.toString() || '');
                 params.delete('category');
-                router.push(`/wagers?${params.toString()}`, { scroll: false });
+                params.delete('search'); // Clear search when clicking "All"
+                setSearchQuery(''); // Clear search input
+                router.push(`/wagers?${params.toString()}`);
               }}
               className={`flex items-center gap-2 px-4 py-2 rounded-md whitespace-nowrap text-sm font-medium transition-colors ${
                 pathname === "/wagers" && !searchParams?.get("category")
@@ -664,9 +730,11 @@ export function TopNav() {
                   href={`/wagers?category=${category.id}`}
                   onClick={(e) => {
                     e.preventDefault();
-                    const params = new URLSearchParams(searchParams?.toString() || '');
+                    const params = new URLSearchParams();
                     params.set('category', category.id);
-                    router.push(`/wagers?${params.toString()}`, { scroll: false });
+                    params.delete('search'); // Clear search when selecting a category
+                    setSearchQuery(''); // Clear search input
+                    router.push(`/wagers?${params.toString()}`);
                   }}
                   className={`flex items-center gap-2 px-4 py-2 rounded-md whitespace-nowrap text-sm font-medium transition-colors ${
                     pathname === "/wagers" && searchParams?.get("category") === category.id
@@ -702,6 +770,24 @@ export function TopNav() {
             <span className="text-base font-bold tracking-tight">wagr</span>
           </Link>
           <div className="flex items-center gap-2">
+            {/* Wallet Balance - Mobile Top Bar */}
+            {user && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowMobileMenu(false);
+                  setShowDepositModal(true);
+                }}
+                className={`h-9 px-2 gap-1.5 font-medium hover:bg-muted/80 hover:text-foreground transition-colors group border-2 ${getWalletBorderColor(walletBalance)}`}
+              >
+                <Wallet className="h-4 w-4" />
+                <span className="text-xs whitespace-nowrap">
+                  {walletBalance !== null ? formatCurrency(walletBalance, currency) : '...'}
+                </span>
+                <CirclePlus className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-colors" />
+              </Button>
+            )}
             <ThemeToggle />
             <Button
               variant="ghost"
@@ -717,30 +803,65 @@ export function TopNav() {
         {/* Mobile Menu Dropdown */}
         {showMobileMenu && (
           <div className="border-t border-border/50 bg-background">
+            {/* Mobile Search Bar */}
+            <div className="px-3 py-3 border-b border-border/50">
+              <form 
+                onSubmit={(e) => {
+                  handleSearch(e);
+                  setShowMobileMenu(false);
+                }} 
+                className="w-full"
+              >
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    type="text"
+                    placeholder="Search wagers..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className={`pl-10 ${searchQuery ? 'pr-10' : 'pr-4'} h-10 bg-muted/50 border-border/50 focus:bg-background focus:border-primary/50 transition-colors`}
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery('');
+                        // Clear search from URL and navigate
+                        const params = new URLSearchParams();
+                        if (pathname === '/wagers') {
+                          const currentTab = searchParams?.get('tab');
+                          const currentCategory = searchParams?.get('category');
+                          if (currentTab && currentTab !== 'all') {
+                            params.set('tab', currentTab);
+                          }
+                          if (currentCategory) {
+                            params.set('category', currentCategory);
+                          }
+                        }
+                        const queryString = params.toString();
+                        const newUrl = queryString ? `/wagers?${queryString}` : '/wagers';
+                        router.push(newUrl);
+                        setShowMobileMenu(false);
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 rounded"
+                      aria-label="Clear search"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    className="sr-only"
+                    aria-label="Search"
+                  >
+                    Search
+                  </button>
+                </div>
+              </form>
+            </div>
             <div className="px-3 py-3 space-y-1">
               {user ? (
                 <>
-                  {/* Wallet Balance - Mobile */}
-                  <button
-                    onClick={() => {
-                      setShowMobileMenu(false);
-                      setShowDepositModal(true);
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border-2 ${getWalletBorderColor(walletBalance)} ${
-                      isActive("/wallet")
-                        ? "bg-primary/10 text-primary"
-                        : "bg-muted/50 text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Wallet className="h-4 w-4" />
-                      <span>Wallet Balance</span>
-                    </div>
-                    <span className="font-semibold">
-                      {walletBalance !== null ? formatCurrency(walletBalance, currency) : '...'}
-                    </span>
-                  </button>
-                  
                   <Link
                     href="/wagers"
                     onClick={() => setShowMobileMenu(false)}
@@ -794,6 +915,10 @@ export function TopNav() {
                     <Wallet className="h-5 w-5 flex-shrink-0" />
                     <span>Wallet</span>
                   </Link>
+                  
+                  {/* Separator */}
+                  <div className="h-px bg-border my-1 mx-3" />
+                  
                   <Link
                     href="/profile"
                     onClick={() => setShowMobileMenu(false)}
