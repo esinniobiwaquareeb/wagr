@@ -247,9 +247,10 @@ function WagersPageContent() {
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
     }
+    // Increased debounce to 3 seconds to prevent excessive reloads
     debounceTimeoutRef.current = setTimeout(() => {
       fetchWagers(true);
-    }, 1000);
+    }, 3000);
   }, [fetchWagers]);
 
   // Store debouncedRefetch in a ref to avoid dependency issues
@@ -279,18 +280,28 @@ function WagersPageContent() {
           table: "wagers",
           filter: "is_public=eq.true"
         },
-        () => {
-          debouncedRefetchRef.current();
+        (payload) => {
+          // Only refetch on INSERT or UPDATE, not DELETE (to reduce reloads)
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            debouncedRefetchRef.current();
+          }
         }
       )
       .subscribe();
 
+    // Only listen to INSERT events (new entries) to reduce unnecessary reloads
+    // UPDATE/DELETE events are less critical and can be handled by user actions
     const entriesChannel = supabase
       .channel("wager-entries-list")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "wager_entries" },
+        { 
+          event: "INSERT", 
+          schema: "public", 
+          table: "wager_entries"
+        },
         () => {
+          // Only refetch on new entries
           debouncedRefetchRef.current();
         }
       )
@@ -310,7 +321,7 @@ function WagersPageContent() {
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [supabase, fetchWagers]); // Keep fetchWagers but use ref for callbacks
+  }, [supabase]); // Removed fetchWagers dependency - using ref instead to prevent unnecessary re-subscriptions
 
   const handleTabChange = (tab: TabType) => {
     const params = new URLSearchParams(searchParams?.toString() || '');
@@ -589,7 +600,6 @@ function WagersPageContent() {
         isOpen={showAuthModal}
         onClose={() => {
           setShowAuthModal(false);
-          router.refresh();
         }}
       />
       {user && (

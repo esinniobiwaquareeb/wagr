@@ -216,8 +216,7 @@ export function TopNav() {
     const handleAuthStateChanged = async () => {
       // Immediately fetch user without delay for faster UI update
       await getUser();
-      // Force a re-render by refreshing router state
-      router.refresh();
+      // Don't refresh router - just update state
     };
     window.addEventListener('auth-state-changed', handleAuthStateChanged);
 
@@ -427,7 +426,6 @@ export function TopNav() {
         description: "Come back soon!",
       });
       router.push("/wagers?login=true");
-      router.refresh();
     } catch (error) {
       console.error("Error logging out:", error);
       toast({
@@ -991,7 +989,6 @@ export function TopNav() {
         isOpen={showAuthModal}
         onClose={() => {
           setShowAuthModal(false);
-          router.refresh();
         }}
       />
       <ConfirmDialog
