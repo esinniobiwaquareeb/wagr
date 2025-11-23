@@ -7,5 +7,5 @@ Disallow: /api/
 Disallow: /admin/
 
 # Sitemap
-Sitemap: https://iwagr.app/sitemap.xml
+Sitemap: https://wagered.app/sitemap.xml
 

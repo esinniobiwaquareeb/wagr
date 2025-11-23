@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Send verification email
-        const appUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://wagr.app';
+        const appUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://wagered.app';
         const verificationUrl = `${appUrl}/verify-email?token=${verificationToken}`;
 
         // Send verification email in background (non-blocking)

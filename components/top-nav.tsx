@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { Home, Plus, Wallet, Trophy, User, Settings, Bell, History, LogOut, Menu, X, Search, ChevronDown, CirclePlus, Activity } from "lucide-react";
+import { Logo } from "@/components/logo";
 import { AuthModal } from "@/components/auth-modal";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -497,12 +498,9 @@ export function TopNav() {
             {/* Logo */}
             <Link 
               href="/wagers" 
-              className="flex items-center gap-2.5 flex-shrink-0 group"
+              className="flex items-center gap-2.5 flex-shrink-0"
             >
-              <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center transition-transform group-hover:scale-105">
-                <span className="text-primary-foreground font-bold text-xl">W</span>
-              </div>
-              <span className="text-xl font-bold tracking-tight">iwagr</span>
+              <Logo size="md" variant="full" />
             </Link>
 
             {/* Search Bar */}
@@ -763,11 +761,8 @@ export function TopNav() {
       {/* Mobile Menu */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-lg border-b border-border">
         <div className="flex items-center justify-between h-14 px-4">
-          <Link href="/wagers" className="flex items-center gap-2.5 group">
-            <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center transition-transform group-hover:scale-105">
-              <span className="text-primary-foreground font-bold text-base">W</span>
-            </div>
-            <span className="text-base font-bold tracking-tight">wagr</span>
+          <Link href="/wagers" className="flex items-center gap-2.5">
+            <Logo size="sm" variant="full" />
           </Link>
           <div className="flex items-center gap-2">
             {/* Wallet Balance - Mobile Top Bar */}

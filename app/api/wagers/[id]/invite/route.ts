@@ -47,7 +47,7 @@ export async function POST(
       .single();
 
     const inviterName = inviterProfile?.username || inviterProfile?.email || 'Someone';
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://wagr.app';
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://wagered.app';
     const wagerUrl = `${appUrl}/wager/${wager.short_id || wager.id}`;
 
     // Process invites

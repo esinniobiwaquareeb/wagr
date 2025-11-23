@@ -10,19 +10,19 @@ import './globals.css'
 const geist = Geist({ subsets: ["latin"] });
 const geistMono = Geist_Mono({ subsets: ["latin"] });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://iwagr.app';
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://wagered.app';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: 'iwagr - Wagering Platform | Join and Create Wagers',
-    template: '%s | iwagr'
+    default: 'wagered.app - Wagering Platform | Join and Create Wagers',
+    template: '%s | wagered.app'
   },
   description: 'Join and create wagers in real-time. Wager on sports, finance, politics, entertainment, and more. Transparent wagering platform with real-time updates.',
-  keywords: ['wagering', 'wagers', 'sports wagering', 'finance wagering', 'politics wagering', 'real-time wagering', 'iwagr'],
-  authors: [{ name: 'iwagr' }],
-  creator: 'iwagr',
-  publisher: 'iwagr',
+  keywords: ['wagering', 'wagers', 'sports wagering', 'finance wagering', 'politics wagering', 'real-time wagering', 'wagered', 'wagered.app'],
+  authors: [{ name: 'wagered.app' }],
+  creator: 'wagered.app',
+  publisher: 'wagered.app',
   formatDetection: {
     email: false,
     address: false,
@@ -40,30 +40,30 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'iwagr',
+    title: 'wagered.app',
   },
   openGraph: {
     type: 'website',
     locale: 'en_US',
     url: siteUrl,
-    siteName: 'iwagr',
-    title: 'iwagr - Wagering Platform | Join and Create Wagers',
+    siteName: 'wagered.app',
+    title: 'wagered.app - Wagering Platform | Join and Create Wagers',
     description: 'Join and create wagers in real-time. Wager on sports, finance, politics, entertainment, and more.',
     images: [
       {
         url: `${siteUrl}/og-image.png`,
         width: 1200,
         height: 630,
-        alt: 'iwagr - Wagering Platform',
+        alt: 'wagered.app - Wagering Platform',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'iwagr - Wagering Platform',
+    title: 'wagered.app - Wagering Platform',
     description: 'Join and create wagers in real-time. Wager on sports, finance, politics, and more.',
     images: [`${siteUrl}/og-image.png`],
-    creator: '@iwagr',
+    creator: '@wageredapp',
   },
   robots: {
     index: true,
@@ -102,8 +102,8 @@ export default function RootLayout({
         <meta name="theme-color" content="#2563EB" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="iwagr" />
-        <meta name="application-name" content="iwagr" />
+        <meta name="apple-mobile-web-app-title" content="wagered.app" />
+        <meta name="application-name" content="wagered.app" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="msapplication-TileColor" content="#A969A7" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
@@ -115,7 +115,7 @@ export default function RootLayout({
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "WebApplication",
-              "name": "iwagr",
+              "name": "wagered.app",
               "description": "Join and create wagers in real-time. Wager on sports, finance, politics, entertainment, and more.",
               "url": siteUrl,
               "applicationCategory": "EntertainmentApplication",

@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       type: type as any,
       data: {
         recipientName: 'Test User',
-        loginUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://wagr.app',
+        loginUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://wagered.app',
       },
       subject: 'Test Email from wagr',
     });

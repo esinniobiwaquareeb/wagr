@@ -193,7 +193,7 @@ export default function ContactPage() {
                 <Mail className="h-5 w-5 text-primary mt-0.5" />
                 <div>
                   <p className="font-medium">Email</p>
-                  <p className="text-sm text-muted-foreground">support@iwagr.app</p>
+                  <p className="text-sm text-muted-foreground">support@wagered.app.app</p>
                 </div>
               </div>
             </div>

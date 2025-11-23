@@ -46,16 +46,16 @@ export function getEmailSubject(type: EmailType, customSubject?: string): string
   if (customSubject) return customSubject;
 
   const subjects: Record<EmailType, string> = {
-    verification: 'Verify your iwagr account',
-    welcome: 'Welcome to iwagr!',
-    'password-reset': 'Reset your iwagr password',
-    'password-changed': 'Your iwagr password was changed',
+    verification: 'Verify your wagered.app account',
+    welcome: 'Welcome to wagered.app!',
+    'password-reset': 'Reset your wagered.app password',
+    'password-changed': 'Your wagered.app password was changed',
     '2fa-enabled': 'Two-factor authentication enabled',
     '2fa-disabled': 'Two-factor authentication disabled',
     'wager-invitation': 'You\'ve been invited to a wager!',
   };
 
-  return subjects[type] || 'wagr notification';
+  return subjects[type] || 'wagered.app notification';
 }
 
 /**
@@ -64,9 +64,9 @@ export function getEmailSubject(type: EmailType, customSubject?: string): string
 export function generateEmailHTML(data: EmailTemplateData): string {
   const { type, recipientName, recipientEmail } = data;
   const name = recipientName || recipientEmail.split('@')[0];
-  const appName = 'iwagr';
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://iwagr.app';
-  const supportEmail = process.env.SUPPORT_EMAIL || 'support@iwagr.app';
+  const appName = 'wagered.app';
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://wagered.app';
+  const supportEmail = process.env.SUPPORT_EMAIL || 'support@wagered.app';
   const currency = (process.env.DEFAULT_CURRENCY || 'NGN') as 'NGN' | 'USD' | 'GBP' | 'EUR';
   
   // Helper function for currency formatting
@@ -398,8 +398,8 @@ export function generateEmailHTML(data: EmailTemplateData): string {
 export function generateEmailText(data: EmailTemplateData): string {
   const { type, recipientName, recipientEmail } = data;
   const name = recipientName || recipientEmail.split('@')[0];
-  const appName = 'wagr';
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://wagr.app';
+  const appName = 'wagered.app';
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://wagered.app';
 
   let content = '';
 

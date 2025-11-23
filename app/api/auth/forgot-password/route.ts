@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
           });
 
         // Send password reset email
-        const appUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://wagr.app';
+        const appUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://wagered.app';
         const resetUrl = `${appUrl}/reset-password?token=${resetToken}`;
 
         // Send password reset email in background (non-blocking)
