@@ -18,6 +18,7 @@ import { wagersApi } from "@/lib/api-client";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { DepositModal } from "@/components/deposit-modal";
 import { CreateWagerModal } from "@/components/create-wager-modal";
+import { HowItWorksModal } from "@/components/how-it-works-modal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,6 +40,7 @@ export function TopNav() {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showHowItWorksModal, setShowHowItWorksModal] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -172,8 +174,10 @@ export function TopNav() {
     getUser();
 
     const handleAuthStateChanged = async () => {
-      await new Promise(resolve => setTimeout(resolve, 50));
-      getUser();
+      // Immediately fetch user without delay for faster UI update
+      await getUser();
+      // Force a re-render by refreshing router state
+      router.refresh();
     };
     window.addEventListener('auth-state-changed', handleAuthStateChanged);
 
@@ -185,7 +189,7 @@ export function TopNav() {
       window.removeEventListener('auth-state-changed', handleAuthStateChanged);
       clearInterval(interval);
     };
-  }, []);
+  }, [router]);
 
   const fetchingProfileRef = useRef(false);
   const debounceProfileTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -569,6 +573,13 @@ export function TopNav() {
                 <>
                   <Button 
                     variant="ghost" 
+                    onClick={() => setShowHowItWorksModal(true)}
+                    className="h-9 px-4 font-medium"
+                  >
+                    How it works
+                  </Button>
+                  <Button 
+                    variant="ghost" 
                     onClick={() => setShowAuthModal(true)}
                     className="h-9 px-4 font-medium"
                   >
@@ -802,6 +813,15 @@ export function TopNav() {
                   <button
                     onClick={() => {
                       setShowMobileMenu(false);
+                      setShowHowItWorksModal(true);
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 text-sm font-medium transition-colors"
+                  >
+                    How it works
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowMobileMenu(false);
                       setShowAuthModal(true);
                     }}
                     className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 text-sm font-medium transition-colors"
@@ -832,6 +852,10 @@ export function TopNav() {
         cancelText="Cancel"
         variant="default"
         onConfirm={handleLogout}
+      />
+      <HowItWorksModal
+        isOpen={showHowItWorksModal}
+        onClose={() => setShowHowItWorksModal(false)}
       />
       {user && (
         <>

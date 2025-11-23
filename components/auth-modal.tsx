@@ -181,18 +181,18 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           markSessionAs2FAVerified(data.data.user.id);
         }
         
-        // Force router refresh to update server components
-        router.refresh();
-        
-        // Trigger a manual auth state change event to ensure all listeners are notified
+        // Trigger auth state change event FIRST to update UI immediately
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('auth-state-changed'));
         }
         
+        // Force router refresh to update server components
+        router.refresh();
+        
         // Close modal after a brief delay to allow UI to update
         setTimeout(() => {
           onClose();
-        }, 300);
+        }, 100);
       }
     } catch (error: unknown) {
       const { extractErrorMessage } = await import('@/lib/error-extractor');
@@ -236,18 +236,18 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       
       setRequires2FA(false);
       
-      // Force router refresh to update server components
-      router.refresh();
-      
-      // Trigger a manual auth state change event
+      // Trigger auth state change event FIRST to update UI immediately
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('auth-state-changed'));
       }
       
+      // Force router refresh to update server components
+      router.refresh();
+      
       // Close modal after a brief delay
       setTimeout(() => {
         onClose();
-      }, 300);
+      }, 100);
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Verification failed");
       throw error; // Re-throw so TwoFactorVerify can handle it

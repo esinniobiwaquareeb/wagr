@@ -50,12 +50,18 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Public pages - no nav, but include footer
+  // Public pages - include top nav (large screens) and mobile nav (small screens), with footer
   if (isPublicPage) {
     return (
       <div className="flex flex-col min-h-screen">
-        {children}
+        <Suspense fallback={<div className="h-16 bg-background border-b border-border" />}>
+          <TopNav />
+        </Suspense>
+        <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden lg:pt-0 pt-14 pb-20 lg:pb-0">
+          <div className="flex-1">{children}</div>
+        </div>
         <Footer />
+        <MobileNav />
       </div>
     );
   }
