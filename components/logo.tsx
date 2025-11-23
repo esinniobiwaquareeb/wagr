@@ -6,26 +6,14 @@ import { cn } from "@/lib/utils";
 interface LogoProps {
   className?: string;
   size?: "sm" | "md" | "lg";
-  variant?: "full" | "icon" | "text";
-  showText?: boolean;
+  variant?: "full" | "icon" | "text" | "v1" | "v2" | "v3" | "v4";
 }
 
 export function Logo({ 
   className, 
   size = "md", 
-  variant = "full",
-  showText = true 
+  variant = "full"
 }: LogoProps) {
-  const sizeClasses = useMemo(() => {
-    switch (size) {
-      case "sm":
-        return "h-6 w-6";
-      case "lg":
-        return "h-12 w-12";
-      default:
-        return "h-8 w-8";
-    }
-  }, [size]);
 
   const textSizeClasses = useMemo(() => {
     switch (size) {
@@ -38,53 +26,118 @@ export function Logo({
     }
   }, [size]);
 
+  // Variant 1: Space Grotesk - Modern, condensed, tech-forward
+  if (variant === "v1") {
+    return (
+      <span 
+        className={cn(
+          "font-bold tracking-tight",
+          textSizeClasses,
+          className
+        )}
+        style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+      >
+        <span className="text-foreground">wagered</span>
+        <span className="text-primary">.app</span>
+      </span>
+    );
+  }
+
+  // Variant 2: Outfit - Clean, geometric, confident
+  if (variant === "v2") {
+    return (
+      <span 
+        className={cn(
+          "font-bold tracking-tight",
+          textSizeClasses,
+          className
+        )}
+        style={{ fontFamily: "'Outfit', sans-serif" }}
+      >
+        <span className="text-foreground">wagered</span>
+        <span className="text-primary">.app</span>
+      </span>
+    );
+  }
+
+  // Variant 3: Rajdhani - Bold, modern, tech-inspired
+  if (variant === "v3") {
+    return (
+      <span 
+        className={cn(
+          "font-bold tracking-wide uppercase",
+          textSizeClasses,
+          className
+        )}
+        style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: "0.05em" }}
+      >
+        <span className="text-foreground">wagered</span>
+        <span className="text-primary">.app</span>
+      </span>
+    );
+  }
+
+  // Variant 4: DM Sans - Minimalist, clean, professional
+  if (variant === "v4") {
+    return (
+      <span 
+        className={cn(
+          "font-bold tracking-normal",
+          textSizeClasses,
+          className
+        )}
+        style={{ fontFamily: "'DM Sans', sans-serif" }}
+      >
+        <span className="text-foreground">wagered</span>
+        <span className="text-primary">.app</span>
+      </span>
+    );
+  }
+
   if (variant === "icon") {
     return (
-      <div className={cn("relative", className)}>
-        <svg
-          viewBox="0 0 120 120"
-          className={cn(sizeClasses, "text-primary")}
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
+      <div className={cn("relative flex items-center justify-center", className)}>
+        <span 
+          className={cn(
+            "font-bold text-primary",
+            size === "sm" ? "text-lg" : size === "lg" ? "text-3xl" : "text-xl"
+          )}
+          style={{ fontFamily: "'Space Grotesk', sans-serif" }}
         >
-          {/* Modern W shape with gradient */}
-          <defs>
-            <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="currentColor" stopOpacity="1" />
-              <stop offset="100%" stopColor="currentColor" stopOpacity="0.8" />
-            </linearGradient>
-          </defs>
-          
-          {/* Modern W shape - clean geometric design */}
-          <path
-            d="M25 95 L35 25 L50 65 L65 25 L75 95 L60 95 L55 45 L45 80 L40 45 L30 95 Z"
-            fill="url(#logoGradient)"
-          />
-          
-          {/* Accent dot representing the "app" */}
-          <circle cx="50" cy="90" r="3.5" fill="currentColor" opacity="0.7" />
-        </svg>
+          W
+        </span>
       </div>
     );
   }
 
   if (variant === "text") {
     return (
-      <span className={cn("font-bold tracking-tight", textSizeClasses, className)}>
-        wagered
+      <span 
+        className={cn(
+          "font-bold tracking-tight",
+          textSizeClasses,
+          className
+        )}
+        style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+      >
+        <span className="text-foreground">wagered</span>
         <span className="text-primary">.app</span>
       </span>
     );
   }
 
+  // Default "full" variant: Use v1 (Space Grotesk)
   return (
-    <div className={cn("flex items-center gap-2", className)}>
-      {showText && (
-        <span className={cn("font-bold tracking-tight", textSizeClasses)}>
-          waGered
-        </span>
+    <span 
+      className={cn(
+        "font-bold tracking-tight",
+        textSizeClasses,
+        className
       )}
-    </div>
+      style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+    >
+      <span className="text-foreground">wagered</span>
+      {/* <span className="text-primary">.app</span> */}
+    </span>
   );
 }
-
