@@ -208,22 +208,30 @@ export function TopNav() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const getUser = async () => {
+    const getUser = async (forceRefresh = false) => {
       try {
-        const currentUser = await getCurrentUser();
+        const currentUser = await getCurrentUser(forceRefresh);
         setUser(currentUser);
+        // If no user, ensure all dependent state is cleared
+        if (!currentUser) {
+          setProfile(null);
+          setWalletBalance(null);
+          setUnreadCount(0);
+        }
       } catch (error) {
         console.error('Error getting user:', error);
         setUser(null);
+        setProfile(null);
+        setWalletBalance(null);
+        setUnreadCount(0);
       }
     };
     
     getUser();
 
     const handleAuthStateChanged = async () => {
-      // Immediately fetch user without delay for faster UI update
-      await getUser();
-      // Don't refresh router - just update state
+      // Force refresh to bypass cache after logout
+      await getUser(true);
     };
     window.addEventListener('auth-state-changed', handleAuthStateChanged);
 
@@ -414,32 +422,50 @@ export function TopNav() {
     try {
       clear2FAVerification();
       
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
+      // Import logout function that properly clears cache
+      const { logout: clientLogout } = await import('@/lib/auth/client');
+      await clientLogout();
 
-      if (!response.ok) {
-        throw new Error('Logout failed');
-      }
-
+      // Immediately clear all local state
       setUser(null);
       setProfile(null);
+      setWalletBalance(null);
+      setUnreadCount(0);
       
+      // Dispatch auth state change event immediately
       window.dispatchEvent(new Event('auth-state-changed'));
+      
+      // Force refresh router to clear server-side state
+      router.refresh();
       
       toast({
         title: "You're signed out",
         description: "Come back soon!",
       });
-      router.push("/wagers?login=true");
+      
+      // Navigate after a brief delay to ensure state is cleared
+      setTimeout(() => {
+        router.push("/wagers?login=true");
+      }, 100);
     } catch (error) {
       console.error("Error logging out:", error);
+      
+      // Even on error, clear local state
+      setUser(null);
+      setProfile(null);
+      setWalletBalance(null);
+      setUnreadCount(0);
+      window.dispatchEvent(new Event('auth-state-changed'));
+      router.refresh();
+      
       toast({
-        title: "Couldn't sign you out",
-        description: "Something went wrong. Please try again.",
-        variant: "destructive",
+        title: "You're signed out",
+        description: "Come back soon!",
       });
+      
+      setTimeout(() => {
+        router.push("/wagers?login=true");
+      }, 100);
     }
   };
 

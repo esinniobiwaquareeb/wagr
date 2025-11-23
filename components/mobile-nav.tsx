@@ -29,14 +29,21 @@ export function MobileNav() {
     // Only run on client side
     if (typeof window === 'undefined') return;
 
-    const getUser = async () => {
+    const getUser = async (forceRefresh = false) => {
       try {
         // Use custom auth API
-        const currentUser = await getCurrentUser();
+        const currentUser = await getCurrentUser(forceRefresh);
         setUser(currentUser);
+        // If no user, ensure all dependent state is cleared
+        if (!currentUser) {
+          setProfile(null);
+          setUnreadCount(0);
+        }
       } catch (error) {
         console.error('Error getting user:', error);
         setUser(null);
+        setProfile(null);
+        setUnreadCount(0);
       }
     };
     
@@ -44,9 +51,8 @@ export function MobileNav() {
 
     // Listen to custom auth state change events (triggered after login/logout)
     const handleAuthStateChanged = async () => {
-      // Small delay to ensure session is fully established
-      await new Promise(resolve => setTimeout(resolve, 50));
-      getUser();
+      // Force refresh to bypass cache after logout
+      await getUser(true);
     };
     window.addEventListener('auth-state-changed', handleAuthStateChanged);
 
@@ -248,35 +254,48 @@ export function MobileNav() {
     try {
       clear2FAVerification();
       
-      // Call logout API
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
+      // Import logout function that properly clears cache
+      const { logout: clientLogout } = await import('@/lib/auth/client');
+      await clientLogout();
 
-      if (!response.ok) {
-        throw new Error('Logout failed');
-      }
-
+      // Immediately clear all local state
       setUser(null);
       setProfile(null);
+      setUnreadCount(0);
       
-      // Trigger auth state change
+      // Dispatch auth state change event immediately
       window.dispatchEvent(new Event('auth-state-changed'));
+      
+      // Force refresh router to clear server-side state
+      router.refresh();
       
       toast({
         title: "You're signed out",
         description: "Come back soon!",
       });
-      router.push("/wagers?login=true");
-      router.refresh();
+      
+      // Navigate after a brief delay to ensure state is cleared
+      setTimeout(() => {
+        router.push("/wagers?login=true");
+      }, 100);
     } catch (error) {
       console.error("Error logging out:", error);
+      
+      // Even on error, clear local state
+      setUser(null);
+      setProfile(null);
+      setUnreadCount(0);
+      window.dispatchEvent(new Event('auth-state-changed'));
+      router.refresh();
+      
       toast({
-        title: "Couldn't sign you out",
-        description: "Something went wrong. Please try again.",
-        variant: "destructive",
+        title: "You're signed out",
+        description: "Come back soon!",
       });
+      
+      setTimeout(() => {
+        router.push("/wagers?login=true");
+      }, 100);
     }
   };
 

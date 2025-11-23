@@ -31,7 +31,7 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthResult {
   const router = useRouter();
   const fetchingRef = useRef(false);
 
-  const fetchUser = useCallback(async () => {
+  const fetchUser = useCallback(async (forceRefresh = false) => {
     // Prevent concurrent fetches within this hook instance
     // Note: getCurrentUser() itself handles global deduplication
     if (fetchingRef.current) return;
@@ -39,7 +39,7 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthResult {
 
     try {
       // getCurrentUser now uses caching and deduplication internally
-      const currentUser = await getCurrentUser();
+      const currentUser = await getCurrentUser(forceRefresh);
       setUser(currentUser);
       setLoading(false);
 
@@ -88,7 +88,8 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthResult {
 
     // Listen for auth state changes
     const handleAuthStateChanged = () => {
-      fetchUserRef.current();
+      // Force refresh to bypass cache after logout
+      fetchUserRef.current(true);
     };
 
     if (typeof window !== 'undefined') {

@@ -9,7 +9,7 @@ import { Suspense } from "react";
 export function ConditionalNav({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdminRoute = pathname?.startsWith("/admin");
-  const isLandingPage = pathname === "/landing" || pathname === "/";
+  const isLandingPage = pathname === "/landing";
   
   // Public pages that should have footer but no nav
   const publicPages = [
@@ -24,6 +24,7 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
 
   // App routes (user dashboard) - no footer, with top nav
   const appRoutes = [
+    "/",
     "/wagers",
     "/wallet",
     "/profile",
