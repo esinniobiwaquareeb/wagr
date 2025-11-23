@@ -5,7 +5,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef, Suspense } from "react";
-import { Home, Plus, Wallet, Trophy, User, Settings, Bell, History, LogOut, Menu, X, Search, ChevronDown, CirclePlus } from "lucide-react";
+import { Home, Plus, Wallet, Trophy, User, Settings, Bell, History, LogOut, Menu, X, Search, ChevronDown, CirclePlus, Activity } from "lucide-react";
 import { AuthModal } from "@/components/auth-modal";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -639,6 +639,12 @@ export function TopNav() {
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
+                        <Link href="/activity" className="flex items-center gap-2 cursor-pointer">
+                          <Activity className="h-4 w-4" />
+                          <span>Activity</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
                         <Link href="/wallet" className="flex items-center gap-2 cursor-pointer">
                           <Wallet className="h-4 w-4" />
                           <span>Wallet</span>
@@ -655,12 +661,6 @@ export function TopNav() {
                         <Link href="/profile" className="flex items-center gap-2 cursor-pointer">
                           <User className="h-4 w-4" />
                           <span>Profile</span>
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/preferences" className="flex items-center gap-2 cursor-pointer">
-                          <Settings className="h-4 w-4" />
-                          <span>Preferences</span>
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
@@ -887,6 +887,18 @@ export function TopNav() {
                     <span>Leaderboard</span>
                   </Link>
                   <Link
+                    href="/activity"
+                    onClick={() => setShowMobileMenu(false)}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      isActive("/activity")
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    }`}
+                  >
+                    <Activity className="h-5 w-5 flex-shrink-0" />
+                    <span>Activity</span>
+                  </Link>
+                  <Link
                     href="/notifications"
                     onClick={() => setShowMobileMenu(false)}
                     className={`relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -930,18 +942,6 @@ export function TopNav() {
                   >
                     <User className="h-5 w-5 flex-shrink-0" />
                     <span>Profile</span>
-                  </Link>
-                  <Link
-                    href="/preferences"
-                    onClick={() => setShowMobileMenu(false)}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isActive("/preferences")
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                    }`}
-                  >
-                    <Settings className="h-5 w-5 flex-shrink-0" />
-                    <span>Preferences</span>
                   </Link>
                   <button
                     onClick={() => {

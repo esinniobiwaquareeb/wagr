@@ -16,6 +16,7 @@ import { TwoFactorManage } from "@/components/two-factor-manage";
 import { ChangePasswordDialog } from "@/components/change-password-dialog";
 import { PushNotificationSettings } from "@/components/push-notification-settings";
 import { CreateWagerModal } from "@/components/create-wager-modal";
+import { PreferencesModal } from "@/components/preferences-modal";
 import { clear2FAVerification } from "@/lib/session-2fa";
 
 interface Profile {
@@ -43,6 +44,7 @@ export default function Profile() {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showCreateWagerModal, setShowCreateWagerModal] = useState(false);
+  const [showPreferencesModal, setShowPreferencesModal] = useState(false);
   const [myWagers, setMyWagers] = useState<any[]>([]);
   const [loadingWagers, setLoadingWagers] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -573,8 +575,8 @@ export default function Profile() {
             <div className="bg-card border border-border rounded-xl p-4 md:p-6">
               <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wide">Account Settings</h3>
               <div className="space-y-1">
-                <Link
-                  href="/preferences"
+                <button
+                  onClick={() => setShowPreferencesModal(true)}
                   className="w-full flex items-center justify-between p-3 md:p-3.5 hover:bg-muted rounded-lg transition active:scale-[0.98] touch-manipulation group min-h-[44px]"
                 >
                   <div className="flex items-center gap-3">
@@ -582,7 +584,7 @@ export default function Profile() {
                     <span className="font-medium text-sm">Preferences</span>
                   </div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                </Link>
+                </button>
                 <button
                   onClick={() => setShowChangePassword(true)}
                   className="w-full flex items-center justify-between p-3 md:p-3.5 hover:bg-muted rounded-lg transition active:scale-[0.98] touch-manipulation group min-h-[44px]"
@@ -858,14 +860,20 @@ export default function Profile() {
       </div>
       
       {user && (
-        <CreateWagerModal
-          open={showCreateWagerModal}
-          onOpenChange={setShowCreateWagerModal}
-          onSuccess={() => {
-            // Refresh wagers list when wager is successfully created
-            fetchMyWagers();
-          }}
-        />
+        <>
+          <CreateWagerModal
+            open={showCreateWagerModal}
+            onOpenChange={setShowCreateWagerModal}
+            onSuccess={() => {
+              // Refresh wagers list when wager is successfully created
+              fetchMyWagers();
+            }}
+          />
+          <PreferencesModal
+            isOpen={showPreferencesModal}
+            onClose={() => setShowPreferencesModal(false)}
+          />
+        </>
       )}
     </main>
   );

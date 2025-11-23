@@ -8,7 +8,7 @@ import { AuthModal } from "@/components/auth-modal";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
-import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Award, Coins, Trash2, Edit2, Share2, Crown, Star, UserPlus } from "lucide-react";
+import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Award, Coins, Trash2, Edit2, Share2, Crown, Star, UserPlus, MessageSquare, Activity } from "lucide-react";
 import { WagerInviteDialog } from "@/components/wager-invite-dialog";
 import { BackButton } from "@/components/back-button";
 import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
@@ -18,6 +18,9 @@ import { utcToLocal, localToUTC, isDeadlineElapsed, getTimeRemaining } from "@/l
 import { useDeadlineCountdown } from "@/hooks/use-deadline-countdown";
 import { DeadlineDisplay } from "@/components/deadline-display";
 import { PLATFORM_FEE_PERCENTAGE } from "@/lib/constants";
+import { WagerComments } from "@/components/wager-comments";
+import { WagerActivities } from "@/components/wager-activities";
+import { WagerParticipants } from "@/components/wager-participants";
 
 interface Wager {
   id: string;
@@ -70,6 +73,7 @@ export default function WagerDetail() {
   const [unjoining, setUnjoining] = useState(false);
   const [changingSide, setChangingSide] = useState(false);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState<"comments" | "participants" | "activities">("comments");
   const [editFormData, setEditFormData] = useState({
     title: "",
     description: "",
@@ -1282,13 +1286,13 @@ export default function WagerDetail() {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 md:py-4">
         {/* Header Section */}
-        <div className="mb-4 md:mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 md:gap-3 mb-3 md:mb-4">
-            <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+        <div className="mb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
               <BackButton fallbackHref="/wagers" />
-              <h1 className="text-xl md:text-4xl font-bold flex-1 break-words">{wager.title}</h1>
+              <h1 className="text-lg md:text-2xl font-bold flex-1 break-words">{wager.title}</h1>
               {/* Edit and Delete Buttons - Only show for creator when no other users have wagered and deadline hasn't elapsed */}
               {user && wager.creator_id === user.id && wager.status === "OPEN" && entries.filter(e => e.user_id !== user.id).length === 0 && !isDeadlineElapsed(wager.deadline) && (
                 <>
@@ -1422,19 +1426,19 @@ export default function WagerDetail() {
         </div>
 
         {/* Competition Arena - VS Layout */}
-        <div className="mb-4 md:mb-6">
-          <div className="bg-gradient-to-br from-card via-card to-card/50 border-2 border-border rounded-xl p-4 md:p-6 shadow-lg">
+        <div className="mb-4">
+          <div className="bg-gradient-to-br from-card via-card to-card/50 border border-border rounded-xl p-4 md:p-5 shadow-sm">
             {/* VS Header */}
-            <div className="text-center mb-4 md:mb-6">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/20 rounded-full">
-                <Trophy className="h-4 w-4 md:h-5 md:w-5 text-primary" />
-                <span className="text-xs md:text-sm font-bold text-primary">COMPETITION</span>
+            <div className="text-center mb-3">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-full">
+                <Trophy className="h-4 w-4 text-primary" />
+                <span className="text-xs font-bold text-primary">COMPETITION</span>
               </div>
             </div>
 
             {/* Progress Bar */}
             {totalParticipants > 0 && (
-              <div className="mb-4 md:mb-6">
+              <div className="mb-4">
                 <div className="flex h-3 md:h-4 bg-muted rounded-full overflow-hidden">
                   <div
                     className="bg-primary transition-all duration-500 flex items-center justify-center"
@@ -1461,7 +1465,7 @@ export default function WagerDetail() {
             )}
 
             {/* Competition Sides */}
-            <div className="relative grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+            <div className="relative grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
               {/* VS Divider - Desktop */}
               <div className="hidden md:flex items-center justify-center absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none">
                 <div className="bg-background border-4 border-border rounded-full p-3 md:p-4 shadow-lg">
@@ -1470,7 +1474,7 @@ export default function WagerDetail() {
               </div>
 
               {/* Side A */}
-              <div className={`relative border-2 rounded-xl p-4 md:p-6 transition-all ${
+              <div className={`relative border-2 rounded-lg p-3 md:p-4 transition-all ${
                 sideCount.a > sideCount.b 
                   ? "border-primary/50 bg-primary/5 shadow-lg shadow-primary/10" 
                   : "border-border bg-card"
@@ -1487,32 +1491,32 @@ export default function WagerDetail() {
                   </div>
                 )}
                 
-                <div className="text-center mb-4">
-                  <h3 className="text-base md:text-2xl font-bold mb-2 md:mb-3">{wager.side_a}</h3>
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <Users className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
-                    <p className="text-2xl md:text-4xl font-bold text-primary">{sideCount.a}</p>
-                    <span className="text-sm md:text-base text-muted-foreground">bettors</span>
+                <div className="text-center mb-3">
+                  <h3 className="text-base md:text-lg font-bold mb-2">{wager.side_a}</h3>
+                  <div className="flex items-center justify-center gap-2 mb-1.5">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <p className="text-xl md:text-2xl font-bold text-primary">{sideCount.a}</p>
+                    <span className="text-xs text-muted-foreground">bettors</span>
                   </div>
-                  <p className="text-xs md:text-sm text-muted-foreground mb-2">
+                  <p className="text-xs text-muted-foreground mb-1.5">
                     {formatCurrency(sideAPot, (wager.currency || DEFAULT_CURRENCY) as Currency)} total
                   </p>
                   {/* Potential Return for Side A */}
                   {wager.status === "OPEN" && sideCount.a > 0 && (
-                    <div className="bg-primary/10 border border-primary/20 rounded-lg p-2 md:p-2.5 mb-2">
-                      <div className="flex items-center justify-center gap-1.5 mb-1">
-                        <Coins className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
-                        <span className="text-[9px] md:text-[10px] text-muted-foreground">Potential Return</span>
+                    <div className="bg-primary/10 border border-primary/20 rounded-lg p-2 mb-2">
+                      <div className="flex items-center justify-center gap-1 mb-0.5">
+                        <Coins className="h-3 w-3 text-primary" />
+                        <span className="text-[9px] text-muted-foreground">Potential Return</span>
                       </div>
-                      <div className="flex items-center justify-center gap-2">
-                        <span className="font-bold text-primary text-sm md:text-base">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span className="font-bold text-primary text-xs">
                           {formatReturnMultiplier(returns.sideAReturnMultiplier)}
                         </span>
-                        <span className="text-[9px] md:text-[10px] text-green-600 dark:text-green-400 font-medium">
+                        <span className="text-[9px] text-green-600 dark:text-green-400 font-medium">
                           {formatReturnPercentage(returns.sideAReturnPercentage)}
                         </span>
                       </div>
-                      <p className="text-[9px] md:text-[10px] text-muted-foreground mt-1">
+                      <p className="text-[9px] text-muted-foreground mt-0.5">
                         Win: {formatCurrency(returns.sideAPotential, (wager.currency || DEFAULT_CURRENCY) as Currency)}
                       </p>
                     </div>
@@ -1523,48 +1527,42 @@ export default function WagerDetail() {
                   <>
                     {userEntry && userEntry.side === "a" ? (
                       isCreator ? (
-                        // Creator: Only show switch side button
                         <button
                           onClick={() => {
                             setNewSide("b");
                             setShowChangeSideDialog(true);
                           }}
                           disabled={changingSide || !canBet}
-                          className="w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl"
+                          className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg font-bold text-sm hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation min-h-[44px]"
                         >
                           {changingSide ? "Changing..." : !canBet ? "Cannot Change" : `Switch to ${wager.side_b}`}
                         </button>
                       ) : (
-                        // Non-creator: Show unjoin button
                         <button
                           onClick={() => setShowUnjoinDialog(true)}
                           disabled={unjoining || !canBet}
-                          className="w-full bg-destructive text-destructive-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation"
+                          className="w-full bg-destructive text-destructive-foreground py-2.5 rounded-lg font-bold text-sm hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation min-h-[44px]"
                         >
                           {unjoining ? "Unjoining..." : !canBet ? "Cannot Unjoin" : "Unjoin"}
                         </button>
                       )
                     ) : userEntry && userEntry.side === "b" ? (
-                      // User is on side B - only show switch button if they're NOT the creator
-                      // Creators should only see switch button on the side they're currently on
                       isCreator ? (
-                        // Creator on side B - don't show switch button on side A, show join button (disabled)
                         <button
                           onClick={() => handleJoinClick("a")}
                           disabled={true}
-                          className="w-full bg-muted text-muted-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base opacity-50 cursor-not-allowed transition-all"
+                          className="w-full bg-muted text-muted-foreground py-2.5 rounded-lg font-bold text-sm opacity-50 cursor-not-allowed transition-all min-h-[44px]"
                         >
                           Already Joined
                         </button>
                       ) : (
-                        // Non-creator on side B - show switch to A button
                         <button
                           onClick={() => {
                             setNewSide("a");
                             setShowChangeSideDialog(true);
                           }}
                           disabled={changingSide || !canBet}
-                          className="w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl"
+                          className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg font-bold text-sm hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation min-h-[44px]"
                         >
                           {changingSide ? "Changing..." : !canBet ? "Cannot Change" : `Switch to ${wager.side_a}`}
                         </button>
@@ -1573,11 +1571,9 @@ export default function WagerDetail() {
                       <button
                         onClick={() => handleJoinClick("a")}
                         disabled={joining || !canBet}
-                        className={`w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl ${
-                          buttonVariant === 'B' ? 'shadow-lg hover:shadow-xl' : ''
-                        }`}
+                        className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg font-bold text-sm hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation min-h-[44px]"
                       >
-                        {!canBet ? (isWithinCutoff ? "Too Late (20s cutoff)" : "Deadline Passed") : joining ? "Joining..." : `Join ${wager.side_a}`}
+                        {!canBet ? (isWithinCutoff ? "Too Late" : "Deadline Passed") : joining ? "Joining..." : `Join ${wager.side_a}`}
                       </button>
                     )}
                   </>
@@ -1592,7 +1588,7 @@ export default function WagerDetail() {
               </div>
 
               {/* Side B */}
-              <div className={`relative border-2 rounded-xl p-4 md:p-6 transition-all ${
+              <div className={`relative border-2 rounded-lg p-3 md:p-4 transition-all ${
                 sideCount.b > sideCount.a 
                   ? "border-primary/50 bg-primary/5 shadow-lg shadow-primary/10" 
                   : "border-border bg-card"
@@ -1609,32 +1605,32 @@ export default function WagerDetail() {
                   </div>
                 )}
                 
-                <div className="text-center mb-4">
-                  <h3 className="text-base md:text-2xl font-bold mb-2 md:mb-3">{wager.side_b}</h3>
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <Users className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
-                    <p className="text-2xl md:text-4xl font-bold text-primary">{sideCount.b}</p>
-                    <span className="text-sm md:text-base text-muted-foreground">bettors</span>
+                <div className="text-center mb-3">
+                  <h3 className="text-base md:text-lg font-bold mb-2">{wager.side_b}</h3>
+                  <div className="flex items-center justify-center gap-2 mb-1.5">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <p className="text-xl md:text-2xl font-bold text-primary">{sideCount.b}</p>
+                    <span className="text-xs text-muted-foreground">bettors</span>
                   </div>
-                  <p className="text-xs md:text-sm text-muted-foreground mb-2">
+                  <p className="text-xs text-muted-foreground mb-1.5">
                     {formatCurrency(sideBPot, (wager.currency || DEFAULT_CURRENCY) as Currency)} total
                   </p>
                   {/* Potential Return for Side B */}
                   {wager.status === "OPEN" && sideCount.b > 0 && (
-                    <div className="bg-primary/10 border border-primary/20 rounded-lg p-2 md:p-2.5 mb-2">
-                      <div className="flex items-center justify-center gap-1.5 mb-1">
-                        <Coins className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
-                        <span className="text-[9px] md:text-[10px] text-muted-foreground">Potential Return</span>
+                    <div className="bg-primary/10 border border-primary/20 rounded-lg p-2 mb-2">
+                      <div className="flex items-center justify-center gap-1 mb-0.5">
+                        <Coins className="h-3 w-3 text-primary" />
+                        <span className="text-[9px] text-muted-foreground">Potential Return</span>
                       </div>
-                      <div className="flex items-center justify-center gap-2">
-                        <span className="font-bold text-primary text-sm md:text-base">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span className="font-bold text-primary text-xs">
                           {formatReturnMultiplier(returns.sideBReturnMultiplier)}
                         </span>
-                        <span className="text-[9px] md:text-[10px] text-green-600 dark:text-green-400 font-medium">
+                        <span className="text-[9px] text-green-600 dark:text-green-400 font-medium">
                           {formatReturnPercentage(returns.sideBReturnPercentage)}
                         </span>
                       </div>
-                      <p className="text-[9px] md:text-[10px] text-muted-foreground mt-1">
+                      <p className="text-[9px] text-muted-foreground mt-0.5">
                         Win: {formatCurrency(returns.sideBPotential, (wager.currency || DEFAULT_CURRENCY) as Currency)}
                       </p>
                     </div>
@@ -1645,48 +1641,42 @@ export default function WagerDetail() {
                   <>
                     {userEntry && userEntry.side === "b" ? (
                       isCreator ? (
-                        // Creator: Only show switch side button
                         <button
                           onClick={() => {
                             setNewSide("a");
                             setShowChangeSideDialog(true);
                           }}
                           disabled={changingSide || !canBet}
-                          className="w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl"
+                          className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg font-bold text-sm hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation min-h-[44px]"
                         >
                           {changingSide ? "Changing..." : !canBet ? "Cannot Change" : `Switch to ${wager.side_a}`}
                         </button>
                       ) : (
-                        // Non-creator: Show unjoin button
                         <button
                           onClick={() => setShowUnjoinDialog(true)}
                           disabled={unjoining || !canBet}
-                          className="w-full bg-destructive text-destructive-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation"
+                          className="w-full bg-destructive text-destructive-foreground py-2.5 rounded-lg font-bold text-sm hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation min-h-[44px]"
                         >
                           {unjoining ? "Unjoining..." : !canBet ? "Cannot Unjoin" : "Unjoin"}
                         </button>
                       )
                     ) : userEntry && userEntry.side === "a" ? (
-                      // User is on side A - only show switch button if they're NOT the creator
-                      // Creators should only see switch button on the side they're currently on
                       isCreator ? (
-                        // Creator on side A - don't show switch button on side B, show join button (disabled)
                         <button
                           onClick={() => handleJoinClick("b")}
                           disabled={true}
-                          className="w-full bg-muted text-muted-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base opacity-50 cursor-not-allowed transition-all"
+                          className="w-full bg-muted text-muted-foreground py-2.5 rounded-lg font-bold text-sm opacity-50 cursor-not-allowed transition-all min-h-[44px]"
                         >
                           Already Joined
                         </button>
                       ) : (
-                        // Non-creator on side A - show switch to B button
                         <button
                           onClick={() => {
                             setNewSide("b");
                             setShowChangeSideDialog(true);
                           }}
                           disabled={changingSide || !canBet}
-                          className="w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl"
+                          className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg font-bold text-sm hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation min-h-[44px]"
                         >
                           {changingSide ? "Changing..." : !canBet ? "Cannot Change" : `Switch to ${wager.side_b}`}
                         </button>
@@ -1695,11 +1685,9 @@ export default function WagerDetail() {
                       <button
                         onClick={() => handleJoinClick("b")}
                         disabled={joining || !canBet}
-                        className={`w-full bg-primary text-primary-foreground py-3 md:py-4 rounded-lg font-bold text-sm md:text-base hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation shadow-lg hover:shadow-xl ${
-                          buttonVariant === 'B' ? 'shadow-lg hover:shadow-xl' : ''
-                        }`}
+                        className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg font-bold text-sm hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation min-h-[44px]"
                       >
-                        {!canBet ? (isWithinCutoff ? "Too Late (20s cutoff)" : "Deadline Passed") : joining ? "Joining..." : `Join ${wager.side_b}`}
+                        {!canBet ? (isWithinCutoff ? "Too Late" : "Deadline Passed") : joining ? "Joining..." : `Join ${wager.side_b}`}
                       </button>
                     )}
                   </>
@@ -1711,14 +1699,14 @@ export default function WagerDetail() {
 
         {/* Resolved Status */}
         {(wager.status === "RESOLVED" || wager.status === "SETTLED") && wager.winning_side && (
-          <div className="mb-4 md:mb-6 bg-gradient-to-r from-green-500/20 to-blue-500/20 border-2 border-green-500/30 rounded-xl p-4 md:p-6 text-center">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Trophy className="h-5 w-5 md:h-6 md:w-6 text-green-600 dark:text-green-400" />
-              <p className="text-base md:text-xl font-bold">
+          <div className="mb-4 bg-gradient-to-r from-green-500/20 to-blue-500/20 border border-green-500/30 rounded-lg p-3 md:p-4 text-center">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <Trophy className="h-4 w-4 md:h-5 md:w-5 text-green-600 dark:text-green-400" />
+              <p className="text-sm md:text-base font-bold">
                 Winner: <span className="text-primary">{wager.winning_side === "a" ? wager.side_a : wager.side_b}</span>
               </p>
             </div>
-            <p className="text-xs md:text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {wager.status === "SETTLED" 
                 ? "This wager has been settled and winnings have been distributed"
                 : "This competition has been resolved"}
@@ -1726,63 +1714,80 @@ export default function WagerDetail() {
           </div>
         )}
 
-        {/* Participants List */}
-        {entries.length > 0 && (
-          <div className="bg-card border border-border rounded-xl p-4 md:p-6">
-            <div className="flex items-center gap-2 mb-4 md:mb-6">
-              <Users className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-              <h3 className="text-base md:text-xl font-bold">Participants ({totalParticipants})</h3>
-            </div>
-            <div className="space-y-2 md:space-y-3 max-h-64 md:max-h-80 overflow-y-auto">
-              {entries.map((entry) => {
-                const isCreator = wager.creator_id === entry.user_id;
-                const isWinner = (wager.status === "RESOLVED" || wager.status === "SETTLED") && 
-                                 wager.winning_side && 
-                                 entry.side === wager.winning_side.toLowerCase();
-                
-                return (
-                  <div 
-                    key={entry.id} 
-                    className={`flex items-center justify-between p-2.5 md:p-3 rounded-lg hover:bg-muted/50 transition ${
-                      isWinner ? "bg-green-500/10 border border-green-500/30" : 
-                      isCreator ? "bg-blue-500/10 border border-blue-500/30" : 
-                      "bg-muted/30"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
-                      <div className={`w-2 h-2 md:w-3 md:h-3 rounded-full flex-shrink-0 ${
-                        entry.side === "a" ? "bg-primary" : "bg-primary/60"
-                      }`} />
-                      <span className="text-xs md:text-sm font-medium text-foreground truncate">
-                        {userNames[entry.user_id] || `User ${entry.user_id.slice(0, 8)}`}
-                      </span>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        {isCreator && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-700 dark:text-blue-400 text-[9px] md:text-[10px] font-semibold">
-                            <Crown className="h-2.5 w-2.5 md:h-3 md:w-3" />
-                            Creator
-                          </span>
-                        )}
-                        {isWinner && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-green-500/20 text-green-700 dark:text-green-400 text-[9px] md:text-[10px] font-semibold">
-                            <Trophy className="h-2.5 w-2.5 md:h-3 md:w-3" />
-                            Winner
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[10px] md:text-xs text-muted-foreground">
-                        {entry.side === "a" ? wager.side_a : wager.side_b}
-                      </span>
-                    </div>
-                    <span className="text-xs md:text-sm font-semibold text-foreground whitespace-nowrap">
-                      {formatCurrency(entry.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+        {/* Tabs Section */}
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          {/* Tabs Navigation */}
+          <div className="flex border-b border-border bg-muted/30">
+            <button
+              onClick={() => setActiveTab("comments")}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-all min-h-[44px] ${
+                activeTab === "comments"
+                  ? "bg-background text-primary border-b-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}
+            >
+              <MessageSquare className="h-4 w-4" />
+              <span className="hidden sm:inline">Comments</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("participants")}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-all min-h-[44px] ${
+                activeTab === "participants"
+                  ? "bg-background text-primary border-b-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}
+            >
+              <Users className="h-4 w-4" />
+              <span className="hidden sm:inline">Participants</span>
+              {totalParticipants > 0 && (
+                <span className={`px-1.5 py-0.5 rounded-full text-xs font-semibold ${
+                  activeTab === "participants"
+                    ? "bg-primary/20 text-primary"
+                    : "bg-muted text-muted-foreground"
+                }`}>
+                  {totalParticipants}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab("activities")}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-all min-h-[44px] ${
+                activeTab === "activities"
+                  ? "bg-background text-primary border-b-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}
+            >
+              <Activity className="h-4 w-4" />
+              <span className="hidden sm:inline">Activities</span>
+            </button>
           </div>
-        )}
+
+          {/* Tab Content */}
+          <div className="p-4 md:p-6">
+            {activeTab === "comments" && <WagerComments wagerId={wager.id} />}
+            {activeTab === "participants" && (
+              <WagerParticipants
+                entries={entries}
+                userNames={userNames}
+                wager={{
+                  creator_id: wager.creator_id,
+                  status: wager.status,
+                  winning_side: wager.winning_side,
+                  side_a: wager.side_a,
+                  side_b: wager.side_b,
+                  currency: wager.currency,
+                }}
+              />
+            )}
+            {activeTab === "activities" && (
+              <WagerActivities
+                wagerId={wager.id}
+                sideA={wager.side_a}
+                sideB={wager.side_b}
+              />
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Invite Dialog */}

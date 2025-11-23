@@ -29,9 +29,9 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
     "/profile",
     "/create",
     "/notifications",
-    "/preferences",
     "/leaderboard",
     "/history",
+    "/activity",
   ];
   const isAppRoute = pathname && (appRoutes.includes(pathname) || pathname.startsWith("/wager/"));
 
