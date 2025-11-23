@@ -11,14 +11,16 @@ interface BalanceCardProps {
 
 export function BalanceCard({ balance, currency }: BalanceCardProps) {
   return (
-    <Card className="mb-4 md:mb-6 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground border-primary/20">
-      <CardContent className="p-4 md:p-6">
+    <Card className="mb-6 border-2 border-primary/20 bg-gradient-to-br from-primary/10 via-primary/5 to-background dark:from-primary/20 dark:via-primary/10 dark:to-background">
+      <CardContent className="p-6 md:p-8">
         <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs md:text-sm opacity-90 mb-1 md:mb-2">Current Balance</p>
-            <h2 className="text-2xl md:text-4xl font-bold">{formatCurrency(balance, currency)}</h2>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-muted-foreground mb-2">Current Balance</p>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground">{formatCurrency(balance, currency)}</h2>
           </div>
-          <WalletIcon className="h-8 w-8 md:h-12 md:w-12 opacity-75" />
+          <div className="ml-4 p-3 rounded-full bg-primary/10 dark:bg-primary/20">
+            <WalletIcon className="h-6 w-6 md:h-8 md:w-8 text-primary" />
+          </div>
         </div>
       </CardContent>
     </Card>

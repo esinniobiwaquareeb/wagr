@@ -167,7 +167,7 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
 
       {/* Phone Number Input */}
       <div>
-        <label className="block text-sm font-medium mb-2">Phone Number</label>
+        <label className="block text-sm font-medium mb-2 text-foreground">Phone Number</label>
         <div className="relative">
           <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <input
@@ -175,8 +175,9 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
             value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 11))}
             placeholder="08012345678"
-            className="w-full pl-10 pr-4 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+            className="w-full pl-10 pr-4 py-3 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             maxLength={11}
+            disabled={processing}
           />
         </div>
       </div>
@@ -274,7 +275,7 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
       <button
         onClick={handlePurchase}
         disabled={!phoneNumber.trim() || !selectedAmount || selectedAmount <= 0 || processing || balance < selectedAmount}
-        className="w-full px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2"
+        className="w-full px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/50"
       >
         {processing ? (
           <>

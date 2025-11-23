@@ -787,38 +787,51 @@ function WalletContent() {
   return (
     <main className="flex-1 pb-24 md:pb-0">
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 md:py-6">
-        <div className="mb-4 md:mb-6">
-          <h1 className="text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2">Wallet</h1>
-          <p className="text-xs md:text-base text-muted-foreground">Manage your funds and transactions</p>
+        {/* Header */}
+        <div className="mb-6 md:mb-8">
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">Wallet</h1>
+          <p className="text-sm text-muted-foreground">Manage your funds and transactions</p>
         </div>
 
         {/* Balance Card */}
         {profile && <BalanceCard balance={profile.balance} currency={currency} />}
 
         {/* Actions Tabs */}
-        <Card className="mb-4 md:mb-6">
-          <CardHeader>
-            <CardTitle>Wallet Actions</CardTitle>
-            <CardDescription>Deposit, withdraw, transfer funds, or pay bills</CardDescription>
+        <Card className="mb-6">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg">Wallet Actions</CardTitle>
+            <CardDescription className="text-sm">Deposit, withdraw, transfer funds, or pay bills</CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "deposit" | "withdraw" | "transfer" | "bills")} className="w-full">
-              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 mb-4 md:mb-6">
-                <TabsTrigger value="deposit" className="flex items-center gap-2">
-                  <ArrowDownCircle className="h-4 w-4" />
-                  <span className="hidden sm:inline">Deposit</span>
+              <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 mb-6 h-auto p-1 bg-muted/50">
+                <TabsTrigger 
+                  value="deposit" 
+                  className="flex flex-col items-center gap-1.5 py-3 px-2 min-h-[60px] data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
+                >
+                  <ArrowDownCircle className="h-5 w-5" />
+                  <span className="text-xs font-medium">Deposit</span>
                 </TabsTrigger>
-                <TabsTrigger value="withdraw" className="flex items-center gap-2">
-                  <ArrowUpCircle className="h-4 w-4" />
-                  <span className="hidden sm:inline">Withdraw</span>
+                <TabsTrigger 
+                  value="withdraw" 
+                  className="flex flex-col items-center gap-1.5 py-3 px-2 min-h-[60px] data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
+                >
+                  <ArrowUpCircle className="h-5 w-5" />
+                  <span className="text-xs font-medium">Withdraw</span>
                 </TabsTrigger>
-                <TabsTrigger value="transfer" className="flex items-center gap-2">
-                  <Send className="h-4 w-4" />
-                  <span className="hidden sm:inline">Transfer</span>
+                <TabsTrigger 
+                  value="transfer" 
+                  className="flex flex-col items-center gap-1.5 py-3 px-2 min-h-[60px] data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
+                >
+                  <Send className="h-5 w-5" />
+                  <span className="text-xs font-medium">Transfer</span>
                 </TabsTrigger>
-                <TabsTrigger value="bills" className="flex items-center gap-2">
-                  <Smartphone className="h-4 w-4" />
-                  <span className="hidden sm:inline">Bills</span>
+                <TabsTrigger 
+                  value="bills" 
+                  className="flex flex-col items-center gap-1.5 py-3 px-2 min-h-[60px] data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
+                >
+                  <Smartphone className="h-5 w-5" />
+                  <span className="text-xs font-medium">Bills</span>
                 </TabsTrigger>
               </TabsList>
 

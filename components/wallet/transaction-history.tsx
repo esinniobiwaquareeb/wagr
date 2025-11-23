@@ -23,54 +23,57 @@ interface TransactionHistoryProps {
 export function TransactionHistory({ transactions, currency }: TransactionHistoryProps) {
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
-          <CardTitle>Transaction History</CardTitle>
+          <CardTitle className="text-lg">Transaction History</CardTitle>
           {transactions.length > 0 && (
             <Link
               href="/wallet/transactions"
-              className="flex items-center gap-1 text-sm text-primary hover:text-primary/80 transition-colors"
+              className="flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 transition-colors font-medium"
             >
               View All
               <ArrowRight className="h-4 w-4" />
             </Link>
           )}
         </div>
-        <CardDescription>Recent wallet transactions</CardDescription>
+        <CardDescription className="text-sm">Recent wallet transactions</CardDescription>
       </CardHeader>
       <CardContent>
         {transactions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No transactions yet</p>
+          <div className="py-8 text-center">
+            <p className="text-sm text-muted-foreground">No transactions yet</p>
+            <p className="text-xs text-muted-foreground/70 mt-1">Your transaction history will appear here</p>
+          </div>
         ) : (
-          <div className="space-y-2 md:space-y-3">
+          <div className="space-y-3">
             {transactions.map((trans) => (
               <div
                 key={trans.id}
-                className="flex justify-between items-start pb-2 md:pb-3 border-b border-border last:border-b-0 gap-2 md:gap-3"
+                className="flex justify-between items-start pb-3 border-b border-border/50 last:border-b-0 gap-3 hover:bg-muted/30 -mx-2 px-2 py-1.5 rounded-md transition-colors"
               >
-                <div className="flex-1 min-w-0 pr-2">
-                  <p className="font-medium capitalize text-foreground text-xs md:text-sm">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium capitalize text-foreground text-sm">
                     {trans.type === 'transfer_out' ? 'Transfer Sent' : 
                      trans.type === 'transfer_in' ? 'Transfer Received' :
                      trans.type.replace(/_/g, " ")}
                   </p>
                   {trans.description ? (
                     <>
-                      <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                         {trans.description}
                       </p>
-                      <p className="text-[9px] md:text-[10px] text-muted-foreground/70 mt-0.5">
+                      <p className="text-xs text-muted-foreground/70 mt-1">
                         {format(new Date(trans.created_at), "MMM d, yyyy h:mm a")}
                       </p>
                     </>
                   ) : (
-                    <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5">
+                    <p className="text-xs text-muted-foreground/70 mt-1">
                       {format(new Date(trans.created_at), "MMM d, yyyy h:mm a")}
                     </p>
                   )}
                 </div>
                 <p
-                  className={`font-semibold text-xs md:text-base whitespace-nowrap flex-shrink-0 ${
+                  className={`font-semibold text-sm whitespace-nowrap flex-shrink-0 ${
                     trans.amount > 0
                       ? "text-green-600 dark:text-green-400"
                       : "text-red-600 dark:text-red-400"

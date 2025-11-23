@@ -78,9 +78,9 @@ export function WithdrawTab({
   }, [accountNumber, bankCode, processingWithdrawal, onVerifyAccount]);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div>
-        <label className="text-sm font-medium mb-2 block">Amount</label>
+        <label className="text-sm font-medium mb-2 block text-foreground">Amount</label>
         <input
           type="number"
           value={withdrawAmount}
@@ -91,16 +91,16 @@ export function WithdrawTab({
             }
           }}
           placeholder="Enter amount (minimum ₦100)"
-          className="w-full px-4 py-2.5 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="w-full px-4 py-3 border border-input rounded-lg bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           min="100"
           step="0.01"
           disabled={processingWithdrawal}
         />
       </div>
       <div>
-        <label className="text-sm font-medium mb-2 block">Bank</label>
+        <label className="text-sm font-medium mb-2 block text-foreground">Bank</label>
         <Select value={bankCode} onValueChange={setBankCode} disabled={loadingBanks || processingWithdrawal}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger className="w-full h-11">
             <SelectValue placeholder={loadingBanks ? "Loading banks..." : "Select bank"} />
           </SelectTrigger>
           <SelectContent>
@@ -113,7 +113,7 @@ export function WithdrawTab({
         </Select>
       </div>
       <div>
-        <label className="text-sm font-medium mb-2 block">Account Number</label>
+        <label className="text-sm font-medium mb-2 block text-foreground">Account Number</label>
         <input
           type="text"
           value={accountNumber}
@@ -122,26 +122,27 @@ export function WithdrawTab({
             setAccountNumber(value);
           }}
           placeholder="Enter 10-digit account number"
-          className="w-full px-4 py-2.5 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="w-full px-4 py-3 border border-input rounded-lg bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           maxLength={10}
           disabled={processingWithdrawal}
         />
         {verifyingAccount && (
-          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-            <Loader2 className="h-3 w-3 animate-spin" />
+          <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
             Verifying account...
           </p>
         )}
         {accountName && accountNumber.length === 10 && (
-          <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-            ✓ {accountName}
+          <p className="text-xs text-green-600 dark:text-green-400 mt-2 font-medium flex items-center gap-1.5">
+            <span>✓</span>
+            <span>{accountName}</span>
           </p>
         )}
       </div>
       <button
         onClick={onWithdraw}
         disabled={processingWithdrawal || !withdrawAmount.trim() || !accountNumber || !bankCode || !accountName}
-        className="w-full px-6 py-2.5 bg-primary text-primary-foreground rounded-md font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2"
+        className="w-full px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/50"
       >
         {processingWithdrawal ? (
           <>
