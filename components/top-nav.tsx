@@ -598,7 +598,7 @@ export function TopNav() {
                       <Button 
                         variant="ghost" 
                         size="sm"
-                        className="h-9 px-2 gap-2 hover:bg-muted/80 hover:text-foreground transition-colors group"
+                        className="h-9 px-2 gap-2 hover:bg-muted/80 hover:text-foreground transition-colors group border-2 "
                       >
                         <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden flex-shrink-0 border border-border/50 group-hover:border-primary/50 group-hover:bg-primary/20 transition-all">
                           {profile?.avatar_url ? (
