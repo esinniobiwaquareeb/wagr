@@ -470,6 +470,9 @@ export default function WagerDetail() {
         description: "You've successfully joined the wager.",
       });
       
+      // Dispatch event to update balance in top nav
+      window.dispatchEvent(new CustomEvent('balance-updated'));
+      
       setShowJoinDialog(false);
       setSelectedSide(null);
     } catch (error) {

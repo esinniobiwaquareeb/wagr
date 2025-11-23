@@ -183,14 +183,21 @@ export function TopNav() {
             }
             walletBalanceDebounceRef.current = setTimeout(() => {
               fetchWalletBalance();
-            }, 2000); // Increased debounce to 2 seconds
+            }, 500); // Reduced debounce to 500ms for faster updates
           }
         )
         .subscribe();
 
+      // Listen for custom balance update events (triggered after wager creation/join)
+      const handleBalanceUpdate = () => {
+        fetchWalletBalance();
+      };
+      window.addEventListener('balance-updated', handleBalanceUpdate);
+
       return () => {
         clearInterval(interval);
         walletChannel.unsubscribe();
+        window.removeEventListener('balance-updated', handleBalanceUpdate);
         if (walletBalanceDebounceRef.current) {
           clearTimeout(walletBalanceDebounceRef.current);
         }
@@ -1030,7 +1037,23 @@ export function TopNav() {
             open={showCreateModal}
             onOpenChange={setShowCreateModal}
             onSuccess={() => {
-              // Refresh category counts and navigate to wagers page
+              // Refresh balance immediately after wager creation
+              if (user) {
+                const fetchBalance = async () => {
+                  try {
+                    const { walletApi } = await import('@/lib/api-client');
+                    const response = await walletApi.getBalance();
+                    setWalletBalance(response.balance);
+                  } catch (error) {
+                    // Silent fail - balance will update via real-time subscription
+                  }
+                };
+                fetchBalance();
+                // Also dispatch event for immediate update
+                window.dispatchEvent(new CustomEvent('balance-updated'));
+              }
+              
+              // Refresh category counts
               const fetchCategoryCounts = async () => {
                 try {
                   const response = await wagersApi.list({ limit: 200 });
@@ -1043,7 +1066,7 @@ export function TopNav() {
                   });
                   setCategoryCounts(counts);
                 } catch (error) {
-                  console.error('Error fetching category counts:', error);
+                  // Silent fail
                 }
               };
               fetchCategoryCounts();
