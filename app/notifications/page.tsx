@@ -239,7 +239,7 @@ export default function NotificationsPage() {
   if (!user) {
     return (
       <main className="flex-1 pb-24 md:pb-0">
-        <div className="max-w-4xl mx-auto p-3 md:p-6 text-center py-12">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-12 text-center">
           <p className="text-muted-foreground">Please log in to view notifications</p>
         </div>
       </main>
@@ -248,7 +248,7 @@ export default function NotificationsPage() {
 
   return (
     <main className="flex-1 pb-24 md:pb-0">
-      <div className="max-w-6xl mx-auto p-3 md:p-6">
+      <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 md:py-6">
         <div className="mb-4 md:mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 md:gap-4">
             <div>

@@ -408,7 +408,7 @@ export default function Profile() {
   if (loading) {
     return (
       <main className="flex-1 pb-24 md:pb-0">
-        <div className="max-w-6xl mx-auto p-4 md:p-6 py-12 text-center">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-12 text-center">
           <p className="text-muted-foreground">Loading profile...</p>
         </div>
       </main>
@@ -418,7 +418,7 @@ export default function Profile() {
   if (!user || !profile) {
     return (
       <main className="flex-1 pb-24 md:pb-0">
-        <div className="max-w-6xl mx-auto p-4 md:p-6 py-12 text-center">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-12 text-center">
           <p className="text-muted-foreground">Please log in to view profile</p>
         </div>
       </main>
@@ -437,7 +437,7 @@ export default function Profile() {
         variant="default"
         onConfirm={confirmLogout}
       />
-      <div className="max-w-6xl mx-auto p-3 md:p-6">
+      <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 md:py-6">
         <div className="mb-4 md:mb-6 flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 md:gap-3 mb-1 md:mb-2 md:hidden">

@@ -1,15 +1,17 @@
 "use client";
 
 import { MobileNav } from "@/components/mobile-nav";
+import { TopNav } from "@/components/top-nav";
 import { Footer } from "@/components/footer";
 import { usePathname } from "next/navigation";
+import { Suspense } from "react";
 
 export function ConditionalNav({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdminRoute = pathname?.startsWith("/admin");
   const isLandingPage = pathname === "/landing" || pathname === "/";
   
-  // Public pages that should have footer but no sidebar nav
+  // Public pages that should have footer but no nav
   const publicPages = [
     "/about",
     "/terms",
@@ -20,7 +22,7 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
   ];
   const isPublicPage = pathname && publicPages.includes(pathname);
 
-  // App routes (user dashboard) - no footer, with sidebar nav
+  // App routes (user dashboard) - no footer, with top nav
   const appRoutes = [
     "/wagers",
     "/wallet",
@@ -29,6 +31,7 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
     "/notifications",
     "/preferences",
     "/leaderboard",
+    "/history",
   ];
   const isAppRoute = pathname && (appRoutes.includes(pathname) || pathname.startsWith("/wager/"));
 
@@ -47,7 +50,7 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Public pages - no sidebar nav, but include footer
+  // Public pages - no nav, but include footer
   if (isPublicPage) {
     return (
       <div className="flex flex-col min-h-screen">
@@ -57,16 +60,17 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // App routes - include navigation but no footer
+  // App routes - include top nav (large screens) and mobile nav (small screens), no footer
   if (isAppRoute) {
     return (
       <div className="flex flex-col min-h-screen">
-        <div className="flex flex-col md:flex-row flex-1 w-full">
-          <MobileNav />
-          <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden">
-            <div className="flex-1">{children}</div>
-          </div>
+        <Suspense fallback={<div className="h-16 bg-background border-b border-border" />}>
+          <TopNav />
+        </Suspense>
+        <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden lg:pt-0 pt-14 pb-20 lg:pb-0">
+          <div className="flex-1">{children}</div>
         </div>
+        <MobileNav />
       </div>
     );
   }
@@ -74,13 +78,14 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
   // Default fallback - include navigation and footer
   return (
     <div className="flex flex-col min-h-screen">
-      <div className="flex flex-col md:flex-row flex-1 w-full">
-        <MobileNav />
-        <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden">
-          <div className="flex-1">{children}</div>
-          <Footer />
-        </div>
+      <Suspense fallback={<div className="h-16 bg-background border-b border-border" />}>
+        <TopNav />
+      </Suspense>
+      <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden lg:pt-0 pt-14 pb-20 lg:pb-0">
+        <div className="flex-1">{children}</div>
+        <Footer />
       </div>
+      <MobileNav />
     </div>
   );
 }

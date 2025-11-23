@@ -427,7 +427,7 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
                   key={option.label}
                   type="button"
                   onClick={() => handleSideTemplateSelect(option.value)}
-                  className={`p-1.5 rounded border-2 transition text-[10px] sm:text-xs font-medium ${
+                  className={`p-1.5 rounded border-2 transition-all text-[10px] sm:text-xs font-medium min-h-[36px] touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
                     formData.selectedSideTemplate === option.value
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border hover:border-primary/50"
@@ -474,7 +474,7 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
                   key={preset}
                   type="button"
                   onClick={() => handleAmountPreset(preset)}
-                  className={`px-2 py-1 rounded border-2 transition text-[10px] sm:text-xs font-medium ${
+                  className={`px-2 py-1.5 rounded border-2 transition-all text-[10px] sm:text-xs font-medium min-h-[36px] touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
                     formData.amount === preset.toString()
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border hover:border-primary/50"
@@ -606,7 +606,7 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, isPublic: true })}
-                  className={`flex-1 flex items-center justify-center gap-1 p-2 rounded border-2 transition text-xs ${
+                  className={`flex-1 flex items-center justify-center gap-1 p-2.5 rounded border-2 transition-all text-xs min-h-[44px] touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
                     formData.isPublic
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border hover:border-primary/50"
@@ -618,7 +618,7 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, isPublic: false })}
-                  className={`flex-1 flex items-center justify-center gap-1 p-2 rounded border-2 transition text-xs ${
+                  className={`flex-1 flex items-center justify-center gap-1 p-2.5 rounded border-2 transition-all text-xs min-h-[44px] touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
                     !formData.isPublic
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border hover:border-primary/50"
@@ -671,7 +671,7 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
               <button
                 type="submit"
                 disabled={!canSubmit}
-                className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.98] touch-manipulation mt-2 text-sm"
+                className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98] touch-manipulation mt-2 text-sm min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 {submitting ? "Creating..." : "Create Wager"}
               </button>

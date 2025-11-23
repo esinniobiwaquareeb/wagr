@@ -767,7 +767,7 @@ function WalletContent() {
   if (loading) {
     return (
       <main className="flex-1 pb-24 md:pb-0">
-        <div className="max-w-6xl mx-auto p-4 md:p-6 py-12 text-center">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-12 text-center">
           <p className="text-muted-foreground">Loading wallet...</p>
         </div>
       </main>
@@ -777,7 +777,7 @@ function WalletContent() {
   if (!user) {
     return (
       <main className="flex-1 pb-24 md:pb-0">
-        <div className="max-w-6xl mx-auto p-4 md:p-6 py-12 text-center">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-12 text-center">
           <p className="text-muted-foreground">Please log in to view wallet</p>
         </div>
       </main>
@@ -786,7 +786,7 @@ function WalletContent() {
 
   return (
     <main className="flex-1 pb-24 md:pb-0">
-      <div className="max-w-6xl mx-auto p-3 md:p-6">
+      <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 md:py-6">
         <div className="mb-4 md:mb-6">
           <h1 className="text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2">Wallet</h1>
           <p className="text-xs md:text-base text-muted-foreground">Manage your funds and transactions</p>
@@ -905,7 +905,7 @@ export default function Wallet() {
   return (
     <Suspense fallback={
       <main className="flex-1 pb-24 md:pb-0">
-        <div className="max-w-6xl mx-auto p-4 md:p-6 py-12 text-center">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-12 text-center">
           <p className="text-muted-foreground">Loading wallet...</p>
         </div>
       </main>

@@ -124,7 +124,7 @@ export default function TransactionsPage() {
   if (authLoading || loading) {
     return (
       <main className="flex-1 pb-24 md:pb-0">
-        <div className="max-w-7xl mx-auto p-3 md:p-6">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 md:py-6">
           <Skeleton className="h-10 w-64 mb-6" />
           <div className="space-y-3">
             {[...Array(5)].map((_, i) => (

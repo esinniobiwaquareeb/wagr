@@ -3,16 +3,13 @@
 import { useEffect, useState, useMemo, useCallback, useRef, Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { WagerCard } from "@/components/wager-card";
-import { WagerRow } from "@/components/wager-row";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
-import { Home as HomeIcon, Plus, Search, Sparkles, Users, X, Tag, Filter, Loader2, LayoutGrid, List } from "lucide-react";
-import Link from "next/link";
+import { Home as HomeIcon, Loader2, Sparkles, User, Clock, CheckCircle } from "lucide-react";
 import { AuthModal } from "@/components/auth-modal";
 import { CreateWagerModal } from "@/components/create-wager-modal";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { PLATFORM_FEE_PERCENTAGE, WAGER_CATEGORIES } from "@/lib/constants";
+import { PLATFORM_FEE_PERCENTAGE } from "@/lib/constants";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { wagersApi } from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
@@ -29,7 +26,7 @@ interface Wager {
   created_at?: string;
   currency?: string;
   category?: string;
-  tags?: string[]; // Kept for backward compatibility
+  tags?: string[];
   is_system_generated?: boolean;
   is_public?: boolean;
   fee_percentage?: number;
@@ -46,35 +43,24 @@ interface WagerWithEntries extends Wager {
   winning_side?: string | null;
 }
 
-type TabType = 'system' | 'user' | 'expired' | 'settled';
+type TabType = 'all' | 'system' | 'user' | 'expired' | 'settled';
 
 function WagersPageContent() {
-  const [wagers, setWagers] = useState<WagerWithEntries[]>([]);
   const [allWagers, setAllWagers] = useState<WagerWithEntries[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabType>('system');
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [userEntries, setUserEntries] = useState<Map<string, { amount: number; side: string }>>(new Map());
-  const { user, loading: authLoading } = useAuth();
-  const supabase = createClient(); // Create Supabase client for real-time subscriptions
+  const { user } = useAuth();
+  const supabase = createClient();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
   
-  // View mode: 'card' or 'row'
-  const [viewMode, setViewMode] = useState<'card' | 'row'>('card');
-  
-  // A/B Testing - Layout variant (client-side only to prevent hydration mismatch)
-  const [layoutVariant, setLayoutVariant] = useState<'A' | 'B'>('A');
-  
-  useEffect(() => {
-    setMounted(true);
-    setLayoutVariant(getVariant(AB_TESTS.WAGERS_PAGE_LAYOUT));
-  }, []);
+  // Get tab and category from URL params
+  const activeTab = (searchParams?.get('tab') as TabType) || 'all';
+  const selectedCategory = searchParams?.get('category') || null;
+  const searchQuery = searchParams?.get('search') || '';
 
   // Helper function to check if wager is expired
   const isExpired = (wager: WagerWithEntries) => {
@@ -82,8 +68,7 @@ function WagersPageContent() {
     return new Date(wager.deadline).getTime() < Date.now();
   };
 
-  // Separate wagers by type and sort by deadline (earliest first)
-  // Filter out expired and resolved wagers since they have their own tabs
+  // Separate wagers by type
   const systemWagers = useMemo(() => {
     const filtered = allWagers.filter(w => 
       w.is_system_generated === true && 
@@ -91,10 +76,9 @@ function WagersPageContent() {
       !isExpired(w)
     );
     return filtered.sort((a, b) => {
-      // Sort by deadline (earliest first)
       const deadlineA = a.deadline ? new Date(a.deadline).getTime() : Infinity;
       const deadlineB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
-      return deadlineA - deadlineB; // Earliest deadline first
+      return deadlineA - deadlineB;
     });
   }, [allWagers]);
 
@@ -105,35 +89,34 @@ function WagersPageContent() {
       !isExpired(w)
     );
     return filtered.sort((a, b) => {
-      // Sort by deadline (earliest first)
       const deadlineA = a.deadline ? new Date(a.deadline).getTime() : Infinity;
       const deadlineB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
-      return deadlineA - deadlineB; // Earliest deadline first
+      return deadlineA - deadlineB;
     });
   }, [allWagers]);
 
   const expiredWagers = useMemo(() => {
     return allWagers.filter(w => isExpired(w)).sort((a, b) => {
-      // Sort expired by deadline (most recently expired first)
       const deadlineA = a.deadline ? new Date(a.deadline).getTime() : 0;
       const deadlineB = b.deadline ? new Date(b.deadline).getTime() : 0;
-      return deadlineB - deadlineA; // Most recently expired first
+      return deadlineB - deadlineA;
     });
   }, [allWagers]);
 
   const settledWagers = useMemo(() => {
     return allWagers.filter(w => w.status === "SETTLED" || w.status === "RESOLVED").sort((a, b) => {
-      // Sort settled by deadline (most recently settled first)
       const deadlineA = a.deadline ? new Date(a.deadline).getTime() : 0;
       const deadlineB = b.deadline ? new Date(b.deadline).getTime() : 0;
-      return deadlineB - deadlineA; // Most recently settled first
+      return deadlineB - deadlineA;
     });
   }, [allWagers]);
 
   // Filter wagers based on active tab, search, and category
   const filteredWagers = useMemo(() => {
     let tabWagers: WagerWithEntries[];
-    if (activeTab === 'system') {
+    if (activeTab === 'all') {
+      tabWagers = [...systemWagers, ...userWagers];
+    } else if (activeTab === 'system') {
       tabWagers = systemWagers;
     } else if (activeTab === 'user') {
       tabWagers = userWagers;
@@ -175,11 +158,9 @@ function WagersPageContent() {
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchWagers = useCallback(async (force = false) => {
-    // Prevent concurrent fetches
     if (fetchingRef.current && !force) return;
     fetchingRef.current = true;
 
-    // Always fetch user entries if user is logged in (user-specific data)
     let userEntriesMap = new Map<string, { amount: number; side: string }>();
     if (user) {
       const { data: userEntriesData } = await supabase
@@ -187,14 +168,12 @@ function WagersPageContent() {
         .select("wager_id, amount, side")
         .eq("user_id", user.id);
 
-      // Store user entries in a map for quick lookup
       userEntriesData?.forEach(entry => {
         const existing = userEntriesMap.get(entry.wager_id);
         if (existing) {
-          // Sum amounts if user has multiple entries (shouldn't happen, but handle it)
           userEntriesMap.set(entry.wager_id, {
             amount: existing.amount + Number(entry.amount),
-            side: existing.side, // Keep the first side (all entries should be same side)
+            side: existing.side,
           });
         } else {
           userEntriesMap.set(entry.wager_id, {
@@ -208,14 +187,9 @@ function WagersPageContent() {
 
     try {
       setLoading(true);
-      // Fetch wagers from API (always fresh, no cache)
       const response = await wagersApi.list({ limit: 200 });
-      
-      // Handle both response formats for backward compatibility
-      // API returns { wagers: [...], meta: {...} }
       const wagersData = response?.wagers || (Array.isArray(response) ? response : []);
 
-      // Transform API response to match component expectations
       const wagersWithCounts: WagerWithEntries[] = wagersData.map((wager: any) => {
         const entryCounts = wager.entryCounts || { sideA: 0, sideB: 0, total: 0 };
         return {
@@ -228,24 +202,14 @@ function WagersPageContent() {
         };
       });
       
-      // Sort by deadline (earliest deadline first, expired last)
-      const isExpiredWagerWithCounts = (w: WagerWithEntries) => {
-        if (!w.deadline || w.status !== "OPEN") return false;
-        return new Date(w.deadline).getTime() < Date.now();
-      };
-      
       wagersWithCounts.sort((a, b) => {
-        const aExpired = isExpiredWagerWithCounts(a);
-        const bExpired = isExpiredWagerWithCounts(b);
-        
-        // Expired wagers go to the end
+        const aExpired = isExpired(a);
+        const bExpired = isExpired(b);
         if (aExpired && !bExpired) return 1;
         if (!aExpired && bExpired) return -1;
-        
-        // Both expired or both not expired - sort by deadline
         const deadlineA = a.deadline ? new Date(a.deadline).getTime() : Infinity;
         const deadlineB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
-        return deadlineA - deadlineB; // Earliest deadline first
+        return deadlineA - deadlineB;
       });
       
       setAllWagers(wagersWithCounts);
@@ -263,18 +227,23 @@ function WagersPageContent() {
     }
   }, [supabase, user, toast]);
 
-  // Debounced refetch function for subscriptions
   const debouncedRefetch = useCallback(() => {
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
     }
     debounceTimeoutRef.current = setTimeout(() => {
       fetchWagers(true);
-    }, 1000); // Debounce by 1 second
+    }, 1000);
   }, [fetchWagers]);
 
+  // Store debouncedRefetch in a ref to avoid dependency issues
+  const debouncedRefetchRef = useRef(debouncedRefetch);
   useEffect(() => {
-    const shouldShowLogin = searchParams.get('login') === 'true' && !user;
+    debouncedRefetchRef.current = debouncedRefetch;
+  }, [debouncedRefetch]);
+
+  useEffect(() => {
+    const shouldShowLogin = searchParams?.get('login') === 'true' && !user;
     if (!user && shouldShowLogin) {
       setShowAuthModal(true);
       router.replace('/wagers', { scroll: false });
@@ -295,7 +264,7 @@ function WagersPageContent() {
           filter: "is_public=eq.true"
         },
         () => {
-          debouncedRefetch();
+          debouncedRefetchRef.current();
         }
       )
       .subscribe();
@@ -306,106 +275,170 @@ function WagersPageContent() {
         "postgres_changes",
         { event: "*", schema: "public", table: "wager_entries" },
         () => {
-          debouncedRefetch();
+          debouncedRefetchRef.current();
         }
       )
       .subscribe();
 
+    // Listen for wager update events from card components
+    const handleWagerUpdate = () => {
+      debouncedRefetchRef.current();
+    };
+    window.addEventListener('wager-updated', handleWagerUpdate);
+
     return () => {
       wagersChannel.unsubscribe();
       entriesChannel.unsubscribe();
+      window.removeEventListener('wager-updated', handleWagerUpdate);
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [supabase]); // Removed fetchWagers and debouncedRefetch from dependencies
+  }, [supabase, fetchWagers]); // Keep fetchWagers but use ref for callbacks
 
   const handleTabChange = (tab: TabType) => {
-    setActiveTab(tab);
-    trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'tab_switched', { tab });
-  };
-
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'search_performed', { query_length: query.length });
-  };
-
-
-  // Render row view
-  const renderRowView = () => {
-    if (loading) {
-      return (
-        <div className="space-y-2">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="bg-card border border-border rounded-lg p-4">
-              <div className="flex items-center gap-4">
-                <Skeleton className="h-4 flex-1" />
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-4 w-24" />
-              </div>
-            </div>
-          ))}
-        </div>
-      );
+    const params = new URLSearchParams(searchParams?.toString() || '');
+    if (tab === 'all') {
+      params.delete('tab');
+    } else {
+      params.set('tab', tab);
     }
+    router.push(`/wagers?${params.toString()}`, { scroll: false });
+  };
 
-    if (filteredWagers.length === 0) {
       return (
-        <div className="text-center py-16 bg-card border border-border rounded-lg">
-          <div className="max-w-md mx-auto">
-            <div className="h-16 w-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-              <HomeIcon className="h-8 w-8 text-muted-foreground" />
+    <main className="flex-1 pb-24 lg:pb-0 relative w-full overflow-x-hidden">
+      {/* Pull to refresh indicator */}
+      {pullDistance > 0 && (
+        <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center pt-4 pointer-events-none">
+          <div className="bg-primary/90 backdrop-blur-sm text-primary-foreground px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
+            {isRefreshing ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm font-medium">Refreshing...</span>
+              </>
+            ) : (
+              <span className="text-sm font-medium">Pull to refresh</span>
+            )}
             </div>
-            <h3 className="text-lg font-semibold mb-2">No wagers found</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              {searchQuery ? "Try a different search term" : "Be the first to create a wager!"}
-            </p>
+        </div>
+      )}
+
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6">
+        {/* Tabs - Grid on Mobile, Horizontal on Desktop */}
+        <div className="mb-4">
+          {/* Mobile: Grid Layout with Icons */}
+          <div className="lg:hidden grid grid-cols-4 gap-2">
+            <button
+              onClick={() => handleTabChange('system')}
+              className={`flex flex-col items-center justify-center gap-1 py-3 rounded-lg transition-all touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                activeTab === 'system'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+              }`}
+            >
+              <Sparkles className="h-5 w-5" />
+              <span className="text-xs font-medium">System</span>
+              <span className="text-xs font-semibold">{systemWagers.length}</span>
+            </button>
+            <button
+              onClick={() => handleTabChange('user')}
+              className={`flex flex-col items-center justify-center gap-1 py-3 rounded-lg transition-all touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                activeTab === 'user'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+              }`}
+            >
+              <User className="h-5 w-5" />
+              <span className="text-xs font-medium">User</span>
+              <span className="text-xs font-semibold">{userWagers.length}</span>
+            </button>
+            <button
+              onClick={() => handleTabChange('expired')}
+              className={`flex flex-col items-center justify-center gap-1 py-3 rounded-lg transition-all touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                activeTab === 'expired'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+              }`}
+            >
+              <Clock className="h-5 w-5" />
+              <span className="text-xs font-medium">Expired</span>
+              <span className="text-xs font-semibold">{expiredWagers.length}</span>
+            </button>
+            <button
+              onClick={() => handleTabChange('settled')}
+              className={`flex flex-col items-center justify-center gap-1 py-3 rounded-lg transition-all touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                activeTab === 'settled'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+              }`}
+            >
+              <CheckCircle className="h-5 w-5" />
+              <span className="text-xs font-medium">Settled</span>
+              <span className="text-xs font-semibold">{settledWagers.length}</span>
+            </button>
+          </div>
+
+          {/* Desktop: Horizontal Layout */}
+          <div className="hidden lg:flex gap-2">
+            <button
+              onClick={() => handleTabChange('all')}
+              className={`px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all min-h-[44px] touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                activeTab === 'all'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => handleTabChange('system')}
+              className={`px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all min-h-[44px] touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                activeTab === 'system'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+              }`}
+            >
+              System ({systemWagers.length})
+            </button>
+            <button
+              onClick={() => handleTabChange('user')}
+              className={`px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all min-h-[44px] touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                activeTab === 'user'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+              }`}
+            >
+              User ({userWagers.length})
+            </button>
+            <button
+              onClick={() => handleTabChange('expired')}
+              className={`px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all min-h-[44px] touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                activeTab === 'expired'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+              }`}
+            >
+              Expired ({expiredWagers.length})
+            </button>
+            <button
+              onClick={() => handleTabChange('settled')}
+              className={`px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all min-h-[44px] touch-manipulation active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                activeTab === 'settled'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+              }`}
+            >
+              Settled ({settledWagers.length})
+            </button>
           </div>
         </div>
-      );
-    }
 
-    return (
-      <div className="space-y-2 md:space-y-3">
-        {filteredWagers.map((wager) => (
-          <WagerRow
-            key={wager.id}
-            id={wager.id}
-            title={wager.title}
-            description={wager.description || ""}
-            sideA={wager.side_a}
-            sideB={wager.side_b}
-            amount={wager.amount}
-            status={wager.status}
-            entriesCount={wager.entries_count}
-            deadline={wager.deadline}
-            currency={wager.currency}
-            category={wager.category}
-            sideACount={wager.side_a_count || 0}
-            sideBCount={wager.side_b_count || 0}
-            sideATotal={wager.side_a_total || 0}
-            sideBTotal={wager.side_b_total || 0}
-            feePercentage={wager.fee_percentage || PLATFORM_FEE_PERCENTAGE}
-            isSystemGenerated={wager.is_system_generated || false}
-            createdAt={wager.created_at}
-            winningSide={wager.winning_side}
-            shortId={wager.short_id}
-            userEntryAmount={userEntries.get(wager.id)?.amount}
-            userEntrySide={userEntries.get(wager.id)?.side}
-            onClick={() => trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'wager_clicked', { wager_id: wager.id, tab: activeTab })}
-          />
-        ))}
-      </div>
-    );
-  };
-
-  // Variant B: Vertical grid layout (fallback)
-  const renderVerticalGrid = () => {
-    if (loading) {
-      return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 w-full">
+        {/* Wager Grid */}
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="bg-card border border-border rounded-lg p-4 w-full">
+              <div key={i} className="bg-card border border-border rounded-lg p-4">
               <Skeleton className="h-6 w-3/4 mb-2" />
               <Skeleton className="h-4 w-full mb-3" />
               <Skeleton className="h-4 w-2/3 mb-4" />
@@ -416,11 +449,7 @@ function WagersPageContent() {
             </div>
           ))}
         </div>
-      );
-    }
-
-    if (filteredWagers.length === 0) {
-      return (
+        ) : filteredWagers.length === 0 ? (
         <div className="text-center py-16 bg-card border border-border rounded-lg">
           <div className="max-w-md mx-auto">
             <div className="h-16 w-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
@@ -430,16 +459,21 @@ function WagersPageContent() {
             <p className="text-sm text-muted-foreground mb-4">
               {searchQuery ? "Try a different search term" : "Be the first to create a wager!"}
             </p>
+              {user && (
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 rounded-lg font-medium hover:opacity-90 transition-all active:scale-95 touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px]"
+                >
+                  Create Wager
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 w-full">
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredWagers.map((wager) => (
             <WagerCard
-              key={wager.id}
+              key={`${wager.id}-${activeTab}-${userEntries.get(wager.id)?.side || 'none'}`}
               id={wager.id}
               title={wager.title}
               description={wager.description || ""}
@@ -462,335 +496,9 @@ function WagersPageContent() {
               shortId={wager.short_id}
               userEntryAmount={userEntries.get(wager.id)?.amount}
               userEntrySide={userEntries.get(wager.id)?.side}
-              onClick={() => trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'wager_clicked', { wager_id: wager.id, tab: activeTab })}
-            />
-        ))}
-      </div>
-    );
-  };
-
-  return (
-    <main className="flex-1 pb-24 md:pb-0 relative w-full overflow-x-hidden">
-      {/* Pull to refresh indicator */}
-      {pullDistance > 0 && (
-        <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center pt-4 pointer-events-none">
-          <div className="bg-primary/90 backdrop-blur-sm text-primary-foreground px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
-            {isRefreshing ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm font-medium">Refreshing...</span>
-              </>
-            ) : (
-              <>
-                <span className="text-sm font-medium">Pull to refresh</span>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-      <div className="max-w-7xl mx-auto p-3 md:p-6">
-        {/* Header */}
-        <div className="mb-6 md:mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-2xl md:text-4xl font-bold mb-2">Discover Wagers</h1>
-              <p className="text-sm md:text-base text-muted-foreground">
-                Join exciting wagers or create your own
-              </p>
-            </div>
-            {user && (
-              <button
-                onClick={() => {
-                  setShowCreateModal(true);
-                  trackABTestEvent(AB_TESTS.WAGERS_PAGE_LAYOUT, layoutVariant, 'create_button_clicked');
-                }}
-                className="flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 md:px-6 md:py-3 rounded-lg font-medium hover:opacity-90 transition active:scale-[0.98] touch-manipulation whitespace-nowrap shadow-lg hover:shadow-xl"
-              >
-                <Plus className="h-5 w-5" />
-                <span>Create Wager</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="mb-6">
-          {/* Mobile Tabs - Grid Layout */}
-          <div className="md:hidden grid grid-cols-4 gap-1 mb-4 border-b border-border pb-1">
-            <button
-              onClick={() => handleTabChange('system')}
-              className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg transition-all relative ${
-                activeTab === 'system'
-                  ? 'text-primary bg-primary/10'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              }`}
-            >
-              <Sparkles className={`h-4 w-4 transition-transform ${activeTab === 'system' ? 'scale-110' : ''}`} />
-              <span className="text-[9px] font-medium leading-tight text-center">System</span>
-              <span className={`text-[8px] px-1 py-0.5 rounded-full ${
-                activeTab === 'system'
-                  ? 'bg-primary/20 text-primary'
-                  : 'bg-muted text-muted-foreground'
-              }`}>
-                {systemWagers.length}
-              </span>
-            </button>
-            <button
-              onClick={() => handleTabChange('user')}
-              className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg transition-all relative ${
-                activeTab === 'user'
-                  ? 'text-primary bg-primary/10'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              }`}
-            >
-              <Users className={`h-4 w-4 transition-transform ${activeTab === 'user' ? 'scale-110' : ''}`} />
-              <span className="text-[9px] font-medium leading-tight text-center">User</span>
-              <span className={`text-[8px] px-1 py-0.5 rounded-full ${
-                activeTab === 'user'
-                  ? 'bg-primary/20 text-primary'
-                  : 'bg-muted text-muted-foreground'
-              }`}>
-                {userWagers.length}
-              </span>
-            </button>
-            <button
-              onClick={() => handleTabChange('expired')}
-              className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg transition-all relative ${
-                activeTab === 'expired'
-                  ? 'text-primary bg-primary/10'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              }`}
-            >
-              <X className={`h-4 w-4 transition-transform ${activeTab === 'expired' ? 'scale-110' : ''}`} />
-              <span className="text-[9px] font-medium leading-tight text-center">Expired</span>
-              <span className={`text-[8px] px-1 py-0.5 rounded-full ${
-                activeTab === 'expired'
-                  ? 'bg-primary/20 text-primary'
-                  : 'bg-muted text-muted-foreground'
-              }`}>
-                {expiredWagers.length}
-              </span>
-            </button>
-            <button
-              onClick={() => handleTabChange('settled')}
-              className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg transition-all relative ${
-                activeTab === 'settled'
-                  ? 'text-primary bg-primary/10'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              }`}
-            >
-              <Tag className={`h-4 w-4 transition-transform ${activeTab === 'settled' ? 'scale-110' : ''}`} />
-              <span className="text-[9px] font-medium leading-tight text-center">Settled</span>
-              <span className={`text-[8px] px-1 py-0.5 rounded-full ${
-                activeTab === 'settled'
-                  ? 'bg-primary/20 text-primary'
-                  : 'bg-muted text-muted-foreground'
-              }`}>
-                {settledWagers.length}
-              </span>
-            </button>
-          </div>
-
-          {/* Desktop Tabs - Horizontal Layout */}
-          <div className="hidden md:flex gap-2 border-b border-border mb-4">
-            <button
-              onClick={() => handleTabChange('system')}
-              className={`flex items-center gap-2 px-4 py-3 font-medium transition-all relative whitespace-nowrap flex-shrink-0 ${
-                activeTab === 'system'
-                  ? 'text-primary border-b-2 border-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <Sparkles className="h-4 w-4" />
-              <span>System Wagers</span>
-              <span className="ml-1 px-2 py-0.5 text-xs bg-muted rounded-full">
-                {systemWagers.length}
-              </span>
-            </button>
-            <button
-              onClick={() => handleTabChange('user')}
-              className={`flex items-center gap-2 px-4 py-3 font-medium transition-all relative whitespace-nowrap flex-shrink-0 ${
-                activeTab === 'user'
-                  ? 'text-primary border-b-2 border-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <Users className="h-4 w-4" />
-              <span>User Wagers</span>
-              <span className="ml-1 px-2 py-0.5 text-xs bg-muted rounded-full">
-                {userWagers.length}
-              </span>
-            </button>
-            <button
-              onClick={() => handleTabChange('expired')}
-              className={`flex items-center gap-2 px-4 py-3 font-medium transition-all relative whitespace-nowrap flex-shrink-0 ${
-                activeTab === 'expired'
-                  ? 'text-primary border-b-2 border-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <X className="h-4 w-4" />
-              <span>Expired</span>
-              <span className="ml-1 px-2 py-0.5 text-xs bg-muted rounded-full">
-                {expiredWagers.length}
-              </span>
-            </button>
-            <button
-              onClick={() => handleTabChange('settled')}
-              className={`flex items-center gap-2 px-4 py-3 font-medium transition-all relative whitespace-nowrap flex-shrink-0 ${
-                activeTab === 'settled'
-                  ? 'text-primary border-b-2 border-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <Tag className="h-4 w-4" />
-              <span>Settled</span>
-              <span className="ml-1 px-2 py-0.5 text-xs bg-muted rounded-full">
-                {settledWagers.length}
-              </span>
-            </button>
-          </div>
-
-          {/* Enhanced Search Bar with View Toggle */}
-          <div className="relative group mb-4">
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-primary/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-            <div className="relative bg-card/50 backdrop-blur-sm border border-border rounded-xl p-1 shadow-sm hover:shadow-md transition-all">
-              <div className="flex items-center gap-2">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground pointer-events-none" />
-                  <input
-                    type="text"
-                    placeholder="Search wagers by title, description, category, or tags..."
-                    value={searchQuery}
-                    onChange={(e) => handleSearch(e.target.value)}
-                    className="w-full pl-10 pr-10 py-2.5 md:py-3 bg-transparent border-0 focus:outline-none focus:ring-0 text-sm md:text-base placeholder:text-muted-foreground/60"
-                  />
-                  {searchQuery && (
-                    <button
-                      onClick={() => handleSearch("")}
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1.5 hover:bg-muted rounded-lg transition-colors"
-                      aria-label="Clear search"
-                    >
-                      <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                    </button>
-                  )}
-                </div>
-                {searchQuery && (
-                  <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 rounded-lg">
-                    {filteredWagers.length} {filteredWagers.length === 1 ? 'result' : 'results'}
-                  </div>
-                )}
-                {/* View Toggle */}
-                <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
-                  <button
-                    onClick={() => setViewMode('card')}
-                    className={`p-1.5 rounded transition-colors ${
-                      viewMode === 'card'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                    aria-label="Card view"
-                    title="Card view"
-                  >
-                    <LayoutGrid className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => setViewMode('row')}
-                    className={`p-1.5 rounded transition-colors ${
-                      viewMode === 'row'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                    aria-label="Row view"
-                    title="Row view"
-                  >
-                    <List className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Category Filter */}
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-muted-foreground">Filter by Category</span>
-            </div>
-            <div className="overflow-x-auto scrollbar-hide -mx-3 md:-mx-6 px-3 md:px-6">
-              <div className="flex gap-2 min-w-max pb-2">
-                <button
-                  onClick={() => setSelectedCategory(null)}
-                  className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${
-                    selectedCategory === null
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                  }`}
-                >
-                  All Categories
-                </button>
-                {WAGER_CATEGORIES.map((category) => {
-                  const getTabWagers = () => {
-                    if (activeTab === 'system') return systemWagers;
-                    if (activeTab === 'user') return userWagers;
-                    if (activeTab === 'expired') return expiredWagers;
-                    return settledWagers;
-                  };
-                  const categoryWagerCount = getTabWagers().filter(
-                    w => w.category === category.id
-                  ).length;
-                  
-                  return (
-                    <button
-                      key={category.id}
-                      onClick={() => setSelectedCategory(category.id)}
-                      className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
-                        selectedCategory === category.id
-                          ? 'bg-primary text-primary-foreground shadow-sm'
-                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                      }`}
-                    >
-                      <span>{category.icon}</span>
-                      <span>{category.label}</span>
-                      {categoryWagerCount > 0 && (
-                        <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${
-                          selectedCategory === category.id
-                            ? 'bg-primary-foreground/20 text-primary-foreground'
-                            : 'bg-background/50 text-muted-foreground'
-                        }`}>
-                          {categoryWagerCount}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Render based on view mode */}
-        {!mounted ? (
-          // Show loading state during hydration to prevent mismatch
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 w-full">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-card border border-border rounded-lg p-4 w-full">
-                <Skeleton className="h-6 w-3/4 mb-2" />
-                <Skeleton className="h-4 w-full mb-3" />
-                <Skeleton className="h-4 w-2/3 mb-4" />
-                <div className="flex justify-between">
-                  <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-4 w-24" />
-                </div>
-              </div>
+              />
             ))}
           </div>
-        ) : viewMode === 'row' ? (
-          /* Row View */
-          renderRowView()
-        ) : (
-          /* Card View: Always use grid layout */
-          renderVerticalGrid()
         )}
       </div>
       
@@ -806,7 +514,6 @@ function WagersPageContent() {
           open={showCreateModal}
           onOpenChange={setShowCreateModal}
           onSuccess={() => {
-            // Refresh wagers list when wager is successfully created
             fetchWagers(true);
           }}
         />
@@ -818,11 +525,11 @@ function WagersPageContent() {
 export default function WagersPage() {
   return (
     <Suspense fallback={
-      <main className="flex-1 pb-24 md:pb-0 w-full overflow-x-hidden">
-        <div className="max-w-7xl mx-auto p-3 md:p-6 w-full">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 w-full">
+      <main className="flex-1 pb-24 lg:pb-0 w-full overflow-x-hidden">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-card border border-border rounded-lg p-4 w-full">
+              <div key={i} className="bg-card border border-border rounded-lg p-4">
                 <Skeleton className="h-6 w-3/4 mb-2" />
                 <Skeleton className="h-4 w-full mb-3" />
                 <Skeleton className="h-4 w-2/3 mb-4" />

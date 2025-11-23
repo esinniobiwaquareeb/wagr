@@ -4,6 +4,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { ConditionalNav } from "@/components/conditional-nav";
 import { PWAInstaller } from "@/components/pwa-installer";
 import { Toaster } from "@/components/ui/toaster";
+import { ThemeProvider } from "@/components/theme-provider";
 import './globals.css'
 
 const geist = Geist({ subsets: ["latin"] });
@@ -28,7 +29,7 @@ export const metadata: Metadata = {
     telephone: false,
   },
   manifest: '/manifest.json',
-  themeColor: '#A969A7',
+  themeColor: '#2563EB',
   viewport: {
     width: 'device-width',
     initialScale: 1,
@@ -98,7 +99,7 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
         <link rel="icon" href="/icons/icon-192x192.png" />
         <link rel="apple-touch-icon" href="/apple-icon.png" />
-        <meta name="theme-color" content="#A969A7" />
+        <meta name="theme-color" content="#2563EB" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="wagr" />
@@ -134,11 +135,18 @@ export default function RootLayout({
         />
       </head>
       <body className={`${geist.className} antialiased`} suppressHydrationWarning>
-        <ConditionalNav>
-          {children}
-        </ConditionalNav>
-        <Toaster />
-        <PWAInstaller />
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem={false}
+          disableTransitionOnChange
+        >
+          <ConditionalNav>
+            {children}
+          </ConditionalNav>
+          <Toaster />
+          <PWAInstaller />
+        </ThemeProvider>
         <Analytics />
         <script
           dangerouslySetInnerHTML={{

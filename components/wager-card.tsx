@@ -2,12 +2,18 @@
 
 import Link from "next/link";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
-import { Sparkles, User, Users, TrendingUp, Coins, Calendar, Trophy, CheckCircle2 } from "lucide-react";
+import { Sparkles, User, Users, TrendingUp, Coins, Calendar, Trophy, CheckCircle2, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
 import { useDeadlineCountdown } from "@/hooks/use-deadline-countdown";
 import { DeadlineDisplay } from "@/components/deadline-display";
 import { PLATFORM_FEE_PERCENTAGE } from "@/lib/constants";
+import { wagersApi } from "@/lib/api-client";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import { isDeadlineElapsed, getTimeRemaining } from "@/lib/deadline-utils";
+import { useState } from "react";
+import * as React from "react";
 
 interface WagerCardProps {
   id: string;
@@ -24,8 +30,8 @@ interface WagerCardProps {
   category?: string;
   sideACount?: number;
   sideBCount?: number;
-  sideATotal?: number; // Total amount bet on side A
-  sideBTotal?: number; // Total amount bet on side B
+  sideATotal?: number; // Total amount wagered on side A
+  sideBTotal?: number; // Total amount wagered on side B
   feePercentage?: number;
   createdAt?: string;
   winningSide?: string | null;
@@ -60,17 +66,98 @@ export function WagerCard({
   userEntrySide,
   onClick,
 }: WagerCardProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [joiningSide, setJoiningSide] = useState<"a" | "b" | null>(null);
+  
   const isOpen = status === "OPEN";
   const isResolved = status === "RESOLVED" || status === "SETTLED";
   const isSettled = status === "SETTLED";
   const sideAWon = isResolved && winningSide === "a";
   const sideBWon = isResolved && winningSide === "b";
+  const userParticipated = userEntryAmount !== undefined && userEntrySide !== undefined;
+  
+  // Reset joining state when user participation status changes or wager status changes
+  React.useEffect(() => {
+    setJoiningSide(null);
+  }, [id, userParticipated, status]);
   
   // Use deadline countdown hook
   const { status: deadlineStatus } = useDeadlineCountdown(deadline);
   
   const formattedAmount = formatCurrency(amount, currency as Currency);
   const isUrgent = deadline && deadlineStatus !== 'green';
+
+  const handleQuickBet = async (e: React.MouseEvent, side: "a" | "b") => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!user) {
+      toast({
+        title: "Please log in",
+        description: "You need to log in to join this wager.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!isOpen) {
+      toast({
+        title: "Wager closed",
+        description: "This wager is no longer accepting entries.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isDeadlineElapsed(deadline)) {
+      toast({
+        title: "Too late",
+        description: "The deadline for this wager has passed.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const timeRemaining = getTimeRemaining(deadline);
+    if (timeRemaining > 0 && timeRemaining <= 20000) {
+      toast({
+        title: "Too late",
+        description: "You cannot join within 20 seconds of the deadline.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (userParticipated) {
+      toast({
+        title: "Already joined",
+        description: "You have already joined this wager.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setJoiningSide(side);
+    try {
+      await wagersApi.join(id, side);
+      toast({
+        title: "Wager joined!",
+        description: `You've wagered ${formattedAmount} on ${side === "a" ? sideA : sideB}`,
+      });
+      // Trigger refresh event for parent component
+      window.dispatchEvent(new Event('wager-updated'));
+    } catch (error: any) {
+      const errorMessage = error?.message || "Failed to join wager. Please try again.";
+      toast({
+        title: "Join failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setJoiningSide(null);
+    }
+  };
 
   // Calculate potential returns using actual amounts
   const returns = calculatePotentialReturns({
@@ -148,7 +235,6 @@ export function WagerCard({
   const actualWinnings = calculateActualWinnings();
   const totalWon = calculateTotalWon();
   const userWon = isSettled && userEntryAmount !== undefined && userEntrySide === winningSide;
-  const userParticipated = userEntryAmount !== undefined && userEntrySide !== undefined;
 
   // Category icons mapping
   const categoryIcons: Record<string, string> = {
@@ -171,9 +257,9 @@ export function WagerCard({
       className="block group"
       onClick={onClick}
     >
-      <div className="bg-card border-2 border-border rounded-xl p-3 md:p-5 hover:border-primary hover:shadow-lg transition-all cursor-pointer active:scale-[0.98] touch-manipulation h-full flex flex-col relative overflow-hidden">
+      <div className="bg-card border border-border rounded-lg p-3 hover:border-primary hover:shadow-md transition-all cursor-pointer active:scale-[0.98] touch-manipulation h-full flex flex-col relative overflow-hidden">
         {/* Status indicator bar - color based on deadline */}
-        <div className={`absolute top-0 left-0 right-0 h-1 ${
+        <div className={`absolute top-0 left-0 right-0 h-0.5 ${
           !isOpen
             ? (status === "RESOLVED" || status === "SETTLED")
               ? "bg-blue-500" 
@@ -186,26 +272,20 @@ export function WagerCard({
         }`} />
 
         {/* Header */}
-        <div className="flex justify-between items-start mb-2.5 md:mb-3">
-          <div className="flex items-start gap-2 flex-1 min-w-0">
-            <h3 className="font-bold text-foreground flex-1 text-sm md:text-lg line-clamp-2 leading-tight group-hover:text-primary transition-colors">
+        <div className="flex justify-between items-start mb-1.5">
+          <div className="flex items-start gap-1.5 flex-1 min-w-0">
+            <h3 className="font-semibold text-foreground flex-1 text-xs md:text-sm line-clamp-2 leading-tight group-hover:text-primary transition-colors">
               {title}
             </h3>
           </div>
-          <div className="flex flex-col items-end gap-1.5 flex-shrink-0 ml-2">
+          <div className="flex items-center gap-1 flex-shrink-0 ml-2">
             {isSystemGenerated ? (
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
-                <Sparkles className="h-3 w-3" />
-                <span className="text-[9px] font-medium hidden sm:inline">Auto</span>
-              </div>
+              <Sparkles className="h-3 w-3 text-primary" />
             ) : (
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted text-muted-foreground">
-                <User className="h-3 w-3" />
-                <span className="text-[9px] font-medium hidden sm:inline">User</span>
-              </div>
+              <User className="h-3 w-3 text-muted-foreground" />
             )}
             <span
-              className={`text-[9px] md:text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+              className={`text-[8px] px-1.5 py-0.5 rounded font-medium ${
                 isOpen
                   ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                   : (status === "RESOLVED" || status === "SETTLED")
@@ -218,166 +298,178 @@ export function WagerCard({
           </div>
         </div>
 
-        {/* Category badge */}
-        <div className="mb-2 flex items-center gap-1">
-          <span className="text-base">{category ? (categoryIcons[category] || "📌") : "📌"}</span>
-          <span className="text-[9px] md:text-[10px] text-muted-foreground uppercase font-medium">
-            {category || "UNCATEGORIZED"}
-          </span>
-        </div>
+        {/* Category badge - compact */}
+        {category && (
+          <div className="mb-1.5 flex items-center gap-1">
+            <span className="text-xs">{categoryIcons[category] || "📌"}</span>
+            <span className="text-[8px] text-muted-foreground uppercase font-medium">
+              {category}
+            </span>
+          </div>
+        )}
 
-        {/* Description */}
+        {/* Description - single line */}
         {description && (
-          <p className="text-[10px] md:text-sm text-muted-foreground mb-3 md:mb-4 line-clamp-2 leading-relaxed">
+          <p className="text-[9px] text-muted-foreground mb-2 line-clamp-1 leading-tight">
             {description}
           </p>
         )}
 
-        {/* Sides - Improved visual design with winner indication */}
-        <div className="grid grid-cols-2 gap-2 md:gap-3 mb-3 md:mb-4 flex-shrink-0 bg-muted/30 rounded-lg p-2 md:p-2.5">
-          <div className={`text-center relative rounded-lg p-1.5 md:p-2 transition-all ${
-            sideAWon 
-              ? "bg-green-500/20 border-2 border-green-500 dark:bg-green-500/10" 
-              : sideBWon
-              ? "bg-gray-500/10 border border-border opacity-60"
-              : "border border-transparent"
-          }`}>
-            <div className="flex items-center justify-center gap-1 mb-1">
-              <div className="text-[9px] md:text-[10px] text-muted-foreground font-medium">Side A</div>
-              {sideAWon && (
-                <Trophy className="h-3 w-3 md:h-4 md:w-4 text-green-600 dark:text-green-400" />
-              )}
-            </div>
-            <p className={`font-bold text-xs md:text-sm truncate px-1 ${
-              sideAWon 
-                ? "text-green-700 dark:text-green-400" 
-                : sideBWon
-                ? "text-muted-foreground"
-                : "text-foreground"
-            }`}>{sideA}</p>
-            {sideAWon && (
-              <div className="absolute -top-1 -right-1 bg-green-500 rounded-full p-0.5">
-                <CheckCircle2 className="h-3 w-3 text-white" />
+        {/* Sides - Compact design with quick wager buttons */}
+        <div className="grid grid-cols-2 gap-1.5 mb-2 flex-shrink-0">
+          {isOpen && !userParticipated && user ? (
+            // Quick wager buttons for open wagers
+            <>
+              <button
+                key={`bet-a-${id}`}
+                onClick={(e) => handleQuickBet(e, "a")}
+                disabled={joiningSide !== null}
+                className={`relative rounded-lg p-2.5 min-h-[44px] transition-all touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                  joiningSide === "a"
+                    ? "bg-primary/20 border-2 border-primary"
+                    : "bg-primary/10 hover:bg-primary/20 border border-primary/30 hover:border-primary"
+                } disabled:opacity-50 disabled:cursor-not-allowed active:scale-95`}
+              >
+                {joiningSide === "a" ? (
+                  <div className="flex items-center justify-center gap-1.5">
+                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                    <span className="text-[10px] font-semibold text-primary">Joining...</span>
+                  </div>
+                ) : (
+                  <>
+                    <p className="font-bold text-[11px] text-primary mb-0.5">{sideA}</p>
+                    <p className="text-[8px] text-muted-foreground">Click to wager</p>
+                  </>
+                )}
+              </button>
+              <button
+                key={`bet-b-${id}`}
+                onClick={(e) => handleQuickBet(e, "b")}
+                disabled={joiningSide !== null}
+                className={`relative rounded-lg p-2.5 min-h-[44px] transition-all touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                  joiningSide === "b"
+                    ? "bg-primary/20 border-2 border-primary"
+                    : "bg-primary/10 hover:bg-primary/20 border border-primary/30 hover:border-primary"
+                } disabled:opacity-50 disabled:cursor-not-allowed active:scale-95`}
+              >
+                {joiningSide === "b" ? (
+                  <div className="flex items-center justify-center gap-1.5">
+                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                    <span className="text-[10px] font-semibold text-primary">Joining...</span>
+                  </div>
+                ) : (
+                  <>
+                    <p className="font-bold text-[11px] text-primary mb-0.5">{sideB}</p>
+                    <p className="text-[8px] text-muted-foreground">Click to wager</p>
+                  </>
+                )}
+              </button>
+            </>
+          ) : (
+            // Display only for settled/resolved or if user already participated
+            <div className="grid grid-cols-2 gap-1.5 bg-muted/20 rounded p-1.5 col-span-2">
+              <div className={`text-center relative rounded p-1 transition-all ${
+                sideAWon 
+                  ? "bg-green-500/20 border border-green-500" 
+                  : sideBWon
+                  ? "opacity-60"
+                  : userParticipated && userEntrySide === "a"
+                  ? "bg-primary/10 border border-primary/30"
+                  : ""
+              }`}>
+                <p className={`font-semibold text-[10px] truncate ${
+                  sideAWon 
+                    ? "text-green-700 dark:text-green-400" 
+                    : sideBWon
+                    ? "text-muted-foreground"
+                    : userParticipated && userEntrySide === "a"
+                    ? "text-primary"
+                    : "text-foreground"
+                }`}>{sideA}</p>
+                {sideAWon && (
+                  <Trophy className="h-2.5 w-2.5 text-green-600 dark:text-green-400 mx-auto mt-0.5" />
+                )}
+                {userParticipated && userEntrySide === "a" && !sideAWon && !sideBWon && (
+                  <div className="absolute -top-1 -right-1 bg-primary rounded-full p-0.5">
+                    <CheckCircle2 className="h-2 w-2 text-white" />
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          <div className={`text-center border-l border-border relative rounded-lg p-1.5 md:p-2 transition-all ${
-            sideBWon 
-              ? "bg-green-500/20 border-2 border-green-500 dark:bg-green-500/10 ml-[-1px]" 
-              : sideAWon
-              ? "bg-gray-500/10 border border-border opacity-60"
-              : "border border-transparent"
-          }`}>
-            <div className="flex items-center justify-center gap-1 mb-1">
-              <div className="text-[9px] md:text-[10px] text-muted-foreground font-medium">Side B</div>
-              {sideBWon && (
-                <Trophy className="h-3 w-3 md:h-4 md:w-4 text-green-600 dark:text-green-400" />
-              )}
-            </div>
-            <p className={`font-bold text-xs md:text-sm truncate px-1 ${
-              sideBWon 
-                ? "text-green-700 dark:text-green-400" 
-                : sideAWon
-                ? "text-muted-foreground"
-                : "text-foreground"
-            }`}>{sideB}</p>
-            {sideBWon && (
-              <div className="absolute -top-1 -right-1 bg-green-500 rounded-full p-0.5">
-                <CheckCircle2 className="h-3 w-3 text-white" />
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Footer - Enhanced with icons */}
-        <div className="mt-auto pt-2.5 md:pt-3 border-t border-border space-y-1.5 md:space-y-2">
-          {/* Entry amount - prominent */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <TrendingUp className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
-              <span className="text-[10px] md:text-xs text-muted-foreground">Entry Amount</span>
-            </div>
-            <span className="font-bold text-foreground text-sm md:text-base">{formattedAmount}</span>
-          </div>
-
-          {/* Potential Return - New Feature */}
-          {isOpen && entriesCount > 0 && (
-            <div className="flex items-center justify-between bg-primary/5 rounded-lg p-2 border border-primary/20">
-              <div className="flex items-center gap-1.5">
-                <Coins className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
-                <span className="text-[9px] md:text-[10px] text-muted-foreground">Potential Return</span>
-              </div>
-              <div className="text-right">
-                <span className="font-bold text-primary text-xs md:text-sm">
-                  {formatReturnMultiplier(bestReturn)}
-                </span>
-                <span className="text-[9px] md:text-[10px] text-green-600 dark:text-green-400 ml-1.5">
-                  {formatReturnPercentage(bestReturnPercentage)}
-                </span>
+              <div className={`text-center border-l border-border relative rounded p-1 transition-all ${
+                sideBWon 
+                  ? "bg-green-500/20 border border-green-500 ml-[-1px]" 
+                  : sideAWon
+                  ? "opacity-60"
+                  : userParticipated && userEntrySide === "b"
+                  ? "bg-primary/10 border border-primary/30"
+                  : ""
+              }`}>
+                <p className={`font-semibold text-[10px] truncate ${
+                  sideBWon 
+                    ? "text-green-700 dark:text-green-400" 
+                    : sideAWon
+                    ? "text-muted-foreground"
+                    : userParticipated && userEntrySide === "b"
+                    ? "text-primary"
+                    : "text-foreground"
+                }`}>{sideB}</p>
+                {sideBWon && (
+                  <Trophy className="h-2.5 w-2.5 text-green-600 dark:text-green-400 mx-auto mt-0.5" />
+                )}
+                {userParticipated && userEntrySide === "b" && !sideAWon && !sideBWon && (
+                  <div className="absolute -top-1 -right-1 bg-primary rounded-full p-0.5">
+                    <CheckCircle2 className="h-2 w-2 text-white" />
+                  </div>
+                )}
               </div>
             </div>
           )}
+        </div>
 
-          {/* Stats row */}
-          <div className="flex items-center justify-between text-[9px] md:text-[10px]">
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Users className="h-3 w-3 md:h-3.5 md:w-3.5" />
-              <span className="font-medium">{entriesCount} {entriesCount === 1 ? 'participant' : 'participants'}</span>
+        {/* Footer - Compact with all info */}
+        <div className="mt-auto pt-2 border-t border-border space-y-1.5">
+          {/* Top row: Entry amount, Potential return, Participants */}
+          <div className="flex items-center justify-between text-[9px]">
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold text-foreground">{formattedAmount}</span>
+              {isOpen && entriesCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                  {formatReturnMultiplier(bestReturn)}
+                </span>
+              )}
             </div>
-            {deadline && (
-              <DeadlineDisplay 
-                deadline={deadline} 
-                size="sm"
-                showLabel={false}
-                className="font-medium"
-              />
-            )}
+            <div className="flex items-center gap-1.5">
+              {entriesCount > 0 && (
+                <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                  <Users className="h-2.5 w-2.5" />
+                  <span className="font-medium">{entriesCount}</span>
+                </span>
+              )}
+              {deadline && (
+                <DeadlineDisplay 
+                  deadline={deadline} 
+                  size="sm"
+                  showLabel={false}
+                  className="text-[9px]"
+                />
+              )}
+            </div>
           </div>
 
-          {/* Created date and Potential/Winning */}
-          <div className="flex items-center justify-between text-[9px] md:text-[10px] text-muted-foreground mt-1">
-            {createdAt && (
-              <div className="flex items-center gap-1.5">
-                <Calendar className="h-3 w-3" />
-                <span>Created {format(new Date(createdAt), "MMM d, yyyy")}</span>
-              </div>
-            )}
-            {isOpen && (
-              <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
-                <Coins className="h-3 w-3" />
+          {/* Bottom row: Potential winnings, Date created */}
+          <div className="flex items-center justify-between text-[8px]">
+            {isOpen && entriesCount > 0 && (
+              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-green-500/10 text-green-700 dark:text-green-400">
+                <Coins className="h-2.5 w-2.5" />
                 <span className="font-semibold">
-                  Potential Winning: {entriesCount > 0 
-                    ? formatCurrency(Math.max(returns.sideAPotential, returns.sideBPotential), currency as Currency)
-                    : "N/A"
-                  }
+                  {formatCurrency(Math.max(returns.sideAPotential, returns.sideBPotential), currency as Currency)}
                 </span>
               </div>
             )}
-            {isSettled && (
-              <div className="flex flex-col gap-1">
-                {totalWon !== null && (
-                  <div className="flex items-center gap-1.5 font-semibold text-green-600 dark:text-green-400">
-                    <Trophy className="h-3 w-3" />
-                    <span>Total Won: {formatCurrency(totalWon, currency as Currency)}</span>
-                  </div>
-                )}
-                {userParticipated && (
-                  <div className={`flex items-center gap-1.5 text-xs ${
-                    actualWinnings !== null && actualWinnings > 0
-                      ? "text-green-600 dark:text-green-400" 
-                      : "text-muted-foreground"
-                  }`}>
-                    <Coins className="h-2.5 w-2.5" />
-                    <span>
-                      Your Winning: {actualWinnings !== null
-                        ? (actualWinnings > 0 
-                            ? formatCurrency(actualWinnings, currency as Currency)
-                            : "Lost")
-                        : "N/A"
-                      }
-                    </span>
-                  </div>
-                )}
+            {createdAt && (
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <Calendar className="h-2.5 w-2.5" />
+                <span>{format(new Date(createdAt), "MMM d")}</span>
               </div>
             )}
           </div>

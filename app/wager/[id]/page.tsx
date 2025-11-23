@@ -134,7 +134,7 @@ export default function WagerDetail() {
       const sideCount = { a: aCounts, b: bCounts };
       setSideCount(sideCount);
       
-      // Calculate actual amounts bet on each side (for accurate return calculations)
+      // Calculate actual amounts wagered on each side (for accurate return calculations)
       const sideATotal = entriesData
         .filter((e: Entry) => e.side === "a")
         .reduce((sum: number, e: Entry) => sum + Number(e.amount), 0);
@@ -1069,7 +1069,7 @@ export default function WagerDetail() {
   if (loading) {
     return (
       <main className="flex-1 pb-24 md:pb-0">
-        <div className="max-w-6xl mx-auto p-4 md:p-6 py-12 text-center">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 py-12 text-center">
           <p className="text-muted-foreground">Loading wager...</p>
         </div>
       </main>
@@ -1079,7 +1079,7 @@ export default function WagerDetail() {
   if (!wager) {
     return (
       <main className="flex-1 pb-24 md:pb-0">
-        <div className="max-w-6xl mx-auto p-4 md:p-6 py-12 text-center">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 py-12 text-center">
           <p className="text-muted-foreground">Wager not found</p>
         </div>
       </main>
@@ -1090,7 +1090,7 @@ export default function WagerDetail() {
   const sideAPercentage = totalParticipants > 0 ? (sideCount.a / totalParticipants) * 100 : 50;
   const sideBPercentage = totalParticipants > 0 ? (sideCount.b / totalParticipants) * 100 : 50;
   
-  // Calculate actual amounts bet on each side
+  // Calculate actual amounts wagered on each side
   const sideATotal = entries
     .filter((e: Entry) => e.side === "a")
     .reduce((sum: number, e: Entry) => sum + Number(e.amount), 0);
@@ -1282,14 +1282,14 @@ export default function WagerDetail() {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto p-3 md:p-6">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6">
         {/* Header Section */}
         <div className="mb-4 md:mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 md:gap-3 mb-3 md:mb-4">
             <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
               <BackButton fallbackHref="/wagers" />
               <h1 className="text-xl md:text-4xl font-bold flex-1 break-words">{wager.title}</h1>
-              {/* Edit and Delete Buttons - Only show for creator when no other users have bet and deadline hasn't elapsed */}
+              {/* Edit and Delete Buttons - Only show for creator when no other users have wagered and deadline hasn't elapsed */}
               {user && wager.creator_id === user.id && wager.status === "OPEN" && entries.filter(e => e.user_id !== user.id).length === 0 && !isDeadlineElapsed(wager.deadline) && (
                 <>
                   <button
