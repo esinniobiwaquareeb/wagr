@@ -446,6 +446,20 @@ export function TopNav() {
 
   const isActive = (path: string) => pathname === path;
 
+  // Get border color based on wallet balance
+  const getWalletBorderColor = (balance: number | null): string => {
+    if (balance === null) return 'border-border';
+    
+    // Thresholds: Low < 1000, Medium 1000-10000, High > 10000
+    if (balance < 1000) {
+      return 'border-red-500/50 dark:border-red-400/50'; // Low balance - red
+    } else if (balance < 10000) {
+      return 'border-yellow-500/50 dark:border-yellow-400/50'; // Medium balance - yellow
+    } else {
+      return 'border-green-500/50 dark:border-green-400/50'; // High balance - green
+    }
+  };
+
   return (
     <>
       {/* Top Navigation Bar - Large Screens */}
@@ -490,7 +504,7 @@ export function TopNav() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowDepositModal(true)}
-                    className="h-9 px-3 gap-2 font-medium hover:bg-muted/80 hover:text-foreground transition-colors group"
+                    className={`h-9 px-3 gap-2 font-medium hover:bg-muted/80 hover:text-foreground transition-colors group border-2 ${getWalletBorderColor(walletBalance)}`}
                   >
                     <Wallet className="h-4 w-4" />
                     <span className="hidden xl:inline whitespace-nowrap">
@@ -721,7 +735,7 @@ export function TopNav() {
                       setShowMobileMenu(false);
                       setShowDepositModal(true);
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border-2 ${getWalletBorderColor(walletBalance)} ${
                       isActive("/wallet")
                         ? "bg-primary/10 text-primary"
                         : "bg-muted/50 text-foreground hover:bg-muted"
