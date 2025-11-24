@@ -371,6 +371,11 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
         description: `${formData.isPublic ? 'Everyone can see it now and start wagering.' : 'It\'s private for now - only you can see it.'}`,
       });
       
+      // Dispatch custom event for immediate wager list update
+      window.dispatchEvent(new CustomEvent('wager-created', {
+        detail: { wager: newWager }
+      }));
+      
       // Close modal and notify parent to refresh wagers list
       onOpenChange(false);
       if (onSuccess) {

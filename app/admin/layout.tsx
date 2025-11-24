@@ -18,10 +18,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const isLoginPage = mounted && pathname === "/admin/login";
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-background">
       <div className="flex flex-col md:flex-row flex-1">
         {!isLoginPage && <AdminSidebar />}
-        <div className="flex-1 md:ml-0 flex flex-col min-h-screen">
+        <div className="flex-1 md:ml-0 flex flex-col min-h-screen overflow-x-hidden">
           <div className="flex-1">{children}</div>
         </div>
       </div>

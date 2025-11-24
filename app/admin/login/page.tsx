@@ -19,22 +19,28 @@ export default function AdminLogin() {
 
   useEffect(() => {
     let mounted = true;
+    let timeoutId: NodeJS.Timeout | null = null;
     
     const checkAdmin = async () => {
       try {
-        const currentUser = await getCurrentUser();
+        const currentUser = await getCurrentUser(true); // Force refresh
         if (mounted && currentUser?.is_admin) {
-          router.push("/admin");
+          router.replace("/admin");
         }
       } catch (error) {
-        console.error("Error checking admin status on login page:", error);
+        // Silently fail - user just needs to login
+        console.error("Error checking admin status:", error);
       }
     };
 
-    checkAdmin();
+    // Small delay to avoid race conditions
+    timeoutId = setTimeout(() => {
+      checkAdmin();
+    }, 100);
     
     return () => {
       mounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
     };
   }, [router]);
 
@@ -118,16 +124,15 @@ export default function AdminLogin() {
           return;
         }
 
+        // Clear form
+        setEmail("");
+        setPassword("");
+        
         // Trigger auth state update
         window.dispatchEvent(new Event('auth-state-changed'));
         
-        // Force router refresh
-        router.refresh();
-        
-        // Redirect after a brief delay to allow UI to update
-        setTimeout(() => {
-          router.push("/admin");
-        }, 300);
+        // Redirect immediately - router.refresh() can cause issues
+        router.replace("/admin");
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -187,16 +192,15 @@ export default function AdminLogin() {
 
         setRequires2FA(false);
         
+        // Clear form
+        setEmail("");
+        setPassword("");
+        
         // Trigger auth state update
         window.dispatchEvent(new Event('auth-state-changed'));
         
-        // Force router refresh
-        router.refresh();
-        
-        // Redirect after a brief delay to allow UI to update
-        setTimeout(() => {
-          router.push("/admin");
-        }, 300);
+        // Redirect immediately
+        router.replace("/admin");
       }
     } catch (error) {
       console.error("2FA verification error:", error);

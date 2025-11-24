@@ -85,3 +85,79 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/**
+ * PATCH /api/admin/users
+ * Update user account status (suspend/unsuspend)
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    await requireAdmin();
+    const supabase = createServiceRoleClient();
+    
+    const body = await request.json();
+    const { userId, isSuspended, reason } = body;
+
+    if (!userId) {
+      throw new AppError(ErrorCode.INVALID_INPUT, 'User ID is required');
+    }
+
+    if (typeof isSuspended !== 'boolean') {
+      throw new AppError(ErrorCode.INVALID_INPUT, 'isSuspended must be a boolean');
+    }
+
+    // Check if user exists
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, is_admin')
+      .eq('id', userId)
+      .single();
+
+    if (profileError || !profile) {
+      throw new AppError(ErrorCode.NOT_FOUND, 'User not found');
+    }
+
+    // Prevent suspending admins
+    if (isSuspended && profile.is_admin) {
+      throw new AppError(ErrorCode.FORBIDDEN, 'Cannot suspend admin accounts');
+    }
+
+    // Update user suspension status
+    const updateData: any = {
+      is_suspended: isSuspended,
+    };
+
+    if (isSuspended) {
+      updateData.suspended_at = new Date().toISOString();
+      updateData.suspension_reason = reason || null;
+    } else {
+      updateData.suspended_at = null;
+      updateData.suspension_reason = null;
+    }
+
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update(updateData)
+      .eq('id', userId);
+
+    if (updateError) {
+      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to update user status');
+    }
+
+    // If suspending, delete all active sessions
+    if (isSuspended) {
+      await supabase
+        .from('sessions')
+        .delete()
+        .eq('user_id', userId);
+    }
+
+    return successResponseNext({
+      success: true,
+      message: isSuspended ? 'User account suspended' : 'User account unsuspended',
+    });
+  } catch (error) {
+    logError(error as Error);
+    return appErrorToResponse(error);
+  }
+}
+

@@ -47,7 +47,7 @@ export function WagerInviteDialog({
   const [inviteInput, setInviteInput] = useState("");
   const [invites, setInvites] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Array<{ id: string; username: string; email: string; avatar_url?: string }>>([]);
+  const [searchResults, setSearchResults] = useState<Array<{ id: string; username: string; email?: string; avatar_url?: string }>>([]);
   const [searching, setSearching] = useState(false);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loadingTeams, setLoadingTeams] = useState(false);
@@ -64,13 +64,7 @@ export function WagerInviteDialog({
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   // Load teams
-  useEffect(() => {
-    if (open) {
-      loadTeams();
-    }
-  }, [open]);
-
-  const loadTeams = async () => {
+  const loadTeams = useCallback(async () => {
     try {
       setLoadingTeams(true);
       const response = await fetch('/api/teams');
@@ -83,31 +77,69 @@ export function WagerInviteDialog({
     } finally {
       setLoadingTeams(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      loadTeams();
+    }
+  }, [open, loadTeams]);
 
   // Search users
   useEffect(() => {
-    if (debouncedSearch.length >= 2) {
-      searchUsers(debouncedSearch);
-    } else {
-      setSearchResults([]);
-    }
-  }, [debouncedSearch]);
-
-  const searchUsers = async (query: string) => {
-    try {
-      setSearching(true);
-      const response = await fetch(`/api/wallet/search-users?q=${encodeURIComponent(query)}`);
-      if (response.ok) {
-        const data = await response.json();
-        setSearchResults(data.users || []);
+    let cancelled = false;
+    
+    const performSearch = async () => {
+      if (debouncedSearch.length < 2) {
+        setSearchResults([]);
+        setSearching(false);
+        return;
       }
-    } catch (error) {
-      console.error('Failed to search users:', error);
-    } finally {
-      setSearching(false);
-    }
-  };
+
+      try {
+        setSearching(true);
+        const response = await fetch(`/api/wallet/search-users?q=${encodeURIComponent(debouncedSearch)}`);
+        
+        if (cancelled) {
+          return;
+        }
+
+        if (response.ok) {
+          const data = await response.json();
+          if (!cancelled) {
+            // Handle both response formats: { success: true, data: { users: [...] } } or { users: [...] }
+            const users = data.success && data.data?.users 
+              ? data.data.users 
+              : data.users || data.data?.users || [];
+            
+            console.log('Search results for:', debouncedSearch, 'Found:', users.length, 'users');
+            setSearchResults(users);
+          }
+        } else {
+          if (!cancelled) {
+            const errorData = await response.json().catch(() => ({}));
+            console.error('Search API error:', response.status, errorData);
+            setSearchResults([]);
+          }
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Failed to search users:', error);
+          setSearchResults([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setSearching(false);
+        }
+      }
+    };
+
+    performSearch();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedSearch]);
 
   const addInvite = (identifier: string) => {
     const trimmed = identifier.trim().toLowerCase();
@@ -203,10 +235,12 @@ export function WagerInviteDialog({
       const data = await response.json();
 
       if (response.ok) {
-        setInviteResults(data.results);
+        console.log('Invite response:', data);
+        setInviteResults(data.results || data.data?.results);
+        const invitedCount = data.results?.invited?.length || data.data?.results?.invited?.length || 0;
         toast({
           title: "Invitations sent!",
-          description: data.message || `Successfully invited ${data.results?.invited?.length || 0} ${data.results?.invited?.length === 1 ? 'person' : 'people'}`,
+          description: data.message || data.data?.message || `Successfully invited ${invitedCount} ${invitedCount === 1 ? 'person' : 'people'}`,
         });
         
         // Reset form after delay
@@ -266,12 +300,14 @@ export function WagerInviteDialog({
               <Input
                 value={inviteInput}
                 onChange={(e) => {
-                  setInviteInput(e.target.value);
-                  setSearchQuery(e.target.value);
+                  const value = e.target.value;
+                  setInviteInput(value);
+                  setSearchQuery(value);
                 }}
                 onKeyDown={handleInviteInputKeyDown}
                 placeholder="Enter username (@username) or email"
                 className="pr-10"
+                disabled={inviting}
               />
               {searching && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -291,7 +327,11 @@ export function WagerInviteDialog({
                   >
                     <User className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm font-medium">@{user.username}</span>
-                    <span className="text-xs text-muted-foreground ml-auto">{user.email}</span>
+                    {user.email && (
+                      <span className="text-xs text-muted-foreground ml-auto truncate max-w-[150px]">
+                        {user.email}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { requireAuth } from '@/lib/auth/server';
 import { AppError, logError } from '@/lib/error-handler';
 import { ErrorCode } from '@/lib/error-handler';
@@ -19,6 +19,8 @@ export async function POST(
   try {
     const user = await requireAuth();
     const supabase = await createClient();
+    // Use service role client for user lookups to bypass RLS
+    const serviceSupabase = createServiceRoleClient();
     const { id } = await params;
     const wagerId = id;
     const body = await request.json();
@@ -95,15 +97,20 @@ export async function POST(
     // Process each invite
     for (const invite of allInvites) {
       const trimmedInvite = invite.trim().toLowerCase();
-      const isEmail = trimmedInvite.includes('@');
+      
+      // Determine if it's an email or username
+      // If it starts with @, it's definitely a username
+      // Otherwise, check if it's a valid email format (contains @ and has a domain)
+      const isUsername = trimmedInvite.startsWith('@');
+      const isEmail = !isUsername && trimmedInvite.includes('@') && trimmedInvite.includes('.') && trimmedInvite.split('@').length === 2;
 
       try {
         if (isEmail) {
-          // Check if user exists by email
-          const { data: profile } = await supabase
+          // Check if user exists by email (case-insensitive)
+          const { data: profile } = await serviceSupabase
             .from('profiles')
             .select('id, email, username, email_verified')
-            .eq('email', trimmedInvite)
+            .ilike('email', trimmedInvite)
             .maybeSingle();
 
           if (profile) {
@@ -150,12 +157,18 @@ export async function POST(
             });
           }
         } else {
-          // Username lookup (remove @ if present)
+          // Username lookup (remove @ if present, case-insensitive)
           const username = trimmedInvite.startsWith('@') ? trimmedInvite.slice(1) : trimmedInvite;
-          const { data: profile } = await supabase
+          
+          if (!username || username.length === 0) {
+            results.notFound.push(trimmedInvite);
+            continue;
+          }
+          
+          const { data: profile } = await serviceSupabase
             .from('profiles')
             .select('id, email, username')
-            .eq('username', username)
+            .ilike('username', username)
             .maybeSingle();
 
           if (profile) {
@@ -191,9 +204,21 @@ export async function POST(
       }
     }
 
+    // Log results for debugging
+    console.log('Invite results:', {
+      invited: results.invited.length,
+      notFound: results.notFound.length,
+      errors: results.errors.length,
+      invitedDetails: results.invited,
+    });
+
     return successResponseNext({
       message: `Successfully invited ${results.invited.length} ${results.invited.length === 1 ? 'person' : 'people'}`,
-      results,
+      results: {
+        invited: results.invited,
+        notFound: results.notFound,
+        errors: results.errors,
+      },
     });
   } catch (error) {
     logError(error as Error);

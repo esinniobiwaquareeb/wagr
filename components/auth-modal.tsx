@@ -18,6 +18,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [requires2FA, setRequires2FA] = useState(false);
@@ -127,7 +128,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
         if (!response.ok || !data.success) {
           const { extractErrorFromResponse } = await import('@/lib/error-extractor');
-          const errorMessage = await extractErrorFromResponse(response, 'Registration failed');
+          const errorMessage = await extractErrorFromResponse(response, 'Registration failed, please try again.');
           throw new Error(errorMessage);
         }
 
@@ -160,14 +161,15 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           body: JSON.stringify({
             email: trimmedEmail,
             password,
+            rememberMe,
           }),
         });
 
         const data = await response.json();
 
         if (!response.ok || !data.success) {
-          const { extractErrorFromResponse } = await import('@/lib/error-extractor');
-          const errorMessage = await extractErrorFromResponse(response, 'Login failed');
+          // Extract error message from the already-parsed data
+          const errorMessage = data?.error?.message || data?.message || 'Login failed, please try again.';
           throw new Error(errorMessage);
         }
 
@@ -221,6 +223,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           password,
           twoFactorCode: code,
           isBackupCode,
+          rememberMe,
         }),
       });
 
@@ -228,7 +231,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
       if (!response.ok || !data.success) {
         const { extractErrorFromResponse } = await import('@/lib/error-extractor');
-        const errorMessage = await extractErrorFromResponse(response, 'Verification failed');
+        const errorMessage = await extractErrorFromResponse(response, 'Verification failed, please try again.');
         throw new Error(errorMessage);
       }
 
@@ -550,6 +553,24 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               </button>
             </div>
           </div>
+
+          {!isSignUp && (
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="rememberMe"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 rounded border-input text-primary focus:ring-2 focus:ring-primary/50 cursor-pointer"
+              />
+              <label
+                htmlFor="rememberMe"
+                className="text-sm text-muted-foreground cursor-pointer select-none"
+              >
+                Remember me
+              </label>
+            </div>
+          )}
 
           {error && (
             <div className="p-3 bg-destructive/10 text-destructive rounded-lg text-sm">

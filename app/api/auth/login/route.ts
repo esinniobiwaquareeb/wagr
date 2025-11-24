@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     async (req) => {
       try {
         const body = await req.json();
-        const { email, password, twoFactorCode, isBackupCode } = body;
+        const { email, password, twoFactorCode, isBackupCode, rememberMe } = body;
 
         if (!email || !password) {
           throw new AppError(ErrorCode.INVALID_INPUT, 'Please enter both your email and password');
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         // Find user by email
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('id, email, username, password_hash, two_factor_enabled, two_factor_secret, two_factor_backup_codes, is_admin')
+          .select('id, email, username, password_hash, two_factor_enabled, two_factor_secret, two_factor_backup_codes, is_admin, is_suspended')
           .eq('email', email.trim().toLowerCase())
           .single();
 
@@ -42,6 +42,11 @@ export async function POST(request: NextRequest) {
 
         if (!profile.password_hash) {
           throw new AppError(ErrorCode.INVALID_CREDENTIALS, "The email or password you entered doesn't match our records");
+        }
+
+        // Check if account is suspended
+        if (profile.is_suspended) {
+          throw new AppError(ErrorCode.ACCOUNT_SUSPENDED, "Account suspended. Kindly contact support");
         }
 
         // Verify password
@@ -102,7 +107,8 @@ export async function POST(request: NextRequest) {
         // Create session
         const clientIP = getClientIP(req);
         const userAgent = req.headers.get('user-agent') || undefined;
-        const sessionToken = await createSession(profile.id, clientIP, userAgent);
+        const shouldRememberMe = rememberMe === true;
+        const sessionToken = await createSession(profile.id, clientIP, userAgent, shouldRememberMe);
         
         // Create response first
         const response = successResponseNext({
@@ -116,8 +122,8 @@ export async function POST(request: NextRequest) {
           twoFactorVerified: profile.two_factor_enabled && twoFactorCode ? true : undefined,
         });
 
-        // Set session cookie on the response
-        return await setSessionCookie(sessionToken, response) || response;
+        // Set session cookie on the response with rememberMe option
+        return await setSessionCookie(sessionToken, response, shouldRememberMe) || response;
       } catch (error) {
         logError(error as Error);
         return appErrorToResponse(error);

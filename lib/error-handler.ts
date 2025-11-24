@@ -8,6 +8,7 @@ export enum ErrorCode {
   FORBIDDEN = 'FORBIDDEN',
   INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
   SESSION_EXPIRED = 'SESSION_EXPIRED',
+  ACCOUNT_SUSPENDED = 'ACCOUNT_SUSPENDED',
   
   // Validation errors
   VALIDATION_ERROR = 'VALIDATION_ERROR',
@@ -70,6 +71,7 @@ function getDefaultStatusCode(code: ErrorCode): number {
     case ErrorCode.SESSION_EXPIRED:
       return 401;
     case ErrorCode.FORBIDDEN:
+    case ErrorCode.ACCOUNT_SUSPENDED:
       return 403;
     case ErrorCode.VALIDATION_ERROR:
     case ErrorCode.INVALID_INPUT:

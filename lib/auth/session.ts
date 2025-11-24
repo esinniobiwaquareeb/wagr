@@ -8,6 +8,8 @@ import { NextResponse } from 'next/server';
 
 const SESSION_COOKIE_NAME = 'wagr_session';
 const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
+const REMEMBER_ME_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
+const REGULAR_SESSION_DURATION = 24 * 60 * 60 * 1000; // 1 day in milliseconds
 
 /**
  * Generate a secure session token using Web Crypto API (Edge Runtime compatible)
@@ -27,10 +29,16 @@ export async function generateSessionToken(): Promise<string> {
 /**
  * Create a new session for a user
  */
-export async function createSession(userId: string, ipAddress?: string, userAgent?: string): Promise<string> {
+export async function createSession(
+  userId: string, 
+  ipAddress?: string, 
+  userAgent?: string, 
+  rememberMe: boolean = false
+): Promise<string> {
   const supabase = await createClient();
   const token = await generateSessionToken();
-  const expiresAt = new Date(Date.now() + SESSION_DURATION);
+  const duration = rememberMe ? REMEMBER_ME_DURATION : REGULAR_SESSION_DURATION;
+  const expiresAt = new Date(Date.now() + duration);
 
   const { error } = await supabase
     .from('sessions')
@@ -117,12 +125,17 @@ export async function getSessionFromCookie(): Promise<string | null> {
 /**
  * Set session cookie
  */
-export async function setSessionCookie(token: string, response?: NextResponse): Promise<NextResponse | void> {
+export async function setSessionCookie(
+  token: string, 
+  response?: NextResponse, 
+  rememberMe: boolean = false
+): Promise<NextResponse | void> {
+  const duration = rememberMe ? REMEMBER_ME_DURATION : REGULAR_SESSION_DURATION;
   const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax' as const,
-    maxAge: Math.floor(SESSION_DURATION / 1000), // Convert to seconds
+    maxAge: Math.floor(duration / 1000), // Convert to seconds
     path: '/',
   };
 

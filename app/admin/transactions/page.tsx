@@ -18,6 +18,13 @@ interface Transaction {
   user_id: string;
   description: string | null;
   wager_id: string | null;
+  profiles?: {
+    id: string;
+    username: string | null;
+    email: string | null;
+  } | null;
+  _searchUsername?: string;
+  _searchEmail?: string;
 }
 
 export default function AdminTransactionsPage() {
@@ -30,14 +37,19 @@ export default function AdminTransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   const checkAdmin = useCallback(async () => {
-    const currentUser = await getCurrentUser();
-    if (!currentUser || !currentUser.is_admin) {
-      router.push("/admin/login");
-      return;
-    }
+    try {
+      const currentUser = await getCurrentUser(true); // Force refresh
+      if (!currentUser || !currentUser.is_admin) {
+        router.replace("/admin/login");
+        return;
+      }
 
-    setUser(currentUser);
-    setIsAdmin(true);
+      setUser(currentUser);
+      setIsAdmin(true);
+    } catch (error) {
+      console.error("Error checking admin status:", error);
+      router.replace("/admin/login");
+    }
   }, [router]);
 
   const fetchTransactions = useCallback(async (force = false) => {
@@ -68,12 +80,28 @@ export default function AdminTransactionsPage() {
     try {
       const { data, error } = await supabase
         .from("transactions")
-        .select("*")
+        .select(`
+          *,
+          profiles:user_id (
+            id,
+            username,
+            email
+          )
+        `)
         .order("created_at", { ascending: false })
         .limit(500);
 
       if (error) throw error;
-      setTransactions(data || []);
+      
+      // Transform the data - Supabase returns profiles as an array, extract first element
+      const transformedData = (data || []).map((transaction: any) => ({
+        ...transaction,
+        profiles: Array.isArray(transaction.profiles) 
+          ? transaction.profiles[0] 
+          : transaction.profiles || null,
+      }));
+      
+      setTransactions(transformedData);
       
       // Cache the results
       const { cache, CACHE_KEYS, CACHE_TTL } = await import('@/lib/cache');
@@ -89,9 +117,21 @@ export default function AdminTransactionsPage() {
   }, [supabase, isAdmin, toast]);
 
   useEffect(() => {
+    let mounted = true;
+    
     checkAdmin().then(() => {
-      setLoading(false);
+      if (mounted) {
+        setLoading(false);
+      }
+    }).catch(() => {
+      if (mounted) {
+        setLoading(false);
+      }
     });
+
+    return () => {
+      mounted = false;
+    };
   }, [checkAdmin]);
 
   useEffect(() => {
@@ -99,6 +139,31 @@ export default function AdminTransactionsPage() {
       fetchTransactions();
     }
   }, [isAdmin, fetchTransactions]);
+
+  // Helper functions - must be defined before conditional returns
+  const getTransactionTypeLabel = (type: string) => {
+    return type.split("_").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+  };
+
+  const isPositive = (type: string) => {
+    return ["deposit", "wager_win", "refund"].includes(type);
+  };
+
+  // Custom filtered transactions for search that includes profile data
+  // Must be called before conditional returns to follow Rules of Hooks
+  const filteredTransactions = useMemo(() => {
+    if (!transactions.length) return transactions;
+    
+    // This will be handled by DataTable's built-in search, but we need to ensure
+    // the data structure is searchable. The search will work on type, description, and user_id
+    // For profile search, we'll add a computed field
+    return transactions.map(t => ({
+      ...t,
+      // Add searchable fields for profile data
+      _searchUsername: t.profiles?.username || '',
+      _searchEmail: t.profiles?.email || '',
+    }));
+  }, [transactions]);
 
   if (loading) {
     return (
@@ -115,26 +180,16 @@ export default function AdminTransactionsPage() {
     return null;
   }
 
-  const getTransactionTypeLabel = (type: string) => {
-    return type.split("_").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
-  };
-
-  const isPositive = (type: string) => {
-    return ["deposit", "wager_win", "refund"].includes(type);
-  };
-
   return (
     <main className="min-h-screen bg-background p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6">
-          <div className="mb-2">
-            <h1 className="text-2xl md:text-3xl font-bold">Transactions</h1>
-          </div>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">Transactions</h1>
           <p className="text-sm text-muted-foreground">View all transactions in the system</p>
         </div>
 
         <DataTable
-          data={transactions}
+          data={filteredTransactions}
           columns={[
             {
               id: "type",
@@ -175,20 +230,32 @@ export default function AdminTransactionsPage() {
               header: "Description",
               accessorKey: "description",
               cell: (row) => (
-                <span className="text-sm text-muted-foreground line-clamp-1">
-                  {row.description || "N/A"}
-                </span>
+                <div className="max-w-xs">
+                  <span className="text-sm text-muted-foreground break-words whitespace-normal">
+                    {row.description || "N/A"}
+                  </span>
+                </div>
               ),
             },
             {
-              id: "user_id",
-              header: "User ID",
-              accessorKey: "user_id",
-              cell: (row) => (
-                <span className="text-xs font-mono text-muted-foreground">
-                  {row.user_id.substring(0, 8)}...
-                </span>
-              ),
+              id: "user",
+              header: "User",
+              cell: (row) => {
+                const profile = row.profiles;
+                const displayName = profile?.username || profile?.email || `User ${row.user_id.substring(0, 8)}`;
+                return (
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-sm font-medium truncate">
+                      {displayName}
+                    </span>
+                    {profile?.username && profile?.email && (
+                      <span className="text-xs text-muted-foreground truncate">
+                        {profile.email}
+                      </span>
+                    )}
+                  </div>
+                );
+              },
             },
             {
               id: "created_at",
@@ -202,8 +269,8 @@ export default function AdminTransactionsPage() {
             },
           ]}
           searchable
-          searchPlaceholder="Search by type, description, or user ID..."
-          searchKeys={["type", "description", "user_id"]}
+          searchPlaceholder="Search by type, description, username, or email..."
+          searchKeys={["type", "description", "user_id", "_searchUsername", "_searchEmail"]}
           pagination
           pageSize={25}
           sortable

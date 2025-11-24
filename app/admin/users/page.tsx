@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { format } from "date-fns";
-import { Shield, User as UserIcon, Lock, Coins, TrendingUp, Calendar } from "lucide-react";
+import { Shield, User as UserIcon, Lock, Coins, TrendingUp, Calendar, Ban, CheckCircle } from "lucide-react";
 import { DataTable } from "@/components/data-table";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import Image from "next/image";
 import { getCurrentUser } from "@/lib/auth/client";
-import { apiGet } from "@/lib/api-client";
+import { apiGet, apiPatch } from "@/lib/api-client";
 
 interface User {
   id: string;
@@ -19,6 +20,9 @@ interface User {
   balance: number;
   is_admin: boolean;
   two_factor_enabled?: boolean;
+  is_suspended?: boolean;
+  suspended_at?: string | null;
+  suspension_reason?: string | null;
   created_at: string;
   wagers_created?: number;
   entries_count?: number;
@@ -32,16 +36,25 @@ export default function AdminUsersPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<User[]>([]);
+  const [showSuspendDialog, setShowSuspendDialog] = useState(false);
+  const [showUnsuspendDialog, setShowUnsuspendDialog] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [suspensionReason, setSuspensionReason] = useState("");
 
   const checkAdmin = useCallback(async () => {
-    const currentUser = await getCurrentUser();
-    if (!currentUser || !currentUser.is_admin) {
-      router.push("/admin/login");
-      return;
-    }
+    try {
+      const currentUser = await getCurrentUser(true); // Force refresh
+      if (!currentUser || !currentUser.is_admin) {
+        router.replace("/admin/login");
+        return;
+      }
 
-    setUser(currentUser);
-    setIsAdmin(true);
+      setUser(currentUser);
+      setIsAdmin(true);
+    } catch (error) {
+      console.error("Error checking admin status:", error);
+      router.replace("/admin/login");
+    }
   }, [router]);
 
   const fetchUsers = useCallback(async () => {
@@ -60,10 +73,78 @@ export default function AdminUsersPage() {
     }
   }, [isAdmin, toast]);
 
+  const handleSuspendUser = useCallback(async (userId: string, isSuspended: boolean, reason?: string) => {
+    if (!isAdmin) return;
+
+    try {
+      await apiPatch('/admin/users', {
+        userId,
+        isSuspended,
+        reason,
+      });
+
+      toast({
+        title: "Success",
+        description: isSuspended ? "User account suspended" : "User account unsuspended",
+      });
+
+      // Refresh users list
+      fetchUsers();
+      
+      // Close dialogs and reset state
+      setShowSuspendDialog(false);
+      setShowUnsuspendDialog(false);
+      setSelectedUser(null);
+      setSuspensionReason("");
+    } catch (error) {
+      console.error("Error updating user status:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update user status.",
+        variant: "destructive",
+      });
+    }
+  }, [isAdmin, toast, fetchUsers]);
+
+  const handleSuspendClick = (user: User) => {
+    setSelectedUser(user);
+    setSuspensionReason("");
+    setShowSuspendDialog(true);
+  };
+
+  const handleUnsuspendClick = (user: User) => {
+    setSelectedUser(user);
+    setShowUnsuspendDialog(true);
+  };
+
+  const handleConfirmSuspend = () => {
+    if (selectedUser) {
+      handleSuspendUser(selectedUser.id, true, suspensionReason.trim() || undefined);
+    }
+  };
+
+  const handleConfirmUnsuspend = () => {
+    if (selectedUser) {
+      handleSuspendUser(selectedUser.id, false);
+    }
+  };
+
   useEffect(() => {
+    let mounted = true;
+    
     checkAdmin().then(() => {
-      setLoading(false);
+      if (mounted) {
+        setLoading(false);
+      }
+    }).catch(() => {
+      if (mounted) {
+        setLoading(false);
+      }
     });
+
+    return () => {
+      mounted = false;
+    };
   }, [checkAdmin]);
 
   useEffect(() => {
@@ -180,6 +261,39 @@ export default function AdminUsersPage() {
                       2FA
                     </span>
                   )}
+                  {row.is_suspended && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-500/10 text-red-700 dark:text-red-400 text-xs w-fit">
+                      <Ban className="h-3 w-3" />
+                      Suspended
+                    </span>
+                  )}
+                </div>
+              ),
+            },
+            {
+              id: "actions",
+              header: "Actions",
+              cell: (row) => (
+                <div className="flex items-center gap-2">
+                  {!row.is_admin && (
+                    row.is_suspended ? (
+                      <button
+                        onClick={() => handleUnsuspendClick(row)}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded bg-green-500/10 text-green-700 dark:text-green-400 text-xs hover:bg-green-500/20 transition"
+                      >
+                        <CheckCircle className="h-3 w-3" />
+                        Unsuspend
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleSuspendClick(row)}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-500/10 text-red-700 dark:text-red-400 text-xs hover:bg-red-500/20 transition"
+                      >
+                        <Ban className="h-3 w-3" />
+                        Suspend
+                      </button>
+                    )
+                  )}
                 </div>
               ),
             },
@@ -205,6 +319,94 @@ export default function AdminUsersPage() {
           emptyMessage="No users found"
         />
       </div>
+
+      {/* Suspend Confirmation Dialog */}
+      <ConfirmDialog
+        open={showSuspendDialog && selectedUser !== null}
+        onOpenChange={(open) => {
+          setShowSuspendDialog(open);
+          if (!open) {
+            setSelectedUser(null);
+            setSuspensionReason("");
+          }
+        }}
+        title="Suspend User Account"
+        description={
+          selectedUser ? (
+            <div className="space-y-4 mt-2">
+              <p className="text-sm text-muted-foreground">
+                You are about to suspend the account for <strong>{selectedUser.username || selectedUser.email || 'this user'}</strong>.
+              </p>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Suspension Reason (Optional)</label>
+                <textarea
+                  value={suspensionReason}
+                  onChange={(e) => setSuspensionReason(e.target.value)}
+                  placeholder="Enter reason for suspension..."
+                  className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background resize-none"
+                  rows={3}
+                />
+              </div>
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>⚠️ This action will:</p>
+                <ul className="list-disc list-inside ml-2 space-y-0.5">
+                  <li>Immediately log out the user from all sessions</li>
+                  <li>Prevent the user from logging in</li>
+                  <li>Display a suspension message when they try to access their account</li>
+                  <li>Can be reversed by unsuspending the account</li>
+                </ul>
+              </div>
+            </div>
+          ) : (
+            ""
+          )
+        }
+        confirmText="Suspend Account"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={handleConfirmSuspend}
+      />
+
+      {/* Unsuspend Confirmation Dialog */}
+      <ConfirmDialog
+        open={showUnsuspendDialog && selectedUser !== null}
+        onOpenChange={(open) => {
+          setShowUnsuspendDialog(open);
+          if (!open) {
+            setSelectedUser(null);
+          }
+        }}
+        title="Unsuspend User Account"
+        description={
+          selectedUser ? (
+            <div className="space-y-3 mt-2">
+              <p className="text-sm text-muted-foreground">
+                You are about to unsuspend the account for <strong>{selectedUser.username || selectedUser.email || 'this user'}</strong>.
+              </p>
+              {selectedUser.suspension_reason && (
+                <div className="p-3 rounded-lg border border-border bg-muted/50">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Previous Suspension Reason:</p>
+                  <p className="text-sm">{selectedUser.suspension_reason}</p>
+                </div>
+              )}
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>✓ This action will:</p>
+                <ul className="list-disc list-inside ml-2 space-y-0.5">
+                  <li>Restore the user's access to their account</li>
+                  <li>Allow them to log in normally</li>
+                  <li>Clear the suspension status</li>
+                </ul>
+              </div>
+            </div>
+          ) : (
+            ""
+          )
+        }
+        confirmText="Unsuspend Account"
+        cancelText="Cancel"
+        variant="default"
+        onConfirm={handleConfirmUnsuspend}
+      />
     </main>
   );
 }

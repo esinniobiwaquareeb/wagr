@@ -70,24 +70,29 @@ export default function AdminPage() {
   const [resolving, setResolving] = useState<string | null>(null);
 
   const checkAdmin = useCallback(async () => {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-      router.push("/admin/login");
-      return;
-    }
+    try {
+      const currentUser = await getCurrentUser(true); // Force refresh to get latest admin status
+      if (!currentUser) {
+        router.replace("/admin/login");
+        return;
+      }
 
-    if (!currentUser.is_admin) {
-      toast({
-        title: "Access Denied",
-        description: "You don't have admin privileges.",
-        variant: "destructive",
-      });
-      router.push("/admin/login");
-      return;
-    }
+      if (!currentUser.is_admin) {
+        toast({
+          title: "Access Denied",
+          description: "You don't have admin privileges.",
+          variant: "destructive",
+        });
+        router.replace("/admin/login");
+        return;
+      }
 
-    setUser(currentUser);
-    setIsAdmin(true);
+      setUser(currentUser);
+      setIsAdmin(true);
+    } catch (error) {
+      console.error("Error checking admin status:", error);
+      router.replace("/admin/login");
+    }
   }, [router, toast]);
 
   const fetchStats = useCallback(async () => {
@@ -171,18 +176,35 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
+    let mounted = true;
+    
     checkAdmin().then(() => {
-      setLoading(false);
+      if (mounted) {
+        setLoading(false);
+      }
+    }).catch(() => {
+      if (mounted) {
+        setLoading(false);
+      }
     });
+
+    return () => {
+      mounted = false;
+    };
   }, [checkAdmin]);
 
   useEffect(() => {
     if (isAdmin) {
-      fetchStats();
-      fetchRecentWagers();
-      fetchRecentTransactions();
+      // Fetch data in parallel for better performance
+      Promise.all([
+        fetchStats(),
+        fetchRecentWagers(),
+        fetchRecentTransactions(),
+      ]).catch((error) => {
+        console.error("Error fetching admin data:", error);
+      });
     }
-  }, [isAdmin, fetchStats, fetchRecentWagers, fetchRecentTransactions]);
+  }, [isAdmin]); // Removed function dependencies to prevent infinite loops
 
   if (loading) {
     return (
@@ -213,7 +235,7 @@ export default function AdminPage() {
 
   return (
     <main className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto p-4 md:p-6">
+      <div className="max-w-7xl mx-auto p-4 md:p-6 w-full">
         <div className="mb-6 md:mb-8">
           <div className="flex items-center justify-between mb-2">
             <h1 className="text-2xl md:text-4xl font-bold">Admin Center</h1>
