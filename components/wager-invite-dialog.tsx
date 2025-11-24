@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { X, UserPlus, Users, Mail, User, Loader2, Check, XCircle, Settings } from "lucide-react";
+import { X, UserPlus, Users, Mail, User, Loader2, Check, XCircle, Settings, Trash2 } from "lucide-react";
 import { TeamManagerDialog } from "@/components/team-manager-dialog";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -59,6 +60,22 @@ export function WagerInviteDialog({
     errors: Array<{ identifier: string; error: string }>;
   } | null>(null);
   const [showTeamManager, setShowTeamManager] = useState(false);
+  const [invitedUsers, setInvitedUsers] = useState<Array<{
+    id: string;
+    invitee_id?: string;
+    invitee_email?: string;
+    status: string;
+    created_at: string;
+    invitee?: { id: string; username: string; email?: string; avatar_url?: string };
+  }>>([]);
+  const [loadingInvites, setLoadingInvites] = useState(false);
+  const [revokingInviteId, setRevokingInviteId] = useState<string | null>(null);
+  const [showRevokeDialog, setShowRevokeDialog] = useState(false);
+  const [inviteToRevoke, setInviteToRevoke] = useState<{
+    id: string;
+    invitee?: { username?: string; email?: string };
+    invitee_email?: string;
+  } | null>(null);
   const { toast } = useToast();
   const supabase = useMemo(() => createClient(), []);
   const debouncedSearch = useDebounce(searchQuery, 300);
@@ -79,11 +96,28 @@ export function WagerInviteDialog({
     }
   }, []);
 
+  // Load invited users
+  const loadInvitedUsers = useCallback(async () => {
+    try {
+      setLoadingInvites(true);
+      const response = await fetch(`/api/wagers/${wagerId}/invites`);
+      if (response.ok) {
+        const data = await response.json();
+        setInvitedUsers(data.invites || data.data?.invites || []);
+      }
+    } catch (error) {
+      console.error('Failed to load invited users:', error);
+    } finally {
+      setLoadingInvites(false);
+    }
+  }, [wagerId]);
+
   useEffect(() => {
     if (open) {
       loadTeams();
+      loadInvitedUsers();
     }
-  }, [open, loadTeams]);
+  }, [open, loadTeams, loadInvitedUsers]);
 
   // Search users
   useEffect(() => {
@@ -209,6 +243,45 @@ export function WagerInviteDialog({
     }
   };
 
+  const handleRevokeClick = (invite: { id: string; invitee?: { username?: string; email?: string }; invitee_email?: string }) => {
+    setInviteToRevoke(invite);
+    setShowRevokeDialog(true);
+  };
+
+  const handleConfirmRevoke = async () => {
+    if (!inviteToRevoke) return;
+
+    try {
+      setRevokingInviteId(inviteToRevoke.id);
+      const response = await fetch(`/api/wagers/${wagerId}/invites/${inviteToRevoke.id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: "Invitation revoked",
+          description: "The invitation has been successfully revoked.",
+        });
+        // Reload invited users
+        loadInvitedUsers();
+        setShowRevokeDialog(false);
+        setInviteToRevoke(null);
+      } else {
+        throw new Error(data.error || 'Failed to revoke invitation');
+      }
+    } catch (error) {
+      toast({
+        title: "Failed to revoke invitation",
+        description: error instanceof Error ? error.message : 'An error occurred',
+        variant: "destructive",
+      });
+    } finally {
+      setRevokingInviteId(null);
+    }
+  };
+
   const handleInvite = async () => {
     if (invites.length === 0 && !selectedTeamId) {
       toast({
@@ -242,6 +315,9 @@ export function WagerInviteDialog({
           title: "Invitations sent!",
           description: data.message || data.data?.message || `Successfully invited ${invitedCount} ${invitedCount === 1 ? 'person' : 'people'}`,
         });
+        
+        // Reload invited users
+        loadInvitedUsers();
         
         // Reset form after delay
         setTimeout(() => {
@@ -338,17 +414,17 @@ export function WagerInviteDialog({
             )}
           </div>
 
-          {/* Selected Invites */}
+          {/* Selected Invites (Pending) */}
           {invites.length > 0 && (
             <div className="space-y-2">
-              <label className="text-sm font-medium">Invited ({invites.length})</label>
+              <label className="text-sm font-medium">To Invite ({invites.length})</label>
               <div className="flex flex-wrap gap-2">
                 {invites.map((invite) => (
                   <div
                     key={invite}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-full text-sm"
                   >
-                    {invite.includes('@') ? (
+                    {invite.includes('@') && !invite.startsWith('@') ? (
                       <Mail className="h-3.5 w-3.5" />
                     ) : (
                       <User className="h-3.5 w-3.5" />
@@ -362,6 +438,71 @@ export function WagerInviteDialog({
                     </button>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Invited Users (Already Sent) */}
+          {invitedUsers.length > 0 && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Invited Users ({invitedUsers.length})</label>
+              <div className="border border-border rounded-md divide-y divide-border max-h-48 overflow-y-auto">
+                {loadingInvites ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  invitedUsers.map((invite) => (
+                    <div
+                      key={invite.id}
+                      className="flex items-center justify-between px-3 py-2 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {invite.invitee ? (
+                          <>
+                            <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <span className="text-sm font-medium truncate">@{invite.invitee.username}</span>
+                            {invite.invitee.email && (
+                              <span className="text-xs text-muted-foreground truncate hidden sm:block">
+                                {invite.invitee.email}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <span className="text-sm truncate">{invite.invitee_email}</span>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          invite.status === 'accepted' 
+                            ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                            : invite.status === 'declined'
+                            ? 'bg-red-500/10 text-red-600 dark:text-red-400'
+                            : 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
+                        }`}>
+                          {invite.status}
+                        </span>
+                        {invite.status !== 'accepted' && (
+                          <button
+                            onClick={() => handleRevokeClick(invite)}
+                            disabled={revokingInviteId === invite.id}
+                            className="p-1.5 hover:bg-destructive/10 rounded-md transition-colors disabled:opacity-50"
+                            title="Revoke invitation"
+                          >
+                            {revokingInviteId === invite.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin text-destructive" />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -501,6 +642,42 @@ export function WagerInviteDialog({
             setInvites([...new Set([...invites, ...teamMemberIds])]);
           }
         }}
+      />
+
+      {/* Revoke Invite Confirmation Dialog */}
+      <ConfirmDialog
+        open={showRevokeDialog}
+        onOpenChange={(open) => {
+          setShowRevokeDialog(open);
+          if (!open) {
+            setInviteToRevoke(null);
+          }
+        }}
+        title="Revoke Invitation"
+        description={
+          inviteToRevoke ? (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to revoke the invitation for{" "}
+                <strong>
+                  {inviteToRevoke.invitee?.username
+                    ? `@${inviteToRevoke.invitee.username}`
+                    : inviteToRevoke.invitee?.email || inviteToRevoke.invitee_email || "this user"}
+                </strong>
+                ?
+              </p>
+              <p className="text-xs text-muted-foreground">
+                They will no longer be able to access this invitation through their notifications.
+              </p>
+            </div>
+          ) : (
+            "Are you sure you want to revoke this invitation?"
+          )
+        }
+        confirmText="Revoke"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={handleConfirmRevoke}
       />
     </div>
   );
