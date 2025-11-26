@@ -78,13 +78,15 @@ export function QuizTakingInterface({
           description: error instanceof Error ? error.message : "Failed to start quiz",
           variant: "destructive",
         });
+        // Call onComplete with empty array to close the interface on error
+        onComplete([]);
       } finally {
         setLoading(false);
       }
     };
 
     startQuiz();
-  }, [quizId, user, toast]);
+  }, [quizId, user, toast, onComplete]);
 
   // Timer countdown
   useEffect(() => {

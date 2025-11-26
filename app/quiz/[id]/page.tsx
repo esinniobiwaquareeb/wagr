@@ -8,7 +8,7 @@ import { formatCurrency, DEFAULT_CURRENCY } from "@/lib/currency";
 import { format } from "date-fns";
 import { 
   Loader2, BookOpen, Users, Clock, Trophy, CheckCircle2, 
-  ArrowLeft, Play, UserPlus, Settings, Award, Download, BarChart3
+  ArrowLeft, Play, UserPlus, Settings, Award, Download, BarChart3, Check, Edit, Trash2
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,10 @@ import { QuizTakingInterface } from "@/components/quiz-taking-interface";
 import { QuizResults } from "@/components/quiz-results";
 import { QuizInviteDialog } from "@/components/quiz-invite-dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { CreateQuizModal } from "@/components/create-quiz-modal";
+import { QuizHeader } from "@/components/quiz-header";
+import { QuizInfo } from "@/components/quiz-info";
+import { QuizActions } from "@/components/quiz-actions";
 
 interface Quiz {
   id: string;
@@ -34,6 +38,10 @@ interface Quiz {
   randomize_answers: boolean;
   show_results_immediately: boolean;
   settlement_method: string;
+  top_winners_count?: number;
+  base_cost?: number;
+  platform_fee?: number;
+  total_cost?: number;
   created_at: string;
   creator_id: string;
   profiles?: {
@@ -44,6 +52,8 @@ interface Quiz {
   questions?: Array<{
     id: string;
     question_text: string;
+    question_type: 'multiple_choice' | 'true_false';
+    points: number;
     quiz_answers: Array<{
       id: string;
       answer_text: string;
@@ -87,6 +97,11 @@ export default function QuizDetailPage() {
   const [settling, setSettling] = useState(false);
   const [takingQuiz, setTakingQuiz] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [accepting, setAccepting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [opening, setOpening] = useState(false);
 
   useEffect(() => {
     if (quizId) {
@@ -155,7 +170,9 @@ export default function QuizDetailPage() {
   };
 
   const handleQuizComplete = (quizResponses: any[]) => {
-    setResponses(quizResponses);
+    if (quizResponses.length > 0) {
+      setResponses(quizResponses);
+    }
     setTakingQuiz(false);
     fetchQuiz(); // Refresh to get updated participant data
   };
@@ -191,6 +208,111 @@ export default function QuizDetailPage() {
       });
     } finally {
       setSettling(false);
+    }
+  };
+
+  const handleAcceptInvite = async () => {
+    if (!quiz || !user) return;
+
+    setAccepting(true);
+    try {
+      const response = await fetch(`/api/quizzes/${quizId}/accept`, {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Failed to accept invitation');
+      }
+
+      toast({
+        title: "Invitation accepted!",
+        description: "You can now participate in this quiz.",
+      });
+
+      // Dispatch event to notify invite dialog to refresh
+      window.dispatchEvent(new Event('quiz-invite-accepted'));
+      
+      fetchQuiz(); // Refresh to get updated participant status
+    } catch (error) {
+      console.error('Error accepting invite:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to accept invitation",
+        variant: "destructive",
+      });
+    } finally {
+      setAccepting(false);
+    }
+  };
+
+  const handleDeleteQuiz = async () => {
+    if (!quiz) return;
+
+    setDeleting(true);
+    try {
+      const response = await fetch(`/api/quizzes/${quizId}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Failed to delete quiz');
+      }
+
+      toast({
+        title: "Quiz deleted",
+        description: "The quiz has been deleted successfully.",
+      });
+
+      router.push('/quizzes');
+    } catch (error) {
+      console.error('Error deleting quiz:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete quiz",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+      setShowDeleteDialog(false);
+    }
+  };
+
+  const handleOpenQuiz = async () => {
+    if (!quiz) return;
+
+    setOpening(true);
+    try {
+      const response = await fetch(`/api/quizzes/${quizId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'open' }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Failed to open quiz');
+      }
+
+      toast({
+        title: "Quiz opened!",
+        description: "Participants can now start taking the quiz.",
+      });
+
+      fetchQuiz(); // Refresh to get updated status
+    } catch (error) {
+      console.error('Error opening quiz:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to open quiz",
+        variant: "destructive",
+      });
+    } finally {
+      setOpening(false);
     }
   };
 
@@ -287,8 +409,6 @@ export default function QuizDetailPage() {
     );
   }
 
-  const totalCost = quiz.entry_fee_per_question * quiz.total_questions * quiz.max_participants;
-  const prizePool = totalCost * 0.9; // 10% platform fee
 
   return (
     <main className="flex-1 pb-24 lg:pb-0 w-full overflow-x-hidden">
@@ -315,105 +435,42 @@ export default function QuizDetailPage() {
         {!takingQuiz && (
           <>
             <Card className="mb-6">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-2xl mb-2">{quiz.title}</CardTitle>
-                    {quiz.description && (
-                      <p className="text-muted-foreground">{quiz.description}</p>
-                    )}
-                  </div>
-                  {isCreator && (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowInviteDialog(true)}
-                      >
-                        <UserPlus className="h-4 w-4 mr-2" />
-                        Invite
-                      </Button>
-                      {quiz.status === 'completed' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setShowSettleDialog(true)}
-                        >
-                          <Award className="h-4 w-4 mr-2" />
-                          Settle
-                        </Button>
-                      )}
-                      {quiz.status === 'settled' && quiz.participants && quiz.participants.length > 0 && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleExportResults}
-                          disabled={exporting}
-                        >
-                          {exporting ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          ) : (
-                            <Download className="h-4 w-4 mr-2" />
-                          )}
-                          Export
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Questions</p>
-                    <p className="text-lg font-semibold">{quiz.total_questions}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Entry Fee</p>
-                    <p className="text-lg font-semibold">
-                      {formatCurrency(quiz.entry_fee_per_question, DEFAULT_CURRENCY)} per question
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Participants</p>
-                    <p className="text-lg font-semibold">
-                      {quiz.participantCounts?.total || 0} / {quiz.max_participants}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Prize Pool</p>
-                    <p className="text-lg font-semibold text-green-600">
-                      {formatCurrency(prizePool, DEFAULT_CURRENCY)}
-                    </p>
-                  </div>
-                </div>
-
-                {quiz.end_date && (
-                  <div className="pt-4 border-t">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Clock className="h-4 w-4" />
-                      <span>Ends: {format(new Date(quiz.end_date), 'PPp')}</span>
-                    </div>
-                  </div>
-                )}
-
-                {canTakeQuiz && (
-                  <div className="pt-4 border-t">
-                    <Button onClick={handleStartQuiz} className="w-full" size="lg">
-                      <Play className="h-4 w-4 mr-2" />
-                      Start Quiz
-                    </Button>
-                  </div>
-                )}
-
-                {!participant && user && quiz.status === 'open' && (
-                  <div className="pt-4 border-t">
-                    <p className="text-sm text-muted-foreground mb-2">
-                      You need to be invited to participate in this quiz.
-                    </p>
-                  </div>
-                )}
-              </CardContent>
+              <QuizHeader
+                title={quiz.title}
+                description={quiz.description}
+                isCreator={!!isCreator}
+                status={quiz.status}
+                onInvite={() => setShowInviteDialog(true)}
+                onSettle={() => setShowSettleDialog(true)}
+                onExport={handleExportResults}
+                onEdit={() => setShowEditModal(true)}
+                onDelete={() => setShowDeleteDialog(true)}
+                onOpen={handleOpenQuiz}
+                opening={opening}
+                exporting={exporting}
+                participants={quiz.participants}
+              />
+              <QuizInfo
+                totalQuestions={quiz.total_questions}
+                entryFeePerQuestion={quiz.entry_fee_per_question}
+                maxParticipants={quiz.max_participants}
+                baseCost={quiz.base_cost}
+                platformFee={quiz.platform_fee}
+                totalCost={quiz.total_cost}
+                participantCounts={quiz.participantCounts}
+                startDate={quiz.start_date}
+                endDate={quiz.end_date}
+                durationMinutes={quiz.duration_minutes}
+                status={quiz.status}
+              />
+              <QuizActions
+                user={user}
+                participant={participant}
+                quizStatus={quiz.status}
+                onAcceptInvite={handleAcceptInvite}
+                onStartQuiz={handleStartQuiz}
+                accepting={accepting}
+              />
             </Card>
 
             {/* Results */}
@@ -454,6 +511,58 @@ export default function QuizDetailPage() {
         onConfirm={handleSettle}
         variant="default"
       />
+
+      {/* Delete Dialog */}
+      <ConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={(open) => {
+          if (!deleting) {
+            setShowDeleteDialog(open);
+          }
+        }}
+        title="Delete Quiz"
+        description={`Are you sure you want to delete "${quiz?.title}"? This action cannot be undone. All funds will be refunded if no participants have started.`}
+        confirmText={deleting ? "Deleting..." : "Delete"}
+        onConfirm={handleDeleteQuiz}
+        variant="destructive"
+      />
+
+      {/* Edit Modal */}
+      {quiz && isCreator && (
+        <CreateQuizModal
+          open={showEditModal}
+          onOpenChange={setShowEditModal}
+          quizId={quiz.id}
+          initialData={{
+            title: quiz.title,
+            description: quiz.description || undefined,
+            entryFeePerQuestion: quiz.entry_fee_per_question,
+            maxParticipants: quiz.max_participants,
+            totalQuestions: quiz.total_questions,
+            startDate: quiz.start_date || undefined,
+            endDate: quiz.end_date || undefined,
+            durationMinutes: quiz.duration_minutes || undefined,
+            randomizeQuestions: quiz.randomize_questions,
+            randomizeAnswers: quiz.randomize_answers,
+            showResultsImmediately: quiz.show_results_immediately,
+            settlementMethod: quiz.settlement_method as 'proportional' | 'top_winners' | 'equal_split',
+            topWinnersCount: quiz.top_winners_count || undefined,
+            questions: quiz.questions?.map(q => ({
+              questionText: q.question_text,
+              questionType: q.question_type as 'multiple_choice' | 'true_false',
+              points: q.points || 1,
+              answers: q.quiz_answers.map(a => ({
+                answerText: a.answer_text,
+                isCorrect: a.is_correct,
+              })),
+            })),
+          }}
+          onSuccess={() => {
+            fetchQuiz();
+            setShowEditModal(false);
+          }}
+        />
+      )}
     </main>
   );
 }

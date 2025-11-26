@@ -14,14 +14,16 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await requireAuth();
     const supabase = await createClient();
+    const serviceSupabase = createServiceRoleClient();
     const { id } = await params;
     const quizId = id;
 
     // Get quiz with creator info
-    const { data: quiz, error } = await supabase
+    const { data: quiz, error } = await serviceSupabase
       .from('quizzes')
-      .select('*, profiles:creator_id(username, avatar_url)')
+      .select('*, profiles:creator_id(username, avatar_url, email)')
       .eq('id', quizId)
       .single();
 
@@ -29,17 +31,34 @@ export async function GET(
       throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Quiz not found');
     }
 
+    // Check if user is creator or invited participant
+    const isCreator = quiz.creator_id === user.id;
+    
+    if (!isCreator) {
+      // Check if user is a participant
+      const { data: participant } = await serviceSupabase
+        .from('quiz_participants')
+        .select('id')
+        .eq('quiz_id', quizId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (!participant) {
+        throw new AppError(ErrorCode.FORBIDDEN, 'You are not invited to this quiz');
+      }
+    }
+
     // Get questions with answers
-    const { data: questions } = await supabase
+    const { data: questions } = await serviceSupabase
       .from('quiz_questions')
       .select('*, quiz_answers (*)')
       .eq('quiz_id', quizId)
       .order('order_index', { ascending: true });
 
     // Get participant counts
-    const { data: participants } = await supabase
+    const { data: participants } = await serviceSupabase
       .from('quiz_participants')
-      .select('status, user_id, profiles:user_id(username, avatar_url)')
+      .select('status, user_id, profiles:user_id(username, avatar_url, email)')
       .eq('quiz_id', quizId);
 
     const participantCounts = {

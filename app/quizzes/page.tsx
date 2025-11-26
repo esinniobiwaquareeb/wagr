@@ -21,6 +21,9 @@ interface Quiz {
   entry_fee_per_question: number;
   max_participants: number;
   total_questions: number;
+  base_cost?: number;
+  platform_fee?: number;
+  total_cost?: number;
   status: string;
   start_date?: string;
   end_date?: string;
@@ -207,7 +210,10 @@ function QuizzesPageContent() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredQuizzes.map((quiz) => {
-              const totalCost = quiz.entry_fee_per_question * quiz.total_questions * quiz.max_participants;
+              // Use stored base_cost if available, otherwise calculate
+              const baseCost = quiz.base_cost ?? (quiz.entry_fee_per_question * quiz.total_questions * quiz.max_participants);
+              // Prize pool is base cost minus 10% platform fee
+              const prizePool = baseCost;
               const participantCounts = quiz.participantCounts || { total: 0, completed: 0 };
 
               return (
@@ -238,10 +244,22 @@ function QuizzesPageContent() {
                           <Trophy className="h-4 w-4 text-muted-foreground" />
                           <span>{formatCurrency(quiz.entry_fee_per_question, DEFAULT_CURRENCY)} per question</span>
                         </div>
+                        {quiz.start_date && (
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-xs">Starts: {format(new Date(quiz.start_date), 'MMM d, h:mm a')}</span>
+                          </div>
+                        )}
                         {quiz.end_date && (
                           <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span>{format(new Date(quiz.end_date), 'MMM d')}</span>
+                            <span className="text-xs">Ends: {format(new Date(quiz.end_date), 'MMM d, h:mm a')}</span>
+                          </div>
+                        )}
+                        {!quiz.start_date && !quiz.end_date && (
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">No time limit</span>
                           </div>
                         )}
                       </div>
@@ -260,11 +278,13 @@ function QuizzesPageContent() {
                       <div className="pt-2 border-t">
                         <p className="text-xs text-muted-foreground">Total Prize Pool</p>
                         <p className="text-lg font-bold">
-                          {formatCurrency(totalCost * 0.9, DEFAULT_CURRENCY)}
+                          {formatCurrency(prizePool, DEFAULT_CURRENCY)}
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                          (10% platform fee deducted)
-                        </p>
+                        {quiz.base_cost && quiz.platform_fee && (
+                          <p className="text-xs text-muted-foreground">
+                            {formatCurrency(quiz.base_cost, DEFAULT_CURRENCY)} contributions - {formatCurrency(quiz.platform_fee, DEFAULT_CURRENCY)} platform fee
+                          </p>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

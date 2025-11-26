@@ -11,7 +11,9 @@ import { successResponseNext, appErrorToResponse, getPaginationParams, getPagina
  */
 export async function GET(request: NextRequest) {
   try {
+    const user = await requireAuth();
     const supabase = await createClient();
+    const serviceSupabase = createServiceRoleClient();
     const { page, limit } = getPaginationParams(request);
     const offset = (page - 1) * limit;
 
@@ -20,10 +22,19 @@ export async function GET(request: NextRequest) {
     const search = url.searchParams.get('search');
     const creatorId = url.searchParams.get('creator_id');
 
-    // Build query
-    let query = supabase
+    // Get all quiz IDs where user is a participant (invited, accepted, started, completed)
+    const { data: userParticipants } = await serviceSupabase
+      .from('quiz_participants')
+      .select('quiz_id')
+      .eq('user_id', user.id);
+
+    const participantQuizIds = userParticipants?.map(p => p.quiz_id) || [];
+
+    // Build query - only show quizzes user is invited to or created
+    let query = serviceSupabase
       .from('quizzes')
       .select('*, profiles:creator_id(username, avatar_url)', { count: 'exact' })
+      .or(`creator_id.eq.${user.id},id.in.(${participantQuizIds.length > 0 ? participantQuizIds.join(',') : '00000000-0000-0000-0000-000000000000'})`)
       .order('created_at', { ascending: false });
 
     // Apply filters
@@ -50,7 +61,7 @@ export async function GET(request: NextRequest) {
     // Get participant counts for each quiz
     const quizIds = quizzes?.map(q => q.id) || [];
     if (quizIds.length > 0) {
-      const { data: participants } = await supabase
+      const { data: participants } = await serviceSupabase
         .from('quiz_participants')
         .select('quiz_id, status')
         .in('quiz_id', quizIds);
@@ -146,8 +157,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Calculate total cost
-    const totalCost = entryFeePerQuestion * totalQuestions * maxParticipants;
+    // Calculate costs separately
+    const PLATFORM_FEE_PERCENTAGE = 0.10; // 10% for corporate quizzes
+    const baseCost = entryFeePerQuestion * totalQuestions * maxParticipants; // What participants pay
+    const platformFee = baseCost * PLATFORM_FEE_PERCENTAGE; // Platform commission
+    const totalCost = baseCost + platformFee; // What creator pays
 
     // Check user balance
     const { data: profile } = await serviceSupabase
@@ -174,8 +188,10 @@ export async function POST(request: NextRequest) {
           entry_fee_per_question: entryFeePerQuestion,
           max_participants: maxParticipants,
           total_questions: totalQuestions,
+          base_cost: baseCost,
+          platform_fee: platformFee,
           total_cost: totalCost,
-          platform_fee_percentage: 0.10, // 10% for corporate quizzes
+          platform_fee_percentage: PLATFORM_FEE_PERCENTAGE,
           status: 'draft',
           start_date: startDate ? new Date(startDate).toISOString() : null,
           end_date: endDate ? new Date(endDate).toISOString() : null,

@@ -14,6 +14,23 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
     setMounted(true);
   }, []);
 
+  // During SSR or before mount, always render the default app route structure
+  // This ensures server and client render the same HTML initially
+  if (!mounted) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <Suspense fallback={<div className="h-16 bg-background border-b border-border" />}>
+          <TopNav />
+        </Suspense>
+        <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden lg:pt-0 pt-14 pb-20 lg:pb-0">
+          <div className="flex-1">{children}</div>
+        </div>
+        <MobileNav />
+      </div>
+    );
+  }
+
+  // Only use pathname-based logic after component is mounted
   const isAdminRoute = pathname?.startsWith("/admin");
   const isLandingPage = pathname === "/landing";
   
@@ -42,21 +59,6 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
     "/quizzes",
   ];
   const isAppRoute = pathname && (appRoutes.includes(pathname) || pathname.startsWith("/wager/") || pathname.startsWith("/quiz/"));
-
-  // During SSR or before mount, render a consistent default to prevent hydration mismatch
-  if (!mounted) {
-    return (
-      <div className="flex flex-col min-h-screen">
-        <Suspense fallback={<div className="h-16 bg-background border-b border-border" />}>
-          <TopNav />
-        </Suspense>
-        <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden lg:pt-0 pt-14 pb-20 lg:pb-0">
-          <div className="flex-1">{children}</div>
-        </div>
-        <MobileNav />
-      </div>
-    );
-  }
 
   // Hide regular navigation for admin routes (admin has its own sidebar)
   if (isAdminRoute) {
@@ -89,7 +91,7 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // App routes - include top nav (large screens) and mobile nav (small screens), with footer
+  // App routes - include top nav (large screens) and mobile nav (small screens), no footer
   if (isAppRoute) {
     return (
       <div className="flex flex-col min-h-screen">
@@ -98,7 +100,6 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
         </Suspense>
         <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden lg:pt-0 pt-14 pb-20 lg:pb-0">
           <div className="flex-1">{children}</div>
-          <Footer />
         </div>
         <MobileNav />
       </div>

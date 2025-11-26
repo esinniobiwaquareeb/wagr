@@ -75,6 +75,22 @@ export function QuizInviteDialog({
   useEffect(() => {
     if (open) {
       loadInvitedUsers();
+      
+      // Set up polling to refresh invites every 2 seconds while dialog is open
+      const interval = setInterval(() => {
+        loadInvitedUsers();
+      }, 2000);
+      
+      // Listen for custom events when invite is accepted
+      const handleInviteAccepted = () => {
+        loadInvitedUsers();
+      };
+      window.addEventListener('quiz-invite-accepted', handleInviteAccepted);
+      
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('quiz-invite-accepted', handleInviteAccepted);
+      };
     }
   }, [open, loadInvitedUsers]);
 
@@ -333,6 +349,8 @@ export function QuizInviteDialog({
                       <div className="flex items-center gap-3">
                         {invite.status === 'completed' ? (
                           <Check className="h-4 w-4 text-green-500" />
+                        ) : invite.status === 'accepted' || invite.status === 'started' ? (
+                          <Check className="h-4 w-4 text-blue-500" />
                         ) : (
                           <XCircle className="h-4 w-4 text-muted-foreground" />
                         )}
@@ -344,7 +362,8 @@ export function QuizInviteDialog({
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {invite.status === 'completed' ? 'Completed' : 
-                             invite.status === 'started' ? 'In Progress' : 'Pending'}
+                             invite.status === 'started' ? 'In Progress' :
+                             invite.status === 'accepted' ? 'Accepted' : 'Pending'}
                           </p>
                         </div>
                       </div>

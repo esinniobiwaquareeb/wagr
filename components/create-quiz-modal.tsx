@@ -34,9 +34,35 @@ interface CreateQuizModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  quizId?: string; // If provided, this is edit mode
+  initialData?: {
+    title: string;
+    description?: string;
+    entryFeePerQuestion: number;
+    maxParticipants: number;
+    totalQuestions: number;
+    startDate?: string;
+    endDate?: string;
+    durationMinutes?: number;
+    randomizeQuestions: boolean;
+    randomizeAnswers: boolean;
+    showResultsImmediately: boolean;
+    settlementMethod: 'proportional' | 'top_winners' | 'equal_split';
+    topWinnersCount?: number;
+    questions?: Array<{
+      questionText: string;
+      questionType: 'multiple_choice' | 'true_false';
+      points: number;
+      answers: Array<{
+        answerText: string;
+        isCorrect: boolean;
+      }>;
+    }>;
+  };
 }
 
-export function CreateQuizModal({ open, onOpenChange, onSuccess }: CreateQuizModalProps) {
+export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initialData }: CreateQuizModalProps) {
+  const isEditMode = !!quizId && !!initialData;
   const { user } = useAuth();
   const supabase = createClient();
   const [submitting, setSubmitting] = useState(false);
@@ -44,7 +70,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess }: CreateQuizMod
   const [currentStep, setCurrentStep] = useState(1);
   const { toast } = useToast();
 
-  const totalSteps = 5;
+  const totalSteps = 3;
 
   const [formData, setFormData] = useState({
     title: "",
@@ -88,6 +114,55 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess }: CreateQuizMod
     }
   }, [open]);
 
+  // Populate form when initialData is provided (edit mode)
+  useEffect(() => {
+    if (open && initialData && isEditMode) {
+      // Format dates for datetime-local inputs
+      const formatDateTimeLocal = (dateString?: string) => {
+        if (!dateString) return "";
+        const date = new Date(dateString);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+      };
+
+      setFormData({
+        title: initialData.title || "",
+        description: initialData.description || "",
+        entryFeePerQuestion: initialData.entryFeePerQuestion?.toString() || "",
+        maxParticipants: initialData.maxParticipants?.toString() || "",
+        totalQuestions: initialData.totalQuestions?.toString() || "",
+        startDate: formatDateTimeLocal(initialData.startDate),
+        endDate: formatDateTimeLocal(initialData.endDate),
+        durationMinutes: initialData.durationMinutes?.toString() || "",
+        randomizeQuestions: initialData.randomizeQuestions ?? true,
+        randomizeAnswers: initialData.randomizeAnswers ?? true,
+        showResultsImmediately: initialData.showResultsImmediately ?? false,
+        settlementMethod: initialData.settlementMethod || 'proportional',
+        topWinnersCount: initialData.topWinnersCount?.toString() || "",
+      });
+
+      // Populate questions
+      if (initialData.questions && initialData.questions.length > 0) {
+        const formattedQuestions: Question[] = initialData.questions.map((q, index) => ({
+          id: `q-edit-${index}`,
+          questionText: q.questionText || "",
+          questionType: q.questionType || 'multiple_choice',
+          points: q.points || 1,
+          answers: q.answers.map((a, aIndex) => ({
+            id: `a-edit-${index}-${aIndex}`,
+            answerText: a.answerText || "",
+            isCorrect: a.isCorrect || false,
+          })),
+        }));
+        setQuestions(formattedQuestions);
+      }
+    }
+  }, [open, initialData, isEditMode]);
+
   // Fetch user balance
   useEffect(() => {
     if (open && user) {
@@ -106,16 +181,32 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess }: CreateQuizMod
     }
   }, [open, user, supabase]);
 
-  // Calculate total cost
+  // Calculate total cost (base cost + platform fee)
+  const PLATFORM_FEE_PERCENTAGE = 0.10; // 10% for corporate quizzes
+  
   const totalCost = useCallback(() => {
+    const entryFee = parseFloat(formData.entryFeePerQuestion) || 0;
+    const questions = parseFloat(formData.totalQuestions) || 0;
+    const participants = parseFloat(formData.maxParticipants) || 0;
+    const baseCost = entryFee * questions * participants;
+    const platformFee = baseCost * PLATFORM_FEE_PERCENTAGE;
+    return baseCost + platformFee;
+  }, [formData.entryFeePerQuestion, formData.totalQuestions, formData.maxParticipants]);
+
+  const baseCost = useCallback(() => {
     const entryFee = parseFloat(formData.entryFeePerQuestion) || 0;
     const questions = parseFloat(formData.totalQuestions) || 0;
     const participants = parseFloat(formData.maxParticipants) || 0;
     return entryFee * questions * participants;
   }, [formData.entryFeePerQuestion, formData.totalQuestions, formData.maxParticipants]);
 
-  // Update questions when totalQuestions changes
+  // Update questions when totalQuestions changes (only in create mode, not edit mode)
   useEffect(() => {
+    // Don't auto-update questions if we're in edit mode and have initial data
+    if (isEditMode && initialData) {
+      return;
+    }
+    
     const total = parseInt(formData.totalQuestions) || 0;
     if (total > 0 && questions.length !== total) {
       const newQuestions: Question[] = [];
@@ -137,7 +228,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess }: CreateQuizMod
       }
       setQuestions(newQuestions.slice(0, total));
     }
-  }, [formData.totalQuestions]);
+  }, [formData.totalQuestions, isEditMode, initialData]);
 
   const addAnswer = (questionIndex: number) => {
     const newQuestions = [...questions];
@@ -184,9 +275,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess }: CreateQuizMod
           });
           return false;
         }
-        return true;
-      
-      case 2:
+        
         const entryFee = parseFloat(formData.entryFeePerQuestion);
         const maxParticipants = parseInt(formData.maxParticipants);
         const totalQuestions = parseInt(formData.totalQuestions);
@@ -229,10 +318,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess }: CreateQuizMod
         }
         return true;
       
-      case 3:
-        return true; // Schedule & Options are optional
-      
-      case 4:
+      case 2:
         if (formData.settlementMethod === 'top_winners' && (!formData.topWinnersCount || parseInt(formData.topWinnersCount) <= 0)) {
           toast({
             title: "Invalid top winners count",
@@ -241,9 +327,9 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess }: CreateQuizMod
           });
           return false;
         }
-        return true;
+        return true; // Options are optional
       
-      case 5:
+      case 3:
         const total = parseInt(formData.totalQuestions) || 0;
         if (questions.length !== total) {
           toast({
@@ -348,9 +434,12 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess }: CreateQuizMod
         })),
       }));
 
-      // Create quiz
-      const response = await fetch('/api/quizzes', {
-        method: 'POST',
+      // Create or update quiz
+      const url = isEditMode ? `/api/quizzes/${quizId}` : '/api/quizzes';
+      const method = isEditMode ? 'PATCH' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: formData.title.trim(),
@@ -379,8 +468,10 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess }: CreateQuizMod
       }
 
       toast({
-        title: "Quiz created!",
-        description: "Your quiz has been created successfully. You can now invite participants.",
+        title: isEditMode ? "Quiz updated!" : "Quiz created!",
+        description: isEditMode 
+          ? "Your quiz has been updated successfully."
+          : "Your quiz has been created successfully. You can now invite participants.",
       });
 
       onSuccess?.();
@@ -401,10 +492,8 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess }: CreateQuizMod
   const progress = (currentStep / totalSteps) * 100;
 
   const stepTitles = [
-    "Basic Information",
-    "Quiz Settings",
-    "Schedule & Options",
-    "Settlement Method",
+    "Basic Info & Settings",
+    "Options & Settlement",
     "Questions & Answers"
   ];
 
@@ -412,7 +501,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess }: CreateQuizMod
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Create Corporate Quiz</DialogTitle>
+          <DialogTitle>{isEditMode ? 'Edit Quiz' : 'Create Corporate Quiz'}</DialogTitle>
           <DialogDescription>
             Step {currentStep} of {totalSteps}: {stepTitles[currentStep - 1]}
           </DialogDescription>
@@ -464,7 +553,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess }: CreateQuizMod
         {/* Step Content */}
         <div className="flex-1 overflow-y-auto pr-2">
           <form onSubmit={(e) => { e.preventDefault(); handleNext(); }} className="space-y-6">
-            {/* Step 1: Basic Information */}
+            {/* Step 1: Basic Info & Settings */}
             {currentStep === 1 && (
               <div className="space-y-4">
                 <div>
@@ -485,15 +574,10 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess }: CreateQuizMod
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="Describe your quiz..."
-                    rows={4}
+                    rows={3}
                   />
                 </div>
-              </div>
-            )}
 
-            {/* Step 2: Quiz Settings */}
-            {currentStep === 2 && (
-              <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="entryFee">Entry Fee per Question (₦) *</Label>
@@ -538,21 +622,37 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess }: CreateQuizMod
 
                 {/* Cost Calculation */}
                 {cost > 0 && (
-                  <Card>
+                  <Card className="bg-muted/30">
                     <CardContent className="pt-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Calculator className="h-4 w-4" />
-                          <span className="text-sm font-medium">Total Cost:</span>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Calculator className="h-4 w-4" />
+                            <span className="text-sm font-medium">Cost Breakdown</span>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold">{formatCurrency(cost, DEFAULT_CURRENCY)}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {formData.entryFeePerQuestion} × {formData.totalQuestions} × {formData.maxParticipants}
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Base Cost:</span>
+                            <span>{formatCurrency(baseCost(), DEFAULT_CURRENCY)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Platform Fee (10%):</span>
+                            <span>{formatCurrency(baseCost() * PLATFORM_FEE_PERCENTAGE, DEFAULT_CURRENCY)}</span>
+                          </div>
+                          <div className="flex justify-between pt-2 border-t font-semibold">
+                            <span>Total Cost:</span>
+                            <span className="text-lg">{formatCurrency(cost, DEFAULT_CURRENCY)}</span>
+                          </div>
+                          <div className="text-xs text-muted-foreground pt-1">
+                            {formData.entryFeePerQuestion} × {formData.totalQuestions} × {formData.maxParticipants} + {PLATFORM_FEE_PERCENTAGE * 100}%
                           </div>
                           {userBalance !== null && (
-                            <div className={`text-xs mt-1 ${userBalance >= cost ? 'text-green-600' : 'text-red-600'}`}>
-                              Balance: {formatCurrency(userBalance, DEFAULT_CURRENCY)}
+                            <div className={`text-xs mt-2 pt-2 border-t ${userBalance >= cost ? 'text-green-600' : 'text-red-600'}`}>
+                              Your Balance: {formatCurrency(userBalance, DEFAULT_CURRENCY)}
+                              {userBalance < cost && (
+                                <span className="block mt-1">Insufficient balance. You need {formatCurrency(cost - userBalance, DEFAULT_CURRENCY)} more.</span>
+                              )}
                             </div>
                           )}
                         </div>
@@ -563,8 +663,8 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess }: CreateQuizMod
               </div>
             )}
 
-            {/* Step 3: Schedule & Options */}
-            {currentStep === 3 && (
+            {/* Step 2: Options & Settlement */}
+            {currentStep === 2 && (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -637,13 +737,8 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess }: CreateQuizMod
                     />
                   </div>
                 </div>
-              </div>
-            )}
 
-            {/* Step 4: Settlement Method */}
-            {currentStep === 4 && (
-              <div className="space-y-4">
-                <div>
+                <div className="pt-4 border-t">
                   <Label htmlFor="settlementMethod">Settlement Method</Label>
                   <Select
                     value={formData.settlementMethod}
@@ -660,36 +755,36 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess }: CreateQuizMod
                       <SelectItem value="equal_split">Equal Split (All Participants)</SelectItem>
                     </SelectContent>
                   </Select>
+                  {formData.settlementMethod === 'top_winners' && (
+                    <div className="mt-2">
+                      <Label htmlFor="topWinnersCount">Number of Top Winners</Label>
+                      <Input
+                        id="topWinnersCount"
+                        type="number"
+                        min="1"
+                        value={formData.topWinnersCount}
+                        onChange={(e) => setFormData({ ...formData, topWinnersCount: e.target.value })}
+                        placeholder="3"
+                      />
+                    </div>
+                  )}
+                  <Card className="bg-muted/50 mt-2">
+                    <CardContent className="pt-4">
+                      <p className="text-sm text-muted-foreground">
+                        <strong>Proportional:</strong> Winnings distributed based on each participant's score percentage.
+                        <br />
+                        <strong>Top Winners:</strong> Only the top N winners split the prize pool equally.
+                        <br />
+                        <strong>Equal Split:</strong> All participants who complete the quiz split the prize pool equally.
+                      </p>
+                    </CardContent>
+                  </Card>
                 </div>
-                {formData.settlementMethod === 'top_winners' && (
-                  <div>
-                    <Label htmlFor="topWinnersCount">Number of Top Winners</Label>
-                    <Input
-                      id="topWinnersCount"
-                      type="number"
-                      min="1"
-                      value={formData.topWinnersCount}
-                      onChange={(e) => setFormData({ ...formData, topWinnersCount: e.target.value })}
-                      placeholder="3"
-                    />
-                  </div>
-                )}
-                <Card className="bg-muted/50">
-                  <CardContent className="pt-4">
-                    <p className="text-sm text-muted-foreground">
-                      <strong>Proportional:</strong> Winnings distributed based on each participant's score percentage.
-                      <br />
-                      <strong>Top Winners:</strong> Only the top N winners split the prize pool equally.
-                      <br />
-                      <strong>Equal Split:</strong> All participants who complete the quiz split the prize pool equally.
-                    </p>
-                  </CardContent>
-                </Card>
               </div>
             )}
 
-            {/* Step 5: Questions & Answers */}
-            {currentStep === 5 && (
+            {/* Step 3: Questions & Answers */}
+            {currentStep === 3 && (
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <Label>Questions ({questions.length})</Label>
@@ -801,20 +896,30 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess }: CreateQuizMod
 
         {/* Navigation */}
         <div className="flex justify-between items-center pt-4 border-t mt-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handlePrevious}
-            disabled={currentStep === 1}
-          >
-            <ChevronLeft className="h-4 w-4 mr-2" />
-            Previous
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={handlePrevious}
+              disabled={currentStep === 1}
+            >
+              <ChevronLeft className="h-4 w-4 mr-2" />
+              Previous
+            </Button>
+          </div>
 
           {currentStep < totalSteps ? (
             <Button
               type="button"
               onClick={handleNext}
+              className="min-w-[120px]"
             >
               Next
               <ChevronRight className="h-4 w-4 ml-2" />
@@ -824,6 +929,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess }: CreateQuizMod
               type="button"
               onClick={handleSubmit}
               disabled={submitting || cost === 0 || (userBalance !== null && userBalance < cost)}
+              className="min-w-[180px]"
             >
               {submitting ? (
                 <>
@@ -831,7 +937,14 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess }: CreateQuizMod
                   Creating...
                 </>
               ) : (
-                `Create Quiz (${formatCurrency(cost, DEFAULT_CURRENCY)})`
+                <>
+                  {isEditMode ? 'Update Quiz' : 'Create Quiz'}
+                  {!isEditMode && (
+                    <span className="ml-2 text-xs opacity-90">
+                      ({formatCurrency(cost, DEFAULT_CURRENCY)})
+                    </span>
+                  )}
+                </>
               )}
             </Button>
           )}
