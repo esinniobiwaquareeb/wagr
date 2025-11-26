@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from 'next/navigation';
-import { BarChart3, Home, Users, CreditCard, Settings, Shield, LogOut, Wallet, FileText } from "lucide-react";
+import { BarChart3, Home, Users, CreditCard, Settings, Shield, LogOut, Wallet, FileText, BookOpen } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from "react";
 import { getCurrentUser, logout } from "@/lib/auth/client";
@@ -81,6 +81,18 @@ export function AdminSidebar() {
           >
             <Home className={`h-6 w-6 transition-transform ${isActive("/admin/wagers") ? "scale-110" : ""}`} />
             <span className="text-[10px] mt-0.5 font-medium">{isActive("/admin/wagers") ? "Wagers" : ""}</span>
+          </Link>
+          <Link
+            href="/admin/quizzes"
+            className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
+              isActive("/admin/quizzes")
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            title="Quizzes"
+          >
+            <BookOpen className={`h-6 w-6 transition-transform ${isActive("/admin/quizzes") ? "scale-110" : ""}`} />
+            <span className="text-[10px] mt-0.5 font-medium">{isActive("/admin/quizzes") ? "Quizzes" : ""}</span>
           </Link>
           <Link
             href="/admin/transactions"
@@ -184,6 +196,18 @@ export function AdminSidebar() {
         >
           <Home className="h-5 w-5" />
           <span className="text-sm font-medium">Wagers</span>
+        </Link>
+        
+        <Link
+          href="/admin/quizzes"
+          className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
+            isActive("/admin/quizzes")
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          }`}
+        >
+          <BookOpen className="h-5 w-5" />
+          <span className="text-sm font-medium">Quizzes</span>
         </Link>
         
         <Link

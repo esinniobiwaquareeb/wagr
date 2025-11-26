@@ -5,7 +5,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef, Suspense } from "react";
-import { Home, Plus, Wallet, Trophy, User, Settings, Bell, History, LogOut, Menu, X, Search, ChevronDown, CirclePlus, Activity } from "lucide-react";
+import { Home, Plus, Wallet, Trophy, User, Settings, Bell, History, LogOut, Menu, X, Search, ChevronDown, CirclePlus, Activity, BookOpen } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { AuthModal } from "@/components/auth-modal";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -674,6 +674,12 @@ export function TopNav() {
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
+                        <Link href="/quizzes" className="flex items-center gap-2 cursor-pointer">
+                          <BookOpen className="h-4 w-4" />
+                          <span>Quizzes</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
                         <Link href="/wallet" className="flex items-center gap-2 cursor-pointer">
                           <Wallet className="h-4 w-4" />
                           <span>Wallet</span>
@@ -923,6 +929,18 @@ export function TopNav() {
                   >
                     <Activity className="h-5 w-5 flex-shrink-0" />
                     <span>Activity</span>
+                  </Link>
+                  <Link
+                    href="/quizzes"
+                    onClick={() => setShowMobileMenu(false)}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      isActive("/quizzes") || pathname?.startsWith("/quiz/")
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    }`}
+                  >
+                    <BookOpen className="h-5 w-5 flex-shrink-0" />
+                    <span>Quizzes</span>
                   </Link>
                   <Link
                     href="/notifications"

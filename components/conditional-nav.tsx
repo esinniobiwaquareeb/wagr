@@ -39,8 +39,9 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
     "/leaderboard",
     "/history",
     "/activity",
+    "/quizzes",
   ];
-  const isAppRoute = pathname && (appRoutes.includes(pathname) || pathname.startsWith("/wager/"));
+  const isAppRoute = pathname && (appRoutes.includes(pathname) || pathname.startsWith("/wager/") || pathname.startsWith("/quiz/"));
 
   // During SSR or before mount, render a consistent default to prevent hydration mismatch
   if (!mounted) {

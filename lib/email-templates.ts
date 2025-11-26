@@ -10,7 +10,8 @@ export type EmailType =
   | 'password-changed' 
   | '2fa-enabled'
   | '2fa-disabled'
-  | 'wager-invitation';
+  | 'wager-invitation'
+  | 'quiz-invitation';
 
 export interface EmailTemplateData {
   type: EmailType;
@@ -37,6 +38,14 @@ export interface EmailTemplateData {
   sideB?: string;
   amount?: number;
   deadline?: string;
+  // Quiz invitation
+  quizTitle?: string;
+  quizDescription?: string;
+  quizUrl?: string;
+  entryFeePerQuestion?: number;
+  totalQuestions?: number;
+  maxParticipants?: number;
+  endDate?: string;
 }
 
 /**
@@ -53,6 +62,7 @@ export function getEmailSubject(type: EmailType, customSubject?: string): string
     '2fa-enabled': 'Two-factor authentication enabled',
     '2fa-disabled': 'Two-factor authentication disabled',
     'wager-invitation': 'You\'ve been invited to a wager!',
+    'quiz-invitation': 'You\'ve been invited to a quiz!',
   };
 
   return subjects[type] || 'wagered.app notification';
@@ -305,6 +315,65 @@ export function generateEmailHTML(data: EmailTemplateData): string {
         </p>
       `;
       break;
+
+    case 'quiz-invitation':
+      const quizInviterName = data.inviterName || 'Someone';
+      const quizTitle = data.quizTitle || 'a quiz';
+      const quizDescription = data.quizDescription || '';
+      const entryFee = data.entryFeePerQuestion || 0;
+      const totalQuestions = data.totalQuestions || 0;
+      const maxParticipants = data.maxParticipants || 0;
+      const endDate = data.endDate ? new Date(data.endDate).toLocaleDateString() : '';
+      const quizInviteUrl = data.quizUrl || `${appUrl}/quizzes`;
+      const totalCost = entryFee * totalQuestions;
+      
+      content = `
+        <p style="font-size: 18px; color: #1a1a1a; margin-bottom: 16px;">You've been invited to a corporate quiz! 📚</p>
+        <p><strong>${quizInviterName}</strong> has invited you to participate in a team building quiz on ${appName}.</p>
+        
+        <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 24px; border-radius: 12px; border: 2px solid #0070f3; margin: 24px 0;">
+          <h3 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 700; color: #1a1a1a;">${quizTitle}</h3>
+          ${quizDescription ? `<p style="margin: 0 0 16px 0; color: #495057; line-height: 1.6;">${quizDescription}</p>` : ''}
+          
+          <div style="display: flex; gap: 16px; margin: 16px 0; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 120px; background: white; padding: 12px; border-radius: 8px; border: 1px solid #dee2e6;">
+              <p style="margin: 0 0 4px 0; font-size: 12px; color: #6c757d; font-weight: 600;">QUESTIONS</p>
+              <p style="margin: 0; font-size: 16px; font-weight: 600; color: #1a1a1a;">${totalQuestions}</p>
+            </div>
+            <div style="flex: 1; min-width: 120px; background: white; padding: 12px; border-radius: 8px; border: 1px solid #dee2e6;">
+              <p style="margin: 0 0 4px 0; font-size: 12px; color: #6c757d; font-weight: 600;">ENTRY FEE</p>
+              <p style="margin: 0; font-size: 16px; font-weight: 600; color: #1a1a1a;">${formatCurrency(entryFee)} per question</p>
+            </div>
+            <div style="flex: 1; min-width: 120px; background: white; padding: 12px; border-radius: 8px; border: 1px solid #dee2e6;">
+              <p style="margin: 0 0 4px 0; font-size: 12px; color: #6c757d; font-weight: 600;">PARTICIPANTS</p>
+              <p style="margin: 0; font-size: 16px; font-weight: 600; color: #1a1a1a;">Up to ${maxParticipants}</p>
+            </div>
+          </div>
+          
+          <div style="display: flex; gap: 16px; margin-top: 16px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 100px;">
+              <p style="margin: 0 0 4px 0; font-size: 12px; color: #6c757d; font-weight: 600;">TOTAL COST</p>
+              <p style="margin: 0; font-size: 18px; font-weight: 700; color: #0070f3;">${formatCurrency(totalCost)}</p>
+            </div>
+            ${endDate ? `
+            <div style="flex: 1; min-width: 100px;">
+              <p style="margin: 0 0 4px 0; font-size: 12px; color: #6c757d; font-weight: 600;">END DATE</p>
+              <p style="margin: 0; font-size: 16px; font-weight: 600; color: #1a1a1a;">${endDate}</p>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+        
+        <p style="margin-top: 20px;">Join ${appName} to participate in this quiz and compete for exciting monetary rewards!</p>
+      `;
+      buttonText = '📚 Take Quiz';
+      buttonUrl = quizInviteUrl;
+      additionalInfo = `
+        <p style="font-size: 14px; color: #666666; margin-top: 32px; padding-top: 24px; border-top: 1px solid #e9ecef;">
+          Don't have an account? <a href="${appUrl}/wagers?signup=true" style="color: #0070f3; font-weight: 500;">Sign up for free</a> to join this quiz and start competing!
+        </p>
+      `;
+      break;
   }
 
   return `
@@ -400,6 +469,7 @@ export function generateEmailText(data: EmailTemplateData): string {
   const name = recipientName || recipientEmail.split('@')[0];
   const appName = 'wagered.app';
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://wagered.app';
+  const currency = (process.env.DEFAULT_CURRENCY || 'NGN') as 'NGN' | 'USD' | 'GBP' | 'EUR';
 
   let content = '';
 
@@ -432,6 +502,27 @@ export function generateEmailText(data: EmailTemplateData): string {
       const deadlineText = data.deadline ? new Date(data.deadline).toLocaleDateString() : '';
       const wagerUrlText = data.wagerUrl || `${appUrl}/wagers`;
       content = `Hi ${name},\n\n${inviterNameText} has invited you to join a wager on ${appName}!\n\nWager: ${wagerTitleText}\n${wagerDescriptionText ? `Description: ${wagerDescriptionText}\n` : ''}\nSide A: ${sideAText}\nSide B: ${sideBText}\nAmount: ${amountText}\n${deadlineText ? `Deadline: ${deadlineText}\n` : ''}\nJoin now: ${wagerUrlText}\n\nDon't have an account? Sign up for free at ${appUrl}/wagers?signup=true\n\nBest regards,\nThe ${appName} Team`;
+      break;
+
+    case 'quiz-invitation':
+      const quizInviterNameText = data.inviterName || 'Someone';
+      const quizTitleText = data.quizTitle || 'a quiz';
+      const quizDescriptionText = data.quizDescription || '';
+      const entryFeeText = data.entryFeePerQuestion || 0;
+      const totalQuestionsText = data.totalQuestions || 0;
+      const maxParticipantsText = data.maxParticipants || 0;
+      const endDateText = data.endDate ? new Date(data.endDate).toLocaleDateString() : '';
+      const quizUrlText = data.quizUrl || `${appUrl}/quizzes`;
+      const totalCostText = entryFeeText * totalQuestionsText;
+      const formatCurrencyText = (amount: number, curr: string = currency) => {
+        return new Intl.NumberFormat('en-NG', {
+          style: 'currency',
+          currency: curr,
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 2,
+        }).format(amount);
+      };
+      content = `Hi ${name},\n\n${quizInviterNameText} has invited you to participate in a quiz on ${appName}!\n\nQuiz: ${quizTitleText}\n${quizDescriptionText ? `Description: ${quizDescriptionText}\n` : ''}\nQuestions: ${totalQuestionsText}\nEntry Fee: ${formatCurrencyText(entryFeeText)} per question\nTotal Cost: ${formatCurrencyText(totalCostText)}\nMax Participants: ${maxParticipantsText}\n${endDateText ? `End Date: ${endDateText}\n` : ''}\nTake quiz now: ${quizUrlText}\n\nDon't have an account? Sign up for free at ${appUrl}/wagers?signup=true\n\nBest regards,\nThe ${appName} Team`;
       break;
   }
 

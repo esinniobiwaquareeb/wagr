@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Home, Plus, Wallet, Trophy, User, Settings, Bell, History, LogOut, Activity } from "lucide-react";
+import { Home, Plus, Wallet, Trophy, User, Settings, Bell, History, LogOut, Activity, BookOpen } from "lucide-react";
 import { AuthModal } from "@/components/auth-modal";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CreateWagerModal } from "@/components/create-wager-modal";
