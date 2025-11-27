@@ -10,7 +10,7 @@ interface Participant {
   id: string;
   user_id: string;
   score: number;
-  percentage_score: number;
+  percentage_score?: number | null;
   rank: number | null;
   winnings: number;
   completed_at: string;
@@ -89,7 +89,13 @@ export function QuizResults({
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Percentage</p>
-                <p className="text-2xl font-bold">{participant.percentage_score.toFixed(1)}%</p>
+                <p className="text-2xl font-bold">
+                  {participant.percentage_score != null 
+                    ? `${participant.percentage_score.toFixed(1)}%` 
+                    : totalPossiblePoints > 0 
+                      ? `${((participant.score / totalPossiblePoints) * 100).toFixed(1)}%`
+                      : '0%'}
+                </p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Rank</p>
@@ -108,7 +114,14 @@ export function QuizResults({
               )}
             </div>
 
-            <Progress value={participant.percentage_score} className="h-3" />
+            <Progress 
+              value={participant.percentage_score != null 
+                ? participant.percentage_score 
+                : totalPossiblePoints > 0 
+                  ? (participant.score / totalPossiblePoints) * 100 
+                  : 0} 
+              className="h-3" 
+            />
           </CardContent>
         </Card>
       )}
@@ -126,7 +139,7 @@ export function QuizResults({
               const correctAnswer = question?.quiz_answers?.find(a => a.is_correct);
 
               return (
-                <div key={response.question_id} className="border rounded-lg p-4 space-y-2">
+                <div key={response.question_id || `response-${index}`} className="border rounded-lg p-4 space-y-2">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <p className="font-medium">Question {index + 1}</p>
@@ -183,7 +196,7 @@ export function QuizResults({
                 const isCurrentUser = participant && p.user_id === participant.user_id;
                 return (
                   <div
-                    key={p.id}
+                    key={p.id || p.user_id || `participant-${index}`}
                     className={`flex items-center justify-between p-3 rounded-lg border ${
                       isCurrentUser ? 'bg-primary/5 border-primary' : 'border-border'
                     }`}
@@ -199,7 +212,13 @@ export function QuizResults({
                         </p>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span>{p.score} / {totalPossiblePoints} points</span>
-                          <span>{p.percentage_score.toFixed(1)}%</span>
+                          <span>
+                            {p.percentage_score != null 
+                              ? `${p.percentage_score.toFixed(1)}%` 
+                              : totalPossiblePoints > 0 
+                                ? `${((p.score / totalPossiblePoints) * 100).toFixed(1)}%`
+                                : '0%'}
+                          </span>
                         </div>
                       </div>
                     </div>

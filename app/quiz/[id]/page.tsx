@@ -42,6 +42,7 @@ interface Quiz {
   base_cost?: number;
   platform_fee?: number;
   total_cost?: number;
+  settled_at?: string;
   created_at: string;
   creator_id: string;
   profiles?: {
@@ -92,6 +93,8 @@ export default function QuizDetailPage() {
   const [loading, setLoading] = useState(true);
   const [participant, setParticipant] = useState<any>(null);
   const [responses, setResponses] = useState<any[]>([]);
+  const [allParticipants, setAllParticipants] = useState<any[]>([]);
+  const [loadingResults, setLoadingResults] = useState(false);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [showSettleDialog, setShowSettleDialog] = useState(false);
   const [settling, setSettling] = useState(false);
@@ -128,9 +131,12 @@ export default function QuizDetailPage() {
         );
         setParticipant(userParticipant);
 
-        // If participant has completed, fetch their responses
+        // If participant has completed, fetch their detailed responses immediately
         if (userParticipant && userParticipant.status === 'completed') {
-          fetchParticipantResponses(userParticipant.id);
+          // Fetch responses after a short delay to ensure they're saved
+          setTimeout(() => {
+            fetchParticipantResponses();
+          }, 300);
         }
       }
     } catch (error) {
@@ -149,32 +155,55 @@ export default function QuizDetailPage() {
     setTakingQuiz(true);
   };
 
-  const fetchParticipantResponses = async (participantId: string) => {
+  const fetchParticipantResponses = async () => {
+    if (!user || !quizId) return;
+    
     try {
-      // Get responses for this participant
-      const response = await fetch(`/api/quizzes/${quizId}`);
+      setLoadingResults(true);
+      const response = await fetch(`/api/quizzes/${quizId}/responses`);
       const data = await response.json();
       
-      if (data.data?.quiz?.participants) {
-        const userParticipant = data.data.quiz.participants.find(
-          (p: any) => p.user_id === user?.id
-        );
-        if (userParticipant) {
-          // Responses would be fetched from the quiz detail endpoint
-          // For now, we'll get them from the take endpoint response
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Failed to fetch responses');
+      }
+
+      if (data.data) {
+        setResponses(data.data.responses || []);
+        setAllParticipants(data.data.participants || []);
+        if (data.data.participant) {
+          setParticipant(data.data.participant);
         }
       }
     } catch (error) {
       console.error('Error fetching responses:', error);
+      // Don't show error toast if results aren't available yet
+      if (error instanceof Error && !error.message.includes('not available')) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setLoadingResults(false);
     }
   };
 
-  const handleQuizComplete = (quizResponses: any[]) => {
+  const handleQuizComplete = async (quizResponses: any[]) => {
+    // Store initial responses from submission
     if (quizResponses.length > 0) {
       setResponses(quizResponses);
     }
     setTakingQuiz(false);
-    fetchQuiz(); // Refresh to get updated participant data
+    
+    // Refresh quiz data to get updated participant status
+    await fetchQuiz();
+    
+    // Fetch detailed responses immediately after completion
+    // This ensures we have all question/answer details for the results view
+    setTimeout(() => {
+      fetchParticipantResponses();
+    }, 500);
   };
 
   const handleSettle = async () => {
@@ -378,7 +407,8 @@ export default function QuizDetailPage() {
     participant &&
     ['invited', 'accepted'].includes(participant.status);
   const hasCompleted = participant && participant.status === 'completed';
-  const showResults = hasCompleted && (quiz?.show_results_immediately || quiz?.status === 'settled');
+  // Show results immediately after completion since correct answers are already known
+  const showResults = hasCompleted;
 
   if (loading) {
     return (
@@ -473,15 +503,35 @@ export default function QuizDetailPage() {
               />
             </Card>
 
-            {/* Results */}
+            {/* Quiz Results/History - Show after completion */}
             {showResults && participant && (
-              <QuizResults
-                quiz={quiz}
-                participant={participant}
-                participants={quiz.participants || []}
-                responses={responses}
-                showDetails={true}
-              />
+              <div className="mt-6">
+                {loadingResults ? (
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        <span className="ml-2 text-muted-foreground">Loading results...</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <QuizResults
+                    quiz={{
+                      id: quiz.id,
+                      title: quiz.title,
+                      total_questions: quiz.total_questions,
+                      entry_fee_per_question: quiz.entry_fee_per_question,
+                      status: quiz.status,
+                      settled_at: quiz.settled_at,
+                    }}
+                    participant={participant}
+                    participants={allParticipants.length > 0 ? allParticipants : (quiz.participants || [])}
+                    responses={responses}
+                    showDetails={true}
+                  />
+                )}
+              </div>
             )}
           </>
         )}

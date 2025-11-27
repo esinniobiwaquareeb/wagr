@@ -45,17 +45,17 @@ export function QuizInfo({
     // Use stored base cost and platform fee
     baseCost = storedBaseCost;
     platformFee = storedPlatformFee || (baseCost * 0.10);
-    prizePool = baseCost * 0.9; // Prize pool is 90% of base cost
+    prizePool = baseCost;
   } else if (totalCost !== undefined && totalCost !== null) {
     // Fallback: calculate from total cost
     baseCost = totalCost / 1.1;
     platformFee = baseCost * 0.10;
-    prizePool = baseCost * 0.9;
+    prizePool = baseCost;
   } else {
     // Calculate from entry fee (for display purposes)
     baseCost = entryFeePerQuestion * totalQuestions * maxParticipants;
     platformFee = baseCost * 0.10;
-    prizePool = baseCost * 0.9;
+    prizePool = baseCost;
   }
 
   return (
