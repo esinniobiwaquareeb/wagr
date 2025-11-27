@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from 'next/navigation';
-import { BarChart3, Home, Users, CreditCard, Settings, Shield, LogOut, Wallet, FileText, BookOpen } from "lucide-react";
+import { BarChart3, Home, Users, CreditCard, Settings, Shield, ShieldCheck, LogOut, Wallet, FileText, BookOpen } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from "react";
 import { getCurrentUser, logout } from "@/lib/auth/client";
@@ -105,6 +105,18 @@ export function AdminSidebar() {
           >
             <Settings className={`h-6 w-6 transition-transform ${isActive("/admin/settings") ? "scale-110" : ""}`} />
             <span className="text-[10px] mt-0.5 font-medium">{isActive("/admin/settings") ? "Settings" : ""}</span>
+          </Link>
+          <Link
+            href="/admin/kyc"
+            className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
+              isActive("/admin/kyc")
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            title="KYC"
+          >
+            <ShieldCheck className={`h-6 w-6 transition-transform ${isActive("/admin/kyc") ? "scale-110" : ""}`} />
+            <span className="text-[10px] mt-0.5 font-medium">{isActive("/admin/kyc") ? "KYC" : ""}</span>
           </Link>
           <Link
             href="/admin/transactions"
@@ -232,6 +244,18 @@ export function AdminSidebar() {
         >
           <Settings className="h-5 w-5" />
           <span className="text-sm font-medium">Settings</span>
+        </Link>
+
+        <Link
+          href="/admin/kyc"
+          className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
+            isActive("/admin/kyc")
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          }`}
+        >
+          <ShieldCheck className="h-5 w-5" />
+          <span className="text-sm font-medium">KYC Reviews</span>
         </Link>
         
         <Link
