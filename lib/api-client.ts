@@ -155,6 +155,15 @@ export const profileApi = {
 };
 
 /**
+ * KYC API
+ */
+export const kycApi = {
+  get: () => apiGet<{ summary: any }>('/kyc'),
+  submit: (data: { level: number; data: Record<string, any> }) =>
+    apiPost<{ summary: any; message: string }>('/kyc', data),
+};
+
+/**
  * Wallet API
  */
 export const walletApi = {

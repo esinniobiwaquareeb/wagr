@@ -18,6 +18,10 @@ import { PushNotificationSettings } from "@/components/push-notification-setting
 import { CreateWagerModal } from "@/components/create-wager-modal";
 import { PreferencesModal } from "@/components/preferences-modal";
 import { clear2FAVerification } from "@/lib/session-2fa";
+import { Badge } from "@/components/ui/badge";
+import { KycStatusCard } from "@/components/profile/kyc-status-card";
+import { KycUpgradeDialog } from "@/components/profile/kyc-upgrade-dialog";
+import type { KycSummary } from "@/lib/kyc/types";
 
 interface Profile {
   id: string;
@@ -26,6 +30,10 @@ interface Profile {
   balance: number;
   created_at: string;
   two_factor_enabled?: boolean;
+  email_verified?: boolean;
+  email_verified_at?: string | null;
+  kyc_level?: number;
+  kyc_level_label?: string | null;
 }
 
 export default function Profile() {
@@ -48,6 +56,10 @@ export default function Profile() {
   const [myWagers, setMyWagers] = useState<any[]>([]);
   const [loadingWagers, setLoadingWagers] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [kycSummary, setKycSummary] = useState<KycSummary | null>(null);
+  const [kycLoading, setKycLoading] = useState(true);
+  const [levelDialog, setLevelDialog] = useState<2 | 3 | null>(null);
+  const [submittingLevel, setSubmittingLevel] = useState<2 | 3 | null>(null);
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
 
@@ -81,6 +93,20 @@ export default function Profile() {
     }
   }, [user, supabase]);
 
+  const fetchKycSummary = useCallback(async () => {
+    if (!user) return;
+    try {
+      setKycLoading(true);
+      const { kycApi } = await import('@/lib/api-client');
+      const response = await kycApi.get();
+      setKycSummary(response.summary);
+    } catch (error) {
+      console.error("Error fetching KYC summary:", error);
+    } finally {
+      setKycLoading(false);
+    }
+  }, [user]);
+
   // Debounced refetch function for subscriptions
   const debouncedRefetchProfile = useCallback(() => {
     if (debounceTimeoutRef.current) {
@@ -88,14 +114,16 @@ export default function Profile() {
     }
     debounceTimeoutRef.current = setTimeout(() => {
       fetchProfile(true);
+      fetchKycSummary();
     }, 1000); // Debounce by 1 second
-  }, [fetchProfile]);
+  }, [fetchProfile, fetchKycSummary]);
 
   useEffect(() => {
     if (user) {
       fetchProfile();
+      fetchKycSummary();
     }
-  }, [user, fetchProfile]);
+  }, [user, fetchProfile, fetchKycSummary]);
 
   const fetchMyWagers = useCallback(async () => {
     if (!user) return;
@@ -142,6 +170,40 @@ export default function Profile() {
       setLoadingWagers(false);
     }
   }, [user, supabase]);
+
+  const handleKycSubmit = useCallback(
+    async (targetLevel: 2 | 3, payload: Record<string, any>) => {
+      try {
+        setSubmittingLevel(targetLevel);
+        const { kycApi } = await import('@/lib/api-client');
+        const response = await kycApi.submit({ level: targetLevel, data: payload });
+        setKycSummary(response.summary);
+        toast({
+          title: `Level ${targetLevel} verified`,
+          description: targetLevel === 2
+            ? 'You can now transfer funds up to ₦50,000.'
+            : 'High-value transfers are now unlocked.',
+        });
+        setLevelDialog(null);
+        fetchProfile(true);
+      } catch (error: any) {
+        const message = error?.message || 'Unable to submit verification.';
+        toast({
+          title: "KYC submission failed",
+          description: message,
+          variant: "destructive",
+        });
+      } finally {
+        setSubmittingLevel(null);
+        fetchKycSummary();
+      }
+    },
+    [toast, fetchProfile, fetchKycSummary],
+  );
+
+  const handleUpgradeRequest = useCallback((targetLevel: 2 | 3) => {
+    setLevelDialog(targetLevel);
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -447,7 +509,6 @@ export default function Profile() {
         </div>
 
         <div className="flex flex-col lg:grid lg:grid-cols-3 gap-4 md:gap-6">
-          {/* Profile Card */}
           <div className="lg:col-span-2 space-y-4 md:space-y-6 order-2 lg:order-1">
             {/* Profile Header Card */}
             <div className="bg-card border border-border rounded-xl p-4 md:p-6 shadow-sm">
@@ -501,6 +562,11 @@ export default function Profile() {
                           <h2 className="text-lg md:text-xl font-bold truncate">
                             {profile.username || "User"}
                           </h2>
+                          {kycSummary && (
+                            <Badge variant={kycSummary.badgeVariant} className="text-[11px]">
+                              {kycSummary.currentLabel}
+                            </Badge>
+                          )}
                           <button
                             onClick={() => {
                               const currentUsername = profile.username || "";
@@ -572,8 +638,14 @@ export default function Profile() {
             </div>
 
             {/* Account Settings */}
-            <div className="bg-card border border-border rounded-xl p-4 md:p-6">
+            <div className="bg-card border border-border rounded-xl p-4 md:p-6 space-y-4">
               <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wide">Account Settings</h3>
+              <KycStatusCard
+                summary={kycSummary}
+                loading={kycLoading}
+                onStartUpgrade={handleUpgradeRequest}
+                variant="embedded"
+              />
               <div className="space-y-1">
                 <button
                   onClick={() => setShowPreferencesModal(true)}
@@ -872,6 +944,22 @@ export default function Profile() {
           <PreferencesModal
             isOpen={showPreferencesModal}
             onClose={() => setShowPreferencesModal(false)}
+          />
+          <KycUpgradeDialog
+            level={2}
+            open={levelDialog === 2}
+            onOpenChange={(open) => setLevelDialog(open ? 2 : null)}
+            limits={kycSummary?.limits ?? null}
+            submitting={submittingLevel === 2}
+            onSubmit={(payload) => handleKycSubmit(2, payload)}
+          />
+          <KycUpgradeDialog
+            level={3}
+            open={levelDialog === 3}
+            onOpenChange={(open) => setLevelDialog(open ? 3 : null)}
+            limits={kycSummary?.limits ?? null}
+            submitting={submittingLevel === 3}
+            onSubmit={(payload) => handleKycSubmit(3, payload)}
           />
         </>
       )}

@@ -17,6 +17,7 @@ import { TransferTab } from "@/components/wallet/transfer-tab";
 import { BillsTab } from "@/components/wallet/bills-tab";
 import { TransactionHistory } from "@/components/wallet/transaction-history";
 import { useSettings } from "@/hooks/use-settings";
+import type { KycSummary } from "@/lib/kyc/types";
 
 interface Profile {
   balance: number;
@@ -59,6 +60,8 @@ function WalletContent() {
   const [processingTransfer, setProcessingTransfer] = useState(false);
   const [selectedRecipient, setSelectedRecipient] = useState<{ id: string; username: string } | null>(null);
   const [activeTab, setActiveTab] = useState<"deposit" | "withdraw" | "transfer" | "bills">("deposit");
+  const [kycSummary, setKycSummary] = useState<KycSummary | null>(null);
+  const [kycLoading, setKycLoading] = useState(true);
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
   const { getSetting } = useSettings();
@@ -112,10 +115,25 @@ function WalletContent() {
     }, 2000); // Increased debounce to 2 seconds
   }, [fetchWalletData]);
 
+  const fetchKycSummary = useCallback(async () => {
+    if (!user) return;
+    try {
+      setKycLoading(true);
+      const { kycApi } = await import('@/lib/api-client');
+      const response = await kycApi.get();
+      setKycSummary(response.summary);
+    } catch (error) {
+      console.error("Error fetching KYC summary:", error);
+    } finally {
+      setKycLoading(false);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (user) {
       fetchWalletData();
       fetchBanks();
+      fetchKycSummary();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]); // Only depend on user, not fetchWalletData to prevent re-renders
@@ -898,6 +916,8 @@ function WalletContent() {
                   balance={profile?.balance || 0}
                   currency={currency}
                   onTransfer={handleTransfer}
+                  kycSummary={kycSummary}
+                  kycLoading={kycLoading}
                 />
               </TabsContent>
 

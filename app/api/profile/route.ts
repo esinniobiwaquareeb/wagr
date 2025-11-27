@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     const { data: profile, error } = await supabase
       .from('profiles')
-      .select('id, username, email, avatar_url, balance, email_verified, two_factor_enabled, created_at')
+      .select('id, username, email, avatar_url, balance, email_verified, email_verified_at, two_factor_enabled, created_at, kyc_level, kyc_level_label, bvn_verified, nin_verified, face_verified, document_verified')
       .eq('id', user.id)
       .single();
 
@@ -84,7 +84,7 @@ export async function PATCH(request: NextRequest) {
       .from('profiles')
       .update(updates)
       .eq('id', user.id)
-      .select('id, username, email, avatar_url, balance, email_verified, two_factor_enabled, created_at')
+      .select('id, username, email, avatar_url, balance, email_verified, email_verified_at, two_factor_enabled, created_at, kyc_level, kyc_level_label, bvn_verified, nin_verified, face_verified, document_verified')
       .single();
 
     if (error || !profile) {

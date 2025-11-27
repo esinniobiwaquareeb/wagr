@@ -13,7 +13,7 @@ import { successResponseNext, appErrorToResponse, errorResponse } from '@/lib/ap
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting
-    const { getSecuritySettings } = await import('@/lib/settings');
+    const { getSecuritySettings, getKYCLimits } = await import('@/lib/settings');
     const { apiRateLimit, apiRateWindow } = await getSecuritySettings();
     const clientIP = getClientIP(request);
     const rateLimit = await checkRateLimit({
@@ -81,10 +81,10 @@ export async function POST(request: NextRequest) {
       throw new AppError(ErrorCode.VALIDATION_ERROR, 'User not found. Please check the username and try again.');
     }
 
-    // Check sender balance
+    // Check sender balance and KYC level
     const { data: senderBalanceData, error: balanceError } = await supabaseAdmin
       .from('profiles')
-      .select('balance')
+      .select('balance, kyc_level')
       .eq('id', user.id)
       .single();
 
@@ -93,6 +93,57 @@ export async function POST(request: NextRequest) {
     }
 
     const senderBalance = parseFloat(senderBalanceData.balance || 0);
+    const kycLimits = await getKYCLimits();
+    const senderKycLevel = senderBalanceData.kyc_level ?? 1;
+
+    if (senderKycLevel < 2 && !kycLimits.level1TransferEnabled) {
+      throw new AppError(
+        ErrorCode.FORBIDDEN,
+        'Transfers are locked until you complete Level 2 verification.',
+      );
+    }
+
+    if (senderKycLevel === 2) {
+      if (roundedAmount < kycLimits.level2MinTransfer) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          `Minimum transfer for your verification level is ₦${kycLimits.level2MinTransfer.toLocaleString()}.`,
+        );
+      }
+      if (roundedAmount > kycLimits.level2MaxTransfer) {
+        throw new AppError(
+          ErrorCode.FORBIDDEN,
+          `Upgrade to Level 3 to send more than ₦${kycLimits.level2MaxTransfer.toLocaleString()}.`,
+        );
+      }
+    }
+
+    if (senderKycLevel >= 3 && roundedAmount > kycLimits.level3MaxTransfer) {
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        `Maximum transfer per transaction/day is ₦${kycLimits.level3MaxTransfer.toLocaleString()}.`,
+      );
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const { data: dailyTransfersData } = await supabaseAdmin
+      .from('transactions')
+      .select('amount')
+      .eq('user_id', user.id)
+      .eq('type', 'transfer_out')
+      .gte('created_at', today.toISOString());
+
+    const dailyTotal =
+      dailyTransfersData?.reduce((sum, tx) => sum + Math.abs(Number(tx.amount) || 0), 0) ?? 0;
+
+    if (dailyTotal + roundedAmount > kycLimits.dailyTransferCap) {
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        `Daily transfer cap of ₦${kycLimits.dailyTransferCap.toLocaleString()} exceeded. Try a smaller amount tomorrow.`,
+      );
+    }
+
     if (senderBalance < roundedAmount) {
       throw new AppError(ErrorCode.INSUFFICIENT_BALANCE, 'Insufficient balance');
     }

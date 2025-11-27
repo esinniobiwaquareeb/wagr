@@ -181,6 +181,17 @@ export function useSettings() {
     };
   }, [getSetting]);
 
+  const getKycLimits = useCallback(() => {
+    return {
+      level1TransferEnabled: getSetting('kyc.level1_transfer_enabled', false) as boolean,
+      level2MinTransfer: getSetting('kyc.level2_min_transfer', 2000) as number,
+      level2MaxTransfer: getSetting('kyc.level2_max_transfer', 50000) as number,
+      level3MinTransfer: getSetting('kyc.level3_min_transfer', 50001) as number,
+      level3MaxTransfer: getSetting('kyc.level3_max_transfer', 500000) as number,
+      dailyTransferCap: getSetting('kyc.daily_transfer_cap', 500000) as number,
+    };
+  }, [getSetting]);
+
   const refetch = useCallback(async () => {
     setLoading(true);
     try {
@@ -204,6 +215,7 @@ export function useSettings() {
     getQuizLimits,
     getPaymentLimits,
     getBillsLimits,
+    getKycLimits,
     refetch,
   };
 }

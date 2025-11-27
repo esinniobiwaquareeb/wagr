@@ -4,6 +4,7 @@
  */
 
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import type { KycLimitsConfig } from '@/lib/kyc/types';
 
 export interface PlatformSetting {
   key: string;
@@ -307,6 +308,36 @@ export async function getBillsSettings(): Promise<BillsSettings> {
         apiKey: nellobyteApiKey,
       },
     },
+  };
+}
+
+/**
+ * Get KYC limit configuration
+ */
+export async function getKYCLimits(): Promise<KycLimitsConfig> {
+  const [
+    level1Enabled,
+    level2Min,
+    level2Max,
+    level3Min,
+    level3Max,
+    dailyCap,
+  ] = await Promise.all([
+    getSetting<boolean>('kyc.level1_transfer_enabled', false),
+    getSetting<number>('kyc.level2_min_transfer', 2000),
+    getSetting<number>('kyc.level2_max_transfer', 50000),
+    getSetting<number>('kyc.level3_min_transfer', 50001),
+    getSetting<number>('kyc.level3_max_transfer', 500000),
+    getSetting<number>('kyc.daily_transfer_cap', 500000),
+  ]);
+
+  return {
+    level1TransferEnabled: Boolean(level1Enabled),
+    level2MinTransfer: Number(level2Min ?? 2000),
+    level2MaxTransfer: Number(level2Max ?? 50000),
+    level3MinTransfer: Number(level3Min ?? 50001),
+    level3MaxTransfer: Number(level3Max ?? 500000),
+    dailyTransferCap: Number(dailyCap ?? 500000),
   };
 }
 
