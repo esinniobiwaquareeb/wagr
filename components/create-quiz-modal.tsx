@@ -562,6 +562,10 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
         throw new Error(data.error?.message || 'Failed to create quiz');
       }
 
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('balance-updated'));
+      }
+
       toast({
         title: isEditMode ? "Quiz updated!" : "Quiz created!",
         description: isEditMode 

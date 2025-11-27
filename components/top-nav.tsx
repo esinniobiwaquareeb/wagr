@@ -51,6 +51,20 @@ export function TopNav() {
   const supabase = createClient();
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  if (!hydrated) {
+    return (
+      <>
+        <div className="hidden lg:block h-16 border-b border-border" />
+        <div className="lg:hidden h-14 border-b border-border" />
+      </>
+    );
+  }
 
   // Sync search query with URL params only on wagers page
   // Clear search query when navigating away from wagers page
