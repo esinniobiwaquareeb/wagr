@@ -14,6 +14,7 @@ import {
 } from '@/lib/bills/networks';
 import { getBillsProvider } from '@/lib/bills/providers';
 import { markPaymentAsFailed, refundBillPayment } from '@/lib/bills/payment-helpers';
+import { getPlanFromLocalCatalog } from '@/lib/bills/local-plan-loader';
 
 interface DataRequestBody {
   category: 'data';
@@ -109,19 +110,13 @@ export async function POST(request: NextRequest) {
     }
 
     const supabaseAdmin = createServiceRoleClient();
-    const { data: planRecord, error: planError } = await supabaseAdmin
-      .from('data_plans')
-      .select('plan_label, plan_price')
-      .eq('network_code', network.code)
-      .eq('plan_code', body.dataPlanCode)
-      .eq('is_active', true)
-      .single();
 
-    if (planError || !planRecord) {
+    const plan = await getPlanFromLocalCatalog(network.code, body.dataPlanCode);
+    if (!plan) {
       throw new AppError(ErrorCode.INVALID_INPUT, 'Selected data plan is not available.');
     }
 
-    const planPrice = Number(planRecord.plan_price);
+    const planPrice = Number(plan.price);
     if (Number.isNaN(planPrice) || planPrice <= 0) {
       throw new AppError(ErrorCode.INVALID_INPUT, 'Data plan price is invalid.');
     }
@@ -155,7 +150,7 @@ export async function POST(request: NextRequest) {
     const reference = `bill_data_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const requestId = `DATA-${randomUUID()}`;
 
-    const planLabel = body.dataPlanLabel || planRecord.plan_label || body.dataPlanCode;
+    const planLabel = body.dataPlanLabel || plan.label || body.dataPlanCode;
 
     const { data: billPaymentRecord, error: billPaymentError } = await supabaseAdmin
       .from('bill_payments')

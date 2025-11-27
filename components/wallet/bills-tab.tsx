@@ -15,6 +15,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useSettings } from "@/hooks/use-settings";
 import { AIRTIME_NETWORKS } from "@/lib/bills/networks";
 import type { DataPlan } from "@/lib/bills/types";
+import {
+  buildPlanCatalog,
+  RawPlanCatalog,
+} from "@/lib/bills/data-plan-utils";
 
 const BILL_CATEGORIES = [
   {
@@ -62,6 +66,7 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
   const [planSearch, setPlanSearch] = useState("");
+  const [planCatalog, setPlanCatalog] = useState<Record<string, DataPlan[]>>({});
   const [processing, setProcessing] = useState(false);
   const { toast } = useToast();
   const { getBillsLimits } = useSettings();
@@ -88,21 +93,28 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
   const selectedNetwork =
     availableNetworks.find((network) => network.id === selectedNetworkId) || null;
 
-  const fetchDataPlansFromApi = useCallback(
+  const fetchDataPlansForNetwork = useCallback(
     async (networkCode: string) => {
+      if (!networkCode) {
+        return;
+      }
       setLoadingPlans(true);
       setPlanError(null);
       setDataPlans([]);
       setSelectedDataPlan(null);
       try {
-        const response = await fetch(`/api/bills/data/plans?networkCode=${networkCode}`);
-        const result = await response.json();
-        if (!response.ok || !result?.success) {
-          const message =
-            result?.error?.message || 'Failed to load data plans. Please try again.';
-          throw new Error(message);
+        let catalogSnapshot = planCatalog;
+        if (!catalogSnapshot[networkCode]) {
+          const response = await fetch('/nellobyte_data_plans.json', { cache: 'no-store' });
+          if (!response.ok) {
+            throw new Error('Failed to load local data plans file.');
+          }
+          const rawCatalog = (await response.json()) as RawPlanCatalog;
+          catalogSnapshot = buildPlanCatalog(rawCatalog);
+          setPlanCatalog(catalogSnapshot);
         }
-        const plans = result.data?.plans || [];
+
+        const plans = catalogSnapshot[networkCode] || [];
         setDataPlans(plans);
         if (plans.length === 0) {
           setPlanError('No data plans available for this network yet.');
@@ -121,13 +133,13 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
         setLoadingPlans(false);
       }
     },
-    [toast],
+    [planCatalog, toast],
   );
 
   useEffect(() => {
     if (selectedCategory === 'data' && selectedNetwork?.code) {
       setSelectedAmount(null);
-      fetchDataPlansFromApi(selectedNetwork.code);
+      fetchDataPlansForNetwork(selectedNetwork.code);
     } else {
       setDataPlans([]);
       setSelectedDataPlan(null);
@@ -138,7 +150,7 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
       }
       setLoadingPlans(false);
     }
-  }, [selectedCategory, selectedNetwork, fetchDataPlansFromApi]);
+  }, [selectedCategory, selectedNetwork, fetchDataPlansForNetwork]);
 
   const filteredPlans = useMemo(() => {
     if (!planSearch.trim()) {
@@ -389,7 +401,7 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
       </div>
 
       {/* Network Selection */}
-      {selectedCategory === 'airtime' && availableNetworks.length > 0 && (
+      {availableNetworks.length > 0 && (
         <div>
           <label className="block text-xs font-medium mb-2">Select Network</label>
           <div className="grid grid-cols-2 gap-2">
@@ -587,15 +599,6 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
             </span>
           </div>
         </div>
-      )}
-
-      {selectedCategory === 'data' && (
-        <Card className="border-dashed">
-          <CardContent className="p-3 text-center">
-            <p className="text-xs font-medium">Data bundles coming soon</p>
-            <p className="text-[11px] text-muted-foreground">Stay tuned while we finalize integrations.</p>
-          </CardContent>
-        </Card>
       )}
 
       {/* Summary */}
