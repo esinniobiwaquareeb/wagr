@@ -11,6 +11,7 @@ import { PLATFORM_FEE_PERCENTAGE } from "@/lib/constants";
 import { wagersApi } from "@/lib/api-client";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { useSettings } from "@/hooks/use-settings";
 import { isDeadlineElapsed, getTimeRemaining } from "@/lib/deadline-utils";
 import { useState } from "react";
 import * as React from "react";
@@ -68,7 +69,11 @@ export function WagerCard({
 }: WagerCardProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { getSetting } = useSettings();
   const [joiningSide, setJoiningSide] = useState<"a" | "b" | null>(null);
+  
+  // Get effective fee percentage from settings or use prop/default
+  const effectiveFeePercentage = feePercentage || (getSetting('fees.wager_platform_fee_percentage', PLATFORM_FEE_PERCENTAGE) as number);
   
   const isOpen = status === "OPEN";
   const isResolved = status === "RESOLVED" || status === "SETTLED";
@@ -164,7 +169,7 @@ export function WagerCard({
     entryAmount: amount,
     sideATotal: sideATotal || 0,
     sideBTotal: sideBTotal || 0,
-    feePercentage: feePercentage || PLATFORM_FEE_PERCENTAGE,
+    feePercentage: effectiveFeePercentage,
   });
 
   // Get the better return (higher potential)
@@ -183,7 +188,7 @@ export function WagerCard({
       return 0;
     }
     
-    const platformFee = totalPool * (feePercentage || PLATFORM_FEE_PERCENTAGE);
+    const platformFee = totalPool * effectiveFeePercentage;
     const winningsPool = totalPool - platformFee;
     
     return winningsPool;
@@ -215,7 +220,7 @@ export function WagerCard({
     }
     
     // Calculate platform fee
-    const platformFee = totalPool * (feePercentage || PLATFORM_FEE_PERCENTAGE);
+    const platformFee = totalPool * effectiveFeePercentage;
     
     // Calculate winnings pool (after fee)
     const winningsPool = totalPool - platformFee;

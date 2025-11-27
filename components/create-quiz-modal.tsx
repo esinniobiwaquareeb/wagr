@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY } from "@/lib/currency";
+import { useSettings } from "@/hooks/use-settings";
 import { Plus, X, Trash2, Loader2, Calculator, ChevronRight, ChevronLeft, Check } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -69,6 +70,11 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
   const [userBalance, setUserBalance] = useState<number | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const { toast } = useToast();
+  const { getSetting, getQuizLimits, loading: settingsLoading } = useSettings();
+  
+  // Get platform fee from settings (default to 10% if not loaded yet)
+  const PLATFORM_FEE_PERCENTAGE = settingsLoading ? 0.10 : (getSetting('fees.quiz_platform_fee_percentage', 0.10) as number);
+  const quizLimits = getQuizLimits();
 
   const totalSteps = 3;
 
@@ -182,16 +188,17 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
   }, [open, user, supabase]);
 
   // Calculate total cost (base cost + platform fee)
-  const PLATFORM_FEE_PERCENTAGE = 0.10; // 10% for corporate quizzes
+  // Get platform fee from settings (default to 10% if not loaded yet)
+  const platformFeePercentage = settingsLoading ? 0.10 : (getSetting('fees.quiz_platform_fee_percentage', 0.10) as number);
   
   const totalCost = useCallback(() => {
     const entryFee = parseFloat(formData.entryFeePerQuestion) || 0;
     const questions = parseFloat(formData.totalQuestions) || 0;
     const participants = parseFloat(formData.maxParticipants) || 0;
     const baseCost = entryFee * questions * participants;
-    const platformFee = baseCost * PLATFORM_FEE_PERCENTAGE;
+    const platformFee = baseCost * platformFeePercentage;
     return baseCost + platformFee;
-  }, [formData.entryFeePerQuestion, formData.totalQuestions, formData.maxParticipants]);
+  }, [formData.entryFeePerQuestion, formData.totalQuestions, formData.maxParticipants, platformFeePercentage]);
 
   const baseCost = useCallback(() => {
     const entryFee = parseFloat(formData.entryFeePerQuestion) || 0;
@@ -289,6 +296,24 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
           return false;
         }
 
+        if (entryFee < quizLimits.minEntryFeePerQuestion) {
+          toast({
+            title: "Entry fee too low",
+            description: `Minimum entry fee per question is ₦${quizLimits.minEntryFeePerQuestion}.`,
+            variant: "destructive",
+          });
+          return false;
+        }
+
+        if (entryFee > quizLimits.maxEntryFeePerQuestion) {
+          toast({
+            title: "Entry fee too high",
+            description: `Maximum entry fee per question is ₦${quizLimits.maxEntryFeePerQuestion}.`,
+            variant: "destructive",
+          });
+          return false;
+        }
+
         if (!maxParticipants || maxParticipants <= 0) {
           toast({
             title: "Invalid participants",
@@ -298,10 +323,46 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
           return false;
         }
 
+        if (maxParticipants < quizLimits.minParticipants) {
+          toast({
+            title: "Too few participants",
+            description: `Minimum participants is ${quizLimits.minParticipants}.`,
+            variant: "destructive",
+          });
+          return false;
+        }
+
+        if (maxParticipants > quizLimits.maxParticipants) {
+          toast({
+            title: "Too many participants",
+            description: `Maximum participants is ${quizLimits.maxParticipants}.`,
+            variant: "destructive",
+          });
+          return false;
+        }
+
         if (!totalQuestions || totalQuestions <= 0) {
           toast({
             title: "Invalid questions",
             description: "Total questions must be greater than 0.",
+            variant: "destructive",
+          });
+          return false;
+        }
+
+        if (totalQuestions < quizLimits.minQuestions) {
+          toast({
+            title: "Too few questions",
+            description: `Minimum questions is ${quizLimits.minQuestions}.`,
+            variant: "destructive",
+          });
+          return false;
+        }
+
+        if (totalQuestions > quizLimits.maxQuestions) {
+          toast({
+            title: "Too many questions",
+            description: `Maximum questions is ${quizLimits.maxQuestions}.`,
             variant: "destructive",
           });
           return false;
@@ -637,7 +698,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
                             <span>{formatCurrency(baseCost(), DEFAULT_CURRENCY)}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Platform Fee (10%):</span>
+                            <span className="text-muted-foreground">Platform Fee ({Math.round(PLATFORM_FEE_PERCENTAGE * 100)}%):</span>
                             <span>{formatCurrency(baseCost() * PLATFORM_FEE_PERCENTAGE, DEFAULT_CURRENCY)}</span>
                           </div>
                           <div className="flex justify-between pt-2 border-t font-semibold">

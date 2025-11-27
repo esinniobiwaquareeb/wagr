@@ -95,6 +95,18 @@ export function AdminSidebar() {
             <span className="text-[10px] mt-0.5 font-medium">{isActive("/admin/quizzes") ? "Quizzes" : ""}</span>
           </Link>
           <Link
+            href="/admin/settings"
+            className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
+              isActive("/admin/settings")
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            title="Settings"
+          >
+            <Settings className={`h-6 w-6 transition-transform ${isActive("/admin/settings") ? "scale-110" : ""}`} />
+            <span className="text-[10px] mt-0.5 font-medium">{isActive("/admin/settings") ? "Settings" : ""}</span>
+          </Link>
+          <Link
             href="/admin/transactions"
             className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
               isActive("/admin/transactions")
@@ -208,6 +220,18 @@ export function AdminSidebar() {
         >
           <BookOpen className="h-5 w-5" />
           <span className="text-sm font-medium">Quizzes</span>
+        </Link>
+        
+        <Link
+          href="/admin/settings"
+          className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
+            isActive("/admin/settings")
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          }`}
+        >
+          <Settings className="h-5 w-5" />
+          <span className="text-sm font-medium">Settings</span>
         </Link>
         
         <Link

@@ -19,6 +19,7 @@ import { useDeadlineCountdown } from "@/hooks/use-deadline-countdown";
 import { DeadlineDisplay } from "@/components/deadline-display";
 import { PLATFORM_FEE_PERCENTAGE } from "@/lib/constants";
 import { WagerComments } from "@/components/wager-comments";
+import { useSettings } from "@/hooks/use-settings";
 import { WagerActivities } from "@/components/wager-activities";
 import { WagerParticipants } from "@/components/wager-participants";
 
@@ -54,6 +55,8 @@ export default function WagerDetail() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const { user } = useAuth();
+  const { getSetting } = useSettings();
+  const defaultPlatformFee = getSetting('fees.wager_platform_fee_percentage', PLATFORM_FEE_PERCENTAGE) as number;
   const [wager, setWager] = useState<Wager | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [sideCount, setSideCount] = useState({ a: 0, b: 0 });
@@ -227,7 +230,7 @@ export default function WagerDetail() {
       .filter((e: Entry) => e.side === "b")
       .reduce((sum: number, e: Entry) => sum + Number(e.amount), 0);
     const totalPot = sideATotal + sideBTotal;
-    const platformFee = totalPot * (wager.fee_percentage || PLATFORM_FEE_PERCENTAGE);
+    const platformFee = totalPot * (wager.fee_percentage || defaultPlatformFee);
     return totalPot - platformFee;
   }, [wager, entries]);
 
@@ -1114,7 +1117,7 @@ export default function WagerDetail() {
     entryAmount: wager.amount,
     sideATotal: sideATotal,
     sideBTotal: sideBTotal,
-    feePercentage: wager.fee_percentage || PLATFORM_FEE_PERCENTAGE,
+    feePercentage: wager.fee_percentage || defaultPlatformFee,
   });
 
   // Check if wager is settled (for display logic)
@@ -1419,7 +1422,7 @@ export default function WagerDetail() {
                   <Coins className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
                   <p className="text-[10px] md:text-xs text-muted-foreground">Platform Fee</p>
                 </div>
-                <p className="text-lg md:text-2xl font-bold">{(wager.fee_percentage || PLATFORM_FEE_PERCENTAGE) * 100}%</p>
+                <p className="text-lg md:text-2xl font-bold">{(wager.fee_percentage || defaultPlatformFee) * 100}%</p>
                 <p className="text-[9px] md:text-[10px] text-muted-foreground mt-0.5">
                   {formatCurrency(returns.platformFee, (wager.currency || DEFAULT_CURRENCY) as Currency)}
                 </p>

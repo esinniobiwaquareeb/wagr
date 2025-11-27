@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
         is_public: isPublic,
         is_system_generated: isSystemGenerated,
         status: 'OPEN',
-        fee_percentage: 0.05,
+        fee_percentage: await (await import('@/lib/settings')).getWagerPlatformFee(),
       })
       .select()
       .single();

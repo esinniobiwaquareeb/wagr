@@ -13,12 +13,14 @@ import { successResponseNext, appErrorToResponse, errorResponse } from '@/lib/ap
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting
+    const { getSecuritySettings } = await import('@/lib/settings');
+    const { apiRateLimit, apiRateWindow } = await getSecuritySettings();
     const clientIP = getClientIP(request);
     const rateLimit = await checkRateLimit({
       identifier: clientIP,
       endpoint: '/api/wallet/transfer',
-      limit: 20, // 20 transfers per hour
-      window: 3600, // 1 hour
+      limit: apiRateLimit,
+      window: apiRateWindow,
     });
 
     if (!rateLimit.allowed) {

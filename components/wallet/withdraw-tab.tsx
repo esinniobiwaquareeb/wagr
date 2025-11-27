@@ -26,6 +26,7 @@ interface WithdrawTabProps {
   onWithdraw: () => void;
   onVerifyAccount: (accountNumber: string, bankCode: string) => Promise<void>;
   onLoadBanks: () => void;
+  minWithdrawal?: number;
 }
 
 export function WithdrawTab({
@@ -44,6 +45,7 @@ export function WithdrawTab({
   onWithdraw,
   onVerifyAccount,
   onLoadBanks,
+  minWithdrawal = 100,
 }: WithdrawTabProps) {
   const verifyingAccountRef = useRef(false);
   const lastVerifiedRef = useRef<{ accountNumber: string; bankCode: string } | null>(null);
@@ -90,9 +92,9 @@ export function WithdrawTab({
               setWithdrawAmount(value);
             }
           }}
-          placeholder="Enter amount (minimum ₦100)"
+          placeholder={`Enter amount (minimum ₦${minWithdrawal})`}
           className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          min="100"
+          min={minWithdrawal}
           step="0.01"
           disabled={processingWithdrawal}
         />
@@ -157,7 +159,7 @@ export function WithdrawTab({
         )}
       </button>
       <p className="text-xs text-muted-foreground text-center">
-        Minimum: ₦100 • Transferred to your bank account
+        Minimum: ₦{minWithdrawal} • Transferred to your bank account
       </p>
     </div>
   );

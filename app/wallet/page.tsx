@@ -16,6 +16,7 @@ import { WithdrawTab } from "@/components/wallet/withdraw-tab";
 import { TransferTab } from "@/components/wallet/transfer-tab";
 import { BillsTab } from "@/components/wallet/bills-tab";
 import { TransactionHistory } from "@/components/wallet/transaction-history";
+import { useSettings } from "@/hooks/use-settings";
 
 interface Profile {
   balance: number;
@@ -60,6 +61,9 @@ function WalletContent() {
   const [activeTab, setActiveTab] = useState<"deposit" | "withdraw" | "transfer" | "bills">("deposit");
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
+  const { getSetting } = useSettings();
+  const minDeposit = getSetting('payments.min_deposit', 100) as number;
+  const minWithdrawal = getSetting('payments.min_withdrawal', 100) as number;
 
   const fetchingRef = useRef(false);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -419,10 +423,10 @@ function WalletContent() {
       return;
     }
 
-    if (amount < 100) {
+    if (amount < minWithdrawal) {
       toast({
-        title: "Minimum withdrawal is ₦100",
-        description: "You need to withdraw at least ₦100.",
+        title: `Minimum withdrawal is ₦${minWithdrawal}`,
+        description: `You need to withdraw at least ₦${minWithdrawal}.`,
         variant: "destructive",
       });
       return;
@@ -854,6 +858,7 @@ function WalletContent() {
                   setDepositAmount={setDepositAmount}
                   processingPayment={processingPayment}
                   onDeposit={handleDeposit}
+                  minDeposit={minDeposit}
                 />
               </TabsContent>
 

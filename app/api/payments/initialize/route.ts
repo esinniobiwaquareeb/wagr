@@ -8,12 +8,14 @@ import { successResponseNext, appErrorToResponse, errorResponse } from '@/lib/ap
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting
+    const { getSecuritySettings } = await import('@/lib/settings');
+    const { apiRateLimit, apiRateWindow } = await getSecuritySettings();
     const clientIP = getClientIP(request);
     const rateLimit = await checkRateLimit({
       identifier: clientIP,
       endpoint: '/api/payments/initialize',
-      limit: 20, // 20 payment initializations per hour
-      window: 3600, // 1 hour
+      limit: apiRateLimit,
+      window: apiRateWindow,
     });
 
     if (!rateLimit.allowed) {
@@ -33,6 +35,21 @@ export async function POST(request: NextRequest) {
     // Validate input
     if (!amount || typeof amount !== 'number' || amount <= 0) {
       throw new AppError(ErrorCode.INVALID_INPUT, 'Invalid amount');
+    }
+
+    // Get payment limits from settings
+    const { getPaymentLimits } = await import('@/lib/settings');
+    const { minDeposit, maxDeposit } = await getPaymentLimits();
+    
+    // Convert amount from kobo to NGN for validation
+    const amountInNGN = amount / 100;
+    
+    if (amountInNGN < minDeposit) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, `Minimum deposit amount is ₦${minDeposit}`);
+    }
+    
+    if (amountInNGN > maxDeposit) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, `Maximum deposit amount is ₦${maxDeposit}`);
     }
 
     if (!email || typeof email !== 'string') {

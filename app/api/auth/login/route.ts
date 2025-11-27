@@ -11,11 +11,15 @@ import { getClientIP } from '@/lib/rate-limit';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 
 export async function POST(request: NextRequest) {
+  // Get rate limit settings
+  const { getSecuritySettings } = await import('@/lib/settings');
+  const { authRateLimit, authRateWindow } = await getSecuritySettings();
+  
   return withRateLimit(
     request,
     {
-      limit: 5, // 5 login attempts per 15 minutes
-      window: 900, // 15 minutes
+      limit: authRateLimit,
+      window: authRateWindow,
       endpoint: '/api/auth/login',
     },
     async (req) => {

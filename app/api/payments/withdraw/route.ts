@@ -5,16 +5,19 @@ import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { AppError, logError } from '@/lib/error-handler';
 import { ErrorCode } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse, errorResponse } from '@/lib/api-response';
+import { formatCurrency } from '@/lib/currency';
 
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting
+    const { getSecuritySettings } = await import('@/lib/settings');
+    const { apiRateLimit, apiRateWindow } = await getSecuritySettings();
     const clientIP = getClientIP(request);
     const rateLimit = await checkRateLimit({
       identifier: clientIP,
       endpoint: '/api/payments/withdraw',
-      limit: 10, // 10 withdrawals per hour
-      window: 3600, // 1 hour
+      limit: Math.min(apiRateLimit, 10), // Cap at 10 for withdrawals
+      window: apiRateWindow,
     });
 
     if (!rateLimit.allowed) {
@@ -36,9 +39,12 @@ export async function POST(request: NextRequest) {
       throw new AppError(ErrorCode.INVALID_INPUT, 'Invalid amount');
     }
 
-    // Minimum withdrawal amount (₦100)
-    if (amount < 100) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Minimum withdrawal amount is ₦100');
+    // Get minimum withdrawal amount from settings
+    const { getPaymentLimits } = await import('@/lib/settings');
+    const { minWithdrawal } = await getPaymentLimits();
+    
+    if (amount < minWithdrawal) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, `Minimum withdrawal amount is ${formatCurrency(minWithdrawal, 'NGN')}`);
     }
 
     if (!accountNumber || !bankCode || !accountName) {

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { DepositTab } from "@/components/wallet/deposit-tab";
+import { useSettings } from "@/hooks/use-settings";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +26,8 @@ export function DepositModal({ open, onOpenChange, onSuccess }: DepositModalProp
   const router = useRouter();
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
+  const { getSetting } = useSettings();
+  const minDeposit = getSetting('payments.min_deposit', 100) as number;
 
   const handleDeposit = async () => {
     const trimmedAmount = depositAmount.trim();
@@ -47,10 +50,10 @@ export function DepositModal({ open, onOpenChange, onSuccess }: DepositModalProp
       return;
     }
 
-    if (amount < 100) {
+    if (amount < minDeposit) {
       toast({
-        title: "Minimum deposit is ₦100",
-        description: "You need to deposit at least ₦100.",
+        title: `Minimum deposit is ₦${minDeposit}`,
+        description: `You need to deposit at least ₦${minDeposit}.`,
         variant: "destructive",
       });
       return;
@@ -138,6 +141,7 @@ export function DepositModal({ open, onOpenChange, onSuccess }: DepositModalProp
           setDepositAmount={setDepositAmount}
           processingPayment={processingPayment}
           onDeposit={handleDeposit}
+          minDeposit={minDeposit}
         />
       </DialogContent>
     </Dialog>

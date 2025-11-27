@@ -4,6 +4,7 @@ import { CardContent } from "@/components/ui/card";
 import { BookOpen, Users, Clock, Trophy, CheckCircle2 } from "lucide-react";
 import { formatCurrency, DEFAULT_CURRENCY } from "@/lib/currency";
 import { format } from "date-fns";
+import { useSettings } from "@/hooks/use-settings";
 
 interface QuizInfoProps {
   totalQuestions: number;
@@ -35,6 +36,9 @@ export function QuizInfo({
   durationMinutes,
   status,
 }: QuizInfoProps) {
+  const { getSetting } = useSettings();
+  const platformFeePercentage = getSetting('fees.quiz_platform_fee_percentage', 0.10) as number;
+  
   // Calculate prize pool
   // Use stored values if available, otherwise calculate
   let baseCost: number;
@@ -44,17 +48,17 @@ export function QuizInfo({
   if (storedBaseCost !== undefined && storedBaseCost !== null) {
     // Use stored base cost and platform fee
     baseCost = storedBaseCost;
-    platformFee = storedPlatformFee || (baseCost * 0.10);
+    platformFee = storedPlatformFee || (baseCost * platformFeePercentage);
     prizePool = baseCost;
   } else if (totalCost !== undefined && totalCost !== null) {
     // Fallback: calculate from total cost
-    baseCost = totalCost / 1.1;
-    platformFee = baseCost * 0.10;
+    baseCost = totalCost / (1 + platformFeePercentage);
+    platformFee = baseCost * platformFeePercentage;
     prizePool = baseCost;
   } else {
     // Calculate from entry fee (for display purposes)
     baseCost = entryFeePerQuestion * totalQuestions * maxParticipants;
-    platformFee = baseCost * 0.10;
+    platformFee = baseCost * platformFeePercentage;
     prizePool = baseCost;
   }
 
@@ -151,7 +155,7 @@ export function QuizInfo({
             <span>{formatCurrency(baseCost, DEFAULT_CURRENCY)}</span>
           </div>
           <div className="flex justify-between">
-            <span>Platform Fee (10%):</span>
+            <span>Platform Fee ({Math.round(platformFeePercentage * 100)}%):</span>
             <span>-{formatCurrency(platformFee, DEFAULT_CURRENCY)}</span>
           </div>
           <div className="flex justify-between pt-1 border-t">

@@ -133,8 +133,33 @@ export async function POST(request: NextRequest) {
       throw new AppError(ErrorCode.VALIDATION_ERROR, 'Amount must be a positive number');
     }
 
+    // Get wager limits from settings
+    const { getWagerLimits } = await import('@/lib/settings');
+    const { minAmount, maxAmount, minDeadline, maxDeadline } = await getWagerLimits();
+    
+    if (amount < minAmount) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, `Minimum wager amount is ₦${minAmount}`);
+    }
+    
+    if (amount > maxAmount) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, `Maximum wager amount is ₦${maxAmount}`);
+    }
+
     if (!deadline || !new Date(deadline)) {
       throw new AppError(ErrorCode.VALIDATION_ERROR, 'Deadline is required');
+    }
+
+    // Validate deadline range
+    const deadlineDate = new Date(deadline);
+    const now = new Date();
+    const daysUntilDeadline = Math.ceil((deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysUntilDeadline < minDeadline) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, `Deadline must be at least ${minDeadline} day(s) from now`);
+    }
+    
+    if (daysUntilDeadline > maxDeadline) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, `Deadline cannot be more than ${maxDeadline} days from now`);
     }
 
     // Check user balance
@@ -200,7 +225,7 @@ export async function POST(request: NextRequest) {
         currency,
         is_public: isPublic,
         status: 'OPEN',
-        fee_percentage: 0.05,
+        fee_percentage: await (await import('@/lib/settings')).getWagerPlatformFee(),
       })
       .select()
       .single();

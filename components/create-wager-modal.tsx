@@ -12,6 +12,7 @@ import { wagersApi, walletApi } from "@/lib/api-client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { WAGER_CATEGORIES, COMMON_SIDES, DEFAULT_WAGER_AMOUNT, PLATFORM_FEE_PERCENTAGE, UI } from "@/lib/constants";
 import Link from 'next/link';
+import { useSettings } from "@/hooks/use-settings";
 
 // Common amount presets
 const AMOUNT_PRESETS = [10, 25, 50, 100, 250, 500, 1000];
@@ -30,6 +31,11 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
   const [userBalance, setUserBalance] = useState<number | null>(null);
   const [checkingBalance, setCheckingBalance] = useState(false);
   const { toast } = useToast();
+  const { getSetting, getWagerLimits } = useSettings();
+  
+  // Get settings values
+  const platformFeePercentage = getSetting('fees.wager_platform_fee_percentage', PLATFORM_FEE_PERCENTAGE) as number;
+  const wagerLimits = getWagerLimits();
   
   // A/B Testing
   const formVariant = useMemo(() => getVariant(AB_TESTS.CREATE_FORM_LAYOUT), []);
@@ -177,10 +183,11 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
         setSubmitting(false);
         return;
       }
-      if (trimmedTitle.length > 200) {
+      const maxTitleLength = wagerLimits.maxTitleLength || 200;
+      if (trimmedTitle.length > maxTitleLength) {
         toast({
           title: "Title is too long",
-          description: "Keep it under 200 characters to keep it concise.",
+          description: `Keep it under ${maxTitleLength} characters to keep it concise.`,
           variant: "destructive",
         });
         setSubmitting(false);
@@ -211,10 +218,11 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
         return;
       }
 
-      if (trimmedSideA.length > 100 || trimmedSideB.length > 100) {
+      const maxSideLength = wagerLimits.maxSideLength || 100;
+      if (trimmedSideA.length > maxSideLength || trimmedSideB.length > maxSideLength) {
         toast({
           title: "Options are too long",
-          description: "Keep each option under 100 characters.",
+          description: `Keep each option under ${maxSideLength} characters.`,
           variant: "destructive",
         });
         setSubmitting(false);
@@ -256,17 +264,27 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
       if (amount <= 0) {
         toast({
           title: "Amount needs to be more than zero",
-          description: "The wager amount has to be at least ₦1.",
+          description: `The wager amount has to be at least ₦${wagerLimits.minAmount}.`,
           variant: "destructive",
         });
         setSubmitting(false);
         return;
       }
 
-      if (amount < 1) {
+      if (amount < wagerLimits.minAmount) {
         toast({
-          title: "Minimum wager is ₦1",
-          description: "The smallest wager amount is ₦1.",
+          title: `Minimum wager is ₦${wagerLimits.minAmount}`,
+          description: `The smallest wager amount is ₦${wagerLimits.minAmount}.`,
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      if (amount > wagerLimits.maxAmount) {
+        toast({
+          title: `Maximum wager is ₦${wagerLimits.maxAmount}`,
+          description: `The largest wager amount is ₦${wagerLimits.maxAmount}.`,
           variant: "destructive",
         });
         setSubmitting(false);
@@ -333,10 +351,11 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
       }
 
       // Validate description length if provided
-      if (formData.description.trim() && formData.description.trim().length > 1000) {
+      const maxDescriptionLength = wagerLimits.maxDescriptionLength || 1000;
+      if (formData.description.trim() && formData.description.trim().length > maxDescriptionLength) {
         toast({
           title: "Description is too long",
-          description: "Keep it under 1000 characters.",
+          description: `Keep it under ${maxDescriptionLength} characters.`,
           variant: "destructive",
         });
         setSubmitting(false);
@@ -419,7 +438,7 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               placeholder="e.g., Will it rain tomorrow?"
               className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
-              maxLength={200}
+              maxLength={wagerLimits.maxTitleLength || 200}
             />
           </div>
 
@@ -452,7 +471,7 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
                   onChange={(e) => setFormData({ ...formData, sideA: e.target.value })}
                   placeholder="e.g., Yes"
                   className="w-full px-2.5 py-1.5 text-sm border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
-                  maxLength={100}
+                  maxLength={wagerLimits.maxSideLength || 100}
                 />
               </div>
               <div>
@@ -464,7 +483,7 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
                   onChange={(e) => setFormData({ ...formData, sideB: e.target.value })}
                   placeholder="e.g., No"
                   className="w-full px-2.5 py-1.5 text-sm border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
-                  maxLength={100}
+                  maxLength={wagerLimits.maxSideLength || 100}
                 />
               </div>
             </div>

@@ -9,11 +9,15 @@ import { getClientIP } from '@/lib/rate-limit';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 
 export async function GET(request: NextRequest) {
+  // Get rate limit settings
+  const { getSecuritySettings } = await import('@/lib/settings');
+  const { authRateLimit, authRateWindow } = await getSecuritySettings();
+  
   return withRateLimit(
     request,
     {
-      limit: 10, // 10 verification attempts per hour
-      window: 3600,
+      limit: authRateLimit,
+      window: authRateWindow,
       endpoint: '/api/auth/verify-email',
     },
     async (req) => {
@@ -122,11 +126,15 @@ export async function GET(request: NextRequest) {
  * Resend verification email
  */
 export async function POST(request: NextRequest) {
+  // Get rate limit settings
+  const { getSecuritySettings } = await import('@/lib/settings');
+  const { authRateLimit, authRateWindow } = await getSecuritySettings();
+  
   return withRateLimit(
     request,
     {
-      limit: 3, // 3 resend requests per hour
-      window: 3600,
+      limit: Math.min(authRateLimit, 3), // Cap at 3 for resend requests
+      window: authRateWindow,
       endpoint: '/api/auth/verify-email',
     },
     async (req) => {

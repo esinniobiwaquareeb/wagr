@@ -8,11 +8,15 @@ import { withRateLimit } from '@/lib/middleware-rate-limit';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 
 export async function POST(request: NextRequest) {
+  // Get rate limit settings
+  const { getSecuritySettings } = await import('@/lib/settings');
+  const { authRateLimit, authRateWindow } = await getSecuritySettings();
+  
   return withRateLimit(
     request,
     {
-      limit: 5, // 5 password reset attempts per hour
-      window: 3600,
+      limit: authRateLimit,
+      window: authRateWindow,
       endpoint: '/api/auth/reset-password',
     },
     async (req) => {
@@ -29,7 +33,9 @@ export async function POST(request: NextRequest) {
         }
 
         // Validate password strength
-        const passwordValidation = validatePasswordStrength(password);
+        const { getSecuritySettings } = await import('@/lib/settings');
+        const { minPasswordLength } = await getSecuritySettings();
+        const passwordValidation = await validatePasswordStrength(password, minPasswordLength);
         if (!passwordValidation.valid) {
           throw new AppError(ErrorCode.VALIDATION_ERROR, passwordValidation.error || 'Invalid password');
         }

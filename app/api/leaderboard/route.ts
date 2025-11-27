@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { AppError, logError } from '@/lib/error-handler';
 import { ErrorCode } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse, getPaginationParams, getPaginationMeta } from '@/lib/api-response';
+import { getWagerPlatformFee } from '@/lib/settings';
 
 /**
  * GET /api/leaderboard
@@ -98,9 +99,12 @@ export async function GET(request: NextRequest) {
 
     // Calculate wins and winnings from resolved wagers
     if (resolvedWagers && wagerEntries) {
-      resolvedWagers.forEach((wager: any) => {
+      // Get default platform fee from settings once
+      const defaultFee = await getWagerPlatformFee();
+      
+      for (const wager of resolvedWagers) {
         const winningSide = wager.winning_side?.toLowerCase() === 'a' ? 'a' : 'b';
-        const feePercentage = Number(wager.fee_percentage) || 0.05;
+        const feePercentage = Number(wager.fee_percentage) || defaultFee;
         
         const allWagerEntries = wagerEntries.filter((e: any) => e.wager_id === wager.id);
         if (allWagerEntries.length === 0) return;
@@ -127,7 +131,7 @@ export async function GET(request: NextRequest) {
             stats.total_winnings += userWinnings;
           });
         }
-      });
+      }
     }
 
     // Combine profile data with stats

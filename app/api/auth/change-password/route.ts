@@ -9,11 +9,15 @@ import { withRateLimit } from '@/lib/middleware-rate-limit';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 
 export async function POST(request: NextRequest) {
+  // Get rate limit settings
+  const { getSecuritySettings } = await import('@/lib/settings');
+  const { authRateLimit, authRateWindow } = await getSecuritySettings();
+  
   return withRateLimit(
     request,
     {
-      limit: 5, // 5 password change attempts per 15 minutes
-      window: 900, // 15 minutes
+      limit: authRateLimit,
+      window: authRateWindow,
       endpoint: '/api/auth/change-password',
     },
     async (req) => {
@@ -25,8 +29,12 @@ export async function POST(request: NextRequest) {
           throw new AppError(ErrorCode.INVALID_INPUT, 'Both current and new passwords are required');
         }
 
-        if (newPassword.length < 6) {
-          throw new AppError(ErrorCode.VALIDATION_ERROR, 'New password must be at least 6 characters long');
+        // Get minimum password length from settings
+        const { getSecuritySettings } = await import('@/lib/settings');
+        const { minPasswordLength } = await getSecuritySettings();
+        
+        if (newPassword.length < minPasswordLength) {
+          throw new AppError(ErrorCode.VALIDATION_ERROR, `New password must be at least ${minPasswordLength} characters long`);
         }
 
         const userId = await getCurrentUserId();

@@ -4,12 +4,14 @@ import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting to prevent hitting Paystack's rate limits
+    const { getSecuritySettings } = await import('@/lib/settings');
+    const { apiRateLimit, apiRateWindow } = await getSecuritySettings();
     const clientIP = getClientIP(request);
     const rateLimit = await checkRateLimit({
       identifier: clientIP,
       endpoint: '/api/payments/verify-account',
-      limit: 20, // 20 verifications per minute to stay under Paystack limits
-      window: 60, // 1 minute
+      limit: Math.min(apiRateLimit, 20), // Cap at 20 for account verification
+      window: Math.min(apiRateWindow, 60), // Cap at 60 seconds for account verification
     });
 
     if (!rateLimit.allowed) {

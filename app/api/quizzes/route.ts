@@ -138,6 +138,26 @@ export async function POST(request: NextRequest) {
       throw new AppError(ErrorCode.VALIDATION_ERROR, 'Total questions must be a positive number');
     }
 
+    // Get quiz limits from settings
+    const { getQuizLimits } = await import('@/lib/settings');
+    const { minParticipants, maxParticipants: maxParticipantsLimit, minQuestions, maxQuestions } = await getQuizLimits();
+    
+    if (maxParticipants < minParticipants) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, `Minimum participants is ${minParticipants}`);
+    }
+    
+    if (maxParticipants > maxParticipantsLimit) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, `Maximum participants is ${maxParticipantsLimit}`);
+    }
+    
+    if (totalQuestions < minQuestions) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, `Minimum questions is ${minQuestions}`);
+    }
+    
+    if (totalQuestions > maxQuestions) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, `Maximum questions is ${maxQuestions}`);
+    }
+
     if (!questions || !Array.isArray(questions) || questions.length !== totalQuestions) {
       throw new AppError(ErrorCode.VALIDATION_ERROR, `Must provide exactly ${totalQuestions} questions`);
     }
@@ -157,10 +177,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Get platform fee from settings
+    const { getQuizPlatformFee } = await import('@/lib/settings');
+    const platformFeePercentage = await getQuizPlatformFee();
+    
     // Calculate costs separately
-    const PLATFORM_FEE_PERCENTAGE = 0.10; // 10% for corporate quizzes
     const baseCost = entryFeePerQuestion * totalQuestions * maxParticipants; // What participants pay
-    const platformFee = baseCost * PLATFORM_FEE_PERCENTAGE; // Platform commission
+    const platformFee = baseCost * platformFeePercentage; // Platform commission
     const totalCost = baseCost + platformFee; // What creator pays
 
     // Check user balance
@@ -191,7 +214,7 @@ export async function POST(request: NextRequest) {
           base_cost: baseCost,
           platform_fee: platformFee,
           total_cost: totalCost,
-          platform_fee_percentage: PLATFORM_FEE_PERCENTAGE,
+          platform_fee_percentage: platformFeePercentage,
           status: 'draft',
           start_date: startDate ? new Date(startDate).toISOString() : null,
           end_date: endDate ? new Date(endDate).toISOString() : null,

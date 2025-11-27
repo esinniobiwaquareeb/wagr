@@ -11,11 +11,15 @@ import { getClientIP } from '@/lib/rate-limit';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 
 export async function POST(request: NextRequest) {
+  // Get rate limit settings
+  const { getSecuritySettings } = await import('@/lib/settings');
+  const { authRateLimit, authRateWindow } = await getSecuritySettings();
+  
   return withRateLimit(
     request,
     {
-      limit: 5, // 5 registrations per hour
-      window: 3600, // 1 hour
+      limit: authRateLimit,
+      window: authRateWindow,
       endpoint: '/api/auth/register',
     },
     async (req) => {
@@ -43,7 +47,9 @@ export async function POST(request: NextRequest) {
         }
 
         // Validate password strength
-        const passwordValidation = validatePasswordStrength(password);
+        const { getSecuritySettings } = await import('@/lib/settings');
+        const { minPasswordLength } = await getSecuritySettings();
+        const passwordValidation = await validatePasswordStrength(password, minPasswordLength);
         if (!passwordValidation.valid) {
           throw new AppError(ErrorCode.VALIDATION_ERROR, passwordValidation.error || 'Invalid password');
         }

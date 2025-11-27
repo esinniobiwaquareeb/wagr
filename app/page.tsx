@@ -11,6 +11,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { PLATFORM_FEE_PERCENTAGE } from "@/lib/constants";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
+import { useSettings } from "@/hooks/use-settings";
 import { wagersApi } from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -56,6 +57,10 @@ function WagersPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const { getSetting } = useSettings();
+  
+  // Get default platform fee from settings
+  const defaultPlatformFee = getSetting('fees.wager_platform_fee_percentage', PLATFORM_FEE_PERCENTAGE) as number;
   
   // Get tab and category from URL params
   const activeTab = (searchParams?.get('tab') as TabType) || 'all';
@@ -610,7 +615,7 @@ function WagersPageContent() {
               sideBCount={wager.side_b_count || 0}
               sideATotal={wager.side_a_total || 0}
               sideBTotal={wager.side_b_total || 0}
-              feePercentage={wager.fee_percentage || PLATFORM_FEE_PERCENTAGE}
+              feePercentage={wager.fee_percentage || defaultPlatformFee}
               isSystemGenerated={wager.is_system_generated || false}
               createdAt={wager.created_at}
               winningSide={wager.winning_side}

@@ -1,14 +1,18 @@
 /**
  * Application-wide constants
  * Centralized configuration values for easy maintenance
+ * 
+ * NOTE: Many of these values can be overridden by platform settings.
+ * Settings are managed in /admin/settings and stored in the platform_settings table.
+ * These constants serve as fallback defaults.
  */
 
-// Wager defaults
+// Wager defaults (can be overridden by settings: wagers.default_amount, etc.)
 export const DEFAULT_WAGER_AMOUNT = 500;
 export const DEFAULT_WAGER_AMOUNT_LARGE = 1000;
-export const PLATFORM_FEE_PERCENTAGE = 0.05; // 5%
+export const PLATFORM_FEE_PERCENTAGE = 0.05; // 5% (can be overridden by settings: fees.wager_platform_fee_percentage)
 
-// Deadline defaults
+// Deadline defaults (can be overridden by settings: wagers.default_deadline_days, etc.)
 export const DEFAULT_DEADLINE_DAYS = 7;
 export const MIN_DEADLINE_DAYS = 1;
 export const MAX_DEADLINE_DAYS = 30;
@@ -35,11 +39,11 @@ export const UI = {
   MAX_SIDE_LENGTH: 100,
 } as const;
 
-// Withdrawal limits
+// Withdrawal limits (can be overridden by settings: payments.min_withdrawal, etc.)
 export const WITHDRAWAL_LIMITS = {
-  MIN_AMOUNT: 100,
-  MAX_AMOUNT: 1000000,
-  DAILY_LIMIT: 500000,
+  MIN_AMOUNT: 100, // Default, use settings: payments.min_withdrawal
+  MAX_AMOUNT: 1000000, // Default, use settings: payments.max_withdrawal
+  DAILY_LIMIT: 500000, // Default, use settings: payments.daily_withdrawal_limit
 } as const;
 
 // Categories

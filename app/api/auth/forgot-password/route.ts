@@ -8,11 +8,15 @@ import { withRateLimit } from '@/lib/middleware-rate-limit';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 
 export async function POST(request: NextRequest) {
+  // Get rate limit settings
+  const { getSecuritySettings } = await import('@/lib/settings');
+  const { authRateLimit, authRateWindow } = await getSecuritySettings();
+  
   return withRateLimit(
     request,
     {
-      limit: 3, // 3 password reset requests per hour
-      window: 3600, // 1 hour
+      limit: Math.min(authRateLimit, 3), // Cap at 3 for forgot password
+      window: authRateWindow,
       endpoint: '/api/auth/forgot-password',
     },
     async (req) => {
