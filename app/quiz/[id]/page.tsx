@@ -413,7 +413,7 @@ export default function QuizDetailPage() {
   if (loading) {
     return (
       <main className="flex-1 pb-24 lg:pb-0 w-full overflow-x-hidden">
-        <div className="max-w-4xl mx-auto px-4 md:px-6 py-6 lg:py-8">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 lg:py-8">
           <Skeleton className="h-8 w-3/4 mb-4" />
           <Skeleton className="h-4 w-full mb-8" />
           <Skeleton className="h-64 w-full" />
@@ -425,7 +425,7 @@ export default function QuizDetailPage() {
   if (!quiz) {
     return (
       <main className="flex-1 pb-24 lg:pb-0 w-full overflow-x-hidden">
-        <div className="max-w-4xl mx-auto px-4 md:px-6 py-6 lg:py-8">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 lg:py-8">
           <Card>
             <CardContent className="pt-12 pb-12 text-center">
               <p className="text-muted-foreground">Quiz not found</p>
@@ -442,7 +442,7 @@ export default function QuizDetailPage() {
 
   return (
     <main className="flex-1 pb-24 lg:pb-0 w-full overflow-x-hidden">
-      <div className="max-w-4xl mx-auto px-4 md:px-6 py-6 lg:py-8">
+      <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 lg:py-8">
         {/* Back Button */}
         <Button variant="ghost" asChild className="mb-4">
           <Link href="/quizzes">

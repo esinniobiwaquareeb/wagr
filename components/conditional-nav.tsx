@@ -16,18 +16,20 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
 
   // During SSR or before mount, always render the default app route structure
   // This ensures server and client render the same HTML initially
-  if (!mounted) {
-    return (
-      <div className="flex flex-col min-h-screen">
-        <Suspense fallback={<div className="h-16 bg-background border-b border-border" />}>
-          <TopNav />
-        </Suspense>
-        <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden lg:pt-0 pt-14 pb-20 lg:pb-0">
-          <div className="flex-1">{children}</div>
-        </div>
-        <MobileNav />
+  const defaultRender = (
+    <div className="flex flex-col min-h-screen" suppressHydrationWarning>
+      <Suspense fallback={<div className="h-16 bg-background border-b border-border" />}>
+        <TopNav />
+      </Suspense>
+      <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden lg:pt-0 pt-14 pb-20 lg:pb-0">
+        <div className="flex-1">{children}</div>
       </div>
-    );
+      <MobileNav />
+    </div>
+  );
+
+  if (!mounted) {
+    return defaultRender;
   }
 
   // Only use pathname-based logic after component is mounted
@@ -68,7 +70,7 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
   // Landing page - no nav, but include footer
   if (isLandingPage) {
     return (
-      <div className="flex flex-col min-h-screen">
+      <div className="flex flex-col min-h-screen" suppressHydrationWarning>
         {children}
         <Footer />
       </div>
@@ -78,7 +80,7 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
   // Public pages - include top nav (large screens) and mobile nav (small screens), with footer
   if (isPublicPage) {
     return (
-      <div className="flex flex-col min-h-screen">
+      <div className="flex flex-col min-h-screen" suppressHydrationWarning>
         <Suspense fallback={<div className="h-16 bg-background border-b border-border" />}>
           <TopNav />
         </Suspense>
@@ -94,7 +96,7 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
   // App routes - include top nav (large screens) and mobile nav (small screens), no footer
   if (isAppRoute) {
     return (
-      <div className="flex flex-col min-h-screen">
+      <div className="flex flex-col min-h-screen" suppressHydrationWarning>
         <Suspense fallback={<div className="h-16 bg-background border-b border-border" />}>
           <TopNav />
         </Suspense>
@@ -108,7 +110,7 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
 
   // Default fallback - include navigation and footer
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen" suppressHydrationWarning>
       <Suspense fallback={<div className="h-16 bg-background border-b border-border" />}>
         <TopNav />
       </Suspense>
