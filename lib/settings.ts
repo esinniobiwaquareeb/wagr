@@ -224,3 +224,77 @@ export async function getEmailSettings() {
   };
 }
 
+export interface BillsProviderConfig {
+  [providerKey: string]: Record<string, any>;
+}
+
+export interface BillsSettings {
+  billsEnabled: boolean;
+  airtimeEnabled: boolean;
+  minAmount: number;
+  maxAmount: number;
+  callbackUrl?: string;
+  allowedNetworkCodes: string[];
+  defaultBonusType?: string | null;
+  defaultProvider: string;
+  enabledProviders: string[];
+  providerConfigs: BillsProviderConfig;
+}
+
+/**
+ * Get bills (airtime) settings
+ */
+export async function getBillsSettings(): Promise<BillsSettings> {
+  const [
+    billsEnabled,
+    airtimeEnabled,
+    minAmount,
+    maxAmount,
+    callbackUrl,
+    allowedNetworkCodes,
+    defaultBonusType,
+    defaultProvider,
+    enabledProviders,
+    nellobyteUserId,
+    nellobyteApiKey,
+  ] = await Promise.all([
+    getSetting<boolean>('features.bills_enabled', true),
+    getSetting<boolean>('bills.airtime_enabled', true),
+    getSetting<number>('bills.airtime_min_amount', 50),
+    getSetting<number>('bills.airtime_max_amount', 200000),
+    getSetting<string>('bills.callback_url', ''),
+    getSetting<string[]>('bills.allowed_network_codes', ['01', '02', '03', '04']),
+    getSetting<string | null>('bills.default_bonus_type', null),
+    getSetting<string>('bills.default_provider', 'nellobyte'),
+    getSetting<string[]>('bills.enabled_providers', ['nellobyte']),
+    getSetting<string>('bills.nellobyte_user_id', ''),
+    getSetting<string>('bills.nellobyte_api_key', ''),
+  ]);
+
+  const normalizedEnabledProviders = Array.isArray(enabledProviders)
+    ? enabledProviders.map((provider) =>
+        typeof provider === 'string' ? provider.toLowerCase() : provider,
+      )
+    : ['nellobyte'];
+  const normalizedDefaultProvider =
+    typeof defaultProvider === 'string' ? defaultProvider.toLowerCase() : 'nellobyte';
+
+  return {
+    billsEnabled: Boolean(billsEnabled),
+    airtimeEnabled: Boolean(airtimeEnabled),
+    minAmount,
+    maxAmount,
+    callbackUrl,
+    allowedNetworkCodes: Array.isArray(allowedNetworkCodes) ? allowedNetworkCodes : [],
+    defaultBonusType,
+    defaultProvider: normalizedDefaultProvider,
+    enabledProviders: normalizedEnabledProviders,
+    providerConfigs: {
+      nellobyte: {
+        userId: nellobyteUserId,
+        apiKey: nellobyteApiKey,
+      },
+    },
+  };
+}
+

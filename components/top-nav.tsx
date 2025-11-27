@@ -57,15 +57,6 @@ export function TopNav() {
     setHydrated(true);
   }, []);
 
-  if (!hydrated) {
-    return (
-      <>
-        <div className="hidden lg:block h-16 border-b border-border" />
-        <div className="lg:hidden h-14 border-b border-border" />
-      </>
-    );
-  }
-
   // Sync search query with URL params only on wagers page
   // Clear search query when navigating away from wagers page
   useEffect(() => {
@@ -532,6 +523,15 @@ export function TopNav() {
       return 'border-green-500/50 dark:border-green-400/50'; // High balance - green
     }
   };
+
+  if (!hydrated) {
+    return (
+      <>
+        <div className="hidden lg:block h-16 border-b border-border" />
+        <div className="lg:hidden h-14 border-b border-border" />
+      </>
+    );
+  }
 
   return (
     <>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { 
   Smartphone, 
   Wifi, 
@@ -8,11 +8,12 @@ import {
   CheckCircle2,
   Loader2,
   Phone,
-  Sparkles,
 } from "lucide-react";
 import { formatCurrency, type Currency } from "@/lib/currency";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
+import { useSettings } from "@/hooks/use-settings";
+import { AIRTIME_NETWORKS } from "@/lib/bills/networks";
 
 const BILL_CATEGORIES = [
   {
@@ -38,10 +39,38 @@ const DATA_PLANS = [
   { name: "10GB", amount: 2000, validity: "30 days" },
 ];
 
+interface BillsPurchasePayload {
+  category: string;
+  phoneNumber: string;
+  amount: number;
+  networkCode?: string;
+  networkName?: string;
+  bonusType?: string | null;
+}
+
 interface BillsTabProps {
   balance: number;
   currency: Currency;
-  onPurchase: (category: string, phoneNumber: string, amount: number) => Promise<void>;
+  onPurchase: (payload: BillsPurchasePayload) => Promise<void>;
+}
+
+function ProviderBadge({
+  label,
+  enabled,
+}: {
+  label: string;
+  enabled: boolean;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
+        enabled ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+      }`}
+    >
+      {enabled ? 'Active Provider' : 'Provider Disabled'}
+      <span className="uppercase tracking-wide">{label}</span>
+    </span>
+  );
 }
 
 export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
@@ -49,10 +78,54 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<typeof DATA_PLANS[0] | null>(null);
+  const [selectedNetworkId, setSelectedNetworkId] = useState<string | null>(null);
+  const [selectedBonusType, setSelectedBonusType] = useState<string | null>(null);
+  const [customAmount, setCustomAmount] = useState<string>("");
   const [processing, setProcessing] = useState(false);
   const { toast } = useToast();
+  const { getBillsLimits } = useSettings();
+  const billsLimits = getBillsLimits();
 
-  const selectedCategoryData = BILL_CATEGORIES.find(c => c.id === selectedCategory);
+  const {
+    billsEnabled,
+    airtimeEnabled,
+    minAirtimeAmount,
+    maxAirtimeAmount,
+    allowedNetworkCodes,
+    defaultProvider,
+    enabledProviders,
+  } = billsLimits;
+
+  const selectedCategoryData = BILL_CATEGORIES.find((c) => c.id === selectedCategory);
+  const availableNetworks = useMemo(() => {
+    if (allowedNetworkCodes?.length) {
+      return AIRTIME_NETWORKS.filter((network) => allowedNetworkCodes.includes(network.code));
+    }
+    return AIRTIME_NETWORKS;
+  }, [allowedNetworkCodes]);
+  const selectedNetwork =
+    availableNetworks.find((network) => network.id === selectedNetworkId) || null;
+  const providerLabel = defaultProvider ? defaultProvider.toUpperCase() : 'PROVIDER';
+  const providerActive = enabledProviders?.includes(defaultProvider);
+
+  const resetForm = () => {
+    setSelectedCategory(null);
+    setPhoneNumber("");
+    setSelectedAmount(null);
+    setSelectedPlan(null);
+    setSelectedNetworkId(null);
+    setSelectedBonusType(null);
+    setCustomAmount("");
+  };
+
+  const handleCategorySelect = (categoryId: string) => {
+    setSelectedCategory(categoryId);
+    setSelectedAmount(null);
+    setSelectedPlan(null);
+    setSelectedNetworkId(null);
+    setSelectedBonusType(null);
+    setCustomAmount("");
+  };
 
   const handleAmountSelect = (amount: number) => {
     if (balance < amount) {
@@ -64,6 +137,7 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
       return;
     }
     setSelectedAmount(amount);
+    setCustomAmount("");
   };
 
   const handlePlanSelect = (plan: typeof DATA_PLANS[0]) => {
@@ -77,13 +151,40 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
     }
     setSelectedPlan(plan);
     setSelectedAmount(plan.amount);
+    setCustomAmount("");
   };
 
   const handlePurchase = async () => {
+    if (selectedCategory === 'data') {
+      toast({
+        title: "Coming soon",
+        description: "Data bundle purchases will be available shortly.",
+      });
+      return;
+    }
+
     if (!selectedCategory || !phoneNumber.trim() || !selectedAmount || selectedAmount <= 0) {
       toast({
         title: "Missing information",
         description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (selectedCategory === 'airtime' && !selectedNetwork) {
+      toast({
+        title: "Select a network",
+        description: "Choose a mobile network to continue.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (selectedAmount < minAirtimeAmount || selectedAmount > maxAirtimeAmount) {
+      toast({
+        title: "Amount not allowed",
+        description: `Airtime purchases must be between ₦${minAirtimeAmount.toLocaleString()} and ₦${maxAirtimeAmount.toLocaleString()}.`,
         variant: "destructive",
       });
       return;
@@ -100,19 +201,48 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
 
     setProcessing(true);
     try {
-      await onPurchase(selectedCategory, phoneNumber, selectedAmount);
-      
-      // Reset form
-      setSelectedCategory(null);
-      setPhoneNumber("");
-      setSelectedAmount(null);
-      setSelectedPlan(null);
-    } catch (error) {
-      // Error handling is done in parent
+      await onPurchase({
+        category: selectedCategory,
+        phoneNumber,
+        amount: selectedAmount,
+        networkCode: selectedNetwork?.code,
+        networkName: selectedNetwork?.name,
+        bonusType: selectedBonusType,
+      });
+
+      resetForm();
+    } catch {
+      // Parent handles error feedback
     } finally {
       setProcessing(false);
     }
   };
+
+  const handleCustomAmountChange = (value: string) => {
+    const numeric = value.replace(/[^\d]/g, '');
+    if (!numeric) {
+      setCustomAmount('');
+      setSelectedAmount(null);
+      setSelectedPlan(null);
+      return;
+    }
+
+    const parsed = parseInt(numeric, 10);
+    setCustomAmount(parsed.toString());
+    setSelectedAmount(parsed);
+    setSelectedPlan(null);
+  };
+
+  if (!billsEnabled) {
+    return (
+      <Card className="border-dashed">
+        <CardContent className="py-6 text-center space-y-1.5">
+          <p className="text-sm font-semibold">Bills are currently disabled</p>
+          <p className="text-xs text-muted-foreground">Please check back later.</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (!selectedCategory) {
     return (
@@ -120,16 +250,26 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
         <div className="flex items-center justify-center gap-3">
           {BILL_CATEGORIES.map((category) => {
             const Icon = category.icon;
+            const isDisabled =
+              category.id === 'airtime' ? !airtimeEnabled : false;
             return (
               <button
                 key={category.id}
-                onClick={() => setSelectedCategory(category.id)}
-                className="group relative flex flex-col items-center gap-1.5 p-3 rounded-lg hover:bg-muted/50 transition-all duration-200 active:scale-95 touch-manipulation"
+                onClick={() => !isDisabled && handleCategorySelect(category.id)}
+                disabled={isDisabled}
+                className={`group relative flex flex-col items-center gap-1.5 p-3 rounded-lg transition-all duration-200 touch-manipulation ${
+                  isDisabled
+                    ? 'bg-muted/50 opacity-60 cursor-not-allowed'
+                    : 'hover:bg-muted/50 active:scale-95'
+                }`}
               >
                 <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${category.color} flex items-center justify-center shadow-md group-hover:scale-105 transition-all duration-200`}>
                   <Icon className="h-6 w-6 text-white" />
                 </div>
                 <span className="text-xs font-semibold">{category.name}</span>
+                {isDisabled && (
+                  <span className="text-[10px] text-muted-foreground">Disabled</span>
+                )}
               </button>
             );
           })}
@@ -143,12 +283,7 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
       {/* Header with back button */}
       <div className="flex items-center gap-2">
         <button
-          onClick={() => {
-            setSelectedCategory(null);
-            setPhoneNumber("");
-            setSelectedAmount(null);
-            setSelectedPlan(null);
-          }}
+          onClick={resetForm}
           className="flex items-center justify-center w-8 h-8 rounded-md border border-border hover:border-primary/50 hover:bg-primary/5 transition-all duration-200 active:scale-95"
         >
           <ArrowLeft className="h-3.5 w-3.5 text-muted-foreground" />
@@ -167,7 +302,10 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
 
       {/* Phone Number Input */}
       <div>
-        <label className="block text-xs font-medium mb-1.5 text-foreground">Phone Number</label>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="block text-xs font-medium text-foreground">Phone Number</label>
+          <ProviderBadge label={providerLabel} enabled={Boolean(providerActive)} />
+        </div>
         <div className="relative">
           <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
@@ -181,6 +319,84 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
           />
         </div>
       </div>
+
+      {/* Network Selection */}
+      {selectedCategory === 'airtime' && availableNetworks.length > 0 && (
+        <div>
+          <label className="block text-xs font-medium mb-2">Select Network</label>
+          <div className="grid grid-cols-2 gap-2">
+            {availableNetworks.map((network) => {
+              const isSelected = selectedNetworkId === network.id;
+              return (
+                <button
+                  key={network.id}
+                  onClick={() => {
+                    setSelectedNetworkId(network.id);
+                    setSelectedBonusType(null);
+                  }}
+                  disabled={processing}
+                  className={`flex items-center gap-2 p-2 rounded-md border transition-all duration-200 ${
+                    isSelected ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-md bg-gradient-to-br ${network.gradient} flex items-center justify-center text-[11px] font-bold text-white uppercase`}>
+                    {network.name.slice(0, 2)}
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xs font-semibold">{network.name}</p>
+                    <p className="text-[11px] text-muted-foreground uppercase">Code {network.code}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {selectedCategory === 'airtime' && availableNetworks.length === 0 && (
+        <Card className="border border-dashed">
+          <CardContent className="py-4 text-center space-y-1">
+            <p className="text-sm font-semibold">No networks configured</p>
+            <p className="text-xs text-muted-foreground">
+              Please ask an admin to enable at least one airtime network.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Bonus Selection */}
+      {selectedCategory === 'airtime' && selectedNetwork?.bonusTypes?.length ? (
+        <div>
+          <label className="block text-xs font-medium mb-2">Bonus (Optional)</label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedBonusType(null)}
+              className={`px-3 py-1.5 rounded-md border text-xs ${
+                selectedBonusType === null
+                  ? 'border-primary bg-primary/10 text-primary font-semibold'
+                  : 'border-border hover:border-primary/40'
+              }`}
+            >
+              No Bonus
+            </button>
+            {selectedNetwork.bonusTypes.map((bonus) => (
+              <button
+                key={bonus.code}
+                type="button"
+                onClick={() => setSelectedBonusType(bonus.code)}
+                className={`px-3 py-1.5 rounded-md border text-xs ${
+                  selectedBonusType === bonus.code
+                    ? 'border-primary bg-primary/10 text-primary font-semibold'
+                    : 'border-border hover:border-primary/40'
+                }`}
+              >
+                {bonus.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {/* Amount/Plan Selection */}
       {selectedCategory === 'airtime' && (
@@ -214,41 +430,12 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
       )}
 
       {selectedCategory === 'data' && (
-        <div>
-          <label className="block text-xs font-medium mb-2">Select Data Plan</label>
-          <div className="space-y-1.5">
-            {DATA_PLANS.map((plan) => {
-              const isSelected = selectedPlan?.name === plan.name;
-              const isDisabled = balance < plan.amount;
-              return (
-                <button
-                  key={plan.name}
-                  onClick={() => handlePlanSelect(plan)}
-                  disabled={isDisabled}
-                  className={`w-full p-2.5 rounded-md border-2 transition-all duration-200 active:scale-[0.98] touch-manipulation text-left ${
-                    isSelected
-                      ? 'border-primary bg-primary/10'
-                      : isDisabled
-                      ? 'border-border opacity-40 cursor-not-allowed'
-                      : 'border-border hover:border-primary/50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className={`font-semibold text-xs ${isSelected ? 'text-primary' : ''}`}>
-                        {plan.name}
-                      </div>
-                      <div className="text-xs text-muted-foreground">{plan.validity}</div>
-                    </div>
-                    <div className={`font-bold text-xs ${isSelected ? 'text-primary' : ''}`}>
-                      {formatCurrency(plan.amount, currency)}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <Card className="border-dashed">
+          <CardContent className="p-3 text-center">
+            <p className="text-xs font-medium">Data bundles coming soon</p>
+            <p className="text-[11px] text-muted-foreground">Stay tuned while we finalize integrations.</p>
+          </CardContent>
+        </Card>
       )}
 
       {/* Summary */}
@@ -268,13 +455,26 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
               {formatCurrency(balance - selectedAmount, currency)}
             </span>
           </div>
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground/80 pt-1">
+            <span>Provider</span>
+            <span className="font-medium uppercase">{providerLabel}</span>
+          </div>
+          <p className="text-[11px] text-muted-foreground/80">
+            Limits: ₦{minAirtimeAmount.toLocaleString()} — ₦{maxAirtimeAmount.toLocaleString()}
+          </p>
         </div>
       )}
 
       {/* Purchase Button */}
       <button
         onClick={handlePurchase}
-        disabled={!phoneNumber.trim() || !selectedAmount || selectedAmount <= 0 || processing || balance < selectedAmount}
+        disabled={
+          !phoneNumber.trim() ||
+          !selectedAmount ||
+          selectedAmount <= 0 ||
+          processing ||
+          balance < selectedAmount
+        }
         className="w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-md font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2 min-h-[40px] focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
       >
         {processing ? (

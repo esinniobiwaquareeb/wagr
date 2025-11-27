@@ -906,17 +906,62 @@ function WalletContent() {
                 <BillsTab
                   balance={profile?.balance || 0}
                   currency={currency}
-                  onPurchase={async (category, phoneNumber, amount) => {
-                    // TODO: Integrate with bills payment API
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    
-                    toast({
-                      title: "Purchase successful!",
-                      description: `${category === 'airtime' ? 'Airtime' : category === 'data' ? 'Data' : 'Bill'} purchase completed`,
-                    });
-                    
-                    // Refresh balance
-                    await fetchWalletData(true);
+                  onPurchase={async ({ category, phoneNumber, amount, networkCode, networkName, bonusType }) => {
+                    if (category !== 'airtime') {
+                      toast({
+                        title: "Coming soon",
+                        description: "This bill category is not available yet.",
+                      });
+                      return;
+                    }
+
+                    const payload = {
+                      category,
+                      phoneNumber,
+                      amount,
+                      networkCode,
+                      networkName,
+                      bonusType,
+                    };
+
+                    try {
+                      const response = await fetch('/api/bills/airtime', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                      });
+
+                      const data = await response.json();
+
+                      if (!response.ok || !data?.success) {
+                        const errorMessage =
+                          data?.error?.message || 'Failed to process airtime purchase';
+                        throw new Error(errorMessage);
+                      }
+
+                      toast({
+                        title: "Airtime request submitted",
+                        description: data.data?.message || `₦${amount.toLocaleString()} purchase for ${networkName || 'network'} initiated`,
+                      });
+
+                      if (typeof window !== 'undefined') {
+                        window.dispatchEvent(new CustomEvent('balance-updated'));
+                      }
+
+                      await fetchWalletData(true);
+                    } catch (error) {
+                      const { extractErrorMessage } = await import('@/lib/error-extractor');
+                      const message = extractErrorMessage(
+                        error,
+                        "We couldn't complete this purchase. Please try again.",
+                      );
+                      toast({
+                        title: "Purchase failed",
+                        description: message,
+                        variant: "destructive",
+                      });
+                      throw error;
+                    }
                   }}
                 />
               </TabsContent>

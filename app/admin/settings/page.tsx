@@ -21,7 +21,9 @@ import {
   Lock,
   AlertCircle,
   CheckCircle2,
-  RefreshCw
+  RefreshCw,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -128,6 +130,7 @@ export default function AdminSettingsPage() {
   const [hasChanges, setHasChanges] = useState(false);
   const [requiresRestart, setRequiresRestart] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("payments");
+  const [revealedSecrets, setRevealedSecrets] = useState<Record<string, boolean>>({});
 
   const fetchSettings = useCallback(async () => {
     try {
@@ -305,22 +308,37 @@ export default function AdminSettingsPage() {
         );
 
       case 'string':
-        // Check if it's a sensitive field (contains 'key' or 'secret')
-        const isSensitive = key.toLowerCase().includes('key') || key.toLowerCase().includes('secret');
+        const lowerKey = key.toLowerCase();
+        const isSensitive = lowerKey.includes('key') || lowerKey.includes('secret') || lowerKey.includes('password');
+        const isRevealed = revealedSecrets[key];
         return (
           <div className="space-y-2">
             <Label htmlFor={key}>{label}</Label>
             {description && (
               <p className="text-sm text-muted-foreground">{description}</p>
             )}
-            <Input
-              id={key}
-              type={isSensitive ? "password" : "text"}
-              value={value || ''}
-              onChange={(e) => updateSetting(key, e.target.value)}
-              className="max-w-md"
-              placeholder={isSensitive ? "••••••••" : ""}
-            />
+            <div className="relative max-w-md">
+              <Input
+                id={key}
+                type={isSensitive && !isRevealed ? "password" : "text"}
+                value={value ?? ''}
+                onChange={(e) => updateSetting(key, e.target.value)}
+                className={isSensitive ? "pr-10" : ""}
+                placeholder={isSensitive ? "••••••••" : ""}
+              />
+              {isSensitive && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setRevealedSecrets((prev) => ({ ...prev, [key]: !prev[key] }))
+                  }
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition"
+                  aria-label={isRevealed ? "Hide value" : "Show value"}
+                >
+                  {isRevealed ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              )}
+            </div>
           </div>
         );
 

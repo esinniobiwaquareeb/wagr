@@ -166,6 +166,18 @@ export function useSettings() {
     };
   }, [getSetting]);
 
+  const getBillsLimits = useCallback(() => {
+    return {
+      billsEnabled: getSetting('features.bills_enabled', true) as boolean,
+      airtimeEnabled: getSetting('bills.airtime_enabled', true) as boolean,
+      minAirtimeAmount: getSetting('bills.airtime_min_amount', 50) as number,
+      maxAirtimeAmount: getSetting('bills.airtime_max_amount', 200000) as number,
+      allowedNetworkCodes: getSetting('bills.allowed_network_codes', ['01', '02', '03', '04']) as string[],
+      defaultProvider: getSetting('bills.default_provider', 'nellobyte') as string,
+      enabledProviders: getSetting('bills.enabled_providers', ['nellobyte']) as string[],
+    };
+  }, [getSetting]);
+
   const refetch = useCallback(async () => {
     setLoading(true);
     try {
@@ -188,6 +200,7 @@ export function useSettings() {
     getWagerLimits,
     getQuizLimits,
     getPaymentLimits,
+    getBillsLimits,
     refetch,
   };
 }
