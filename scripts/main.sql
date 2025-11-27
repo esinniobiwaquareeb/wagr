@@ -4037,6 +4037,8 @@ DECLARE
   user_winnings NUMERIC;
   total_possible_points NUMERIC;
   settlement_method TEXT;
+  reserved_base_cost NUMERIC;
+  remaining_base_refund NUMERIC;
 BEGIN
   -- Get quiz details
   SELECT * INTO quiz_record
@@ -4065,6 +4067,23 @@ BEGIN
   -- Calculate platform fee
   platform_fee := total_pool * quiz_record.platform_fee_percentage;
   winnings_pool := total_pool - platform_fee;
+  
+  -- Refund unused reserved base cost to creator
+  reserved_base_cost := COALESCE(quiz_record.base_cost, quiz_record.entry_fee_per_question * quiz_record.total_questions * quiz_record.max_participants);
+  remaining_base_refund := GREATEST(reserved_base_cost - total_pool, 0);
+  
+  IF remaining_base_refund > 0 THEN
+    PERFORM increment_balance(quiz_record.creator_id, remaining_base_refund);
+    
+    INSERT INTO transactions (user_id, type, amount, reference, description)
+    VALUES (
+      quiz_record.creator_id,
+      'quiz_refund',
+      remaining_base_refund,
+      quiz_id_param::text,
+      'Unused quiz funds refunded after settlement'
+    );
+  END IF;
   
   -- Get total possible points
   SELECT COALESCE(SUM(points), 0) INTO total_possible_points

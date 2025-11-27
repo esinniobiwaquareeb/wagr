@@ -42,10 +42,20 @@ export async function GET(
       throw new AppError(ErrorCode.FORBIDDEN, 'You are not a participant in this quiz');
     }
 
-    // Show results immediately after participant completes the quiz
-    // Since correct answers are already known, there's no need to wait for settlement
     if (participant.status !== 'completed') {
       throw new AppError(ErrorCode.FORBIDDEN, 'You must complete the quiz to view results');
+    }
+
+    // Require quiz to end before exposing detailed answers to prevent sharing
+    const now = new Date();
+    const quizEndDate = quiz.end_date ? new Date(quiz.end_date) : null;
+    const quizHasEnded = quizEndDate ? quizEndDate <= now : quiz.status === 'settled';
+
+    if (!quizHasEnded) {
+      throw new AppError(
+        ErrorCode.FORBIDDEN,
+        'Results will be available after the quiz ends'
+      );
     }
 
     // Get all responses with questions and answers

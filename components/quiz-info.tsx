@@ -1,10 +1,11 @@
 "use client";
 
 import { CardContent } from "@/components/ui/card";
-import { BookOpen, Users, Clock, Trophy, CheckCircle2 } from "lucide-react";
+import { BookOpen, Users, Clock, Trophy, CheckCircle2, Hourglass } from "lucide-react";
 import { formatCurrency, DEFAULT_CURRENCY } from "@/lib/currency";
 import { format } from "date-fns";
 import { useSettings } from "@/hooks/use-settings";
+import type { DeadlineCountdownResult } from "@/hooks/use-deadline-countdown";
 
 interface QuizInfoProps {
   totalQuestions: number;
@@ -21,6 +22,7 @@ interface QuizInfoProps {
   endDate?: string;
   durationMinutes?: number;
   status: string;
+  countdown?: DeadlineCountdownResult;
 }
 
 export function QuizInfo({
@@ -35,6 +37,7 @@ export function QuizInfo({
   endDate,
   durationMinutes,
   status,
+  countdown,
 }: QuizInfoProps) {
   const { getSetting } = useSettings();
   const platformFeePercentage = getSetting('fees.quiz_platform_fee_percentage', 0.10) as number;
@@ -122,6 +125,32 @@ export function QuizInfo({
               </div>
             )}
           </div>
+
+          {endDate && countdown && (
+            <div className="mt-4">
+              <div className={`flex items-center gap-3 p-3 rounded-lg border ${
+                countdown.hasElapsed 
+                  ? 'border-muted bg-muted/30' 
+                  : countdown.status === 'red'
+                    ? 'border-red-300 bg-red-50 dark:border-red-900/40 dark:bg-red-950/20'
+                    : countdown.status === 'orange'
+                      ? 'border-orange-300 bg-orange-50 dark:border-orange-900/40 dark:bg-orange-950/20'
+                      : 'border-emerald-300 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-950/20'
+              }`}>
+                <Hourglass className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                    {countdown.hasElapsed ? 'Quiz Ended' : 'Ends In'}
+                  </p>
+                  <p className="text-lg font-semibold">
+                    {countdown.hasElapsed 
+                      ? 'Results are being processed'
+                      : countdown.countdown.replace(/^00:/, '')}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

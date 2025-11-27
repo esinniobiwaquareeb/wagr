@@ -11,6 +11,7 @@ interface QuizHeaderProps {
   status: string;
   onInvite?: () => void;
   onSettle?: () => void;
+  canSettle?: boolean;
   onExport?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -27,6 +28,7 @@ export function QuizHeader({
   status,
   onInvite,
   onSettle,
+  canSettle = false,
   onExport,
   onEdit,
   onDelete,
@@ -96,7 +98,7 @@ export function QuizHeader({
               <UserPlus className="h-4 w-4 mr-2" />
               Invite
             </Button>
-            {status === 'completed' && (
+            {canSettle && (
               <Button
                 variant="outline"
                 size="sm"

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { formatCurrency, DEFAULT_CURRENCY } from "@/lib/currency";
 import { Trophy, Medal, Award, Users, CheckCircle2, XCircle, FileText, BarChart3, List } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,6 +30,10 @@ interface QuizResultsProps {
     entry_fee_per_question: number;
     status: string;
     settled_at?: string;
+    questions?: Array<{
+      id: string;
+      points?: number;
+    }>;
   };
   participant?: Participant;
   participants?: Participant[];
@@ -58,7 +63,35 @@ export function QuizResults({
   showDetails = false,
 }: QuizResultsProps) {
   const isSettled = quiz.status === 'settled';
-  const totalPossiblePoints = quiz.total_questions;
+  const totalPossiblePoints = useMemo(() => {
+    const sumFromResponses = responses?.reduce((sum, response) => {
+      const questionPoints = response.quiz_questions?.points;
+      if (questionPoints !== undefined && questionPoints !== null) {
+        return sum + Number(questionPoints);
+      }
+      return sum + 1;
+    }, 0) || 0;
+
+    if (sumFromResponses > 0) {
+      return sumFromResponses;
+    }
+
+    if (quiz.questions && quiz.questions.length) {
+      const sum = quiz.questions.reduce<number>((acc, question) => acc + (question.points ?? 1), 0);
+      if (sum > 0) {
+        return sum;
+      }
+    }
+
+    if (quiz.total_questions) {
+      const numericTotal = Number(quiz.total_questions);
+      if (!Number.isNaN(numericTotal) && numericTotal > 0) {
+        return numericTotal;
+      }
+    }
+
+    return responses?.length || 0;
+  }, [quiz.questions, quiz.total_questions, responses]);
 
   // Sort participants by score (descending)
   const sortedParticipants = [...participants].sort((a, b) => {
@@ -74,6 +107,14 @@ export function QuizResults({
     return <span className="text-sm font-medium">#{rank}</span>;
   };
 
+  const participantScore = participant?.score ?? 0;
+  const participantPercentage =
+    participant?.percentage_score != null
+      ? participant.percentage_score
+      : totalPossiblePoints > 0
+        ? (participantScore / totalPossiblePoints) * 100
+        : 0;
+
   return (
     <div className="space-y-6">
       {/* Participant's Results Summary Card */}
@@ -86,16 +127,16 @@ export function QuizResults({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">Score</p>
-                <p className="text-2xl font-bold">{participant.score} / {totalPossiblePoints}</p>
+                <p className="text-2xl font-bold">
+                  {participantScore} / {totalPossiblePoints || quiz.total_questions || '-'}
+                </p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Percentage</p>
                 <p className="text-2xl font-bold">
-                  {participant.percentage_score != null 
-                    ? `${participant.percentage_score.toFixed(1)}%` 
-                    : totalPossiblePoints > 0 
-                      ? `${((participant.score / totalPossiblePoints) * 100).toFixed(1)}%`
-                      : '0%'}
+                  {participantPercentage != null
+                    ? `${participantPercentage.toFixed(1)}%`
+                    : '0%'}
                 </p>
               </div>
               <div>
@@ -116,11 +157,7 @@ export function QuizResults({
             </div>
 
             <Progress 
-              value={participant.percentage_score != null 
-                ? participant.percentage_score 
-                : totalPossiblePoints > 0 
-                  ? (participant.score / totalPossiblePoints) * 100 
-                  : 0} 
+              value={participantPercentage ?? 0}
               className="h-3" 
             />
           </CardContent>
@@ -253,16 +290,20 @@ export function QuizResults({
                                 <span className="ml-2 text-xs font-normal text-primary">(You)</span>
                               )}
                             </p>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-                              <span>{p.score} / {totalPossiblePoints} points</span>
-                              <span>
-                                {p.percentage_score != null 
-                                  ? `${p.percentage_score.toFixed(1)}%` 
-                                  : totalPossiblePoints > 0 
-                                    ? `${((p.score / totalPossiblePoints) * 100).toFixed(1)}%`
-                                    : '0%'}
-                              </span>
-                            </div>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+                          <span>
+                            {totalPossiblePoints > 0 
+                              ? `${p.score ?? 0} / ${totalPossiblePoints} points`
+                              : `${p.score ?? 0} pts`}
+                          </span>
+                          <span>
+                            {p.percentage_score != null 
+                              ? `${p.percentage_score.toFixed(1)}%` 
+                              : totalPossiblePoints > 0 
+                                ? `${(((p.score ?? 0) / totalPossiblePoints) * 100).toFixed(1)}%`
+                                : '0%'}
+                          </span>
+                        </div>
                           </div>
                         </div>
                         {isSettled && p.winnings > 0 && (

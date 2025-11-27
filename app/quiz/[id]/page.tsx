@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -8,7 +8,7 @@ import { formatCurrency, DEFAULT_CURRENCY } from "@/lib/currency";
 import { format } from "date-fns";
 import { 
   Loader2, BookOpen, Users, Clock, Trophy, CheckCircle2, 
-  ArrowLeft, Play, UserPlus, Settings, Award, Download, BarChart3, Check, Edit, Trash2
+  ArrowLeft, Play, UserPlus, Settings, Award, Download, BarChart3, Check, Edit, Trash2, AlertCircle
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import { CreateQuizModal } from "@/components/create-quiz-modal";
 import { QuizHeader } from "@/components/quiz-header";
 import { QuizInfo } from "@/components/quiz-info";
 import { QuizActions } from "@/components/quiz-actions";
+import { useDeadlineCountdown } from "@/hooks/use-deadline-countdown";
 
 interface Quiz {
   id: string;
@@ -106,6 +107,22 @@ export default function QuizDetailPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [opening, setOpening] = useState(false);
 
+  const isCreator = Boolean(user && quiz && quiz.creator_id === user.id);
+  const countdown = useDeadlineCountdown(quiz?.end_date || null);
+  const quizHasEnded = useMemo(() => {
+    if (!quiz) return false;
+    if (quiz.end_date) {
+      return countdown.hasElapsed;
+    }
+    return ['completed', 'settled', 'cancelled'].includes(quiz.status);
+  }, [quiz, countdown.hasElapsed]);
+  const canSettleQuiz = useMemo(() => {
+    if (!quiz || !isCreator) return false;
+    if (quiz.status === 'settled' || quiz.status === 'draft') return false;
+    const completedCount = quiz.participantCounts?.completed ?? 0;
+    return quizHasEnded && completedCount > 0;
+  }, [quiz, isCreator, quizHasEnded]);
+
   useEffect(() => {
     if (quizId) {
       fetchQuiz();
@@ -122,21 +139,22 @@ export default function QuizDetailPage() {
         throw new Error(data.error?.message || 'Failed to fetch quiz');
       }
 
-      setQuiz(data.data?.quiz || null);
+      const quizData = data.data?.quiz || null;
+      setQuiz(quizData);
 
       // Check if user is a participant
-      if (user && data.data?.quiz?.participants) {
-        const userParticipant = data.data.quiz.participants.find(
+      if (user && quizData?.participants) {
+        const userParticipant = quizData.participants.find(
           (p: any) => p.user_id === user.id
         );
         setParticipant(userParticipant);
 
-        // If participant has completed, fetch their detailed responses immediately
-        if (userParticipant && userParticipant.status === 'completed') {
-          // Fetch responses after a short delay to ensure they're saved
-          setTimeout(() => {
-            fetchParticipantResponses();
-          }, 300);
+        const quizEndedServer = quizData?.end_date
+          ? new Date(quizData.end_date).getTime() <= Date.now()
+          : ['completed', 'settled', 'cancelled'].includes(quizData?.status);
+
+        if (userParticipant && userParticipant.status === 'completed' && quizEndedServer) {
+          fetchParticipantResponses();
         }
       }
     } catch (error) {
@@ -156,7 +174,7 @@ export default function QuizDetailPage() {
   };
 
   const fetchParticipantResponses = async () => {
-    if (!user || !quizId) return;
+    if (!user || !quizId || !quizHasEnded) return;
     
     try {
       setLoadingResults(true);
@@ -177,7 +195,11 @@ export default function QuizDetailPage() {
     } catch (error) {
       console.error('Error fetching responses:', error);
       // Don't show error toast if results aren't available yet
-      if (error instanceof Error && !error.message.includes('not available')) {
+      if (
+        error instanceof Error && 
+        !/not available/i.test(error.message) && 
+        !/after the quiz ends/i.test(error.message)
+      ) {
         toast({
           title: "Error",
           description: error.message,
@@ -199,11 +221,9 @@ export default function QuizDetailPage() {
     // Refresh quiz data to get updated participant status
     await fetchQuiz();
     
-    // Fetch detailed responses immediately after completion
-    // This ensures we have all question/answer details for the results view
-    setTimeout(() => {
+    if (quizHasEnded) {
       fetchParticipantResponses();
-    }, 500);
+    }
   };
 
   const handleSettle = async () => {
@@ -400,15 +420,24 @@ export default function QuizDetailPage() {
     }
   };
 
-  const isCreator = user && quiz && quiz.creator_id === user.id;
-  const canTakeQuiz = user && 
-    quiz && 
+  const isCreatorLegacy = user && quiz && quiz.creator_id === user.id;
+  const isCreatorFlag = isCreator || Boolean(isCreatorLegacy); // maintain existing truthy usage
+  const canTakeQuiz = Boolean(
+    user &&
+    quiz &&
     ['open', 'in_progress'].includes(quiz.status) &&
     participant &&
-    ['invited', 'accepted'].includes(participant.status);
+    ['invited', 'accepted'].includes(participant.status)
+  );
   const hasCompleted = participant && participant.status === 'completed';
-  // Show results immediately after completion since correct answers are already known
-  const showResults = hasCompleted;
+  const waitingForResults = Boolean(hasCompleted && !quizHasEnded);
+  const showResults = Boolean(hasCompleted && quizHasEnded);
+
+  useEffect(() => {
+    if (hasCompleted && quizHasEnded) {
+      fetchParticipantResponses();
+    }
+  }, [hasCompleted, quizHasEnded]);
 
   if (loading) {
     return (
@@ -465,13 +494,14 @@ export default function QuizDetailPage() {
         {!takingQuiz && (
           <>
             <Card className="mb-6">
-              <QuizHeader
+            <QuizHeader
                 title={quiz.title}
                 description={quiz.description}
-                isCreator={!!isCreator}
+                isCreator={isCreatorFlag}
                 status={quiz.status}
                 onInvite={() => setShowInviteDialog(true)}
                 onSettle={() => setShowSettleDialog(true)}
+                canSettle={canSettleQuiz}
                 onExport={handleExportResults}
                 onEdit={() => setShowEditModal(true)}
                 onDelete={() => setShowDeleteDialog(true)}
@@ -492,6 +522,7 @@ export default function QuizDetailPage() {
                 endDate={quiz.end_date}
                 durationMinutes={quiz.duration_minutes}
                 status={quiz.status}
+                countdown={quiz.end_date ? countdown : undefined}
               />
               <QuizActions
                 user={user}
@@ -503,7 +534,28 @@ export default function QuizDetailPage() {
               />
             </Card>
 
-            {/* Quiz Results/History - Show after completion */}
+            {waitingForResults && (
+              <Card className="mt-6 border-dashed">
+                <CardContent className="pt-6 flex flex-col gap-3">
+                  <div className="flex items-center gap-3 text-yellow-600 dark:text-yellow-400">
+                    <AlertCircle className="h-5 w-5" />
+                    <div>
+                      <p className="font-semibold">Hold tight!</p>
+                      <p className="text-sm text-muted-foreground">
+                        Answer summaries unlock when the quiz ends to keep things fair for everyone.
+                      </p>
+                    </div>
+                  </div>
+                  {quiz?.end_date && !countdown.hasElapsed && (
+                    <div className="text-sm text-muted-foreground">
+                      Ends in: <span className="font-medium">{countdown.countdown.replace(/^00:/, '')}</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Quiz Results/History - Show after completion and quiz end */}
             {showResults && participant && (
               <div className="mt-6">
                 {loadingResults ? (

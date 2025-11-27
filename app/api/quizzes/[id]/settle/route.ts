@@ -22,7 +22,7 @@ export async function POST(
     // Get quiz
     const { data: quiz, error: quizError } = await serviceSupabase
       .from('quizzes')
-      .select('id, creator_id, status')
+      .select('id, creator_id, status, end_date')
       .eq('id', quizId)
       .single();
 
@@ -49,8 +49,34 @@ export async function POST(
       throw new AppError(ErrorCode.VALIDATION_ERROR, 'Quiz is already settled');
     }
 
-    if (!['completed', 'in_progress'].includes(quiz.status)) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Quiz must be completed or in progress to settle');
+    const now = new Date();
+    const quizEndDate = quiz.end_date ? new Date(quiz.end_date) : null;
+    const quizHasEnded = quizEndDate ? quizEndDate <= now : false;
+
+    if (quiz.status === 'draft') {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Draft quizzes cannot be settled');
+    }
+
+    if (!quizHasEnded && quiz.status !== 'completed' && quiz.status !== 'in_progress') {
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        'Quiz must be completed, in progress, or past its end time to settle'
+      );
+    }
+
+    // Require at least one completed participant
+    const { count: completedCount, error: participantCountError } = await serviceSupabase
+      .from('quiz_participants')
+      .select('id', { count: 'exact', head: true })
+      .eq('quiz_id', quizId)
+      .eq('status', 'completed');
+
+    if (participantCountError) {
+      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to check participants');
+    }
+
+    if (!completedCount || completedCount === 0) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 'No participants have completed the quiz yet');
     }
 
     // Settle quiz using database function
