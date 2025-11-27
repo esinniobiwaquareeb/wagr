@@ -52,21 +52,38 @@ export async function POST(
     }
 
     if (action === 'start') {
-      // Start the quiz
-      if (participant.status !== 'invited' && participant.status !== 'accepted') {
-        throw new AppError(ErrorCode.VALIDATION_ERROR, 'Quiz already started or completed');
+      if (participant.status === 'completed') {
+        throw new AppError(ErrorCode.VALIDATION_ERROR, 'You have already completed this quiz');
       }
 
-      const { error: updateError } = await serviceSupabase
-        .from('quiz_participants')
-        .update({
-          status: 'started',
-          started_at: new Date().toISOString(),
-        })
-        .eq('id', participant.id);
+      let participantRecord = participant;
+      let startedAt = participant.started_at;
 
-      if (updateError) {
-        throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to start quiz');
+      if (participant.status === 'started') {
+        // Allow resume without modifying status
+        startedAt = participant.started_at || new Date().toISOString();
+      } else {
+        if (!['invited', 'accepted'].includes(participant.status)) {
+          throw new AppError(ErrorCode.VALIDATION_ERROR, 'Quiz already started or completed');
+        }
+
+        startedAt = new Date().toISOString();
+
+        const { data: updatedParticipant, error: updateError } = await serviceSupabase
+          .from('quiz_participants')
+          .update({
+            status: 'started',
+            started_at: startedAt,
+          })
+          .eq('id', participant.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to start quiz');
+        }
+
+        participantRecord = updatedParticipant || participant;
       }
 
       // Get questions (randomized if enabled)
@@ -101,9 +118,9 @@ export async function POST(
         quiz,
         questions: processedQuestions,
         participant: {
-          ...participant,
+          ...participantRecord,
           status: 'started',
-          started_at: new Date().toISOString(),
+          started_at: startedAt,
         },
       });
     }

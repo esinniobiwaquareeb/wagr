@@ -62,11 +62,15 @@ BEGIN
   END IF;
 
   -- Existing settlement logic continues below (unchanged aside from new variables)
-  total_possible_points := (
-    SELECT COALESCE(SUM(points), 0)
-    FROM quiz_questions
-    WHERE quiz_id = quiz_id_param
-  );
+  SELECT COALESCE(SUM(points), 0) INTO total_possible_points
+  FROM quiz_questions
+  WHERE quiz_id = quiz_id_param;
+
+  IF total_possible_points = 0 THEN
+    SELECT COALESCE(SUM(points_earned), 0) INTO total_possible_points
+    FROM quiz_responses qr
+    WHERE qr.quiz_id = quiz_id_param;
+  END IF;
 
   settlement_method := quiz_record.settlement_method;
 

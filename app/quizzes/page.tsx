@@ -131,7 +131,7 @@ function QuizzesPageContent() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold mb-1">Corporate Quizzes</h1>
+            <h1 className="text-2xl font-bold mb-1">Quizzes</h1>
             <p className="text-sm text-muted-foreground">
               Create and participate in team building quizzes with monetary rewards
             </p>

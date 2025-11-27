@@ -31,6 +31,35 @@ interface Answer {
   isCorrect: boolean;
 }
 
+function normalizeAnswerSet(answers: Answer[]): Answer[] {
+  if (!answers.length) return [];
+
+  const normalized = answers.map((answer) => ({
+    ...answer,
+    isCorrect: Boolean(answer.isCorrect),
+    answerText: answer.answerText,
+  }));
+
+  const correctCount = normalized.filter((answer) => answer.isCorrect).length;
+
+  if (correctCount === 0) {
+    normalized[0].isCorrect = true;
+  } else if (correctCount > 1) {
+    let seen = false;
+    normalized.forEach((answer) => {
+      if (answer.isCorrect) {
+        if (seen) {
+          answer.isCorrect = false;
+        } else {
+          seen = true;
+        }
+      }
+    });
+  }
+
+  return normalized;
+}
+
 interface CreateQuizModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -158,11 +187,13 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
           questionText: q.questionText || "",
           questionType: q.questionType || 'multiple_choice',
           points: q.points || 1,
-          answers: q.answers.map((a, aIndex) => ({
-            id: `a-edit-${index}-${aIndex}`,
-            answerText: a.answerText || "",
-            isCorrect: a.isCorrect || false,
-          })),
+          answers: normalizeAnswerSet(
+            q.answers.map((a, aIndex) => ({
+              id: `a-edit-${index}-${aIndex}`,
+              answerText: a.answerText || "",
+              isCorrect: a.isCorrect || false,
+            }))
+          ),
         }));
         setQuestions(formattedQuestions);
       }
@@ -219,7 +250,10 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
       const newQuestions: Question[] = [];
       for (let i = 0; i < total; i++) {
         if (questions[i]) {
-          newQuestions.push(questions[i]);
+          newQuestions.push({
+            ...questions[i],
+            answers: normalizeAnswerSet(questions[i].answers),
+          });
         } else {
           newQuestions.push({
             id: `q-${Date.now()}-${i}`,
@@ -235,7 +269,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
       }
       setQuestions(newQuestions.slice(0, total));
     }
-  }, [formData.totalQuestions, isEditMode, initialData]);
+  }, [formData.totalQuestions, isEditMode, questions, initialData]);
 
   const addAnswer = (questionIndex: number) => {
     const newQuestions = [...questions];
@@ -489,7 +523,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
         questionText: q.questionText.trim(),
         questionType: q.questionType,
         points: q.points,
-        answers: q.answers.map(a => ({
+        answers: normalizeAnswerSet(q.answers).map(a => ({
           answerText: a.answerText.trim(),
           isCorrect: a.isCorrect,
         })),

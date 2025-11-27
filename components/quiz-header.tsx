@@ -108,7 +108,7 @@ export function QuizHeader({
                 Settle
               </Button>
             )}
-            {status === 'settled' && participants && participants.length > 0 && (
+            {status === 'settled' && (
               <Button
                 variant="outline"
                 size="sm"
@@ -122,7 +122,7 @@ export function QuizHeader({
                 )}
                 Export
               </Button>
-            )}
+            )} 
           </div>
         )}
       </div>

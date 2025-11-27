@@ -4090,6 +4090,12 @@ BEGIN
   FROM quiz_questions
   WHERE quiz_id = quiz_id_param;
   
+  IF total_possible_points = 0 THEN
+    SELECT COALESCE(SUM(points_earned), 0) INTO total_possible_points
+    FROM quiz_responses
+    WHERE quiz_id = quiz_id_param;
+  END IF;
+  
   -- Get settlement method (default to proportional)
   settlement_method := COALESCE(quiz_record.settlement_method, 'proportional');
   

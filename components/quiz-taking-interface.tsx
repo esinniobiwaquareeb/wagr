@@ -45,11 +45,17 @@ export function QuizTakingInterface({
   const [responses, setResponses] = useState<Record<string, string>>({});
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [startTime, setStartTime] = useState<Date | null>(null);
+  const [hasStarted, setHasStarted] = useState(false);
+
+  useEffect(() => {
+    setHasStarted(false);
+  }, [quizId]);
 
   // Start quiz
   useEffect(() => {
+    let isMounted = true;
     const startQuiz = async () => {
-      if (!user) return;
+      if (!user || hasStarted) return;
 
       try {
         setLoading(true);
@@ -65,8 +71,11 @@ export function QuizTakingInterface({
           throw new Error(data.error?.message || 'Failed to start quiz');
         }
 
+        if (!isMounted) return;
+
         setQuestions(data.data?.questions || []);
         setStartTime(new Date());
+        setHasStarted(true);
         
         if (durationMinutes) {
           setTimeRemaining(durationMinutes * 60);
@@ -81,12 +90,18 @@ export function QuizTakingInterface({
         // Call onComplete with empty array to close the interface on error
         onComplete([]);
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     startQuiz();
-  }, [quizId, user, toast, onComplete]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [quizId, user, durationMinutes, hasStarted, toast, onComplete]);
 
   // Timer countdown
   useEffect(() => {
