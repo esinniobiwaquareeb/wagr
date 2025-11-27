@@ -906,26 +906,12 @@ function WalletContent() {
                 <BillsTab
                   balance={profile?.balance || 0}
                   currency={currency}
-                  onPurchase={async ({ category, phoneNumber, amount, networkCode, networkName, bonusType }) => {
-                    if (category !== 'airtime') {
-                      toast({
-                        title: "Coming soon",
-                        description: "This bill category is not available yet.",
-                      });
-                      return;
-                    }
-
-                    const payload = {
-                      category,
-                      phoneNumber,
-                      amount,
-                      networkCode,
-                      networkName,
-                      bonusType,
-                    };
+                  onPurchase={async (payload) => {
+                    const endpoint =
+                      payload.category === 'data' ? '/api/bills/data' : '/api/bills/airtime';
 
                     try {
-                      const response = await fetch('/api/bills/airtime', {
+                      const response = await fetch(endpoint, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload),
@@ -935,13 +921,24 @@ function WalletContent() {
 
                       if (!response.ok || !data?.success) {
                         const errorMessage =
-                          data?.error?.message || 'Failed to process airtime purchase';
+                          data?.error?.message || `Failed to process ${payload.category} purchase`;
                         throw new Error(errorMessage);
                       }
 
+                      const description =
+                        payload.category === 'data'
+                          ? data.data?.message ||
+                            `${payload.dataPlanLabel || payload.dataPlanCode} for ${
+                              payload.networkName || 'network'
+                            } initiated`
+                          : data.data?.message ||
+                            `₦${payload.amount.toLocaleString()} purchase for ${
+                              payload.networkName || 'network'
+                            } initiated`;
+
                       toast({
-                        title: "Airtime request submitted",
-                        description: data.data?.message || `₦${amount.toLocaleString()} purchase for ${networkName || 'network'} initiated`,
+                        title: payload.category === 'data' ? 'Data request submitted' : 'Airtime request submitted',
+                        description,
                       });
 
                       if (typeof window !== 'undefined') {

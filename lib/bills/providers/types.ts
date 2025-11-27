@@ -3,6 +3,9 @@ import {
   AirtimePurchaseResult,
   ProviderCallbackResult,
   BillCategory,
+  DataPurchasePayload,
+  DataPurchaseResult,
+  DataPlan,
 } from '@/lib/bills/types';
 import { BillsSettings } from '@/lib/settings';
 
@@ -15,6 +18,8 @@ export interface BillsProvider {
     [category: string]: boolean;
   };
   purchaseAirtime(payload: AirtimePurchasePayload): Promise<AirtimePurchaseResult>;
+  purchaseData?(payload: DataPurchasePayload): Promise<DataPurchaseResult>;
+  fetchDataPlans?(networkCode: string): Promise<DataPlan[]>;
   normalizeCallback(
     params: URLSearchParams | Record<string, string | null | undefined>,
   ): ProviderCallbackResult;

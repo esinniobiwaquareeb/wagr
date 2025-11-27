@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { 
   Smartphone, 
   Wifi, 
@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { useSettings } from "@/hooks/use-settings";
 import { AIRTIME_NETWORKS } from "@/lib/bills/networks";
+import type { DataPlan } from "@/lib/bills/types";
 
 const BILL_CATEGORIES = [
   {
@@ -31,13 +32,6 @@ const BILL_CATEGORIES = [
 ];
 
 const AIRTIME_AMOUNTS = [100, 200, 500, 1000, 2000, 5000];
-const DATA_PLANS = [
-  { name: "500MB", amount: 200, validity: "30 days" },
-  { name: "1GB", amount: 350, validity: "30 days" },
-  { name: "2GB", amount: 600, validity: "30 days" },
-  { name: "5GB", amount: 1200, validity: "30 days" },
-  { name: "10GB", amount: 2000, validity: "30 days" },
-];
 
 interface BillsPurchasePayload {
   category: string;
@@ -46,6 +40,8 @@ interface BillsPurchasePayload {
   networkCode?: string;
   networkName?: string;
   bonusType?: string | null;
+   dataPlanCode?: string;
+   dataPlanLabel?: string;
 }
 
 interface BillsTabProps {
@@ -54,33 +50,18 @@ interface BillsTabProps {
   onPurchase: (payload: BillsPurchasePayload) => Promise<void>;
 }
 
-function ProviderBadge({
-  label,
-  enabled,
-}: {
-  label: string;
-  enabled: boolean;
-}) {
-  return (
-    <span
-      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
-        enabled ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-      }`}
-    >
-      {enabled ? 'Active Provider' : 'Provider Disabled'}
-      <span className="uppercase tracking-wide">{label}</span>
-    </span>
-  );
-}
-
 export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
-  const [selectedPlan, setSelectedPlan] = useState<typeof DATA_PLANS[0] | null>(null);
   const [selectedNetworkId, setSelectedNetworkId] = useState<string | null>(null);
   const [selectedBonusType, setSelectedBonusType] = useState<string | null>(null);
   const [customAmount, setCustomAmount] = useState<string>("");
+  const [selectedDataPlan, setSelectedDataPlan] = useState<DataPlan | null>(null);
+  const [dataPlans, setDataPlans] = useState<DataPlan[]>([]);
+  const [loadingPlans, setLoadingPlans] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
+  const [planSearch, setPlanSearch] = useState("");
   const [processing, setProcessing] = useState(false);
   const { toast } = useToast();
   const { getBillsLimits } = useSettings();
@@ -89,11 +70,12 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
   const {
     billsEnabled,
     airtimeEnabled,
+    dataEnabled,
     minAirtimeAmount,
     maxAirtimeAmount,
+    minDataAmount,
+    maxDataAmount,
     allowedNetworkCodes,
-    defaultProvider,
-    enabledProviders,
   } = billsLimits;
 
   const selectedCategoryData = BILL_CATEGORIES.find((c) => c.id === selectedCategory);
@@ -105,26 +87,94 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
   }, [allowedNetworkCodes]);
   const selectedNetwork =
     availableNetworks.find((network) => network.id === selectedNetworkId) || null;
-  const providerLabel = defaultProvider ? defaultProvider.toUpperCase() : 'PROVIDER';
-  const providerActive = enabledProviders?.includes(defaultProvider);
 
+  const fetchDataPlansFromApi = useCallback(
+    async (networkCode: string) => {
+      setLoadingPlans(true);
+      setPlanError(null);
+      setDataPlans([]);
+      setSelectedDataPlan(null);
+      try {
+        const response = await fetch(`/api/bills/data/plans?networkCode=${networkCode}`);
+        const result = await response.json();
+        if (!response.ok || !result?.success) {
+          const message =
+            result?.error?.message || 'Failed to load data plans. Please try again.';
+          throw new Error(message);
+        }
+        const plans = result.data?.plans || [];
+        setDataPlans(plans);
+        if (plans.length === 0) {
+          setPlanError('No data plans available for this network yet.');
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Failed to load data plans.';
+        setPlanError(message);
+        setDataPlans([]);
+        toast({
+          title: 'Unable to load data plans',
+          description: message,
+          variant: 'destructive',
+        });
+      } finally {
+        setLoadingPlans(false);
+      }
+    },
+    [toast],
+  );
+
+  useEffect(() => {
+    if (selectedCategory === 'data' && selectedNetwork?.code) {
+      setSelectedAmount(null);
+      fetchDataPlansFromApi(selectedNetwork.code);
+    } else {
+      setDataPlans([]);
+      setSelectedDataPlan(null);
+      setPlanSearch("");
+      setPlanError(null);
+      if (selectedCategory !== 'airtime') {
+        setSelectedAmount(null);
+      }
+      setLoadingPlans(false);
+    }
+  }, [selectedCategory, selectedNetwork, fetchDataPlansFromApi]);
+
+  const filteredPlans = useMemo(() => {
+    if (!planSearch.trim()) {
+      return dataPlans;
+    }
+    const query = planSearch.trim().toLowerCase();
+    return dataPlans.filter(
+      (plan) =>
+        plan.label.toLowerCase().includes(query) ||
+        plan.description?.toLowerCase().includes(query) ||
+        plan.code.toLowerCase().includes(query),
+    );
+  }, [dataPlans, planSearch]);
   const resetForm = () => {
     setSelectedCategory(null);
     setPhoneNumber("");
     setSelectedAmount(null);
-    setSelectedPlan(null);
     setSelectedNetworkId(null);
     setSelectedBonusType(null);
     setCustomAmount("");
+    setSelectedDataPlan(null);
+    setDataPlans([]);
+    setPlanSearch("");
+    setPlanError(null);
   };
 
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategory(categoryId);
     setSelectedAmount(null);
-    setSelectedPlan(null);
     setSelectedNetworkId(null);
     setSelectedBonusType(null);
     setCustomAmount("");
+    setSelectedDataPlan(null);
+    setDataPlans([]);
+    setPlanSearch("");
+    setPlanError(null);
   };
 
   const handleAmountSelect = (amount: number) => {
@@ -140,29 +190,7 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
     setCustomAmount("");
   };
 
-  const handlePlanSelect = (plan: typeof DATA_PLANS[0]) => {
-    if (balance < plan.amount) {
-      toast({
-        title: "Insufficient balance",
-        description: `You need ${formatCurrency(plan.amount, currency)} but only have ${formatCurrency(balance, currency)}`,
-        variant: "destructive",
-      });
-      return;
-    }
-    setSelectedPlan(plan);
-    setSelectedAmount(plan.amount);
-    setCustomAmount("");
-  };
-
   const handlePurchase = async () => {
-    if (selectedCategory === 'data') {
-      toast({
-        title: "Coming soon",
-        description: "Data bundle purchases will be available shortly.",
-      });
-      return;
-    }
-
     if (!selectedCategory || !phoneNumber.trim() || !selectedAmount || selectedAmount <= 0) {
       toast({
         title: "Missing information",
@@ -172,7 +200,7 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
       return;
     }
 
-    if (selectedCategory === 'airtime' && !selectedNetwork) {
+    if (!selectedNetwork) {
       toast({
         title: "Select a network",
         description: "Choose a mobile network to continue.",
@@ -181,10 +209,15 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
       return;
     }
 
-    if (selectedAmount < minAirtimeAmount || selectedAmount > maxAirtimeAmount) {
+    const minAllowed =
+      selectedCategory === 'data' ? minDataAmount : minAirtimeAmount;
+    const maxAllowed =
+      selectedCategory === 'data' ? maxDataAmount : maxAirtimeAmount;
+
+    if (selectedAmount < minAllowed || selectedAmount > maxAllowed) {
       toast({
         title: "Amount not allowed",
-        description: `Airtime purchases must be between ₦${minAirtimeAmount.toLocaleString()} and ₦${maxAirtimeAmount.toLocaleString()}.`,
+        description: `This purchase must be between ₦${minAllowed.toLocaleString()} and ₦${maxAllowed.toLocaleString()}.`,
         variant: "destructive",
       });
       return;
@@ -199,17 +232,38 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
       return;
     }
 
-    setProcessing(true);
-    try {
-      await onPurchase({
-        category: selectedCategory,
-        phoneNumber,
-        amount: selectedAmount,
-        networkCode: selectedNetwork?.code,
-        networkName: selectedNetwork?.name,
-        bonusType: selectedBonusType,
+    if (selectedCategory === 'data' && !selectedDataPlan) {
+      toast({
+        title: "Select a data plan",
+        description: "Choose a plan to continue.",
+        variant: "destructive",
       });
+      return;
+    }
 
+    setProcessing(true);
+    const payload: BillsPurchasePayload =
+      selectedCategory === 'data'
+        ? {
+            category: 'data',
+            phoneNumber,
+            amount: selectedAmount,
+            networkCode: selectedNetwork.code,
+            networkName: selectedNetwork.name,
+            dataPlanCode: selectedDataPlan?.code,
+            dataPlanLabel: selectedDataPlan?.label,
+          }
+        : {
+            category: 'airtime',
+            phoneNumber,
+            amount: selectedAmount,
+            networkCode: selectedNetwork.code,
+            networkName: selectedNetwork.name,
+            bonusType: selectedBonusType,
+          };
+
+    try {
+      await onPurchase(payload);
       resetForm();
     } catch {
       // Parent handles error feedback
@@ -223,14 +277,27 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
     if (!numeric) {
       setCustomAmount('');
       setSelectedAmount(null);
-      setSelectedPlan(null);
+      setSelectedDataPlan(null);
       return;
     }
 
     const parsed = parseInt(numeric, 10);
     setCustomAmount(parsed.toString());
     setSelectedAmount(parsed);
-    setSelectedPlan(null);
+    setSelectedDataPlan(null);
+  };
+
+  const handleSelectDataPlan = (plan: DataPlan) => {
+    if (balance < plan.price) {
+      toast({
+        title: "Insufficient balance",
+        description: `You need ${formatCurrency(plan.price, currency)} but only have ${formatCurrency(balance, currency)}`,
+        variant: "destructive",
+      });
+      return;
+    }
+    setSelectedDataPlan(plan);
+    setSelectedAmount(plan.price);
   };
 
   if (!billsEnabled) {
@@ -251,7 +318,11 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
           {BILL_CATEGORIES.map((category) => {
             const Icon = category.icon;
             const isDisabled =
-              category.id === 'airtime' ? !airtimeEnabled : false;
+              category.id === 'airtime'
+                ? !airtimeEnabled
+                : category.id === 'data'
+                ? !dataEnabled
+                : false;
             return (
               <button
                 key={category.id}
@@ -302,10 +373,7 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
 
       {/* Phone Number Input */}
       <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <label className="block text-xs font-medium text-foreground">Phone Number</label>
-          <ProviderBadge label={providerLabel} enabled={Boolean(providerActive)} />
-        </div>
+        <label className="block text-xs font-medium text-foreground mb-1.5">Phone Number</label>
         <div className="relative">
           <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
@@ -398,10 +466,87 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
         </div>
       ) : null}
 
-      {/* Amount/Plan Selection */}
+      {/* Data Plans */}
+      {selectedCategory === 'data' && (
+        <div className="space-y-2">
+          {selectedNetwork ? (
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <label className="block text-xs font-medium">Data Plans</label>
+                <input
+                  type="text"
+                  value={planSearch}
+                  onChange={(e) => setPlanSearch(e.target.value)}
+                  placeholder="Search plans"
+                  className="w-48 px-2 py-1.5 text-xs border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition"
+                  disabled={loadingPlans}
+                />
+              </div>
+              {planError && (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400">{planError}</p>
+              )}
+              {loadingPlans ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredPlans.length === 0 ? (
+                <Card className="border-dashed">
+                  <CardContent className="py-4 text-center text-xs text-muted-foreground">
+                    {planError || 'No plans available yet for this network.'}
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {filteredPlans.map((plan) => {
+                    const isSelected = selectedDataPlan?.code === plan.code;
+                    return (
+                      <button
+                        key={`${plan.code}-${plan.label}`}
+                        type="button"
+                        onClick={() => handleSelectDataPlan(plan)}
+                        className={`w-full text-left p-3 rounded-md border transition ${
+                          isSelected ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/40'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold">{plan.label}</p>
+                            {plan.description && (
+                              <p className="text-[11px] text-muted-foreground mt-0.5">{plan.description}</p>
+                            )}
+                            <p className="text-[10px] text-muted-foreground uppercase mt-1">
+                              Code: {plan.code}
+                            </p>
+                          </div>
+                          <p className="text-sm font-bold whitespace-nowrap">
+                            {formatCurrency(plan.price, currency)}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          ) : (
+            <Card className="border-dashed">
+              <CardContent className="py-3 text-center text-xs text-muted-foreground">
+                Select a network to view available data plans.
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Amount Selection */}
       {selectedCategory === 'airtime' && (
-        <div>
-          <label className="block text-xs font-medium mb-2">Select Amount</label>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-medium">Select Amount</label>
+            <span className="text-[11px] text-muted-foreground">
+              ₦{minAirtimeAmount.toLocaleString()} – ₦{maxAirtimeAmount.toLocaleString()}
+            </span>
+          </div>
           <div className="grid grid-cols-3 gap-2">
             {AIRTIME_AMOUNTS.map((amount) => {
               const isSelected = selectedAmount === amount;
@@ -425,6 +570,21 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
                 </button>
               );
             })}
+          </div>
+          <div className="relative">
+            <input
+              type="number"
+              min={minAirtimeAmount}
+              max={maxAirtimeAmount}
+              value={customAmount}
+              onChange={(e) => handleCustomAmountChange(e.target.value)}
+              placeholder="Or enter custom amount"
+              className="w-full px-3 py-2 pr-12 text-sm border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition"
+              disabled={processing}
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">
+              NGN
+            </span>
           </div>
         </div>
       )}
@@ -455,12 +615,19 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
               {formatCurrency(balance - selectedAmount, currency)}
             </span>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground/80 pt-1">
-            <span>Provider</span>
-            <span className="font-medium uppercase">{providerLabel}</span>
-          </div>
+          {selectedCategory === 'data' && selectedDataPlan && (
+            <div className="text-[11px] text-muted-foreground/80">
+              <span className="font-semibold">Plan:</span> {selectedDataPlan.label}
+            </div>
+          )}
           <p className="text-[11px] text-muted-foreground/80">
-            Limits: ₦{minAirtimeAmount.toLocaleString()} — ₦{maxAirtimeAmount.toLocaleString()}
+            Limits: ₦
+            {(
+              (selectedCategory === 'data' ? minDataAmount : minAirtimeAmount) ?? 0
+            ).toLocaleString()} — ₦
+            {(
+              (selectedCategory === 'data' ? maxDataAmount : maxAirtimeAmount) ?? 0
+            ).toLocaleString()}
           </p>
         </div>
       )}

@@ -3,12 +3,16 @@ import {
   AirtimePurchasePayload,
   AirtimePurchaseResult,
   ProviderCallbackResult,
+  DataPlan,
+  DataPurchasePayload,
+  DataPurchaseResult,
 } from '@/lib/bills/types';
 import {
   requestNellobyteAirtime,
   isNellobyteProcessing,
   isNellobyteSuccess,
   NellobyteConfig,
+  requestNellobyteDataBundle,
 } from '@/lib/bills/nellobyte';
 import { BillsSettings } from '@/lib/settings';
 
@@ -38,7 +42,7 @@ export function createNellobyteProvider(
     label: 'Nellobyte Systems',
     supports: {
       airtime: true,
-      data: false,
+      data: true,
     },
     async purchaseAirtime(payload: AirtimePurchasePayload): Promise<AirtimePurchaseResult> {
       const response = await requestNellobyteAirtime(config, {
@@ -51,6 +55,33 @@ export function createNellobyteProvider(
 
       const statusCode = response.statuscode;
       let status: AirtimePurchaseResult['status'] = 'processing';
+
+      if (isNellobyteSuccess(statusCode)) {
+        status = 'completed';
+      } else if (!isNellobyteProcessing(statusCode)) {
+        status = 'failed';
+      }
+
+      return {
+        status,
+        message: response.status || response.remark,
+        providerStatus: response.status,
+        providerStatusCode: response.statuscode,
+        orderId: response.orderid,
+        requestId: payload.requestId,
+        rawResponse: response,
+      };
+    },
+    async purchaseData(payload: DataPurchasePayload): Promise<DataPurchaseResult> {
+      const response = await requestNellobyteDataBundle(config, {
+        phoneNumber: payload.phoneNumber,
+        networkCode: payload.networkCode,
+        dataPlanCode: payload.dataPlanCode,
+        requestId: payload.requestId,
+      });
+
+      const statusCode = response.statuscode;
+      let status: DataPurchaseResult['status'] = 'processing';
 
       if (isNellobyteSuccess(statusCode)) {
         status = 'completed';

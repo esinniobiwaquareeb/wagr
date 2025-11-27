@@ -1,4 +1,4 @@
-import { NellobyteAirtimeResponse } from '@/lib/bills/types';
+import { NellobyteAirtimeResponse, DataPlan } from '@/lib/bills/types';
 
 export interface NellobyteConfig {
   userId: string;
@@ -13,6 +13,13 @@ export interface NellobyteAirtimePayload {
   networkCode: string;
   requestId: string;
   bonusType?: string | null;
+}
+
+export interface NellobyteDataPayload {
+  phoneNumber: string;
+  networkCode: string;
+  dataPlanCode: string;
+  requestId: string;
 }
 
 const DEFAULT_BASE_URL = 'https://www.nellobytesystems.com';
@@ -91,5 +98,123 @@ export function isNellobyteSuccess(statusCode?: string): boolean {
 export function isNellobyteProcessing(statusCode?: string): boolean {
   if (!statusCode) return false;
   return statusCode === '100' || statusCode === '101';
+}
+
+export async function requestNellobyteDataBundle(
+  config: NellobyteConfig,
+  payload: NellobyteDataPayload,
+): Promise<NellobyteAirtimeResponse> {
+  const baseUrl = config.baseUrl || DEFAULT_BASE_URL;
+  const url = new URL('/APIDatabundleV1.asp', baseUrl);
+
+  url.searchParams.set('UserID', config.userId);
+  url.searchParams.set('APIKey', config.apiKey);
+  url.searchParams.set('MobileNetwork', payload.networkCode);
+  url.searchParams.set('DataPlan', payload.dataPlanCode);
+  url.searchParams.set('MobileNumber', payload.phoneNumber);
+  url.searchParams.set('RequestID', payload.requestId);
+
+  if (config.callbackUrl) {
+    url.searchParams.set('CallBackURL', config.callbackUrl);
+  }
+
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Nellobyte data request failed with status ${response.status}`);
+  }
+
+  const data = (await response.json()) as NellobyteAirtimeResponse;
+  return data;
+}
+
+export interface NellobytePlanResponse {
+  MobileNetwork?: string;
+  mobilenetwork?: string;
+  network?: string;
+  Network?: string;
+  DataPlan?: string;
+  dataplan?: string;
+  data_plan?: string;
+  Amount?: string | number;
+  amount?: string | number;
+  Product_Name?: string;
+  product_name?: string;
+  plan?: string;
+  description?: string;
+  Remark?: string;
+  remark?: string;
+  OrderType?: string;
+  ordertype?: string;
+}
+
+export async function fetchNellobyteDataPlans(config: NellobyteConfig): Promise<NellobytePlanResponse[]> {
+  const baseUrl = config.baseUrl || DEFAULT_BASE_URL;
+  const url = new URL('/APIDatabundlePlansV2.asp', baseUrl);
+  url.searchParams.set('UserID', config.userId);
+
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Nellobyte data plans request failed with status ${response.status}`);
+  }
+
+  const data = await response.json();
+  if (!Array.isArray(data)) {
+    throw new Error('Unexpected data plan format received from Nellobyte');
+  }
+
+  return data;
+}
+
+export function mapNellobytePlansToDataPlans(
+  plans: Array<Record<string, any>>,
+  networkCode: string,
+  networkName?: string,
+): DataPlan[] {
+  const resolvedNetworkName = networkName || networkCode;
+
+  return plans
+    .filter((plan) => {
+      const networkField =
+        plan.MobileNetwork ||
+        plan.mobilenetwork ||
+        plan.network ||
+        plan.Network ||
+        '';
+      if (!networkField) return true; // Some APIs omit network per plan
+      return networkField.toLowerCase().includes(resolvedNetworkName.toLowerCase());
+    })
+    .map((plan) => {
+      const code =
+        plan.DataPlan || plan.dataplan || plan.data_plan || plan.plan || plan.OrderType || plan.ordertype || '';
+      const rawAmount = plan.Amount ?? plan.amount ?? plan.Remark ?? plan.remark;
+      const price = typeof rawAmount === 'number' ? rawAmount : parseFloat(String(rawAmount).replace(/[^\d.]/g, '')) || 0;
+      const label =
+        plan.Product_Name ||
+        plan.product_name ||
+        plan.OrderType ||
+        plan.ordertype ||
+        plan.description ||
+        plan.Remark ||
+        plan.remark ||
+        `${code} ${resolvedNetworkName}`;
+
+      return {
+        code: code.toString(),
+        label,
+        price,
+        networkCode,
+        description: plan.description || plan.Remark || plan.remark,
+        raw: plan,
+      };
+    })
+    .filter((plan) => plan.code && plan.price > 0);
 }
 

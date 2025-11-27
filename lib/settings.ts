@@ -231,8 +231,11 @@ export interface BillsProviderConfig {
 export interface BillsSettings {
   billsEnabled: boolean;
   airtimeEnabled: boolean;
+  dataEnabled: boolean;
   minAmount: number;
   maxAmount: number;
+  dataMinAmount: number;
+  dataMaxAmount: number;
   callbackUrl?: string;
   allowedNetworkCodes: string[];
   defaultBonusType?: string | null;
@@ -248,8 +251,11 @@ export async function getBillsSettings(): Promise<BillsSettings> {
   const [
     billsEnabled,
     airtimeEnabled,
+    dataEnabled,
     minAmount,
     maxAmount,
+    dataMinAmount,
+    dataMaxAmount,
     callbackUrl,
     allowedNetworkCodes,
     defaultBonusType,
@@ -260,8 +266,11 @@ export async function getBillsSettings(): Promise<BillsSettings> {
   ] = await Promise.all([
     getSetting<boolean>('features.bills_enabled', true),
     getSetting<boolean>('bills.airtime_enabled', true),
+    getSetting<boolean>('bills.data_enabled', true),
     getSetting<number>('bills.airtime_min_amount', 50),
     getSetting<number>('bills.airtime_max_amount', 200000),
+    getSetting<number>('bills.data_min_amount', 50),
+    getSetting<number>('bills.data_max_amount', 200000),
     getSetting<string>('bills.callback_url', ''),
     getSetting<string[]>('bills.allowed_network_codes', ['01', '02', '03', '04']),
     getSetting<string | null>('bills.default_bonus_type', null),
@@ -282,8 +291,11 @@ export async function getBillsSettings(): Promise<BillsSettings> {
   return {
     billsEnabled: Boolean(billsEnabled),
     airtimeEnabled: Boolean(airtimeEnabled),
+    dataEnabled: Boolean(dataEnabled),
     minAmount,
     maxAmount,
+    dataMinAmount,
+    dataMaxAmount,
     callbackUrl,
     allowedNetworkCodes: Array.isArray(allowedNetworkCodes) ? allowedNetworkCodes : [],
     defaultBonusType,

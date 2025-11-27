@@ -27,6 +27,36 @@ export interface AirtimePurchaseResult {
   rawResponse?: any;
 }
 
+export interface DataPlan {
+  code: string;
+  label: string;
+  price: number;
+  networkCode: string;
+  description?: string;
+  raw?: any;
+}
+
+export interface DataPurchasePayload {
+  phoneNumber: string;
+  amount: number;
+  networkCode: string;
+  networkName?: string;
+  dataPlanCode: string;
+  dataPlanLabel?: string;
+  requestId: string;
+  clientReference: string;
+}
+
+export interface DataPurchaseResult {
+  status: ProviderPurchaseStatus;
+  message?: string;
+  providerStatus?: string;
+  providerStatusCode?: string;
+  orderId?: string;
+  requestId: string;
+  rawResponse?: any;
+}
+
 export interface ProviderCallbackResult {
   status: ProviderPurchaseStatus;
   orderId?: string;
