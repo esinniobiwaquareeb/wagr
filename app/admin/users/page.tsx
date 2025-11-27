@@ -1,16 +1,19 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { format } from "date-fns";
-import { Shield, User as UserIcon, Lock, Coins, TrendingUp, Calendar, Ban, CheckCircle } from "lucide-react";
+import { Shield, User as UserIcon, Lock, Coins, TrendingUp, Calendar, Ban, CheckCircle, ShieldCheck, ShieldAlert, Mail, Users as UsersIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import Image from "next/image";
 import { getCurrentUser } from "@/lib/auth/client";
 import { apiGet, apiPatch } from "@/lib/api-client";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface User {
   id: string;
@@ -27,6 +30,9 @@ interface User {
   wagers_created?: number;
   entries_count?: number;
   total_wagered?: number;
+  kyc_level?: number | null;
+  kyc_level_label?: string | null;
+  email_verified?: boolean;
 }
 
 export default function AdminUsersPage() {
@@ -168,14 +174,41 @@ export default function AdminUsersPage() {
     return null;
   }
 
+  const stats = useMemo(() => {
+    const total = users.length;
+    const admins = users.filter((user) => user.is_admin).length;
+    const verified = users.filter((user) => (user.kyc_level || 1) >= 2).length;
+    const suspended = users.filter((user) => user.is_suspended).length;
+    return [
+      { label: 'Total Users', value: total, icon: UsersIcon },
+      { label: 'Verified (L2+)', value: verified, icon: ShieldCheck },
+      { label: 'Admins', value: admins, icon: Shield },
+      { label: 'Suspended', value: suspended, icon: ShieldAlert },
+    ];
+  }, [users]);
+
   return (
     <main className="min-h-screen bg-background p-4 md:p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <div className="mb-2">
-            <h1 className="text-2xl md:text-3xl font-bold">Users</h1>
-          </div>
-          <p className="text-sm text-muted-foreground">Manage all users in the system</p>
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="space-y-1">
+          <h1 className="text-2xl md:text-3xl font-bold">Users</h1>
+          <p className="text-sm text-muted-foreground">
+            Review user activity, balances, and verification levels across the platform.
+          </p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {stats.map((stat) => (
+            <Card key={stat.label} className="border border-border/80">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">{stat.label}</CardTitle>
+                <stat.icon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-semibold">{stat.value.toLocaleString()}</div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
         <DataTable
@@ -185,9 +218,9 @@ export default function AdminUsersPage() {
               id: "user",
               header: "User",
               cell: (row) => (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3 min-w-[220px]">
                   {row.avatar_url ? (
-                    <div className="relative h-8 w-8 rounded-full overflow-hidden flex-shrink-0">
+                    <div className="relative h-10 w-10 rounded-full overflow-hidden flex-shrink-0">
                       <Image
                         src={row.avatar_url}
                         alt={row.username || row.email || "User"}
@@ -196,29 +229,43 @@ export default function AdminUsersPage() {
                       />
                     </div>
                   ) : (
-                    <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
                       <UserIcon className="h-4 w-4 text-muted-foreground" />
                     </div>
                   )}
-                  <div className="flex flex-col min-w-0">
-                    <span className="font-medium text-sm truncate">
-                      {row.username || row.email || `User ${row.id.slice(0, 8)}`}
-                    </span>
-                    {row.username && row.email && (
-                      <span className="text-xs text-muted-foreground truncate">{row.email}</span>
-                    )}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-semibold truncate">
+                        {row.username || row.email || `User ${row.id.slice(0, 6)}`}
+                      </p>
+                      {row.is_admin && (
+                        <Badge variant="outline" className="text-[11px] flex items-center gap-1">
+                          <Shield className="h-3 w-3" />
+                          Admin
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate max-w-[220px]">
+                      {row.email || "No email"}
+                    </p>
+                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-1">
+                      <ShieldCheck className="h-3 w-3" />
+                      <span>{row.kyc_level_label || "Level 1 — Email Verified"}</span>
+                    </div>
                   </div>
                 </div>
               ),
             },
             {
-              id: "balance",
-              header: "Balance",
+              id: "wallet",
+              header: "Wallet",
               accessorKey: "balance",
               cell: (row) => (
-                <div className="flex items-center gap-1.5">
-                  <Coins className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="font-medium">{formatCurrency(row.balance || 0, DEFAULT_CURRENCY as Currency)}</span>
+                <div className="text-sm font-medium">
+                  {formatCurrency(row.balance || 0, DEFAULT_CURRENCY as Currency)}
+                  <p className="text-[11px] text-muted-foreground">
+                    Lifetime: {formatCurrency(row.total_wagered || 0, DEFAULT_CURRENCY as Currency)}
+                  </p>
                 </div>
               ),
             },
@@ -226,46 +273,53 @@ export default function AdminUsersPage() {
               id: "activity",
               header: "Activity",
               cell: (row) => (
-                <div className="flex flex-col gap-0.5 text-xs">
-                  <div className="flex items-center gap-1">
-                    <TrendingUp className="h-3 w-3 text-muted-foreground" />
-                    <span>{row.wagers_created || 0} wagers</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-muted-foreground">
-                    <span>{row.entries_count || 0} entries</span>
-                  </div>
-                  {row.total_wagered && row.total_wagered > 0 && (
-                    <div className="text-muted-foreground">
-                      {formatCurrency(row.total_wagered, DEFAULT_CURRENCY as Currency)} wagered
-                    </div>
-                  )}
+                <div className="text-xs text-muted-foreground space-y-0.5 min-w-[140px]">
+                  <p className="flex items-center gap-1">
+                    <TrendingUp className="h-3 w-3" />
+                    Wagers: <span className="text-foreground font-semibold">{row.wagers_created || 0}</span>
+                  </p>
+                  <p className="flex items-center gap-1">
+                    <Coins className="h-3 w-3" />
+                    Entries: <span className="text-foreground font-semibold">{row.entries_count || 0}</span>
+                  </p>
+                  <p className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {format(new Date(row.created_at), "MMM d, yyyy")}
+                  </p>
                 </div>
               ),
             },
             {
-              id: "role",
-              header: "Role & Security",
+              id: "status",
+              header: "Status",
               cell: (row) => (
-                <div className="flex flex-col gap-1">
-                  {row.is_admin ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-primary/10 text-primary text-xs w-fit">
-                      <Shield className="h-3 w-3" />
-                      Admin
-                    </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">User</span>
-                  )}
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge
+                    variant={row.is_suspended ? "destructive" : "secondary"}
+                    className="text-[11px] flex items-center gap-1"
+                  >
+                    {row.is_suspended ? (
+                      <>
+                        <ShieldAlert className="h-3 w-3" /> Suspended
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="h-3 w-3" /> Active
+                      </>
+                    )}
+                  </Badge>
+                  <Badge
+                    variant={row.email_verified ? "outline" : "destructive"}
+                    className="text-[11px] flex items-center gap-1"
+                  >
+                    <Mail className="h-3 w-3" />
+                    {row.email_verified ? "Email OK" : "Email Unverified"}
+                  </Badge>
                   {row.two_factor_enabled && (
-                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-green-500/10 text-green-700 dark:text-green-400 text-xs w-fit">
+                    <Badge variant="outline" className="text-[11px] flex items-center gap-1">
                       <Lock className="h-3 w-3" />
                       2FA
-                    </span>
-                  )}
-                  {row.is_suspended && (
-                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-500/10 text-red-700 dark:text-red-400 text-xs w-fit">
-                      <Ban className="h-3 w-3" />
-                      Suspended
-                    </span>
+                    </Badge>
                   )}
                 </div>
               ),
@@ -277,46 +331,35 @@ export default function AdminUsersPage() {
                 <div className="flex items-center gap-2">
                   {!row.is_admin && (
                     row.is_suspended ? (
-                      <button
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
                         onClick={() => handleUnsuspendClick(row)}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded bg-green-500/10 text-green-700 dark:text-green-400 text-xs hover:bg-green-500/20 transition"
                       >
-                        <CheckCircle className="h-3 w-3" />
+                        <CheckCircle className="h-3.5 w-3.5 mr-1" />
                         Unsuspend
-                      </button>
+                      </Button>
                     ) : (
-                      <button
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="text-xs"
                         onClick={() => handleSuspendClick(row)}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-500/10 text-red-700 dark:text-red-400 text-xs hover:bg-red-500/20 transition"
                       >
-                        <Ban className="h-3 w-3" />
+                        <Ban className="h-3.5 w-3.5 mr-1" />
                         Suspend
-                      </button>
+                      </Button>
                     )
                   )}
                 </div>
               ),
             },
-            {
-              id: "created_at",
-              header: "Joined",
-              accessorKey: "created_at",
-              cell: (row) => (
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <Calendar className="h-3.5 w-3.5" />
-                  <span>{format(new Date(row.created_at), "MMM d, yyyy")}</span>
-                </div>
-              ),
-            },
           ]}
-          searchable
-          searchPlaceholder="Search by email, username..."
-          searchKeys={["email", "username"]}
-          pagination
-          pageSize={20}
-          sortable
+          searchKeys={["username", "email"] as (keyof User)[]}
+          searchPlaceholder="Search by username or email"
+          emptyMessage="No users found."
           defaultSort={{ key: "created_at", direction: "desc" }}
-          emptyMessage="No users found"
         />
       </div>
 
