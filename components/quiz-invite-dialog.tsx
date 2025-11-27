@@ -57,9 +57,11 @@ export function QuizInviteDialog({
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   // Load invited users
-  const loadInvitedUsers = useCallback(async () => {
+  const loadInvitedUsers = useCallback(async (showLoading = false) => {
     try {
-      setLoadingInvites(true);
+      if (showLoading) {
+        setLoadingInvites(true);
+      }
       const response = await fetch(`/api/quizzes/${quizId}/invites`);
       if (response.ok) {
         const data = await response.json();
@@ -68,13 +70,15 @@ export function QuizInviteDialog({
     } catch (error) {
       console.error('Failed to load invited users:', error);
     } finally {
-      setLoadingInvites(false);
+      if (showLoading) {
+        setLoadingInvites(false);
+      }
     }
   }, [quizId]);
 
   useEffect(() => {
     if (open) {
-      loadInvitedUsers();
+      loadInvitedUsers(true);
       
       // Set up polling to refresh invites every 2 seconds while dialog is open
       const interval = setInterval(() => {

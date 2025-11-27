@@ -18,58 +18,115 @@ interface SettingsMap {
   [key: string]: any;
 }
 
+let settingsCache: SettingsMap | null = null;
+let settingsPromise: Promise<SettingsMap> | null = null;
+let settingsError: Error | null = null;
+
+async function fetchSettingsFromApi(): Promise<SettingsMap> {
+  try {
+    const response = await apiGet<{ settings: Record<string, any> }>('/settings/public');
+    if (response?.settings) {
+      return response.settings;
+    }
+    return {};
+  } catch (publicError) {
+    try {
+      const adminResponse = await apiGet<{ settings: Setting[] }>('/admin/settings');
+      if (adminResponse?.settings) {
+        const settingsMap: SettingsMap = {};
+        adminResponse.settings.forEach((setting) => {
+          if (setting.is_public) {
+            settingsMap[setting.key] = setting.value;
+          }
+        });
+        return settingsMap;
+      }
+      return {};
+    } catch {
+      if (publicError instanceof Error) {
+        throw publicError;
+      }
+      throw new Error('Failed to fetch settings');
+    }
+  }
+}
+
+async function loadSettings(force = false): Promise<SettingsMap> {
+  if (!force) {
+    if (settingsCache) {
+      return settingsCache;
+    }
+    if (settingsPromise) {
+      return settingsPromise;
+    }
+  }
+
+  const fetchPromise = fetchSettingsFromApi()
+    .then((data) => {
+      settingsCache = data;
+      settingsError = null;
+      return data;
+    })
+    .catch((err) => {
+      const normalizedError = err instanceof Error ? err : new Error('Failed to fetch settings');
+      settingsError = normalizedError;
+      if (!force) {
+        settingsCache = null;
+      }
+      throw normalizedError;
+    });
+
+  if (!force) {
+    settingsPromise = fetchPromise.finally(() => {
+      settingsPromise = null;
+    });
+    return settingsPromise;
+  }
+
+  await fetchPromise;
+  return settingsCache || {};
+}
+
 /**
  * Hook to fetch and access platform settings on the client side
  * Only fetches public settings or requires admin authentication
  */
 export function useSettings() {
-  const [settings, setSettings] = useState<SettingsMap>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  const fetchSettings = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Fetch public settings (non-admin endpoint)
-      try {
-        const response = await apiGet<{ settings: Record<string, any> }>('/settings/public');
-        
-        if (response && response.settings) {
-          setSettings(response.settings);
-        }
-      } catch (adminError) {
-        // If public endpoint fails, try admin endpoint (for admin users)
-        try {
-          const adminResponse = await apiGet<{ settings: Setting[]; grouped: any }>('/admin/settings');
-          
-          if (adminResponse && adminResponse.settings) {
-            const settingsMap: SettingsMap = {};
-            adminResponse.settings.forEach((setting: Setting) => {
-              if (setting.is_public) {
-                settingsMap[setting.key] = setting.value;
-              }
-            });
-            setSettings(settingsMap);
-          }
-        } catch (err) {
-          throw adminError; // Throw original error if both fail
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching settings:', err);
-      setError(err instanceof Error ? err : new Error('Failed to fetch settings'));
-      // Set defaults on error
-      setSettings({});
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const [settings, setSettings] = useState<SettingsMap>(() => settingsCache || {});
+  const [loading, setLoading] = useState(!settingsCache);
+  const [error, setError] = useState<Error | null>(settingsError);
 
   useEffect(() => {
-    fetchSettings();
-  }, [fetchSettings]);
+    let isMounted = true;
+
+    if (settingsCache) {
+      setLoading(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    loadSettings()
+      .then((data) => {
+        if (!isMounted) return;
+        setSettings(data);
+        setError(null);
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+        setError(err instanceof Error ? err : new Error('Failed to fetch settings'));
+        setSettings({});
+      })
+      .finally(() => {
+        if (isMounted) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const getSetting = useCallback((key: string, defaultValue?: any) => {
     return settings[key] !== undefined ? settings[key] : defaultValue;
@@ -109,6 +166,20 @@ export function useSettings() {
     };
   }, [getSetting]);
 
+  const refetch = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await loadSettings(true);
+      setSettings(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to fetch settings'));
+      setSettings({});
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     settings,
     loading,
@@ -117,7 +188,7 @@ export function useSettings() {
     getWagerLimits,
     getQuizLimits,
     getPaymentLimits,
-    refetch: fetchSettings,
+    refetch,
   };
 }
 

@@ -3987,7 +3987,7 @@ DECLARE
   participant_record RECORD;
   total_score NUMERIC;
   total_possible_points NUMERIC;
-  percentage_score NUMERIC;
+  calculated_percentage NUMERIC;
 BEGIN
   -- Get participant info
   SELECT qp.*, q.total_questions INTO participant_record
@@ -4009,16 +4009,16 @@ BEGIN
   
   -- Calculate percentage
   IF total_possible_points > 0 THEN
-    percentage_score := (total_score / total_possible_points) * 100;
+    calculated_percentage := (total_score / total_possible_points) * 100;
   ELSE
-    percentage_score := 0;
+    calculated_percentage := 0;
   END IF;
   
   -- Update participant
   UPDATE quiz_participants
   SET 
     score = total_score,
-    percentage_score = percentage_score
+    percentage_score = calculated_percentage
   WHERE id = participant_id_param;
 END;
 $$;
