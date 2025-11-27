@@ -79,6 +79,14 @@ export async function POST(
       throw new AppError(ErrorCode.VALIDATION_ERROR, 'No participants have completed the quiz yet');
     }
 
+    // Ensure quiz is marked as completed before settlement
+    if (quiz.status !== 'completed' && quiz.status !== 'settled') {
+      await serviceSupabase
+        .from('quizzes')
+        .update({ status: 'completed', updated_at: new Date().toISOString() })
+        .eq('id', quizId);
+    }
+
     // Settle quiz using database function
     const { error: settleError } = await serviceSupabase.rpc('settle_quiz', {
       quiz_id_param: quizId,

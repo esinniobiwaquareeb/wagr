@@ -111,10 +111,12 @@ export default function QuizDetailPage() {
   const countdown = useDeadlineCountdown(quiz?.end_date || null);
   const quizHasEnded = useMemo(() => {
     if (!quiz) return false;
+    if (quiz.settled_at) return true;
+    if (['completed', 'settled', 'cancelled'].includes(quiz.status)) return true;
     if (quiz.end_date) {
       return countdown.hasElapsed;
     }
-    return ['completed', 'settled', 'cancelled'].includes(quiz.status);
+    return false;
   }, [quiz, countdown.hasElapsed]);
   const canSettleQuiz = useMemo(() => {
     if (!quiz || !isCreator) return false;

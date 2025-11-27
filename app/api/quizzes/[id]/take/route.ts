@@ -207,6 +207,27 @@ export async function POST(
         .select('*, quiz_questions (*, quiz_answers (*))')
         .eq('participant_id', participant.id);
 
+      // If everyone has completed, mark the quiz as completed
+      const { count: remainingParticipants, error: remainingError } = await serviceSupabase
+        .from('quiz_participants')
+        .select('id', { count: 'exact', head: true })
+        .eq('quiz_id', quizId)
+        .neq('status', 'completed');
+
+      if (remainingError) {
+        logError(new Error(`Failed to check participant statuses: ${remainingError.message}`), { remainingError });
+      } else if (!remainingParticipants || remainingParticipants === 0) {
+        const { error: markCompletedError } = await serviceSupabase
+          .from('quizzes')
+          .update({ status: 'completed', updated_at: new Date().toISOString() })
+          .eq('id', quizId)
+          .neq('status', 'settled');
+
+        if (markCompletedError) {
+          logError(new Error(`Failed to mark quiz as completed: ${markCompletedError.message}`), { markCompletedError });
+        }
+      }
+
       return successResponseNext({
         participant: updatedParticipant,
         responses: allResponses || [],

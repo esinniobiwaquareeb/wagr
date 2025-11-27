@@ -19,7 +19,7 @@ BEGIN
   -- Get quiz details
   SELECT * INTO quiz_record
   FROM quizzes
-  WHERE id = quiz_id_param AND status IN ('completed', 'in_progress');
+  WHERE id = quiz_id_param AND status IN ('completed', 'in_progress', 'open');
   
   IF NOT FOUND THEN
     RETURN;
