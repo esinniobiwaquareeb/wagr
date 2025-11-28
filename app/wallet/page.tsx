@@ -890,7 +890,7 @@ function WalletContent() {
                   className="flex items-center justify-center gap-1.5 py-1.5 px-2 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
                 >
                   <Send className="h-3.5 w-3.5" />
-                  <span>Transfer</span>
+                  <span>Wallet Transfer</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="bills" 
