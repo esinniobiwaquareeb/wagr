@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
-import { User, Mail, Calendar, Settings, Edit2, Save, X, ChevronRight, Shield, ShieldCheck, Trophy, Eye, EyeOff, Key, History, LogOut, Upload, Camera, Wallet as WalletIcon, Plus, TrendingUp, Users } from "lucide-react";
+import { User, Mail, Calendar, Settings, Edit2, Save, X, ChevronRight, Shield, ShieldCheck, Trophy, Eye, EyeOff, Key, History, LogOut, Upload, Camera, Wallet as WalletIcon, Plus, TrendingUp, Users, ShieldAlert } from "lucide-react";
 import { BackButton } from "@/components/back-button";
 import { format } from "date-fns";
 import Link from "next/link";
@@ -17,10 +17,9 @@ import { ChangePasswordDialog } from "@/components/change-password-dialog";
 import { PushNotificationSettings } from "@/components/push-notification-settings";
 import { CreateWagerModal } from "@/components/create-wager-modal";
 import { PreferencesModal } from "@/components/preferences-modal";
+import { KycModal } from "@/components/kyc-modal";
 import { clear2FAVerification } from "@/lib/session-2fa";
 import { Badge } from "@/components/ui/badge";
-import { KycStatusCard } from "@/components/profile/kyc-status-card";
-import { KycUpgradeDialog } from "@/components/profile/kyc-upgrade-dialog";
 import type { KycSummary } from "@/lib/kyc/types";
 
 interface Profile {
@@ -53,6 +52,7 @@ export default function Profile() {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showCreateWagerModal, setShowCreateWagerModal] = useState(false);
   const [showPreferencesModal, setShowPreferencesModal] = useState(false);
+  const [showKycModal, setShowKycModal] = useState(false);
   const [myWagers, setMyWagers] = useState<any[]>([]);
   const [loadingWagers, setLoadingWagers] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -640,13 +640,24 @@ export default function Profile() {
             {/* Account Settings */}
             <div className="bg-card border border-border rounded-xl p-4 md:p-6 space-y-4">
               <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wide">Account Settings</h3>
-              <KycStatusCard
-                summary={kycSummary}
-                loading={kycLoading}
-                onStartUpgrade={handleUpgradeRequest}
-                variant="embedded"
-              />
               <div className="space-y-1">
+                <button
+                  onClick={() => setShowKycModal(true)}
+                  className="w-full flex items-center justify-between p-3 md:p-3.5 hover:bg-muted rounded-lg transition active:scale-[0.98] touch-manipulation group min-h-[44px]"
+                >
+                  <div className="flex items-center gap-3">
+                    <ShieldAlert className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
+                    <div className="flex flex-col items-start">
+                      <span className="font-medium text-sm">KYC Verification</span>
+                      {kycSummary && (
+                        <span className="text-xs text-muted-foreground">
+                          {kycSummary.currentLabel}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                </button>
                 <button
                   onClick={() => setShowPreferencesModal(true)}
                   className="w-full flex items-center justify-between p-3 md:p-3.5 hover:bg-muted rounded-lg transition active:scale-[0.98] touch-manipulation group min-h-[44px]"
@@ -945,21 +956,20 @@ export default function Profile() {
             isOpen={showPreferencesModal}
             onClose={() => setShowPreferencesModal(false)}
           />
-          <KycUpgradeDialog
-            level={2}
-            open={levelDialog === 2}
-            onOpenChange={(open) => setLevelDialog(open ? 2 : null)}
-            limits={kycSummary?.limits ?? null}
-            submitting={submittingLevel === 2}
-            onSubmit={(payload) => handleKycSubmit(2, payload)}
-          />
-          <KycUpgradeDialog
-            level={3}
-            open={levelDialog === 3}
-            onOpenChange={(open) => setLevelDialog(open ? 3 : null)}
-            limits={kycSummary?.limits ?? null}
-            submitting={submittingLevel === 3}
-            onSubmit={(payload) => handleKycSubmit(3, payload)}
+          <KycModal
+            isOpen={showKycModal}
+            onClose={async () => {
+              setShowKycModal(false);
+              // Refresh KYC data when modal closes
+              await fetchKycSummary();
+            }}
+            summary={kycSummary}
+            loading={kycLoading}
+            onStartUpgrade={handleUpgradeRequest}
+            levelDialog={levelDialog}
+            onLevelDialogChange={setLevelDialog}
+            submittingLevel={submittingLevel}
+            onSubmit={handleKycSubmit}
           />
         </>
       )}
