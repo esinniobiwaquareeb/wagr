@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
-import { ArrowLeft, Clock, CheckCircle2, Users, AlertTriangle, ExternalLink } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle2, Users, AlertTriangle, ExternalLink, Trophy } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentUser } from "@/lib/auth/client";
 import { useToast } from "@/hooks/use-toast";
@@ -12,6 +12,8 @@ import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency"
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { Button } from "@/components/ui/button";
 
 interface AdminWagerDetailPageProps {
   params: Promise<{ id: string }>;
@@ -39,6 +41,9 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
   const [loading, setLoading] = useState(true);
   const [wager, setWager] = useState<any>(null);
   const [entries, setEntries] = useState<WagerEntry[]>([]);
+  const [resolving, setResolving] = useState(false);
+  const [showResolveDialog, setShowResolveDialog] = useState(false);
+  const [selectedSide, setSelectedSide] = useState<"a" | "b" | null>(null);
 
   const [sideASum, setSideASum] = useState(0);
   const [sideBSum, setSideBSum] = useState(0);
@@ -126,6 +131,116 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
     },
     [isAdmin, supabase, toast],
   );
+
+  const handleResolveClick = (side: "a" | "b") => {
+    setSelectedSide(side);
+    setShowResolveDialog(true);
+  };
+
+  const handleResolveWager = async () => {
+    if (!isAdmin || !wager || !selectedSide) return;
+
+    const wagerId = wager.id;
+    const winningSide = selectedSide;
+    
+    setShowResolveDialog(false);
+    setResolving(true);
+    
+    try {
+      // Check if deadline has passed
+      if (wager.deadline) {
+        const deadline = new Date(wager.deadline);
+        const now = new Date();
+        
+        if (deadline > now) {
+          toast({
+            title: "Cannot settle wager",
+            description: `The deadline for this wager has not passed yet. Deadline: ${format(deadline, "MMM d, yyyy 'at' HH:mm")}. You can only settle wagers after their deadline.`,
+            variant: "destructive",
+          });
+          setResolving(false);
+          setSelectedSide(null);
+          return;
+        }
+      }
+
+      // First, set the winning side
+      const { error: updateError } = await supabase
+        .from("wagers")
+        .update({ 
+          winning_side: winningSide
+        })
+        .eq("id", wagerId);
+
+      if (updateError) throw updateError;
+
+      // Immediately settle the wager using the database function
+      try {
+        const { error: settleError } = await supabase.rpc("settle_wager", {
+          wager_id_param: wagerId
+        });
+
+        // Wait a moment for the settlement to complete
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Verify the wager status was updated
+        const { data: updatedWager, error: checkError } = await supabase
+          .from("wagers")
+          .select("status, winning_side")
+          .eq("id", wagerId)
+          .single();
+
+        if (settleError) {
+          const errorMessage = settleError.message || JSON.stringify(settleError) || 'Unknown error';
+          console.error("Error settling wager (RPC error):", settleError);
+          
+          toast({
+            title: "Winning side set",
+            description: `Winning side has been set. Settlement will be processed automatically. Error: ${errorMessage}`,
+            variant: "default",
+          });
+        } else if (updatedWager?.status === "SETTLED" || updatedWager?.status === "RESOLVED") {
+          toast({
+            title: "Wager resolved",
+            description: "Wager has been resolved and settled. Winnings have been distributed to participants.",
+          });
+        } else if (updatedWager?.winning_side === winningSide) {
+          toast({
+            title: "Winning side set",
+            description: "Winning side has been set. Settlement will be processed automatically on the next cron run.",
+            variant: "default",
+          });
+        } else {
+          console.warn("Unexpected wager state after settlement attempt:", updatedWager);
+          toast({
+            title: "Winning side set",
+            description: "Winning side has been set. Please verify the wager status.",
+            variant: "default",
+          });
+        }
+      } catch (rpcError: any) {
+        console.error("Exception during settlement:", rpcError);
+        toast({
+          title: "Winning side set",
+          description: `Winning side has been set. Settlement encountered an error: ${rpcError?.message || 'Unknown error'}. It will be processed automatically.`,
+          variant: "default",
+        });
+      }
+
+      // Refresh wager details
+      await loadDetails(wagerId);
+    } catch (error) {
+      console.error("Error resolving wager:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to resolve wager.",
+        variant: "destructive",
+      });
+    } finally {
+      setResolving(false);
+      setSelectedSide(null);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -229,6 +344,51 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
 
   return (
     <main className="min-h-screen bg-background p-4 md:p-6">
+      <ConfirmDialog
+        open={showResolveDialog && selectedSide !== null}
+        onOpenChange={(open) => {
+          setShowResolveDialog(open);
+          if (!open) {
+            setSelectedSide(null);
+          }
+        }}
+        title="Resolve Wager"
+        description={
+          selectedSide ? (
+            <div className="space-y-3 mt-2">
+              <p className="font-semibold text-foreground">{wager.title}</p>
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">You are about to resolve this wager with:</p>
+                <div className="p-3 rounded-lg border-2 bg-primary/10 border-primary">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-primary">
+                      {selectedSide === "a" ? "Side A" : "Side B"}:
+                    </span>
+                    <span className="text-sm font-medium">
+                      {selectedSide === "a" ? wager.side_a : wager.side_b}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p>⚠️ This action will:</p>
+                  <ul className="list-disc list-inside ml-2 space-y-0.5">
+                    <li>Immediately settle the wager</li>
+                    <li>Distribute winnings to participants</li>
+                    <li>Mark the wager as RESOLVED</li>
+                    <li>This cannot be undone</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          ) : (
+            ""
+          )
+        }
+        confirmText={selectedSide ? (selectedSide === "a" ? `Resolve: ${wager.side_a}` : `Resolve: ${wager.side_b}`) : "Confirm"}
+        cancelText="Cancel"
+        variant="default"
+        onConfirm={handleResolveWager}
+      />
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
@@ -304,6 +464,33 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
               <p className="text-xs text-muted-foreground">
                 {wager.status === "OPEN" ? "Wager still active" : "Wager resolved"}
               </p>
+              {wager.status === "OPEN" && !wager.winning_side && !wager.is_system_generated && (
+                <div className="flex gap-2 mt-3">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleResolveClick("a")}
+                    disabled={resolving}
+                    className="flex-1"
+                  >
+                    <Trophy className="h-3 w-3 mr-1" />
+                    Side A
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleResolveClick("b")}
+                    disabled={resolving}
+                    className="flex-1"
+                  >
+                    <Trophy className="h-3 w-3 mr-1" />
+                    Side B
+                  </Button>
+                </div>
+              )}
+              {resolving && (
+                <p className="text-xs text-muted-foreground mt-2">Settling wager...</p>
+              )}
             </CardContent>
           </Card>
         </div>
