@@ -94,36 +94,6 @@ export async function POST(request: NextRequest) {
 
     const senderBalance = parseFloat(senderBalanceData.balance || 0);
     const kycLimits = await getKYCLimits();
-    const senderKycLevel = senderBalanceData.kyc_level ?? 1;
-
-    if (senderKycLevel < 2 && !kycLimits.level1TransferEnabled) {
-      throw new AppError(
-        ErrorCode.FORBIDDEN,
-        'Transfers are locked until you complete Level 2 verification.',
-      );
-    }
-
-    if (senderKycLevel === 2) {
-      if (roundedAmount < kycLimits.level2MinTransfer) {
-        throw new AppError(
-          ErrorCode.VALIDATION_ERROR,
-          `Minimum transfer for your verification level is ₦${kycLimits.level2MinTransfer.toLocaleString()}.`,
-        );
-      }
-      if (roundedAmount > kycLimits.level2MaxTransfer) {
-        throw new AppError(
-          ErrorCode.FORBIDDEN,
-          `Upgrade to Level 3 to send more than ₦${kycLimits.level2MaxTransfer.toLocaleString()}.`,
-        );
-      }
-    }
-
-    if (senderKycLevel >= 3 && roundedAmount > kycLimits.level3MaxTransfer) {
-      throw new AppError(
-        ErrorCode.VALIDATION_ERROR,
-        `Maximum transfer per transaction/day is ₦${kycLimits.level3MaxTransfer.toLocaleString()}.`,
-      );
-    }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);

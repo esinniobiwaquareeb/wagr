@@ -8,6 +8,7 @@ interface User {
   id: string;
   username: string;
   avatar_url?: string | null;
+  email?: string | null;
 }
 
 interface UsernameInputProps {
@@ -183,6 +184,11 @@ export function UsernameInput({
                 <div className="font-medium text-sm text-foreground truncate">
                   @{user.username}
                 </div>
+                {user.email && (
+                  <div className="text-xs text-muted-foreground truncate">
+                    {user.email}
+                  </div>
+                )}
               </div>
             </button>
           ))}
@@ -203,9 +209,14 @@ export function UsernameInput({
               <User className="h-3 w-3 text-primary" />
             )}
           </div>
-          <span className="text-xs font-medium text-primary">
-            Transferring to @{selectedUser.username}
-          </span>
+          <div className="flex flex-col text-xs">
+            <span className="font-medium text-primary">
+              @{selectedUser.username}
+            </span>
+            {selectedUser.email && (
+              <span className="text-primary/80">{selectedUser.email}</span>
+            )}
+          </div>
         </div>
       )}
     </div>

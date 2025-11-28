@@ -58,7 +58,7 @@ function WalletContent() {
   const [transferAmount, setTransferAmount] = useState("");
   const [transferDescription, setTransferDescription] = useState("");
   const [processingTransfer, setProcessingTransfer] = useState(false);
-  const [selectedRecipient, setSelectedRecipient] = useState<{ id: string; username: string } | null>(null);
+  const [selectedRecipient, setSelectedRecipient] = useState<{ id: string; username: string; email?: string | null } | null>(null);
   const [activeTab, setActiveTab] = useState<"deposit" | "withdraw" | "transfer" | "bills">("deposit");
   const [kycSummary, setKycSummary] = useState<KycSummary | null>(null);
   const [kycLoading, setKycLoading] = useState(true);
