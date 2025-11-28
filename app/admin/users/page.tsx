@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { format } from "date-fns";
-import { Shield, User as UserIcon, Lock, Coins, TrendingUp, Calendar, Ban, CheckCircle, ShieldCheck, ShieldAlert, Mail, Users as UsersIcon } from "lucide-react";
+import { Shield, User as UserIcon, Lock, Coins, TrendingUp, Calendar, Ban, CheckCircle, ShieldCheck, ShieldAlert, Mail, Users as UsersIcon, CreditCard, AlertCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -33,6 +33,18 @@ interface User {
   kyc_level?: number | null;
   kyc_level_label?: string | null;
   email_verified?: boolean;
+  email_verified_at?: string | null;
+  bvn_verified?: boolean;
+  nin_verified?: boolean;
+  face_verified?: boolean;
+  document_verified?: boolean;
+  kyc_last_submitted_at?: string | null;
+  kyc_last_reviewed_at?: string | null;
+  withdrawal_daily_limit?: number;
+  withdrawal_monthly_limit?: number;
+  withdrawal_daily_used?: number;
+  withdrawal_monthly_used?: number;
+  withdrawal_limit_reset_date?: string;
 }
 
 export default function AdminUsersPage() {
@@ -164,9 +176,14 @@ export default function AdminUsersPage() {
     const admins = users.filter((user) => user.is_admin).length;
     const verified = users.filter((user) => (user.kyc_level || 1) >= 2).length;
     const suspended = users.filter((user) => user.is_suspended).length;
+    const emailVerified = users.filter((user) => user.email_verified).length;
+    const twoFactorEnabled = users.filter((user) => user.two_factor_enabled).length;
+    
     return [
       { label: 'Total Users', value: total, icon: UsersIcon },
-      { label: 'Verified (L2+)', value: verified, icon: ShieldCheck },
+      { label: 'Email Verified', value: emailVerified, icon: Mail },
+      { label: 'KYC Verified (L2+)', value: verified, icon: ShieldCheck },
+      { label: '2FA Enabled', value: twoFactorEnabled, icon: Lock },
       { label: 'Admins', value: admins, icon: Shield },
       { label: 'Suspended', value: suspended, icon: ShieldAlert },
     ];
@@ -197,7 +214,7 @@ export default function AdminUsersPage() {
           </p>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {stats.map((stat) => (
             <Card key={stat.label} className="border border-border/80">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -245,10 +262,23 @@ export default function AdminUsersPage() {
                         </Badge>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground truncate max-w-[220px]">
-                      {row.email || "No email"}
-                    </p>
-                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-1">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs text-muted-foreground truncate max-w-[180px]">
+                        {row.email || "No email"}
+                      </p>
+                      {row.email_verified ? (
+                        <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 flex items-center gap-0.5">
+                          <CheckCircle className="h-2.5 w-2.5 text-green-600" />
+                          Verified
+                        </Badge>
+                      ) : row.email ? (
+                        <Badge variant="destructive" className="text-[10px] px-1 py-0 h-4 flex items-center gap-0.5">
+                          <AlertCircle className="h-2.5 w-2.5" />
+                          Unverified
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
                       <ShieldCheck className="h-3 w-3" />
                       <span>{row.kyc_level_label || "Level 1 — Email Verified"}</span>
                     </div>
@@ -273,56 +303,170 @@ export default function AdminUsersPage() {
               id: "activity",
               header: "Activity",
               cell: (row) => (
-                <div className="text-xs text-muted-foreground space-y-0.5 min-w-[140px]">
-                  <p className="flex items-center gap-1">
-                    <TrendingUp className="h-3 w-3" />
-                    Wagers: <span className="text-foreground font-semibold">{row.wagers_created || 0}</span>
-                  </p>
-                  <p className="flex items-center gap-1">
-                    <Coins className="h-3 w-3" />
-                    Entries: <span className="text-foreground font-semibold">{row.entries_count || 0}</span>
-                  </p>
-                  <p className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    {format(new Date(row.created_at), "MMM d, yyyy")}
-                  </p>
+                <div className="text-xs text-muted-foreground space-y-1 min-w-[160px]">
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <TrendingUp className="h-3 w-3" />
+                      Wagers:
+                    </span>
+                    <span className="text-foreground font-semibold">{row.wagers_created || 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <Coins className="h-3 w-3" />
+                      Entries:
+                    </span>
+                    <span className="text-foreground font-semibold">{row.entries_count || 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      Joined:
+                    </span>
+                    <span className="text-foreground">{format(new Date(row.created_at), "MMM d, yyyy")}</span>
+                  </div>
+                  {row.kyc_last_submitted_at && (
+                    <div className="flex items-center justify-between pt-1 border-t border-border/50">
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        KYC Submitted:
+                      </span>
+                      <span className="text-foreground">{format(new Date(row.kyc_last_submitted_at), "MMM d")}</span>
+                    </div>
+                  )}
                 </div>
               ),
             },
             {
-              id: "status",
-              header: "Status",
-              cell: (row) => (
-                <div className="flex flex-wrap gap-1.5">
-                  <Badge
-                    variant={row.is_suspended ? "destructive" : "secondary"}
-                    className="text-[11px] flex items-center gap-1"
-                  >
-                    {row.is_suspended ? (
-                      <>
-                        <ShieldAlert className="h-3 w-3" /> Suspended
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="h-3 w-3" /> Active
-                      </>
+              id: "kyc",
+              header: "KYC Status",
+              cell: (row) => {
+                const kycLevel = row.kyc_level || 1;
+                const hasBvn = row.bvn_verified || row.nin_verified;
+                const hasFace = row.face_verified;
+                const hasDoc = row.document_verified;
+                
+                return (
+                  <div className="space-y-1.5 min-w-[180px]">
+                    <div className="flex items-center gap-1.5">
+                      <Badge
+                        variant={kycLevel >= 3 ? "default" : kycLevel >= 2 ? "secondary" : "outline"}
+                        className="text-[11px]"
+                      >
+                        {row.kyc_level_label || "Level 1"}
+                      </Badge>
+                    </div>
+                    {kycLevel >= 2 && (
+                      <div className="flex flex-wrap gap-1 text-[10px] text-muted-foreground">
+                        {hasBvn && <span className="flex items-center gap-0.5"><CheckCircle className="h-2.5 w-2.5" />BVN/NIN</span>}
+                        {hasFace && <span className="flex items-center gap-0.5"><CheckCircle className="h-2.5 w-2.5" />Face</span>}
+                        {hasDoc && <span className="flex items-center gap-0.5"><CheckCircle className="h-2.5 w-2.5" />Doc</span>}
+                      </div>
                     )}
-                  </Badge>
-                  <Badge
-                    variant={row.email_verified ? "outline" : "destructive"}
-                    className="text-[11px] flex items-center gap-1"
-                  >
-                    <Mail className="h-3 w-3" />
-                    {row.email_verified ? "Email OK" : "Email Unverified"}
-                  </Badge>
-                  {row.two_factor_enabled && (
-                    <Badge variant="outline" className="text-[11px] flex items-center gap-1">
-                      <Lock className="h-3 w-3" />
-                      2FA
+                    {row.kyc_last_reviewed_at && (
+                      <p className="text-[10px] text-muted-foreground">
+                        Reviewed {format(new Date(row.kyc_last_reviewed_at), "MMM d")}
+                      </p>
+                    )}
+                  </div>
+                );
+              },
+            },
+            {
+              id: "security",
+              header: "Security & Status",
+              cell: (row) => (
+                <div className="space-y-1.5 min-w-[140px]">
+                  <div className="flex flex-wrap gap-1">
+                    <Badge
+                      variant={row.is_suspended ? "destructive" : "secondary"}
+                      className="text-[11px] flex items-center gap-1"
+                    >
+                      {row.is_suspended ? (
+                        <>
+                          <ShieldAlert className="h-3 w-3" /> Suspended
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-3 w-3" /> Active
+                        </>
+                      )}
                     </Badge>
+                    <Badge
+                      variant={row.email_verified ? "outline" : "destructive"}
+                      className="text-[11px] flex items-center gap-1"
+                    >
+                      <Mail className="h-3 w-3" />
+                      {row.email_verified ? "Verified" : "Unverified"}
+                    </Badge>
+                    {row.two_factor_enabled && (
+                      <Badge variant="outline" className="text-[11px] flex items-center gap-1">
+                        <Lock className="h-3 w-3" />
+                        2FA
+                      </Badge>
+                    )}
+                  </div>
+                  {row.is_suspended && row.suspended_at && (
+                    <p className="text-[10px] text-muted-foreground">
+                      Since {format(new Date(row.suspended_at), "MMM d, yyyy")}
+                    </p>
+                  )}
+                  {row.email_verified && row.email_verified_at && (
+                    <p className="text-[10px] text-muted-foreground">
+                      Email verified {format(new Date(row.email_verified_at), "MMM d, yyyy")}
+                    </p>
                   )}
                 </div>
               ),
+            },
+            {
+              id: "withdrawals",
+              header: "Withdrawal Limits",
+              cell: (row) => {
+                const dailyLimit = row.withdrawal_daily_limit || 0;
+                const monthlyLimit = row.withdrawal_monthly_limit || 0;
+                const dailyUsed = row.withdrawal_daily_used || 0;
+                const monthlyUsed = row.withdrawal_monthly_used || 0;
+                const dailyPercent = dailyLimit > 0 ? (dailyUsed / dailyLimit) * 100 : 0;
+                const monthlyPercent = monthlyLimit > 0 ? (monthlyUsed / monthlyLimit) * 100 : 0;
+                
+                return (
+                  <div className="space-y-2 min-w-[160px]">
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Daily</span>
+                        <span className="font-medium">
+                          {formatCurrency(dailyUsed, DEFAULT_CURRENCY as Currency)} / {formatCurrency(dailyLimit, DEFAULT_CURRENCY as Currency)}
+                        </span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-1.5">
+                        <div
+                          className={`h-1.5 rounded-full ${
+                            dailyPercent >= 90 ? "bg-red-500" : dailyPercent >= 70 ? "bg-yellow-500" : "bg-green-500"
+                          }`}
+                          style={{ width: `${Math.min(dailyPercent, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Monthly</span>
+                        <span className="font-medium">
+                          {formatCurrency(monthlyUsed, DEFAULT_CURRENCY as Currency)} / {formatCurrency(monthlyLimit, DEFAULT_CURRENCY as Currency)}
+                        </span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-1.5">
+                        <div
+                          className={`h-1.5 rounded-full ${
+                            monthlyPercent >= 90 ? "bg-red-500" : monthlyPercent >= 70 ? "bg-yellow-500" : "bg-green-500"
+                          }`}
+                          style={{ width: `${Math.min(monthlyPercent, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              },
             },
             {
               id: "actions",
