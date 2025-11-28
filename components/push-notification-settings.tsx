@@ -71,13 +71,11 @@ export function PushNotificationSettings() {
   }, [user, supabase]);
 
   const handleToggle = async () => {
-    if (!isSupported || !user) return;
+    if (!isSupported || !user || isToggling) return;
 
     setIsToggling(true);
+    const previousState = isSubscribed;
     const newState = !isSubscribed;
-    
-    // Update state immediately for better UX
-    setIsSubscribed(newState);
     
     try {
       if (newState) {
@@ -87,7 +85,7 @@ export function PushNotificationSettings() {
           const subscription = await subscribeToPushNotifications();
           if (subscription) {
             // Save preference to database
-            await supabase
+            const { error: dbError } = await supabase
               .from('user_preferences')
               .upsert({
                 user_id: user.id,
@@ -95,13 +93,28 @@ export function PushNotificationSettings() {
               }, {
                 onConflict: 'user_id',
               });
-            setIsSubscribed(true);
+            
+            if (!dbError) {
+              setIsSubscribed(true);
+            } else {
+              console.error('Error saving preference:', dbError);
+              setIsSubscribed(previousState);
+            }
           } else {
-            setIsSubscribed(false);
+            // Subscription failed
+            setIsSubscribed(previousState);
+            await supabase
+              .from('user_preferences')
+              .upsert({
+                user_id: user.id,
+                push_notifications_enabled: false,
+              }, {
+                onConflict: 'user_id',
+              });
           }
         } else {
           // Permission denied
-          setIsSubscribed(false);
+          setIsSubscribed(previousState);
           await supabase
             .from('user_preferences')
             .upsert({
@@ -114,26 +127,33 @@ export function PushNotificationSettings() {
       } else {
         // Disabling push notifications
         const success = await unsubscribeFromPushNotifications();
-        if (success) {
-          // Update preference in database
-          await supabase
-            .from('user_preferences')
-            .upsert({
-              user_id: user.id,
-              push_notifications_enabled: false,
-            }, {
-              onConflict: 'user_id',
-            });
+        
+        // Update preference in database regardless of unsubscribe result
+        const { error: dbError } = await supabase
+          .from('user_preferences')
+          .upsert({
+            user_id: user.id,
+            push_notifications_enabled: false,
+          }, {
+            onConflict: 'user_id',
+          });
+        
+        if (!dbError) {
           setIsSubscribed(false);
         } else {
-          // If unsubscribe failed, revert state
-          setIsSubscribed(true);
+          console.error('Error updating preference:', dbError);
+          // If unsubscribe succeeded but DB update failed, still update UI
+          if (success) {
+            setIsSubscribed(false);
+          } else {
+            setIsSubscribed(previousState);
+          }
         }
       }
     } catch (error) {
       console.error('Error toggling push notifications:', error);
-      // Revert state on error
-      setIsSubscribed(!newState);
+      // Revert to previous state on error
+      setIsSubscribed(previousState);
     } finally {
       setIsToggling(false);
     }
@@ -158,23 +178,23 @@ export function PushNotificationSettings() {
       onClick={handleToggle}
       disabled={isToggling}
       type="button"
-      className="w-full flex items-center justify-between p-2.5 md:p-4 bg-muted/50 hover:bg-muted rounded-lg transition active:scale-[0.98] touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
+      className="w-full flex items-center justify-between p-3 md:p-3.5 hover:bg-muted rounded-lg transition active:scale-[0.98] touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed group min-h-[44px]"
     >
-      <div className="flex items-center gap-2 md:gap-3">
+      <div className="flex items-center gap-3">
         {isSubscribed ? (
-          <Bell className="h-4 w-4 md:h-5 md:w-5" />
+          <Bell className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
         ) : (
-          <BellOff className="h-4 w-4 md:h-5 md:w-5" />
+          <BellOff className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
         )}
-        <span className="font-medium text-xs md:text-base">
+        <span className="font-medium text-sm">
           Push Notifications
         </span>
       </div>
       {isToggling ? (
-        <Loader2 className="h-4 w-4 md:h-5 md:w-5 animate-spin" />
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground flex-shrink-0" />
       ) : (
         <div
-          className={`relative w-11 h-6 rounded-full transition-colors ${
+          className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
             isSubscribed ? 'bg-primary' : 'bg-muted-foreground/30'
           }`}
         >
