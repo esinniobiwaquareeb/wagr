@@ -49,6 +49,19 @@ export async function getRedisClient(): Promise<RedisClientType | null> {
       // Build Redis URL
       let redisUrl = process.env.REDIS_URL;
       
+      // Detect and reject REST URLs (Upstash provides both REST and Redis URLs)
+      if (redisUrl?.startsWith('https://')) {
+        console.error('Redis: ERROR - You are using the REST URL instead of the Redis URL!');
+        console.error('Redis: Upstash provides two URLs:');
+        console.error('Redis: 1. REST URL (https://...) - For REST API calls (NOT for Redis client)');
+        console.error('Redis: 2. Redis URL (rediss://...) - For Redis client connections (USE THIS ONE)');
+        console.error('Redis: Please use the Redis URL which starts with "rediss://"');
+        console.error('Redis: Format: rediss://default:password@host:port');
+        isConnecting = false;
+        connectionPromise = null;
+        return null;
+      }
+      
       // If no REDIS_URL, construct from individual components
       if (!redisUrl) {
         const host = process.env.REDIS_HOST || 'localhost';

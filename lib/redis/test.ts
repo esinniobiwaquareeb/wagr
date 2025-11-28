@@ -12,12 +12,40 @@ export async function testRedisConnection(): Promise<{
   details?: any;
 }> {
   try {
+    // Check for common configuration errors
+    const redisUrl = process.env.REDIS_URL;
+    if (redisUrl?.startsWith('https://')) {
+      return {
+        success: false,
+        message: 'You are using the REST URL instead of the Redis URL. Upstash provides two URLs - use the Redis URL (starts with rediss://) not the REST URL (starts with https://). Format: rediss://default:password@host:port',
+        details: {
+          currentUrl: redisUrl.substring(0, 50) + '...',
+          issue: 'REST URL detected',
+          solution: 'Use the Redis URL from Upstash dashboard (starts with rediss://)',
+        },
+      };
+    }
+
     // Test 1: Check if Redis is available
     const available = await isRedisAvailable();
     if (!available) {
+      const errorDetails: any = {
+        hasRedisUrl: !!process.env.REDIS_URL,
+        hasRedisPassword: !!process.env.REDIS_PASSWORD,
+      };
+      
+      if (process.env.REDIS_URL) {
+        errorDetails.urlFormat = process.env.REDIS_URL.startsWith('rediss://') 
+          ? 'correct (rediss://)' 
+          : process.env.REDIS_URL.startsWith('redis://')
+          ? 'missing TLS (use rediss://)'
+          : 'incorrect format';
+      }
+      
       return {
         success: false,
-        message: 'Redis is not available. Check your connection settings.',
+        message: 'Redis is not available. Check your connection settings. If using Upstash, ensure you are using the Redis URL (rediss://...) not the REST URL (https://...).',
+        details: errorDetails,
       };
     }
 
