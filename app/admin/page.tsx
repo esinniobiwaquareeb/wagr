@@ -188,10 +188,20 @@ export default function AdminPage() {
       }
     });
 
+    // Listen for auth state changes (e.g., after login)
+    const handleAuthStateChange = () => {
+      if (mounted && !isAdmin) {
+        checkAdmin();
+      }
+    };
+
+    window.addEventListener('auth-state-changed', handleAuthStateChange);
+
     return () => {
       mounted = false;
+      window.removeEventListener('auth-state-changed', handleAuthStateChange);
     };
-  }, [checkAdmin]);
+  }, [checkAdmin, isAdmin]);
 
   useEffect(() => {
     if (isAdmin) {

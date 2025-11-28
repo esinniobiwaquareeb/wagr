@@ -23,13 +23,21 @@ interface Quiz {
   max_participants: number;
   total_questions: number;
   total_cost: number;
-  created_at: string;
+  base_cost?: number;
+  platform_fee?: number;
+  created_at: string | null;
   start_date?: string | null;
   end_date?: string | null;
   creator_id: string | null;
-  profiles?: {
-    username: string;
-    avatar_url?: string;
+  creator?: {
+    id: string;
+    username?: string | null;
+    email?: string | null;
+    avatar_url?: string | null;
+  } | null;
+  participantCounts?: {
+    total: number;
+    completed: number;
   };
 }
 
@@ -72,21 +80,22 @@ export default function AdminQuizzesPage() {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      params.set('scope', 'admin');
       params.set('limit', '100');
       params.set('page', '1');
       if (filterStatus !== 'all') {
         params.set('status', filterStatus);
       }
 
-      const response = await fetch(`/api/quizzes?${params.toString()}`);
-      const data = await response.json();
+      const response = await fetch(`/api/admin/quizzes?${params.toString()}`);
+      const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error?.message || 'Failed to fetch quizzes');
+        throw new Error(result.error?.message || 'Failed to fetch quizzes');
       }
 
-      setQuizzes(data.data?.quizzes || []);
+      // API returns: { success: true, data: { quizzes: [...], pagination: {...} } }
+      const quizzesData = result.data?.quizzes || result.quizzes || [];
+      setQuizzes(quizzesData);
     } catch (error) {
       console.error("Error fetching quizzes:", error);
       toast({
@@ -154,100 +163,129 @@ export default function AdminQuizzesPage() {
     );
   };
 
-  const getRowData = (row: any) => (row?.original ? row.original : row || {});
-
   const columns: any[] = [
     {
       id: "title",
       accessorKey: "title",
       header: "Title",
-      cell: ({ row }: any) => (
-        <div className="max-w-[300px]">
-          <div className="font-medium truncate">{getRowData(row).title}</div>
-          {getRowData(row).description && (
-            <div className="text-sm text-muted-foreground truncate">{getRowData(row).description}</div>
-          )}
-        </div>
-      ),
+      cell: (row: Quiz) => {
+        return (
+          <div className="max-w-[300px]">
+            <div className="font-medium truncate">{row.title || "Untitled Quiz"}</div>
+            {row.description && (
+              <div className="text-sm text-muted-foreground truncate">{row.description}</div>
+            )}
+          </div>
+        );
+      },
     },
     {
       id: "creator",
       header: "Creator",
-      cell: ({ row }: any) => (
-        <div className="text-sm">
-          {getRowData(row).profiles?.username || 'Unknown'}
-        </div>
-      ),
+      cell: (row: Quiz) => {
+        const name = row.creator?.username || row.creator?.email || 'Unknown';
+        return (
+          <div className="text-sm">
+            <p className="font-medium">{name}</p>
+            {row.creator?.email && row.creator?.username && (
+              <p className="text-xs text-muted-foreground truncate">{row.creator.email}</p>
+            )}
+          </div>
+        );
+      },
     },
     {
       id: "total_questions",
       accessorKey: "total_questions",
       header: "Questions",
-      cell: ({ row }: any) => (
-        <div className="text-sm">{getRowData(row).total_questions}</div>
-      ),
+      cell: (row: Quiz) => {
+        return <div className="text-sm">{row.total_questions || 0}</div>;
+      },
     },
     {
       id: "max_participants",
       accessorKey: "max_participants",
       header: "Max Participants",
-      cell: ({ row }: any) => (
-        <div className="text-sm">{getRowData(row).max_participants}</div>
-      ),
+      cell: (row: Quiz) => {
+        const counts = row.participantCounts;
+        return (
+          <div className="text-sm">
+            {row.max_participants || 0}
+            {counts ? (
+              <span className="text-xs text-muted-foreground ml-1">
+                ({counts.completed}/{counts.total} completed)
+              </span>
+            ) : null}
+          </div>
+        );
+      },
     },
     {
       id: "entry_fee_per_question",
       accessorKey: "entry_fee_per_question",
       header: "Entry Fee",
-      cell: ({ row }: any) => (
-        <div className="text-sm">
-          {formatCurrency(Number(getRowData(row).entry_fee_per_question) || 0, DEFAULT_CURRENCY)}
-        </div>
-      ),
+      cell: (row: Quiz) => {
+        const entryFee = Number(row.entry_fee_per_question) || 0;
+        return (
+          <div className="text-sm font-medium">
+            {formatCurrency(entryFee, DEFAULT_CURRENCY)}
+          </div>
+        );
+      },
     },
     {
       id: "total_cost",
       accessorKey: "total_cost",
       header: "Total Cost",
-      cell: ({ row }: any) => (
-        <div className="text-sm font-medium">
-          {formatCurrency(Number(getRowData(row).total_cost) || 0, DEFAULT_CURRENCY)}
-        </div>
-      ),
+      cell: (row: Quiz) => {
+        const total = Number(row.total_cost) || 0;
+        const base = Number(row.base_cost) || 0;
+        const fee = Number(row.platform_fee) || 0;
+        return (
+          <div className="text-sm font-medium">
+            {formatCurrency(total, DEFAULT_CURRENCY)}
+            <div className="text-xs text-muted-foreground">
+              Base {formatCurrency(base, DEFAULT_CURRENCY)} • Fee {formatCurrency(fee, DEFAULT_CURRENCY)}
+            </div>
+          </div>
+        );
+      },
     },
     {
       id: "status",
       accessorKey: "status",
       header: "Status",
-      cell: ({ row }: any) => getStatusBadge(getRowData(row).status),
+      cell: (row: Quiz) => {
+        return getStatusBadge(row.status);
+      },
     },
     {
       id: "created_at",
       accessorKey: "created_at",
       header: "Created",
-      cell: ({ row }: any) => (
-        <div className="text-sm text-muted-foreground">
-          {format(new Date(getRowData(row).created_at), "MMM d, yyyy")}
-        </div>
-      ),
+      cell: (row: Quiz) => {
+        const createdAt = row.created_at ? new Date(row.created_at) : null;
+        const displayDate =
+          createdAt && !Number.isNaN(createdAt.getTime()) ? format(createdAt, "MMM d, yyyy") : "—";
+        return <div className="text-sm text-muted-foreground">{displayDate}</div>;
+      },
     },
     {
       id: "actions",
       header: "Actions",
-      cell: ({ row }: any) => {
-        const quiz = getRowData(row);
+      cell: (row: Quiz) => {
         return (
           <div className="flex items-center gap-2">
-            <Link href={`/quiz/${quiz.id}`}>
+            <Link href={`/quiz/${row.id}`}>
               <Button variant="ghost" size="sm">
                 <Eye className="h-4 w-4" />
               </Button>
             </Link>
-            {quiz.status === 'draft' && (
+            {row.status === 'draft' && (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => handleDeleteClick(quiz)}
+                onClick={() => handleDeleteClick(row)}
               >
                 <Trash2 className="h-4 w-4 text-destructive" />
               </Button>
