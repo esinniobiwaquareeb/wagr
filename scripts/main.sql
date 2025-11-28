@@ -75,19 +75,6 @@ begin
   update profiles set balance = balance + amt where id = user_id;
 end; $$;
 
--- Seed some system wagers
-insert into wagers (title, description, amount, side_a, side_b, deadline, status, fee_percentage)
-values 
-  ('Will it rain tomorrow?', 'Bet on whether it will rain in your city', 100, 'Yes', 'No', now() + interval '1 day', 'OPEN', 0.01),
-  ('Bitcoin over $50k by month end?', 'Cryptocurrency price prediction', 500, 'Yes', 'No', now() + interval '15 days', 'OPEN', 0.01),
-  ('Who wins the playoff game?', 'Sports prediction for upcoming game', 250, 'Team A', 'Team B', now() + interval '3 days', 'OPEN', 0.01);
-
--- <<< END wagr/scripts/01-setup-schema.sql
-
--- >>> BEGIN wagr/scripts/02-update-leaderboard-policies.sql
--- Update RLS policies to allow public read of profiles for leaderboard
--- This allows anyone to view username and balance for leaderboard purposes
-
 -- Drop existing restrictive policy
 drop policy if exists "allow read own" on profiles;
 
