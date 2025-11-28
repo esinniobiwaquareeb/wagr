@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
         payload,
         created_at,
         updated_at,
-        profiles:profiles!inner(
+        profiles:profiles!kyc_submissions_user_id_fkey(
           id,
           username,
           email,
