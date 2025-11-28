@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import Image from "next/image";
+import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/client";
 import { apiGet, apiPatch } from "@/lib/api-client";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -252,9 +253,12 @@ export default function AdminUsersPage() {
                   )}
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <p className="text-sm font-semibold truncate">
+                      <Link
+                        href={`/admin/users/${row.id}`}
+                        className="text-sm font-semibold truncate hover:text-primary transition"
+                      >
                         {row.username || row.email || `User ${row.id.slice(0, 6)}`}
-                      </p>
+                      </Link>
                       {row.is_admin && (
                         <Badge variant="outline" className="text-[11px] flex items-center gap-1">
                           <Shield className="h-3 w-3" />
