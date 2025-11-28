@@ -31,7 +31,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export function TopNav() {
+function TopNavContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -1122,5 +1122,20 @@ export function TopNav() {
         </>
       )}
     </>
+  );
+}
+
+export function TopNav() {
+  return (
+    <Suspense
+      fallback={
+        <>
+          <div className="hidden lg:block h-16 border-b border-border bg-background" />
+          <div className="lg:hidden h-14 border-b border-border bg-background" />
+        </>
+      }
+    >
+      <TopNavContent />
+    </Suspense>
   );
 }
