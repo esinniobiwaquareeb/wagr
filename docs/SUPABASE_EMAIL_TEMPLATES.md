@@ -51,7 +51,7 @@ Verify your wagr account
         <table role="presentation" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
           <!-- Header -->
           <tr>
-            <td style="padding: 40px 40px 20px; text-align: center; background: linear-gradient(135deg, #0070f3 0%, #0051cc 100%); border-radius: 8px 8px 0 0;">
+            <td style="padding: 40px 40px 20px; text-align: center; background: linear-gradient(135deg, #107DFF 0%, #0D6EFD 100%); border-radius: 8px 8px 0 0;">
               <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">wagr</h1>
             </td>
           </tr>
@@ -77,7 +77,7 @@ Verify your wagr account
               
               <!-- Button -->
               <div style="text-align: center; margin: 32px 0;">
-                <a href="{{ .ConfirmationURL }}" style="display: inline-block; padding: 12px 24px; background-color: #0070f3; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600;">
+                <a href="{{ .ConfirmationURL }}" style="display: inline-block; padding: 12px 24px; background-color: #107DFF; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600;">
                   Verify Email Address
                 </a>
               </div>
@@ -85,7 +85,7 @@ Verify your wagr account
               <!-- Fallback Link -->
               <p style="font-size: 14px; color: #666666; margin-top: 24px;">
                 If the button doesn't work, copy and paste this link into your browser:<br>
-                <a href="{{ .ConfirmationURL }}" style="color: #0070f3; word-break: break-all;">{{ .ConfirmationURL }}</a>
+                <a href="{{ .ConfirmationURL }}" style="color: #107DFF; word-break: break-all;">{{ .ConfirmationURL }}</a>
               </p>
               
               <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 32px 0;">
@@ -139,7 +139,7 @@ Reset your wagr password
         <table role="presentation" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
           <!-- Header -->
           <tr>
-            <td style="padding: 40px 40px 20px; text-align: center; background: linear-gradient(135deg, #0070f3 0%, #0051cc 100%); border-radius: 8px 8px 0 0;">
+            <td style="padding: 40px 40px 20px; text-align: center; background: linear-gradient(135deg, #107DFF 0%, #0D6EFD 100%); border-radius: 8px 8px 0 0;">
               <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">wagr</h1>
             </td>
           </tr>
@@ -165,7 +165,7 @@ Reset your wagr password
               
               <!-- Button -->
               <div style="text-align: center; margin: 32px 0;">
-                <a href="{{ .ConfirmationURL }}" style="display: inline-block; padding: 12px 24px; background-color: #0070f3; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600;">
+                <a href="{{ .ConfirmationURL }}" style="display: inline-block; padding: 12px 24px; background-color: #107DFF; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600;">
                   Reset Password
                 </a>
               </div>
@@ -178,7 +178,7 @@ Reset your wagr password
               <!-- Fallback Link -->
               <p style="font-size: 14px; color: #666666; margin-top: 24px;">
                 If the button doesn't work, copy and paste this link into your browser:<br>
-                <a href="{{ .ConfirmationURL }}" style="color: #0070f3; word-break: break-all;">{{ .ConfirmationURL }}</a>
+                <a href="{{ .ConfirmationURL }}" style="color: #107DFF; word-break: break-all;">{{ .ConfirmationURL }}</a>
               </p>
               
               <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 32px 0;">
@@ -232,7 +232,7 @@ Confirm your new email address
         <table role="presentation" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
           <!-- Header -->
           <tr>
-            <td style="padding: 40px 40px 20px; text-align: center; background: linear-gradient(135deg, #0070f3 0%, #0051cc 100%); border-radius: 8px 8px 0 0;">
+            <td style="padding: 40px 40px 20px; text-align: center; background: linear-gradient(135deg, #107DFF 0%, #0D6EFD 100%); border-radius: 8px 8px 0 0;">
               <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">wagr</h1>
             </td>
           </tr>
@@ -258,7 +258,7 @@ Confirm your new email address
               
               <!-- Button -->
               <div style="text-align: center; margin: 32px 0;">
-                <a href="{{ .ConfirmationURL }}" style="display: inline-block; padding: 12px 24px; background-color: #0070f3; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600;">
+                <a href="{{ .ConfirmationURL }}" style="display: inline-block; padding: 12px 24px; background-color: #107DFF; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600;">
                   Confirm Email Change
                 </a>
               </div>
@@ -271,7 +271,7 @@ Confirm your new email address
               <!-- Fallback Link -->
               <p style="font-size: 14px; color: #666666; margin-top: 24px;">
                 If the button doesn't work, copy and paste this link into your browser:<br>
-                <a href="{{ .ConfirmationURL }}" style="color: #0070f3; word-break: break-all;">{{ .ConfirmationURL }}</a>
+                <a href="{{ .ConfirmationURL }}" style="color: #107DFF; word-break: break-all;">{{ .ConfirmationURL }}</a>
               </p>
               
               <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 32px 0;">
@@ -340,7 +340,7 @@ Confirm your new email address
 
 ## Customization Tips
 
-- **Colors**: Change `#0070f3` to your brand color
+- **Colors**: Change `#107DFF` to your brand color
 - **Logo**: Add an `<img>` tag in the header if you have a logo
 - **Fonts**: The templates use system fonts for best compatibility
 - **Responsive**: The templates are mobile-friendly with responsive tables

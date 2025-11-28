@@ -120,7 +120,7 @@ SUPPORT_EMAIL=support@wagr.app
 ### Changing Colors
 
 Edit the template in `lib/email-templates.ts`:
-- Primary color: `#0070f3`
+- Primary color: `#107DFF`
 - Success color: `#10b981`
 - Error color: `#d32f2f`
 
