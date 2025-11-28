@@ -90,10 +90,11 @@ export async function getRedisClient(): Promise<RedisClientType | null> {
             }
             return Math.min(retries * 100, 3000);
           },
-          // Upstash requires TLS
-          tls: redisUrl.startsWith('rediss://') || redisUrl.includes('upstash.io') ? {} : undefined,
         },
       };
+      
+      // Note: When using rediss:// protocol, TLS is automatically enabled by the Redis client
+      // We don't need to set tls option explicitly - it causes conflicts
       
       // Only add password if not in URL
       if (password) {
