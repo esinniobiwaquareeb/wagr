@@ -469,7 +469,8 @@ export default function Profile() {
     }
   };
 
-  if (loading) {
+  // Show loading while checking auth or fetching profile
+  if (authLoading || (user && loading)) {
     return (
       <main className="flex-1 pb-24 md:pb-0">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-12 text-center">
@@ -479,7 +480,9 @@ export default function Profile() {
     );
   }
 
-  if (!user || !profile) {
+  // Only show "Please log in" if auth check is complete and no user
+  // (requireAuth should redirect, but this is a fallback)
+  if (!authLoading && !user) {
     return (
       <main className="flex-1 pb-24 md:pb-0">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-12 text-center">
@@ -487,6 +490,28 @@ export default function Profile() {
         </div>
       </main>
     );
+  }
+
+  // If user exists but profile failed to load, show error with retry
+  if (user && !loading && !profile) {
+    return (
+      <main className="flex-1 pb-24 md:pb-0">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-12 text-center space-y-4">
+          <p className="text-muted-foreground">Failed to load profile</p>
+          <button
+            onClick={() => fetchProfile(true)}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition"
+          >
+            Retry
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  // Type guard: at this point, user and profile must exist
+  if (!user || !profile) {
+    return null; // Should not reach here, but TypeScript needs this
   }
 
   return (
