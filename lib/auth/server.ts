@@ -54,6 +54,17 @@ export async function requireAuth(): Promise<AuthUser> {
 }
 
 /**
+ * Require email verification - throws if email is not verified
+ */
+export async function requireEmailVerified(): Promise<AuthUser> {
+  const user = await requireAuth();
+  if (!user.email_verified) {
+    throw new Error('Email verification required');
+  }
+  return user;
+}
+
+/**
  * Check if user is admin
  */
 export async function requireAdmin(): Promise<AuthUser> {

@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
         // Find user by email
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('id, email, username, password_hash, two_factor_enabled, two_factor_secret, two_factor_backup_codes, is_admin, is_suspended')
+          .select('id, email, username, password_hash, two_factor_enabled, two_factor_secret, two_factor_backup_codes, is_admin, is_suspended, email_verified')
           .eq('email', email.trim().toLowerCase())
           .single();
 
@@ -57,6 +57,11 @@ export async function POST(request: NextRequest) {
         const passwordValid = await verifyPassword(password, profile.password_hash);
         if (!passwordValid) {
           throw new AppError(ErrorCode.INVALID_CREDENTIALS, "The email or password you entered doesn't match our records");
+        }
+
+        // Check if email is verified
+        if (!profile.email_verified) {
+          throw new AppError(ErrorCode.EMAIL_NOT_VERIFIED, 'Please verify your email address before logging in. Check your inbox for the verification link.');
         }
 
         // Check if 2FA is enabled
