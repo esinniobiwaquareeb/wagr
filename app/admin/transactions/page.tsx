@@ -6,9 +6,10 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { format } from "date-fns";
-import { ArrowUp, ArrowDown } from "lucide-react";
+import { ArrowUp, ArrowDown, ExternalLink, Link as LinkIcon, Copy, Check } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { getCurrentUser } from "@/lib/auth/client";
+import Link from "next/link";
 
 interface Transaction {
   id: string;
@@ -17,6 +18,7 @@ interface Transaction {
   created_at: string;
   user_id: string;
   description: string | null;
+  reference: string | null;
   wager_id: string | null;
   profiles?: {
     id: string;
@@ -35,6 +37,7 @@ export default function AdminTransactionsPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [copiedRef, setCopiedRef] = useState<string | null>(null);
 
   const checkAdmin = useCallback(async () => {
     try {
@@ -146,7 +149,98 @@ export default function AdminTransactionsPage() {
   };
 
   const isPositive = (type: string) => {
-    return ["deposit", "wager_win", "refund"].includes(type);
+    return ["deposit", "wager_win", "wager_refund", "quiz_refund", "transfer_in"].includes(type);
+  };
+
+  const copyReference = async (reference: string) => {
+    try {
+      await navigator.clipboard.writeText(reference);
+      setCopiedRef(reference);
+      setTimeout(() => setCopiedRef(null), 2000);
+      toast({
+        title: "Copied",
+        description: "Reference copied to clipboard",
+      });
+    } catch (error) {
+      console.error("Failed to copy:", error);
+    }
+  };
+
+  const parseReference = (reference: string | null, type: string) => {
+    if (!reference) {
+      return { display: "N/A", link: null, linkText: null, fullReference: null };
+    }
+
+    // Transfer references: transfer_senderId_recipientId_timestamp_random
+    if (reference.startsWith("transfer_")) {
+      const parts = reference.split("_");
+      if (parts.length >= 4) {
+        return {
+          display: "Transfer",
+          link: null,
+          linkText: null,
+          fullReference: reference,
+        };
+      }
+      return { display: reference, link: null, linkText: null, fullReference: reference };
+    }
+
+    // Bill payment references: bill_airtime_... or bill_data_...
+    if (reference.startsWith("bill_")) {
+      const billType = reference.includes("_airtime_") ? "Airtime" : "Data";
+      return {
+        display: `${billType} Purchase`,
+        link: null,
+        linkText: null,
+        fullReference: reference,
+      };
+    }
+
+    // Deposit references: wagr_userId_timestamp_random
+    if (reference.startsWith("wagr_")) {
+      return {
+        display: "Deposit",
+        link: null,
+        linkText: null,
+        fullReference: reference,
+      };
+    }
+
+    // Check if it's a UUID (wager or quiz reference)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidRegex.test(reference)) {
+      // Determine if it's a wager or quiz based on transaction type
+      if (type.includes("wager") || type === "wager_create" || type === "wager_join" || type === "wager_win" || type === "wager_refund") {
+        return {
+          display: reference.substring(0, 8) + "...",
+          link: `/admin/wagers/${reference}`,
+          linkText: "View Wager",
+          fullReference: reference,
+        };
+      } else if (type.includes("quiz") || type === "quiz_creation" || type === "quiz_refund") {
+        return {
+          display: reference.substring(0, 8) + "...",
+          link: `/quiz/${reference}`,
+          linkText: "View Quiz",
+          fullReference: reference,
+        };
+      }
+      // Generic UUID - could be wager or quiz, default to wager
+      return {
+        display: reference.substring(0, 8) + "...",
+        link: `/admin/wagers/${reference}`,
+        linkText: "View",
+        fullReference: reference,
+      };
+    }
+
+    // Default: show truncated reference
+    return {
+      display: reference.length > 30 ? reference.substring(0, 30) + "..." : reference,
+      link: null,
+      linkText: null,
+      fullReference: reference,
+    };
   };
 
   // Custom filtered transactions for search that includes profile data
@@ -238,6 +332,70 @@ export default function AdminTransactionsPage() {
               ),
             },
             {
+              id: "reference",
+              header: "Reference",
+              accessorKey: "reference",
+              cell: (row) => {
+                const refInfo = parseReference(row.reference, row.type);
+                const fullRef = refInfo.fullReference || row.reference || null;
+                const isCopied = fullRef ? copiedRef === fullRef : false;
+                
+                return (
+                  <div className="flex items-center gap-2 min-w-[160px]">
+                    {refInfo.link ? (
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={refInfo.link}
+                          className="flex items-center gap-1.5 text-sm text-primary hover:underline"
+                          title={fullRef || undefined}
+                        >
+                          <span className="font-mono text-xs">{refInfo.display}</span>
+                          <ExternalLink className="h-3 w-3" />
+                        </Link>
+                        {fullRef && (
+                          <button
+                            onClick={() => fullRef && copyReference(fullRef)}
+                            className="p-1 hover:bg-muted rounded transition-colors"
+                            title="Copy reference"
+                          >
+                            {isCopied ? (
+                              <Check className="h-3 w-3 text-green-600" />
+                            ) : (
+                              <Copy className="h-3 w-3 text-muted-foreground" />
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 flex-1">
+                        <div className="flex flex-col flex-1 min-w-0">
+                          <span className="text-sm font-mono text-muted-foreground truncate" title={fullRef || refInfo.display || undefined}>
+                            {refInfo.display}
+                          </span>
+                          {refInfo.linkText && (
+                            <span className="text-xs text-muted-foreground">{refInfo.linkText}</span>
+                          )}
+                        </div>
+                        {fullRef && (
+                          <button
+                            onClick={() => fullRef && copyReference(fullRef)}
+                            className="p-1 hover:bg-muted rounded transition-colors flex-shrink-0"
+                            title="Copy reference"
+                          >
+                            {isCopied ? (
+                              <Check className="h-3 w-3 text-green-600" />
+                            ) : (
+                              <Copy className="h-3 w-3 text-muted-foreground" />
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              },
+            },
+            {
               id: "user",
               header: "User",
               cell: (row) => {
@@ -269,8 +427,8 @@ export default function AdminTransactionsPage() {
             },
           ]}
           searchable
-          searchPlaceholder="Search by type, description, username, or email..."
-          searchKeys={["type", "description", "user_id", "_searchUsername", "_searchEmail"]}
+          searchPlaceholder="Search by type, description, reference, username, or email..."
+          searchKeys={["type", "description", "reference", "user_id", "_searchUsername", "_searchEmail"]}
           pagination
           pageSize={25}
           sortable

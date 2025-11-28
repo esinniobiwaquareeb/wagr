@@ -498,7 +498,7 @@ export default function AdminWagersPage() {
               cell: (row) => (
                 <div className="font-medium max-w-xs">
                   <Link
-                    href={`/wager/${row.id}`}
+                    href={`/admin/wagers/${row.id}`}
                     className="hover:text-primary transition line-clamp-1"
                   >
                     {row.title}
@@ -616,7 +616,7 @@ export default function AdminWagersPage() {
               cell: (row) => (
                 <div className="flex items-center gap-2 flex-wrap">
                   <Link
-                    href={`/wager/${row.id}`}
+                    href={`/admin/wagers/${row.id}`}
                     className="inline-flex items-center gap-1.5 px-2 py-1 text-xs bg-muted hover:bg-muted/80 rounded transition"
                     title="View Wager"
                   >

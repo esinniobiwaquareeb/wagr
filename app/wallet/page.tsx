@@ -665,6 +665,9 @@ function WalletContent() {
         
         // Refresh wallet data
         fetchWalletData(true);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('balance-updated'));
+        }
       } else {
         toast({
           title: "Transfer failed",
