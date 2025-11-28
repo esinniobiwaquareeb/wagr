@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
-import { requireAuth } from '@/lib/auth/server';
+import { requireAuth, requireAdmin } from '@/lib/auth/server';
 import { AppError, logError } from '@/lib/error-handler';
 import { ErrorCode } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse, getPaginationParams, getPaginationMeta } from '@/lib/api-response';
@@ -11,31 +11,41 @@ import { successResponseNext, appErrorToResponse, getPaginationParams, getPagina
  */
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireAuth();
+    const url = new URL(request.url);
+    const scope = url.searchParams.get('scope');
+    const isAdminView = scope === 'admin';
+
+    const user = await (isAdminView ? requireAdmin() : requireAuth());
     const supabase = await createClient();
     const serviceSupabase = createServiceRoleClient();
     const { page, limit } = getPaginationParams(request);
     const offset = (page - 1) * limit;
 
-    const url = new URL(request.url);
     const status = url.searchParams.get('status');
     const search = url.searchParams.get('search');
     const creatorId = url.searchParams.get('creator_id');
 
-    // Get all quiz IDs where user is a participant (invited, accepted, started, completed)
-    const { data: userParticipants } = await serviceSupabase
-      .from('quiz_participants')
-      .select('quiz_id')
-      .eq('user_id', user.id);
+    let participantQuizIds: string[] = [];
+    if (!isAdminView) {
+      const { data: userParticipants } = await serviceSupabase
+        .from('quiz_participants')
+        .select('quiz_id')
+        .eq('user_id', user.id);
+  
+      participantQuizIds = userParticipants?.map(p => p.quiz_id) || [];
+    }
 
-    const participantQuizIds = userParticipants?.map(p => p.quiz_id) || [];
-
-    // Build query - only show quizzes user is invited to or created
+    // Build query - only show quizzes user is invited to or created unless admin view
     let query = serviceSupabase
       .from('quizzes')
       .select('*, profiles:creator_id(username, avatar_url)', { count: 'exact' })
-      .or(`creator_id.eq.${user.id},id.in.(${participantQuizIds.length > 0 ? participantQuizIds.join(',') : '00000000-0000-0000-0000-000000000000'})`)
       .order('created_at', { ascending: false });
+
+    if (!isAdminView) {
+      const participantFilter =
+        participantQuizIds.length > 0 ? participantQuizIds.join(',') : '00000000-0000-0000-0000-000000000000';
+      query = query.or(`creator_id.eq.${user.id},id.in.(${participantFilter})`);
+    }
 
     // Apply filters
     if (status) {

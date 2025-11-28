@@ -492,69 +492,73 @@ export default function AdminSettingsPage() {
 
       {/* Settings Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 h-auto p-2">
-          {availableTabs.map((category) => {
-            const config = CATEGORY_CONFIG[category as keyof typeof CATEGORY_CONFIG];
-            const Icon = config?.icon || Settings;
-            const count = groupedSettings[category]?.length || 0;
-            
-            return (
-              <TabsTrigger
-                key={category}
-                value={category}
-                className="flex flex-col items-center gap-2 p-4 h-auto data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-              >
-                <Icon className={`h-5 w-5 ${config?.color || ''}`} />
-                <div className="text-center">
-                  <div className="font-medium text-sm">{config?.title || category}</div>
-                  <div className="text-xs opacity-70">{count} settings</div>
-                </div>
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
+        <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
+          <TabsList className="flex lg:flex-col w-full lg:max-w-xs gap-3 h-auto p-3 bg-card border rounded-xl shadow-sm overflow-x-auto lg:sticky lg:top-24">
+            {availableTabs.map((category) => {
+              const config = CATEGORY_CONFIG[category as keyof typeof CATEGORY_CONFIG];
+              const Icon = config?.icon || Settings;
+              const count = groupedSettings[category]?.length || 0;
+              
+              return (
+                <TabsTrigger
+                  key={category}
+                  value={category}
+                  className="w-full flex items-center gap-3 p-3 border rounded-lg text-left transition hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary"
+                >
+                  <Icon className={`h-5 w-5 shrink-0 ${config?.color || ''}`} />
+                  <div className="flex-1">
+                    <div className="font-medium text-sm">{config?.title || category}</div>
+                    <div className="text-xs opacity-70">{count} settings</div>
+                  </div>
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
 
-        {/* Tab Contents */}
-        {availableTabs.map((category) => {
-          const config = CATEGORY_CONFIG[category as keyof typeof CATEGORY_CONFIG];
-          const categorySettings = groupedSettings[category] || [];
+          <div className="flex-1 w-full">
+            {/* Tab Contents */}
+            {availableTabs.map((category) => {
+              const config = CATEGORY_CONFIG[category as keyof typeof CATEGORY_CONFIG];
+              const categorySettings = groupedSettings[category] || [];
 
-          return (
-            <TabsContent key={category} value={category} className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    {config?.icon && <config.icon className={`h-5 w-5 ${config.color}`} />}
-                    {config?.title || category}
-                  </CardTitle>
-                  {config?.description && (
-                    <CardDescription>{config.description}</CardDescription>
-                  )}
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {categorySettings.length === 0 ? (
-                    <div className="text-center py-12 text-muted-foreground">
-                      <Settings className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>No settings in this category</p>
-                    </div>
-                  ) : (
-                    categorySettings.map((setting) => (
-                      <div key={setting.id} className="p-4 border rounded-lg bg-card">
-                        {renderSetting(setting)}
-                        {setting.requires_restart && (
-                          <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 flex items-center gap-1">
-                            <AlertCircle className="h-3 w-3" />
-                            Requires server restart to take effect
-                          </p>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          );
-        })}
+              return (
+                <TabsContent key={category} value={category} className="mt-6 lg:mt-0">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        {config?.icon && <config.icon className={`h-5 w-5 ${config.color}`} />}
+                        {config?.title || category}
+                      </CardTitle>
+                      {config?.description && (
+                        <CardDescription>{config.description}</CardDescription>
+                      )}
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {categorySettings.length === 0 ? (
+                        <div className="text-center py-12 text-muted-foreground">
+                          <Settings className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                          <p>No settings in this category</p>
+                        </div>
+                      ) : (
+                        categorySettings.map((setting) => (
+                          <div key={setting.id} className="p-4 border rounded-lg bg-card">
+                            {renderSetting(setting)}
+                            {setting.requires_restart && (
+                              <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 flex items-center gap-1">
+                                <AlertCircle className="h-3 w-3" />
+                                Requires server restart to take effect
+                              </p>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              );
+            })}
+          </div>
+        </div>
       </Tabs>
     </div>
   );

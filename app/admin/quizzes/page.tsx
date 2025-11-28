@@ -72,6 +72,7 @@ export default function AdminQuizzesPage() {
     try {
       setLoading(true);
       const params = new URLSearchParams();
+      params.set('scope', 'admin');
       if (filterStatus !== 'all') {
         params.set('status', filterStatus);
       }
