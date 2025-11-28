@@ -181,9 +181,12 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', withdrawal.id);
 
+      // Extract the actual error message from Paystack response
+      const paystackMessage = recipientData.message || recipientData.data?.message || 'Failed to process withdrawal';
+      
       throw new AppError(
         ErrorCode.PAYMENT_FAILED,
-        recipientData.message || 'Failed to process withdrawal',
+        paystackMessage,
         { paystackError: recipientData },
         recipientResponse.status || 500
       );
@@ -234,9 +237,12 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', withdrawal.id);
 
+      // Extract the actual error message from Paystack response
+      const paystackMessage = transferData.message || transferData.data?.message || 'Failed to process withdrawal';
+      
       throw new AppError(
         ErrorCode.PAYMENT_FAILED,
-        transferData.message || 'Failed to process withdrawal',
+        paystackMessage,
         { paystackError: transferData },
         transferResponse.status || 500
       );

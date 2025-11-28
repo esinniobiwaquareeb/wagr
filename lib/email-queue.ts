@@ -71,8 +71,8 @@ class EmailQueue {
         this.handleRetry(email);
       }
 
-      // Small delay to prevent overwhelming the SMTP server
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Small delay to prevent overwhelming the SMTP server (reduced for faster processing)
+      await new Promise((resolve) => setTimeout(resolve, 50));
     }
 
     this.processing = false;

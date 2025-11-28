@@ -104,7 +104,18 @@ export async function extractErrorFromResponse(
         }
       }
       if (typeof data.error === 'object' && data.error !== null) {
-        const errorMessage = data.error.message?.trim();
+        const errorObj = data.error as { message?: string; details?: any };
+        
+        // Check for Paystack error message in details
+        if (errorObj.details?.paystackError?.message) {
+          const paystackMessage = String(errorObj.details.paystackError.message).trim();
+          if (paystackMessage) {
+            return paystackMessage;
+          }
+        }
+        
+        // Check for error message
+        const errorMessage = errorObj.message?.trim();
         if (errorMessage) {
           return errorMessage;
         }

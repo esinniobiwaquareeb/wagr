@@ -56,7 +56,7 @@ function createTransporter() {
 }
 
 /**
- * Send email using SMTP
+ * Send email using SMTP with timeout
  */
 export async function sendEmail(options: SendEmailOptions): Promise<boolean> {
   try {
@@ -84,16 +84,24 @@ export async function sendEmail(options: SendEmailOptions): Promise<boolean> {
       return false;
     }
 
-    // Create transporter and send email
+    // Create transporter and send email with timeout
     const transporter = createTransporter();
     
-    const info = await transporter.sendMail({
+    // Set timeout to 10 seconds to prevent long waits
+    const timeout = 10000; // 10 seconds
+    const sendPromise = transporter.sendMail({
       from: fromAddress,
       to,
       subject: emailSubject,
       html: htmlContent,
       text: textContent,
     });
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Email sending timeout after 10 seconds')), timeout);
+    });
+
+    const info = await Promise.race([sendPromise, timeoutPromise]);
 
     logger.info('Email sent successfully:', {
       to,
@@ -104,7 +112,11 @@ export async function sendEmail(options: SendEmailOptions): Promise<boolean> {
 
     return true;
   } catch (error) {
-    logger.error('Failed to send email:', error);
+    logger.error('Failed to send email:', {
+      error: error instanceof Error ? error.message : String(error),
+      to: options.to,
+      type: options.type,
+    });
     return false;
   }
 }

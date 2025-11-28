@@ -4,6 +4,7 @@ import { hashPassword, validatePasswordStrength } from '@/lib/auth/password';
 import { generateEmailVerificationToken, getExpirationTime, generateUUID } from '@/lib/auth/tokens';
 import { createSession, setSessionCookie } from '@/lib/auth/session';
 import { sendEmailAsync } from '@/lib/email-queue';
+import { sendEmail } from '@/lib/email-service';
 import { AppError, logError } from '@/lib/error-handler';
 import { ErrorCode } from '@/lib/error-handler';
 import { withRateLimit } from '@/lib/middleware-rate-limit';
@@ -169,19 +170,30 @@ export async function POST(request: NextRequest) {
           // Don't fail registration, but log the error
         }
 
-        // Send verification email
+        // Send verification email (synchronously for immediate delivery)
         const appUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://wagered.app';
         const verificationUrl = `${appUrl}/verify-email?token=${verificationToken}`;
 
-        // Send verification email in background (non-blocking)
-        sendEmailAsync({
-          to: trimmedEmail,
-          type: 'verification',
-          data: {
-            recipientName: trimmedUsername,
-            verificationUrl,
-          },
-        });
+        // Send verification email immediately (critical email)
+        try {
+          const emailSent = await sendEmail({
+            to: trimmedEmail,
+            type: 'verification',
+            data: {
+              recipientName: trimmedUsername,
+              verificationUrl,
+            },
+          });
+
+          if (!emailSent) {
+            logError(new Error('Failed to send verification email - SMTP may not be configured'));
+            // Don't fail registration, but log the error
+            // User can request a new verification email later
+          }
+        } catch (emailError) {
+          logError(new Error(`Error sending verification email: ${emailError instanceof Error ? emailError.message : 'Unknown error'}`));
+          // Don't fail registration, but log the error
+        }
 
         // Create session and set cookie
         const clientIP = getClientIP(req);
