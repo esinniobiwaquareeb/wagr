@@ -159,6 +159,19 @@ export default function AdminUsersPage() {
     }
   }, [isAdmin, fetchUsers]);
 
+  const stats = useMemo(() => {
+    const total = users.length;
+    const admins = users.filter((user) => user.is_admin).length;
+    const verified = users.filter((user) => (user.kyc_level || 1) >= 2).length;
+    const suspended = users.filter((user) => user.is_suspended).length;
+    return [
+      { label: 'Total Users', value: total, icon: UsersIcon },
+      { label: 'Verified (L2+)', value: verified, icon: ShieldCheck },
+      { label: 'Admins', value: admins, icon: Shield },
+      { label: 'Suspended', value: suspended, icon: ShieldAlert },
+    ];
+  }, [users]);
+
   if (loading) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center">
@@ -173,19 +186,6 @@ export default function AdminUsersPage() {
   if (!isAdmin) {
     return null;
   }
-
-  const stats = useMemo(() => {
-    const total = users.length;
-    const admins = users.filter((user) => user.is_admin).length;
-    const verified = users.filter((user) => (user.kyc_level || 1) >= 2).length;
-    const suspended = users.filter((user) => user.is_suspended).length;
-    return [
-      { label: 'Total Users', value: total, icon: UsersIcon },
-      { label: 'Verified (L2+)', value: verified, icon: ShieldCheck },
-      { label: 'Admins', value: admins, icon: Shield },
-      { label: 'Suspended', value: suspended, icon: ShieldAlert },
-    ];
-  }, [users]);
 
   return (
     <main className="min-h-screen bg-background p-4 md:p-6">
