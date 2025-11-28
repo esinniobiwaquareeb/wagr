@@ -16,6 +16,17 @@ function normalizeSubmission(entry: any) {
   };
 }
 
+function isMissingKycSchema(error: any): boolean {
+  const errorCode = error?.code;
+  const message = (error?.message || '').toLowerCase();
+  return (
+    errorCode === '42P01' ||
+    errorCode === '42703' ||
+    (message.includes('kyc_submissions') && message.includes('does not exist')) ||
+    (message.includes('kyc_level') && message.includes('does not exist'))
+  );
+}
+
 async function fetchStatusCount(supabase: ReturnType<typeof createServiceRoleClient>, status: string) {
   const { count, error } = await supabase
     .from('kyc_submissions')
@@ -23,7 +34,7 @@ async function fetchStatusCount(supabase: ReturnType<typeof createServiceRoleCli
     .eq('status', status);
 
   if (error) {
-    if ((error as any)?.code === '42P01') {
+    if (isMissingKycSchema(error)) {
       return 0;
     }
     logError(new Error(`Failed to get ${status} count: ${error.message}`));
@@ -80,13 +91,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
 
     if (error) {
-      const errorCode = (error as any)?.code;
-      const message = (error as any)?.message || '';
-      const normalizedMessage = message.toLowerCase();
-      if (
-        errorCode === '42P01' ||
-        (normalizedMessage.includes('kyc_submissions') && normalizedMessage.includes('does not exist'))
-      ) {
+      if (isMissingKycSchema(error)) {
         return successResponseNext({
           submissions: [],
           summary: {
@@ -94,7 +99,7 @@ export async function GET(request: NextRequest) {
             verified: 0,
             rejected: 0,
           },
-          message: 'KYC table not found yet; returning empty set.',
+          warning: 'KYC schema not found. Please run the latest migrations.',
         });
       }
       throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch KYC submissions');

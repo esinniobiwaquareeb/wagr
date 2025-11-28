@@ -73,6 +73,8 @@ export default function AdminQuizzesPage() {
       setLoading(true);
       const params = new URLSearchParams();
       params.set('scope', 'admin');
+      params.set('limit', '100');
+      params.set('page', '1');
       if (filterStatus !== 'all') {
         params.set('status', filterStatus);
       }
@@ -152,6 +154,8 @@ export default function AdminQuizzesPage() {
     );
   };
 
+  const getRowData = (row: any) => (row?.original ? row.original : row || {});
+
   const columns: any[] = [
     {
       id: "title",
@@ -159,9 +163,9 @@ export default function AdminQuizzesPage() {
       header: "Title",
       cell: ({ row }: any) => (
         <div className="max-w-[300px]">
-          <div className="font-medium truncate">{row.original.title}</div>
-          {row.original.description && (
-            <div className="text-sm text-muted-foreground truncate">{row.original.description}</div>
+          <div className="font-medium truncate">{getRowData(row).title}</div>
+          {getRowData(row).description && (
+            <div className="text-sm text-muted-foreground truncate">{getRowData(row).description}</div>
           )}
         </div>
       ),
@@ -171,7 +175,7 @@ export default function AdminQuizzesPage() {
       header: "Creator",
       cell: ({ row }: any) => (
         <div className="text-sm">
-          {row.original.profiles?.username || 'Unknown'}
+          {getRowData(row).profiles?.username || 'Unknown'}
         </div>
       ),
     },
@@ -180,7 +184,7 @@ export default function AdminQuizzesPage() {
       accessorKey: "total_questions",
       header: "Questions",
       cell: ({ row }: any) => (
-        <div className="text-sm">{row.original.total_questions}</div>
+        <div className="text-sm">{getRowData(row).total_questions}</div>
       ),
     },
     {
@@ -188,7 +192,7 @@ export default function AdminQuizzesPage() {
       accessorKey: "max_participants",
       header: "Max Participants",
       cell: ({ row }: any) => (
-        <div className="text-sm">{row.original.max_participants}</div>
+        <div className="text-sm">{getRowData(row).max_participants}</div>
       ),
     },
     {
@@ -196,7 +200,9 @@ export default function AdminQuizzesPage() {
       accessorKey: "entry_fee_per_question",
       header: "Entry Fee",
       cell: ({ row }: any) => (
-        <div className="text-sm">{formatCurrency(row.original.entry_fee_per_question, DEFAULT_CURRENCY)}</div>
+        <div className="text-sm">
+          {formatCurrency(Number(getRowData(row).entry_fee_per_question) || 0, DEFAULT_CURRENCY)}
+        </div>
       ),
     },
     {
@@ -204,14 +210,16 @@ export default function AdminQuizzesPage() {
       accessorKey: "total_cost",
       header: "Total Cost",
       cell: ({ row }: any) => (
-        <div className="text-sm font-medium">{formatCurrency(row.original.total_cost, DEFAULT_CURRENCY)}</div>
+        <div className="text-sm font-medium">
+          {formatCurrency(Number(getRowData(row).total_cost) || 0, DEFAULT_CURRENCY)}
+        </div>
       ),
     },
     {
       id: "status",
       accessorKey: "status",
       header: "Status",
-      cell: ({ row }: any) => getStatusBadge(row.original.status),
+      cell: ({ row }: any) => getStatusBadge(getRowData(row).status),
     },
     {
       id: "created_at",
@@ -219,7 +227,7 @@ export default function AdminQuizzesPage() {
       header: "Created",
       cell: ({ row }: any) => (
         <div className="text-sm text-muted-foreground">
-          {format(new Date(row.original.created_at), "MMM d, yyyy")}
+          {format(new Date(getRowData(row).created_at), "MMM d, yyyy")}
         </div>
       ),
     },
@@ -227,7 +235,7 @@ export default function AdminQuizzesPage() {
       id: "actions",
       header: "Actions",
       cell: ({ row }: any) => {
-        const quiz = row.original;
+        const quiz = getRowData(row);
         return (
           <div className="flex items-center gap-2">
             <Link href={`/quiz/${quiz.id}`}>
