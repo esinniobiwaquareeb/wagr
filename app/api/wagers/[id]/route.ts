@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth/server';
 import { AppError, logError } from '@/lib/error-handler';
 import { ErrorCode } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
+import { getOrFetchWagerDetail, invalidateWagerCaches } from '@/lib/redis/wagers';
 
 /**
  * GET /api/wagers/[id]
@@ -18,53 +19,58 @@ export async function GET(
     const { id } = await params;
     const wagerId = id;
 
-    // Try to find by short_id first, then by id
-    const { data: wager, error } = await supabase
-      .from('wagers')
-      .select('*, profiles:creator_id(username, avatar_url)')
-      .or(`id.eq.${wagerId},short_id.eq.${wagerId}`)
-      .single();
+    // Use Redis caching with cache-aside pattern
+    const wagerData = await getOrFetchWagerDetail(wagerId, async () => {
+      // Try to find by short_id first, then by id
+      const { data: wager, error } = await supabase
+        .from('wagers')
+        .select('*, profiles:creator_id(username, avatar_url)')
+        .or(`id.eq.${wagerId},short_id.eq.${wagerId}`)
+        .single();
 
-    if (error || !wager) {
-      throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Wager not found');
-    }
-
-    // Get entry counts
-    const { data: entries } = await supabase
-      .from('wager_entries')
-      .select('side, amount, user_id, profiles:user_id(username, avatar_url)')
-      .eq('wager_id', wager.id);
-
-    const entryCounts = {
-      sideA: 0,
-      sideB: 0,
-      total: 0,
-    };
-
-    const sideAEntries: any[] = [];
-    const sideBEntries: any[] = [];
-
-    entries?.forEach(entry => {
-      const amount = parseFloat(entry.amount);
-      entryCounts.total += amount;
-      if (entry.side === 'a') {
-        entryCounts.sideA += amount;
-        sideAEntries.push(entry);
-      } else {
-        entryCounts.sideB += amount;
-        sideBEntries.push(entry);
+      if (error || !wager) {
+        throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Wager not found');
       }
-    });
 
-    return successResponseNext({
-      wager: {
+      // Get entry counts
+      const { data: entries } = await supabase
+        .from('wager_entries')
+        .select('side, amount, user_id, profiles:user_id(username, avatar_url)')
+        .eq('wager_id', wager.id);
+
+      const entryCounts = {
+        sideA: 0,
+        sideB: 0,
+        total: 0,
+      };
+
+      const sideAEntries: any[] = [];
+      const sideBEntries: any[] = [];
+
+      entries?.forEach(entry => {
+        const amount = parseFloat(entry.amount);
+        entryCounts.total += amount;
+        if (entry.side === 'a') {
+          entryCounts.sideA += amount;
+          sideAEntries.push(entry);
+        } else {
+          entryCounts.sideB += amount;
+          sideBEntries.push(entry);
+        }
+      });
+
+      return {
         ...wager,
         entryCounts,
         entries: {
           sideA: sideAEntries,
           sideB: sideBEntries,
         },
-      },
+      };
+    });
+
+    return successResponseNext({
+      wager: wagerData,
     });
   } catch (error) {
     logError(error as Error);
@@ -164,6 +170,12 @@ export async function DELETE(
     if (deleteError) {
       throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to delete wager');
     }
+
+    // Invalidate wager caches after deletion
+    await invalidateWagerCaches(wagerId).catch((err) => {
+      console.error('Failed to invalidate wager caches:', err);
+      // Don't fail the request if cache invalidation fails
+    });
 
     return successResponseNext({ message: 'Wager deleted successfully' });
   } catch (error) {

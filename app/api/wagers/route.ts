@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth/server';
 import { AppError, logError } from '@/lib/error-handler';
 import { ErrorCode } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse, getPaginationParams, getPaginationMeta } from '@/lib/api-response';
+import { getOrFetchWagerList, invalidateWagerLists } from '@/lib/redis/wagers';
 
 /**
  * GET /api/wagers
@@ -21,75 +22,86 @@ export async function GET(request: NextRequest) {
     const search = url.searchParams.get('search');
     const currency = url.searchParams.get('currency');
 
-    // Build query
-    let query = supabase
-      .from('wagers')
-      .select('*, profiles:creator_id(username, avatar_url)', { count: 'exact' })
-      .order('created_at', { ascending: false });
+    // Use Redis caching with cache-aside pattern
+    const result = await getOrFetchWagerList(
+      { page, limit, status, category, search, currency },
+      async () => {
+        // Build query
+        let query = supabase
+          .from('wagers')
+          .select('*, profiles:creator_id(username, avatar_url)', { count: 'exact' })
+          .order('created_at', { ascending: false });
 
-    // Apply filters
-    if (status) {
-      query = query.eq('status', status);
-    }
-    if (category) {
-      query = query.eq('category', category);
-    }
-    if (currency) {
-      query = query.eq('currency', currency);
-    }
-    if (search) {
-      query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
-    }
-
-    // Apply pagination
-    query = query.range(offset, offset + limit - 1);
-
-    const { data: wagers, error, count } = await query;
-
-    if (error) {
-      logError(new Error(`Failed to fetch wagers: ${error.message}`), {
-        error,
-        code: error.code,
-        details: error.details,
-        hint: error.hint,
-      });
-      throw new AppError(
-        ErrorCode.DATABASE_ERROR, 
-        `Failed to fetch wagers: ${error.message}`,
-        { databaseError: error }
-      );
-    }
-
-    // Get entry counts for each wager
-    const wagerIds = wagers?.map(w => w.id) || [];
-    if (wagerIds.length > 0) {
-      const { data: entries } = await supabase
-        .from('wager_entries')
-        .select('wager_id, side, amount')
-        .in('wager_id', wagerIds);
-
-      const entryCounts = entries?.reduce((acc, entry) => {
-        if (!acc[entry.wager_id]) {
-          acc[entry.wager_id] = { sideA: 0, sideB: 0, total: 0 };
+        // Apply filters
+        if (status) {
+          query = query.eq('status', status);
         }
-        if (entry.side === 'a') {
-          acc[entry.wager_id].sideA += parseFloat(entry.amount);
-        } else {
-          acc[entry.wager_id].sideB += parseFloat(entry.amount);
+        if (category) {
+          query = query.eq('category', category);
         }
-        acc[entry.wager_id].total += parseFloat(entry.amount);
-        return acc;
-      }, {} as Record<string, { sideA: number; sideB: number; total: number }>) || {};
+        if (currency) {
+          query = query.eq('currency', currency);
+        }
+        if (search) {
+          query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
+        }
 
-      // Add entry counts to wagers
-      wagers?.forEach(wager => {
-        (wager as any).entryCounts = entryCounts[wager.id] || { sideA: 0, sideB: 0, total: 0 };
-      });
-    }
+        // Apply pagination
+        query = query.range(offset, offset + limit - 1);
+
+        const { data: wagers, error, count } = await query;
+
+        if (error) {
+          logError(new Error(`Failed to fetch wagers: ${error.message}`), {
+            error,
+            code: error.code,
+            details: error.details,
+            hint: error.hint,
+          });
+          throw new AppError(
+            ErrorCode.DATABASE_ERROR, 
+            `Failed to fetch wagers: ${error.message}`,
+            { databaseError: error }
+          );
+        }
+
+        // Get entry counts for each wager
+        const wagerIds = wagers?.map(w => w.id) || [];
+        if (wagerIds.length > 0) {
+          const { data: entries } = await supabase
+            .from('wager_entries')
+            .select('wager_id, side, amount')
+            .in('wager_id', wagerIds);
+
+          const entryCounts = entries?.reduce((acc, entry) => {
+            if (!acc[entry.wager_id]) {
+              acc[entry.wager_id] = { sideA: 0, sideB: 0, total: 0 };
+            }
+            if (entry.side === 'a') {
+              acc[entry.wager_id].sideA += parseFloat(entry.amount);
+            } else {
+              acc[entry.wager_id].sideB += parseFloat(entry.amount);
+            }
+            acc[entry.wager_id].total += parseFloat(entry.amount);
+            return acc;
+          }, {} as Record<string, { sideA: number; sideB: number; total: number }>) || {};
+
+          // Add entry counts to wagers
+          wagers?.forEach(wager => {
+            (wager as any).entryCounts = entryCounts[wager.id] || { sideA: 0, sideB: 0, total: 0 };
+          });
+        }
+
+        return {
+          wagers: wagers || [],
+          pagination: getPaginationMeta(page, limit, count || 0),
+        };
+      }
+    );
 
     return successResponseNext(
-      { wagers: wagers || [] },
-      getPaginationMeta(page, limit, count || 0)
+      { wagers: result.wagers },
+      result.pagination
     );
   } catch (error) {
     logError(error as Error);
@@ -298,6 +310,12 @@ export async function POST(request: NextRequest) {
       amount: -amount,
       reference: wager.id,
       description: `Wager Entry: "${title.trim()}" - Joined ${creatorSide === 'a' ? sideA : sideB}`,
+    });
+
+    // Invalidate wager caches after creation
+    await invalidateWagerLists().catch((err) => {
+      console.error('Failed to invalidate wager caches:', err);
+      // Don't fail the request if cache invalidation fails
     });
 
     return successResponseNext({ wager }, undefined, 201);

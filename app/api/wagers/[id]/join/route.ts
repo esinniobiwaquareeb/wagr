@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth/server';
 import { AppError, logError } from '@/lib/error-handler';
 import { ErrorCode } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
+import { invalidateWagerCaches } from '@/lib/redis/wagers';
 
 /**
  * POST /api/wagers/[id]/join
@@ -131,6 +132,12 @@ export async function POST(
       } else {
         entryCounts.sideB += amount;
       }
+    });
+
+    // Invalidate wager caches after joining (entry counts changed)
+    await invalidateWagerCaches(wager.id).catch((err) => {
+      console.error('Failed to invalidate wager caches:', err);
+      // Don't fail the request if cache invalidation fails
     });
 
     return successResponseNext({
