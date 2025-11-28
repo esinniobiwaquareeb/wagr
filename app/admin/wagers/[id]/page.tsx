@@ -22,7 +22,6 @@ interface WagerEntry {
   user_id: string;
   amount: number;
   side: string;
-  status: string;
   created_at: string;
   user?: {
     id: string;
@@ -41,7 +40,6 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
   const [wager, setWager] = useState<any>(null);
   const [entries, setEntries] = useState<WagerEntry[]>([]);
 
-  const [resolvedEntries, setResolvedEntries] = useState(0);
   const [sideASum, setSideASum] = useState(0);
   const [sideBSum, setSideBSum] = useState(0);
   const [totalParticipants, setTotalParticipants] = useState(0);
@@ -82,7 +80,6 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
             user_id,
             amount,
             side,
-            status,
             created_at,
             user:profiles!wager_entries_user_id_fkey(
               id,
@@ -106,7 +103,6 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
 
         setEntries(entriesWithFallback);
         setTotalParticipants(entriesWithFallback.length);
-        setResolvedEntries(entriesWithFallback.filter((entry) => entry.status === "WIN" || entry.status === "LOSE").length);
         setSideASum(
           entriesWithFallback
             .filter((entry) => (entry.side || "").toLowerCase() === "a")
@@ -221,13 +217,6 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
       cell: (row: WagerEntry) => <span className="text-sm font-semibold">{formatCurrency(row.amount || 0, currency)}</span>,
     },
     {
-      id: "status",
-      header: "Status",
-      cell: (row: WagerEntry) => (
-        <span className="text-xs text-muted-foreground uppercase tracking-wide">{row.status || "PENDING"}</span>
-      ),
-    },
-    {
       id: "joined",
       header: "Joined",
       cell: (row: WagerEntry) => (
@@ -283,7 +272,9 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
               <Users className="h-4 w-4 text-muted-foreground" />
               <div>
                 <p className="text-xl font-semibold">{totalParticipants}</p>
-                <p className="text-xs text-muted-foreground">{resolvedEntries} resolved</p>
+                <p className="text-xs text-muted-foreground">
+                  {wager.status === "SETTLED" || wager.status === "RESOLVED" ? "Settled" : "Active"}
+                </p>
               </div>
             </CardContent>
           </Card>
