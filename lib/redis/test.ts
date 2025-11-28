@@ -26,12 +26,31 @@ export async function testRedisConnection(): Promise<{
       };
     }
 
-    // Test 1: Check if Redis is available
-    const available = await isRedisAvailable();
-    if (!available) {
+    // Test 1: Try to get client and capture actual error
+    let client: any = null;
+    let connectionError: any = null;
+    
+    try {
+      client = await getRedisClient();
+      if (client) {
+        // Try to ping to verify connection
+        try {
+          await client.ping();
+        } catch (pingError) {
+          connectionError = pingError;
+        }
+      } else {
+        connectionError = new Error('getRedisClient returned null');
+      }
+    } catch (error) {
+      connectionError = error;
+    }
+    
+    if (!client || connectionError) {
       const errorDetails: any = {
         hasRedisUrl: !!process.env.REDIS_URL,
         hasRedisPassword: !!process.env.REDIS_PASSWORD,
+        connectionError: connectionError ? (connectionError instanceof Error ? connectionError.message : String(connectionError)) : 'Client returned null',
       };
       
       if (process.env.REDIS_URL) {
@@ -40,23 +59,19 @@ export async function testRedisConnection(): Promise<{
           : process.env.REDIS_URL.startsWith('redis://')
           ? 'missing TLS (use rediss://)'
           : 'incorrect format';
+        errorDetails.urlPreview = process.env.REDIS_URL.substring(0, 50) + '...';
       }
       
       return {
         success: false,
-        message: 'Redis is not available. Check your connection settings. If using Upstash, ensure you are using the Redis URL (rediss://...) not the REST URL (https://...).',
+        message: connectionError 
+          ? `Redis connection failed: ${connectionError instanceof Error ? connectionError.message : String(connectionError)}. Check Vercel logs for detailed error information.`
+          : 'Redis is not available. Check your connection settings and Vercel logs for details.',
         details: errorDetails,
       };
     }
 
-    // Test 2: Get client and test basic operations
-    const client = await getRedisClient();
-    if (!client) {
-      return {
-        success: false,
-        message: 'Failed to get Redis client.',
-      };
-    }
+    // Test 2: Client is verified, proceed with tests
 
     // Test 3: Test PING
     const pingResult = await client.ping();
@@ -82,7 +97,7 @@ export async function testRedisConnection(): Promise<{
       };
     }
 
-    // Test 5: Test DELETE
+    // Test 4: Test DELETE
     await deleteCached(testKey);
     const afterDelete = await getCached(testKey);
     if (afterDelete !== null) {
@@ -92,7 +107,7 @@ export async function testRedisConnection(): Promise<{
       };
     }
 
-    // Test 6: Get Redis info
+    // Test 5: Get Redis info
     const info = await client.info('server');
     const versionMatch = info.match(/redis_version:([^\r\n]+)/);
     const version = versionMatch ? versionMatch[1] : 'unknown';
@@ -108,10 +123,20 @@ export async function testRedisConnection(): Promise<{
       },
     };
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorDetails: any = {
+      error: errorMessage,
+      errorType: error instanceof Error ? error.constructor.name : typeof error,
+    };
+    
+    if (error instanceof Error && error.stack) {
+      errorDetails.stack = error.stack.substring(0, 500);
+    }
+    
     return {
       success: false,
-      message: `Redis test failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      details: { error },
+      message: `Redis test failed: ${errorMessage}`,
+      details: errorDetails,
     };
   }
 }

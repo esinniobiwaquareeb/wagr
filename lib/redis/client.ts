@@ -75,9 +75,13 @@ export async function getRedisClient(): Promise<RedisClientType | null> {
         redisUrl = redisUrl.replace('redis://', 'rediss://');
       }
 
-      const client = createClient({
+      // If password is already in URL, don't pass it separately
+      // Upstash URLs include password: rediss://default:password@host:port
+      const urlHasPassword = redisUrl.includes('@') && redisUrl.split('@').length > 1;
+      const password = urlHasPassword ? undefined : process.env.REDIS_PASSWORD;
+      
+      const clientConfig: any = {
         url: redisUrl,
-        password: process.env.REDIS_PASSWORD,
         socket: {
           reconnectStrategy: (retries: number) => {
             if (retries > 10) {
@@ -89,7 +93,14 @@ export async function getRedisClient(): Promise<RedisClientType | null> {
           // Upstash requires TLS
           tls: redisUrl.startsWith('rediss://') || redisUrl.includes('upstash.io') ? {} : undefined,
         },
-      });
+      };
+      
+      // Only add password if not in URL
+      if (password) {
+        clientConfig.password = password;
+      }
+      
+      const client = createClient(clientConfig);
 
       client.on('error', (err: Error) => {
         console.error('Redis Client Error:', err);
@@ -114,11 +125,33 @@ export async function getRedisClient(): Promise<RedisClientType | null> {
         isConnecting = false;
       });
 
-      await client.connect();
-      redisClient = client as RedisClientType;
-      return redisClient;
+      try {
+        await client.connect();
+        redisClient = client as RedisClientType;
+        return redisClient;
+      } catch (connectError) {
+        console.error('Redis: Connection failed:', connectError);
+        if (connectError instanceof Error) {
+          console.error('Redis: Error message:', connectError.message);
+          console.error('Redis: Error stack:', connectError.stack);
+        }
+        // Close the client if it was created
+        try {
+          await client.quit();
+        } catch {
+          // Ignore quit errors
+        }
+        throw connectError; // Re-throw to be caught by outer catch
+      }
     } catch (error) {
-      console.error('Redis: Failed to connect', error);
+      console.error('Redis: Failed to initialize connection:', error);
+      if (error instanceof Error) {
+        console.error('Redis: Error details:', {
+          message: error.message,
+          name: error.name,
+          stack: error.stack?.substring(0, 500),
+        });
+      }
       isConnecting = false;
       connectionPromise = null;
       return null;
