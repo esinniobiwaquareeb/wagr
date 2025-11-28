@@ -171,7 +171,12 @@ export default function AdminQuizzesPage() {
       cell: (row: Quiz) => {
         return (
           <div className="max-w-[300px]">
-            <div className="font-medium truncate">{row.title || "Untitled Quiz"}</div>
+            <Link
+              href={`/admin/quizzes/${row.id}`}
+              className="font-medium truncate hover:text-primary transition line-clamp-1"
+            >
+              {row.title || "Untitled Quiz"}
+            </Link>
             {row.description && (
               <div className="text-sm text-muted-foreground truncate">{row.description}</div>
             )}
@@ -276,8 +281,8 @@ export default function AdminQuizzesPage() {
       cell: (row: Quiz) => {
         return (
           <div className="flex items-center gap-2">
-            <Link href={`/quiz/${row.id}`}>
-              <Button variant="ghost" size="sm">
+            <Link href={`/admin/quizzes/${row.id}`}>
+              <Button variant="ghost" size="sm" title="View Details">
                 <Eye className="h-4 w-4" />
               </Button>
             </Link>
@@ -286,6 +291,7 @@ export default function AdminQuizzesPage() {
                 variant="ghost"
                 size="sm"
                 onClick={() => handleDeleteClick(row)}
+                title="Delete Quiz"
               >
                 <Trash2 className="h-4 w-4 text-destructive" />
               </Button>

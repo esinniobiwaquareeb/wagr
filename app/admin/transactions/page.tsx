@@ -220,7 +220,7 @@ export default function AdminTransactionsPage() {
       } else if (type.includes("quiz") || type === "quiz_creation" || type === "quiz_refund") {
         return {
           display: reference.substring(0, 8) + "...",
-          link: `/quiz/${reference}`,
+          link: `/admin/quizzes/${reference}`,
           linkText: "View Quiz",
           fullReference: reference,
         };
