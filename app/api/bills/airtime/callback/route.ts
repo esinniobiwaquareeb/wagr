@@ -9,9 +9,15 @@ import { getBillsProvider } from '@/lib/bills/providers';
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
-    const orderId = url.searchParams.get('orderid') || url.searchParams.get('OrderID');
-    const requestId = url.searchParams.get('requestid') || url.searchParams.get('RequestID');
-    const remark = url.searchParams.get('orderremark') || url.searchParams.get('OrderRemark');
+    const rawOrderId = url.searchParams.get('orderid') || url.searchParams.get('OrderID');
+    const rawRequestId = url.searchParams.get('requestid') || url.searchParams.get('RequestID');
+    const rawRemark = url.searchParams.get('orderremark') || url.searchParams.get('OrderRemark');
+    
+    // Sanitize input parameters
+    const { sanitizeString } = await import('@/lib/security/input-sanitizer');
+    const orderId = rawOrderId ? sanitizeString(rawOrderId, 100) : null;
+    const requestId = rawRequestId ? sanitizeString(rawRequestId, 100) : null;
+    const remark = rawRemark ? sanitizeString(rawRemark, 500) : null;
 
     if (!orderId && !requestId) {
       return errorResponse(
@@ -28,8 +34,8 @@ export async function GET(request: NextRequest) {
       .select('id, user_id, amount, status, reference, refunded_at, order_id, request_id, provider')
       .or(
         [
-          orderId ? `order_id.eq.${orderId}` : '',
-          requestId ? `request_id.eq.${requestId}` : '',
+          orderId ? `order_id.eq.${orderId.replace(/'/g, "''")}` : '',
+          requestId ? `request_id.eq.${requestId.replace(/'/g, "''")}` : '',
         ]
           .filter(Boolean)
           .join(','),

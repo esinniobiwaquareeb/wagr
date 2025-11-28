@@ -35,9 +35,14 @@ export async function GET(request: NextRequest) {
       query = query.eq('creator_id', creatorId);
     }
 
-    if (search) {
-      query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
-    }
+      if (search) {
+        // Sanitize search input to prevent injection
+        const { sanitizeSearchInput } = await import('@/lib/security/input-sanitizer');
+        const sanitizedSearch = sanitizeSearchInput(search);
+        if (sanitizedSearch) {
+          query = query.or(`title.ilike.%${sanitizedSearch}%,description.ilike.%${sanitizedSearch}%`);
+        }
+      }
 
     const { data: quizzes, error, count } = await query;
 

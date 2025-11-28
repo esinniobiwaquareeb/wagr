@@ -17,7 +17,10 @@ export async function GET(
     const user = await requireAuth();
     const serviceSupabase = createServiceRoleClient();
     const { id } = await params;
-    const quizId = id;
+    
+    // Sanitize and validate ID input
+    const { validateIDParam } = await import('@/lib/security/validator');
+    const quizId = validateIDParam(id, 'quiz ID', false); // Only UUID for quizzes
 
     // Get quiz to verify it exists
     const { data: quiz } = await serviceSupabase

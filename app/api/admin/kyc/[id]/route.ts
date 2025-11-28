@@ -57,7 +57,11 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   try {
     const admin = await requireAdmin();
     const supabaseAdmin = createServiceRoleClient();
-    const { id: submissionId } = await context.params;
+    const { id } = await context.params;
+    
+    // Sanitize and validate ID input
+    const { validateUUIDParam } = await import('@/lib/security/validator');
+    const submissionId = validateUUIDParam(id, 'submission ID');
     const body = await request.json();
     const { status, reason } = body;
 

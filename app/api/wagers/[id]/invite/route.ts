@@ -22,7 +22,10 @@ export async function POST(
     // Use service role client for user lookups to bypass RLS
     const serviceSupabase = createServiceRoleClient();
     const { id } = await params;
-    const wagerId = id;
+    
+    // Sanitize and validate ID input
+    const { validateIDParam } = await import('@/lib/security/validator');
+    const wagerId = validateIDParam(id, 'wager ID');
     const body = await request.json();
     const { invites = [], teamId } = body; // invites: string[] (usernames or emails), teamId?: string
 

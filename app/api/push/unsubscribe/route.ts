@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/server';
+import { requireAuth } from '@/lib/auth/server';
 import { logger } from '@/lib/logger';
 
 /**
@@ -17,25 +18,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    
-    if (!supabaseUrl || !supabaseAnonKey) {
+    // Validate subscription structure
+    if (typeof subscription.endpoint !== 'string' || subscription.endpoint.length < 10) {
       return NextResponse.json(
-        { error: 'Missing Supabase configuration' },
-        { status: 500 }
+        { error: 'Invalid subscription endpoint' },
+        { status: 400 }
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    // Get authenticated user
+    const user = await requireAuth();
+    const supabase = await createClient();
 
     // Delete subscription from database
     const { error: dbError } = await supabase

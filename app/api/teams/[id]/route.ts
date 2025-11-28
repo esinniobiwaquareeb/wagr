@@ -17,7 +17,10 @@ export async function PATCH(
     const user = await requireAuth();
     const supabase = await createClient();
     const { id } = await params;
-    const teamId = id;
+    
+    // Sanitize and validate ID input
+    const { validateUUIDParam } = await import('@/lib/security/validator');
+    const teamId = validateUUIDParam(id, 'team ID');
     const body = await request.json();
     const { name, description, memberIds } = body;
 
@@ -117,7 +120,10 @@ export async function DELETE(
     const user = await requireAuth();
     const supabase = await createClient();
     const { id } = await params;
-    const teamId = id;
+    
+    // Sanitize and validate ID input
+    const { validateUUIDParam } = await import('@/lib/security/validator');
+    const teamId = validateUUIDParam(id, 'team ID');
 
     // Verify ownership
     const { data: team, error: teamError } = await supabase

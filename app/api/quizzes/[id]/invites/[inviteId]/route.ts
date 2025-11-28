@@ -16,13 +16,18 @@ export async function DELETE(
   try {
     const user = await requireAuth();
     const serviceSupabase = createServiceRoleClient();
-    const { id: quizId, inviteId } = await params;
+    const { id, inviteId } = await params;
+    
+    // Sanitize and validate ID inputs
+    const { validateIDParam, validateUUIDParam } = await import('@/lib/security/validator');
+    const quizId = validateIDParam(id, 'quiz ID', false); // Only UUID for quizzes
+    const validatedInviteId = validateUUIDParam(inviteId, 'invite ID');
 
     // Get the notification/invite
     const { data: notification, error: notifError } = await serviceSupabase
       .from('notifications')
       .select('id, user_id, metadata')
-      .eq('id', inviteId)
+      .eq('id', validatedInviteId)
       .eq('type', 'quiz_invitation')
       .single();
 
@@ -59,7 +64,7 @@ export async function DELETE(
     const { error: deleteError } = await serviceSupabase
       .from('notifications')
       .delete()
-      .eq('id', inviteId);
+      .eq('id', validatedInviteId);
 
     if (deleteError) {
       throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to revoke invitation');

@@ -6,13 +6,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, email, subject, message } = body;
 
-    // Validate input
+    // Sanitize and validate input
+    const { sanitizeString, sanitizeEmail, escapeHtml } = await import('@/lib/security/input-sanitizer');
+    
     if (!name || typeof name !== 'string' || name.trim().length < 2) {
       return NextResponse.json(
         { error: 'Valid name is required' },
         { status: 400 }
       );
     }
+    const sanitizedName = sanitizeString(name, 100);
 
     if (!email || typeof email !== 'string') {
       return NextResponse.json(
@@ -20,9 +23,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    const sanitizedEmail = sanitizeEmail(email);
+    if (!sanitizedEmail) {
       return NextResponse.json(
         { error: 'Invalid email format' },
         { status: 400 }
@@ -35,6 +37,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    const sanitizedSubject = sanitizeString(subject, 200);
 
     if (!message || typeof message !== 'string' || message.trim().length < 10) {
       return NextResponse.json(
@@ -42,6 +45,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    const sanitizedMessage = sanitizeString(message, 5000);
 
     // Store contact message in database
     const supabase = await createClient();
@@ -51,17 +55,17 @@ export async function POST(request: NextRequest) {
     const { error } = await supabase
       .from('contact_messages')
       .insert({
-        name: name.trim(),
-        email: email.trim(),
-        subject: subject.trim(),
-        message: message.trim(),
+        name: sanitizedName,
+        email: sanitizedEmail,
+        subject: sanitizedSubject,
+        message: sanitizedMessage,
         created_at: new Date().toISOString(),
       });
 
     if (error) {
       // If table doesn't exist, log the message (in production, you'd want to set up the table)
       console.error('Error storing contact message:', error);
-      console.log('Contact message:', { name, email, subject, message });
+      // Don't log sensitive data
       
       // Still return success to user, but log for admin review
       // In production, set up the contact_messages table or use an email service

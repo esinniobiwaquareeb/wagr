@@ -17,13 +17,22 @@ export async function PATCH(
     await requireAdmin();
     const supabase = createServiceRoleClient();
     const { id } = await params;
+    
+    // Sanitize and validate ID input
+    const { sanitizeUUID, sanitizeString } = await import('@/lib/security/input-sanitizer');
+    const sanitizedId = sanitizeUUID(id) || sanitizeString(id, 20);
+    
+    if (!sanitizedId) {
+      throw new AppError(ErrorCode.INVALID_INPUT, 'Invalid wager ID');
+    }
+    
     const body = await request.json();
 
     // Get wager first
     const { data: wager, error: wagerError } = await supabase
       .from('wagers')
       .select('id, status')
-      .or(`id.eq.${id},short_id.eq.${id}`)
+      .or(`id.eq.${sanitizedId},short_id.eq.${sanitizedId}`)
       .single();
 
     if (wagerError || !wager) {
@@ -133,12 +142,20 @@ export async function DELETE(
     await requireAdmin();
     const supabase = createServiceRoleClient();
     const { id } = await params;
+    
+    // Sanitize and validate ID input
+    const { sanitizeUUID, sanitizeString } = await import('@/lib/security/input-sanitizer');
+    const sanitizedId = sanitizeUUID(id) || sanitizeString(id, 20);
+    
+    if (!sanitizedId) {
+      throw new AppError(ErrorCode.INVALID_INPUT, 'Invalid wager ID');
+    }
 
     // Get wager first
     const { data: wager, error: wagerError } = await supabase
       .from('wagers')
       .select('id, status')
-      .or(`id.eq.${id},short_id.eq.${id}`)
+      .or(`id.eq.${sanitizedId},short_id.eq.${sanitizedId}`)
       .single();
 
     if (wagerError || !wager) {

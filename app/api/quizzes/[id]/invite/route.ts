@@ -21,7 +21,10 @@ export async function POST(
     const supabase = await createClient();
     const serviceSupabase = createServiceRoleClient();
     const { id } = await params;
-    const quizId = id;
+    
+    // Sanitize and validate ID input
+    const { validateIDParam } = await import('@/lib/security/validator');
+    const quizId = validateIDParam(id, 'quiz ID', false); // Only UUID for quizzes
     const body = await request.json();
     const { invites = [], teamId } = body;
 

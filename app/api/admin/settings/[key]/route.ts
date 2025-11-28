@@ -17,12 +17,20 @@ export async function GET(
     const user = await requireAuth();
     const serviceSupabase = createServiceRoleClient();
     const { key } = await params;
+    
+    // Sanitize and validate key input
+    const { sanitizeString } = await import('@/lib/security/input-sanitizer');
+    const sanitizedKey = sanitizeString(key, 100);
+    
+    if (!sanitizedKey || sanitizedKey.length < 1) {
+      throw new AppError(ErrorCode.INVALID_INPUT, 'Invalid setting key');
+    }
 
     // Get setting
     const { data: setting, error } = await serviceSupabase
       .from('platform_settings')
       .select('*')
-      .eq('key', key)
+      .eq('key', sanitizedKey)
       .single();
 
     if (error || !setting) {
@@ -61,6 +69,14 @@ export async function PATCH(
     const user = await requireAuth();
     const serviceSupabase = createServiceRoleClient();
     const { key } = await params;
+    
+    // Sanitize and validate key input
+    const { sanitizeString } = await import('@/lib/security/input-sanitizer');
+    const sanitizedKey = sanitizeString(key, 100);
+    
+    if (!sanitizedKey || sanitizedKey.length < 1) {
+      throw new AppError(ErrorCode.INVALID_INPUT, 'Invalid setting key');
+    }
 
     // Check if user is admin
     const { data: profile } = await serviceSupabase
@@ -84,7 +100,7 @@ export async function PATCH(
     const { data: existingSetting } = await serviceSupabase
       .from('platform_settings')
       .select('data_type, category, label, description, is_public, requires_restart')
-      .eq('key', key)
+      .eq('key', sanitizedKey)
       .single();
 
     const settingDataType = data_type || existingSetting?.data_type || 'string';
@@ -107,7 +123,7 @@ export async function PATCH(
     const { data: setting, error } = await serviceSupabase
       .from('platform_settings')
       .upsert({
-        key,
+        key: sanitizedKey,
         value: validatedValue,
         category: category || existingSetting?.category || 'general',
         label: label || existingSetting?.label || key,

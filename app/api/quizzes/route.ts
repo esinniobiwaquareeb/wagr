@@ -42,9 +42,19 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
 
     if (!isAdminView) {
-      const participantFilter =
-        participantQuizIds.length > 0 ? participantQuizIds.join(',') : '00000000-0000-0000-0000-000000000000';
-      query = query.or(`creator_id.eq.${user.id},id.in.(${participantFilter})`);
+      // Validate and sanitize participant IDs
+      const { sanitizeUUID } = await import('@/lib/security/input-sanitizer');
+      const validParticipantIds = participantQuizIds
+        .map(id => sanitizeUUID(id))
+        .filter((id): id is string => id !== null);
+      
+      if (validParticipantIds.length > 0) {
+        // Use .in() method which is safe (parameterized)
+        query = query.or(`creator_id.eq.${user.id},id.in.(${validParticipantIds.join(',')})`);
+      } else {
+        // Only show creator's quizzes if no valid participant IDs
+        query = query.eq('creator_id', user.id);
+      }
     }
 
     // Apply filters
@@ -54,9 +64,14 @@ export async function GET(request: NextRequest) {
     if (creatorId) {
       query = query.eq('creator_id', creatorId);
     }
-    if (search) {
-      query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
-    }
+        if (search) {
+          // Sanitize search input to prevent injection
+          const { sanitizeSearchInput } = await import('@/lib/security/input-sanitizer');
+          const sanitizedSearch = sanitizeSearchInput(search);
+          if (sanitizedSearch) {
+            query = query.or(`title.ilike.%${sanitizedSearch}%,description.ilike.%${sanitizedSearch}%`);
+          }
+        }
 
     // Apply pagination
     query = query.range(offset, offset + limit - 1);

@@ -18,7 +18,10 @@ export async function GET(
     const supabase = await createClient();
     const serviceSupabase = createServiceRoleClient();
     const { id } = await params;
-    const quizId = id;
+    
+    // Sanitize and validate ID input
+    const { validateIDParam } = await import('@/lib/security/validator');
+    const quizId = validateIDParam(id, 'quiz ID', false); // Only UUID for quizzes
 
     // Get quiz with creator info
     const { data: quiz, error } = await serviceSupabase
@@ -96,7 +99,10 @@ export async function PATCH(
     const supabase = await createClient();
     const serviceSupabase = createServiceRoleClient();
     const { id } = await params;
-    const quizId = id;
+    
+    // Sanitize and validate ID input
+    const { validateIDParam } = await import('@/lib/security/validator');
+    const quizId = validateIDParam(id, 'quiz ID', false); // Only UUID for quizzes
     const body = await request.json();
 
     // Get quiz first
@@ -186,7 +192,10 @@ export async function DELETE(
     const supabase = await createClient();
     const serviceSupabase = createServiceRoleClient();
     const { id } = await params;
-    const quizId = id;
+    
+    // Sanitize and validate ID input
+    const { validateIDParam } = await import('@/lib/security/validator');
+    const quizId = validateIDParam(id, 'quiz ID', false); // Only UUID for quizzes
 
     // Get quiz first
     const { data: quiz, error: quizError } = await supabase

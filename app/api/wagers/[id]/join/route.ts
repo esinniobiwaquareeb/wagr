@@ -20,7 +20,16 @@ export async function POST(
     const { side } = body; // 'a' or 'b'
     const supabase = await createClient();
     const { id } = await params;
-    const wagerId = id;
+    
+    // Sanitize and validate ID input
+    const { sanitizeUUID, sanitizeString } = await import('@/lib/security/input-sanitizer');
+    const sanitizedId = sanitizeUUID(id) || sanitizeString(id, 20);
+    
+    if (!sanitizedId) {
+      throw new AppError(ErrorCode.INVALID_INPUT, 'Invalid wager ID');
+    }
+    
+    const wagerId = sanitizedId;
 
     if (!side || (side !== 'a' && side !== 'b')) {
       throw new AppError(ErrorCode.INVALID_INPUT, 'Side must be "a" or "b"');

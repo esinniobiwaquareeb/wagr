@@ -43,7 +43,13 @@ export async function GET(request: NextRequest) {
           query = query.eq('currency', currency);
         }
         if (search) {
-          query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
+          // Sanitize search input to prevent injection
+          const { sanitizeSearchInput } = await import('@/lib/security/input-sanitizer');
+          const sanitizedSearch = sanitizeSearchInput(search);
+          if (sanitizedSearch) {
+            // Use parameterized query - Supabase handles escaping
+            query = query.or(`title.ilike.%${sanitizedSearch}%,description.ilike.%${sanitizedSearch}%`);
+          }
         }
 
         // Apply pagination

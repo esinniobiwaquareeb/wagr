@@ -18,7 +18,10 @@ export async function GET(
     const user = await requireAuth();
     const serviceSupabase = createServiceRoleClient();
     const { id } = await params;
-    const wagerId = id;
+    
+    // Sanitize and validate ID input
+    const { validateIDParam } = await import('@/lib/security/validator');
+    const wagerId = validateIDParam(id, 'wager ID');
 
     // Get wager to verify it exists
     const { data: wager } = await serviceSupabase

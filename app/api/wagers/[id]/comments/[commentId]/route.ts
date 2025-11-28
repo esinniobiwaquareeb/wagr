@@ -19,7 +19,11 @@ export async function PATCH(
     const { content } = body;
     const supabase = await createClient();
     const { id, commentId } = await params;
-    const wagerId = id;
+    
+    // Sanitize and validate ID inputs
+    const { validateIDParam, validateUUIDParam } = await import('@/lib/security/validator');
+    const wagerId = validateIDParam(id, 'wager ID');
+    const validatedCommentId = validateUUIDParam(commentId, 'comment ID');
 
     if (!content || typeof content !== 'string' || !content.trim()) {
       throw new AppError(ErrorCode.INVALID_INPUT, 'Comment content is required');
@@ -42,7 +46,7 @@ export async function PATCH(
     const { data: comment, error: commentError } = await supabase
       .from('wager_comments')
       .select('id, wager_id, user_id')
-      .eq('id', commentId)
+      .eq('id', validatedCommentId)
       .single();
 
     if (commentError || !comment) {
@@ -64,7 +68,7 @@ export async function PATCH(
         content: content.trim(),
         updated_at: new Date().toISOString(),
       })
-      .eq('id', commentId)
+      .eq('id', validatedCommentId)
       .select()
       .single();
 
@@ -94,7 +98,11 @@ export async function DELETE(
     const user = await requireAuth();
     const supabase = await createClient();
     const { id, commentId } = await params;
-    const wagerId = id;
+    
+    // Sanitize and validate ID inputs
+    const { validateIDParam, validateUUIDParam } = await import('@/lib/security/validator');
+    const wagerId = validateIDParam(id, 'wager ID');
+    const validatedCommentId = validateUUIDParam(commentId, 'comment ID');
 
     // Verify wager exists (handle both UUID and short_id)
     const { data: wager, error: wagerError } = await supabase
@@ -113,7 +121,7 @@ export async function DELETE(
     const { data: comment, error: commentError } = await supabase
       .from('wager_comments')
       .select('id, wager_id, user_id')
-      .eq('id', commentId)
+      .eq('id', validatedCommentId)
       .single();
 
     if (commentError || !comment) {
@@ -132,7 +140,7 @@ export async function DELETE(
     const { error: deleteError } = await supabase
       .from('wager_comments')
       .delete()
-      .eq('id', commentId);
+      .eq('id', validatedCommentId);
 
     if (deleteError) {
       logError(deleteError as Error);

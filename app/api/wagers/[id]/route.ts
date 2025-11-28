@@ -17,11 +17,21 @@ export async function GET(
   try {
     const supabase = await createClient();
     const { id } = await params;
-    const wagerId = id;
+    
+    // Sanitize and validate ID input
+    const { sanitizeUUID, sanitizeString } = await import('@/lib/security/input-sanitizer');
+    const sanitizedId = sanitizeUUID(id) || sanitizeString(id, 20); // Allow short_id (6 chars) or UUID
+    
+    if (!sanitizedId) {
+      throw new AppError(ErrorCode.INVALID_INPUT, 'Invalid wager ID');
+    }
+    
+    const wagerId = sanitizedId;
 
     // Use Redis caching with cache-aside pattern
     const wagerData = await getOrFetchWagerDetail(wagerId, async () => {
       // Try to find by short_id first, then by id
+      // Use parameterized queries - Supabase handles escaping
       const { data: wager, error } = await supabase
         .from('wagers')
         .select('*, profiles:creator_id(username, avatar_url)')
@@ -90,7 +100,16 @@ export async function DELETE(
     const user = await requireAuth();
     const supabase = await createClient();
     const { id } = await params;
-    const wagerId = id;
+    
+    // Sanitize and validate ID input
+    const { sanitizeUUID, sanitizeString } = await import('@/lib/security/input-sanitizer');
+    const sanitizedId = sanitizeUUID(id) || sanitizeString(id, 20);
+    
+    if (!sanitizedId) {
+      throw new AppError(ErrorCode.INVALID_INPUT, 'Invalid wager ID');
+    }
+    
+    const wagerId = sanitizedId;
 
     // Get wager
     const { data: wager, error: wagerError } = await supabase

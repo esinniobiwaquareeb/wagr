@@ -22,8 +22,16 @@ export async function GET(request: NextRequest) {
       return successResponseNext({ users: [] });
     }
 
+    // Sanitize search input to prevent injection
+    const { sanitizeSearchInput } = await import('@/lib/security/input-sanitizer');
+    const sanitizedQuery = sanitizeSearchInput(query);
+    
+    if (!sanitizedQuery || sanitizedQuery.length < 2) {
+      return successResponseNext({ users: [] });
+    }
+
     // Remove @ if present
-    const searchQuery = query.trim().replace(/^@+/, '').toLowerCase();
+    const searchQuery = sanitizedQuery.trim().replace(/^@+/, '').toLowerCase();
 
     if (!searchQuery || searchQuery.length < 2) {
       return successResponseNext({ users: [] });
