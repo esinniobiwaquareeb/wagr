@@ -83,25 +83,49 @@ export function TransferTab({
       </div>
       <div>
         <label className="text-xs font-medium mb-1.5 block text-foreground">Amount</label>
-        <input
-          type="number"
-          value={transferAmount}
-          onChange={(e) => {
-            const value = e.target.value;
-            if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
-              setTransferAmount(value);
-            }
-          }}
-          placeholder="Enter amount"
-          className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          min={minTransferAmount}
-          step="0.01"
-          disabled={processingTransfer}
-        />
-        <p className="text-xs text-muted-foreground mt-1">
-          Available: <span className="font-medium">{formatCurrency(balance, currency)}</span>
-          {dailyCap && <> • Daily cap: ₦{dailyCap.toLocaleString()}</>}
-        </p>
+        {(() => {
+          const amount = parseFloat(transferAmount) || 0;
+          const amountError = (() => {
+            if (!transferAmount.trim()) return null;
+            if (isNaN(amount) || amount < minTransferAmount) return `Minimum transfer is ₦${minTransferAmount.toLocaleString()}`;
+            if (amount > balance) return 'Insufficient balance';
+            if (amount > dailyCap) return `Amount exceeds daily cap of ₦${dailyCap.toLocaleString()}`;
+            return null;
+          })();
+
+          return (
+            <>
+              <input
+                type="number"
+                value={transferAmount}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
+                    setTransferAmount(value);
+                  }
+                }}
+                placeholder="Enter amount"
+                className={`w-full px-3 py-2 border rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  amountError 
+                    ? 'border-red-500 focus:ring-red-500/50 focus:border-red-500' 
+                    : 'border-input focus:ring-primary/50 focus:border-primary/50'
+                }`}
+                min={minTransferAmount}
+                step="0.01"
+                disabled={processingTransfer}
+              />
+              {amountError && (
+                <p className="text-xs text-red-600 dark:text-red-400 mt-1.5">{amountError}</p>
+              )}
+              {!amountError && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Available: <span className="font-medium">{formatCurrency(balance, currency)}</span>
+                  {dailyCap && <> • Daily cap: ₦{dailyCap.toLocaleString()}</>}
+                </p>
+              )}
+            </>
+          );
+        })()}
       </div>
       <div>
         <label className="text-xs font-medium mb-1.5 block text-foreground">Description (Optional)</label>

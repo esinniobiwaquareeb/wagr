@@ -461,19 +461,39 @@ function WalletContent() {
       return;
     }
 
+    // Frontend validation - check balance
     if (!profile || profile.balance < amount) {
       toast({
-        title: "Not enough in your wallet",
-        description: "You don't have enough money to withdraw that amount.",
+        title: "Insufficient balance",
+        description: `Your balance is ₦${(profile?.balance || 0).toLocaleString()}. You need ₦${amount.toLocaleString()} to withdraw.`,
         variant: "destructive",
       });
       return;
     }
 
-    if (!accountNumber || !bankCode || !accountName) {
+    // Frontend validation - check account details
+    if (!accountNumber || accountNumber.length !== 10) {
       toast({
-        title: "Bank details needed",
-        description: "We need your bank account information to send the money.",
+        title: "Invalid account number",
+        description: "Please enter a valid 10-digit account number.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!bankCode) {
+      toast({
+        title: "Bank selection required",
+        description: "Please select a bank from the list.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!accountName) {
+      toast({
+        title: "Account verification needed",
+        description: "Please wait for account verification to complete.",
         variant: "destructive",
       });
       return;
@@ -624,8 +644,18 @@ function WalletContent() {
     // Check balance
     if (!profile || profile.balance < roundedAmount) {
       toast({
-        title: "Not enough in your wallet",
-        description: "You don't have enough money to transfer that amount.",
+        title: "Insufficient balance",
+        description: `Your balance is ₦${(profile?.balance || 0).toLocaleString()}. You need ₦${roundedAmount.toLocaleString()} to transfer.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check daily transfer cap if KYC info is available
+    if (kycSummary?.limits?.dailyTransferCap && roundedAmount > kycSummary.limits.dailyTransferCap) {
+      toast({
+        title: "Transfer limit exceeded",
+        description: `Amount exceeds your daily transfer cap of ₦${kycSummary.limits.dailyTransferCap.toLocaleString()}.`,
         variant: "destructive",
       });
       return;

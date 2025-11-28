@@ -81,6 +81,26 @@ export function WithdrawTab({
     return () => clearTimeout(timeoutId);
   }, [accountNumber, bankCode, processingWithdrawal, onVerifyAccount]);
 
+  // Frontend validation
+  const amount = parseFloat(withdrawAmount) || 0;
+  const amountError = (() => {
+    if (!withdrawAmount.trim()) return null;
+    if (isNaN(amount) || amount <= 0) return 'Please enter a valid amount';
+    if (amount < minWithdrawal) return `Minimum withdrawal is ₦${minWithdrawal.toLocaleString()}`;
+    if (maxWithdrawal && amount > maxWithdrawal) return `Maximum withdrawal is ₦${maxWithdrawal.toLocaleString()}`;
+    if (amount > balance) return 'Insufficient balance';
+    return null;
+  })();
+
+  const canWithdraw = !amountError && 
+    withdrawAmount.trim() && 
+    accountNumber.length === 10 && 
+    bankCode && 
+    accountName &&
+    amount <= balance &&
+    amount >= minWithdrawal &&
+    (!maxWithdrawal || amount <= maxWithdrawal);
+
   return (
     <div className="space-y-3">
       <div>
@@ -95,12 +115,24 @@ export function WithdrawTab({
             }
           }}
           placeholder={maxWithdrawal ? `Enter amount (₦${minWithdrawal} - ₦${maxWithdrawal.toLocaleString()})` : `Enter amount (minimum ₦${minWithdrawal})`}
-          className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`w-full px-3 py-2 border rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+            amountError 
+              ? 'border-red-500 focus:ring-red-500/50 focus:border-red-500' 
+              : 'border-input focus:ring-primary/50 focus:border-primary/50'
+          }`}
           min={minWithdrawal}
           max={maxWithdrawal}
           step="0.01"
           disabled={processingWithdrawal}
         />
+        {amountError && (
+          <p className="text-xs text-red-600 dark:text-red-400 mt-1.5">{amountError}</p>
+        )}
+        {withdrawAmount.trim() && !amountError && (
+          <p className="text-xs text-muted-foreground mt-1.5">
+            Available balance: ₦{balance.toLocaleString()}
+          </p>
+        )}
       </div>
       <div>
         <label className="text-xs font-medium mb-1.5 block text-foreground">Bank</label>
@@ -146,7 +178,7 @@ export function WithdrawTab({
       </div>
       <button
         onClick={onWithdraw}
-        disabled={processingWithdrawal || !withdrawAmount.trim() || !accountNumber || !bankCode || !accountName}
+        disabled={processingWithdrawal || !canWithdraw}
         className="w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-md font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2 min-h-[40px] focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
       >
         {processingWithdrawal ? (
