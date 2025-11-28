@@ -9,7 +9,8 @@ interface DepositTabProps {
   setDepositAmount: (amount: string) => void;
   processingPayment: boolean;
   onDeposit: () => void;
-  minDeposit?: number;
+  minDeposit: number;
+  maxDeposit?: number;
 }
 
 export function DepositTab({
@@ -17,7 +18,8 @@ export function DepositTab({
   setDepositAmount,
   processingPayment,
   onDeposit,
-  minDeposit = 100,
+  minDeposit,
+  maxDeposit,
 }: DepositTabProps) {
   return (
     <div className="space-y-3">
@@ -32,9 +34,10 @@ export function DepositTab({
               setDepositAmount(value);
             }
           }}
-          placeholder={`Enter amount (minimum ₦${minDeposit})`}
+          placeholder={maxDeposit ? `Enter amount (₦${minDeposit} - ₦${maxDeposit.toLocaleString()})` : `Enter amount (minimum ₦${minDeposit})`}
           className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           min={minDeposit}
+          max={maxDeposit}
           step="0.01"
           disabled={processingPayment}
         />
@@ -57,7 +60,11 @@ export function DepositTab({
         )}
       </button>
       <p className="text-xs text-muted-foreground text-center">
-        Minimum: ₦{minDeposit} • Secure payment via Paystack
+        {maxDeposit ? (
+          <>Range: ₦{minDeposit} - ₦{maxDeposit.toLocaleString()} • Secure payment via Paystack</>
+        ) : (
+          <>Minimum: ₦{minDeposit} • Secure payment via Paystack</>
+        )}
       </p>
     </div>
   );

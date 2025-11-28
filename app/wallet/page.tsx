@@ -66,7 +66,9 @@ function WalletContent() {
   const currency = DEFAULT_CURRENCY as Currency;
   const { getSetting } = useSettings();
   const minDeposit = getSetting('payments.min_deposit', 100) as number;
+  const maxDeposit = getSetting('payments.max_deposit', undefined) as number | undefined;
   const minWithdrawal = getSetting('payments.min_withdrawal', 100) as number;
+  const maxWithdrawal = getSetting('payments.max_withdrawal', undefined) as number | undefined;
 
   const fetchingRef = useRef(false);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -450,6 +452,15 @@ function WalletContent() {
       return;
     }
 
+    if (maxWithdrawal && amount > maxWithdrawal) {
+      toast({
+        title: `Maximum withdrawal is ₦${maxWithdrawal.toLocaleString()}`,
+        description: `You can withdraw up to ₦${maxWithdrawal.toLocaleString()} per transaction.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!profile || profile.balance < amount) {
       toast({
         title: "Not enough in your wallet",
@@ -722,6 +733,24 @@ function WalletContent() {
       return;
     }
 
+    if (amount < minDeposit) {
+      toast({
+        title: `Minimum deposit is ₦${minDeposit}`,
+        description: `You need to deposit at least ₦${minDeposit}.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (maxDeposit && amount > maxDeposit) {
+      toast({
+        title: `Maximum deposit is ₦${maxDeposit.toLocaleString()}`,
+        description: `You can deposit up to ₦${maxDeposit.toLocaleString()} per transaction.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (amount < 100) {
       toast({
         title: "Minimum deposit is ₦100",
@@ -880,6 +909,7 @@ function WalletContent() {
                   processingPayment={processingPayment}
                   onDeposit={handleDeposit}
                   minDeposit={minDeposit}
+                  maxDeposit={maxDeposit}
                 />
               </TabsContent>
 
@@ -901,6 +931,8 @@ function WalletContent() {
                   onWithdraw={handleWithdraw}
                   onVerifyAccount={verifyAccount}
                   onLoadBanks={fetchBanks}
+                  minWithdrawal={minWithdrawal}
+                  maxWithdrawal={maxWithdrawal}
                 />
               </TabsContent>
 
