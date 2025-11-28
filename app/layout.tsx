@@ -29,14 +29,6 @@ export const metadata: Metadata = {
     telephone: false,
   },
   manifest: '/manifest.json',
-  themeColor: '#2563EB',
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 5,
-    userScalable: true,
-    viewportFit: 'cover',
-  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -86,6 +78,15 @@ export const metadata: Metadata = {
     canonical: siteUrl,
   },
   category: 'entertainment',
+}
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  viewportFit: 'cover',
+  themeColor: '#2563EB',
 }
 
 export default function RootLayout({
@@ -152,17 +153,23 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              if ('serviceWorker' in navigator && typeof window !== 'undefined') {
-                window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js', { scope: '/' })
-                    .then(function(registration) {
-                      // Service worker registered successfully
-                    })
-                    .catch(function(err) {
-                      // Service worker registration failed
-                    });
-                });
-              }
+              (function() {
+                if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+                  window.addEventListener('load', function() {
+                    try {
+                      navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                        .then(function(registration) {
+                          // Service worker registered successfully
+                        })
+                        .catch(function(err) {
+                          // Service worker registration failed
+                        });
+                    } catch (e) {
+                      // Ignore errors
+                    }
+                  });
+                }
+              })();
             `,
           }}
         />

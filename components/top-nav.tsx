@@ -51,11 +51,6 @@ export function TopNav() {
   const supabase = createClient();
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
 
   // Sync search query with URL params only on wagers page
   // Clear search query when navigating away from wagers page
@@ -524,15 +519,8 @@ export function TopNav() {
     }
   };
 
-  if (!hydrated) {
-    return (
-      <>
-        <div className="hidden lg:block h-16 border-b border-border" />
-        <div className="lg:hidden h-14 border-b border-border" />
-      </>
-    );
-  }
-
+  // Always render the same structure to avoid hydration mismatches
+  // Use suppressHydrationWarning on dynamic content instead
   return (
     <>
       {/* Top Navigation Bar - Large Screens */}

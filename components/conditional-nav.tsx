@@ -4,7 +4,7 @@ import { MobileNav } from "@/components/mobile-nav";
 import { TopNav } from "@/components/top-nav";
 import { Footer } from "@/components/footer";
 import { usePathname } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 export function ConditionalNav({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -16,18 +16,9 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
 
   // During SSR or before mount, always render the default app route structure
   // This ensures server and client render the same HTML initially
-  const topNavFallback = (
-    <>
-      <div className="hidden lg:block h-16 border-b border-border bg-background" />
-      <div className="lg:hidden h-14 border-b border-border bg-background" />
-    </>
-  );
-
   const defaultRender = (
     <div className="flex flex-col min-h-screen" suppressHydrationWarning>
-      <Suspense fallback={topNavFallback}>
-        <TopNav />
-      </Suspense>
+      <TopNav />
       <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden lg:pt-0 pt-14 pb-20 lg:pb-0">
         <div className="flex-1">{children}</div>
       </div>
@@ -88,9 +79,7 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
   if (isPublicPage) {
     return (
       <div className="flex flex-col min-h-screen" suppressHydrationWarning>
-        <Suspense fallback={topNavFallback}>
-          <TopNav />
-        </Suspense>
+        <TopNav />
         <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden lg:pt-0 pt-14 pb-20 lg:pb-0">
           <div className="flex-1">{children}</div>
         </div>
@@ -104,9 +93,7 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
   if (isAppRoute) {
     return (
       <div className="flex flex-col min-h-screen" suppressHydrationWarning>
-        <Suspense fallback={topNavFallback}>
-          <TopNav />
-        </Suspense>
+        <TopNav />
         <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden lg:pt-0 pt-14 pb-20 lg:pb-0">
           <div className="flex-1">{children}</div>
         </div>
@@ -118,9 +105,7 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
   // Default fallback - include navigation and footer
   return (
     <div className="flex flex-col min-h-screen" suppressHydrationWarning>
-      <Suspense fallback={topNavFallback}>
-        <TopNav />
-      </Suspense>
+      <TopNav />
       <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden lg:pt-0 pt-14 pb-20 lg:pb-0">
         <div className="flex-1">{children}</div>
         <Footer />
