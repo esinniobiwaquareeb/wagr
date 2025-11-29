@@ -531,13 +531,13 @@ function TopNavContent() {
             {/* Logo */}
             <Link 
               href="/wagers" 
-              className="flex items-center gap-2.5 flex-shrink-0"
+              className="flex items-center flex-shrink-0 hover:opacity-80 transition-opacity"
             >
               <Logo size="md" variant="full" />
             </Link>
 
             {/* Search Bar */}
-            <form onSubmit={handleSearch} className="flex-1 max-w-xl mx-6">
+            <form onSubmit={handleSearch} className="flex-1 max-w-xl mx-4 lg:mx-6">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                 <Input
@@ -545,7 +545,7 @@ function TopNavContent() {
                   placeholder="Search wagers..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className={`pl-10 ${searchQuery ? 'pr-10' : 'pr-4'} h-10 bg-muted/50 border-border/50 focus:bg-background focus:border-primary/50 transition-colors`}
+                  className={`pl-10 ${searchQuery ? 'pr-10' : 'pr-4'} h-9 bg-muted/50 border-border/50 focus:bg-background focus:border-primary/50 transition-colors text-sm`}
                 />
                 {searchQuery && (
                   <button
@@ -585,7 +585,7 @@ function TopNavContent() {
             </form>
 
             {/* Right Side Actions */}
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-1.5 flex-shrink-0">
               {/* Theme Toggle */}
               <ThemeToggle />
               
@@ -596,16 +596,16 @@ function TopNavContent() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowDepositModal(true)}
-                    className={`h-9 px-3 gap-2 font-medium hover:bg-muted/80 hover:text-foreground transition-colors group border-2 ${getWalletBorderColor(walletBalance)}`}
+                    className={`h-9 px-2.5 gap-1.5 font-medium hover:bg-muted/80 hover:text-foreground transition-colors group border ${getWalletBorderColor(walletBalance)}`}
                   >
-                    <Wallet className="h-4 w-4" />
-                    <span className="hidden xl:inline whitespace-nowrap">
+                    <Wallet className="h-4 w-4 flex-shrink-0" />
+                    <span className="hidden xl:inline whitespace-nowrap text-sm">
                       {walletBalance !== null ? formatCurrency(walletBalance, currency) : '...'}
                     </span>
-                    <span className="xl:hidden text-xs">
+                    <span className="xl:hidden text-xs whitespace-nowrap">
                       {walletBalance !== null ? formatCurrency(walletBalance, currency) : '...'}
                     </span>
-                    <CirclePlus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+                    <CirclePlus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
                   </Button>
 
                   {/* Notifications */}
@@ -618,7 +618,7 @@ function TopNavContent() {
                   )}
 
                   {/* Separator */}
-                  <div className="h-6 w-px bg-border mx-1" />
+                  <div className="h-6 w-px bg-border mx-0.5" />
 
                   {/* User Menu */}
                   <DropdownMenu open={showUserMenu} onOpenChange={setShowUserMenu}>
@@ -626,7 +626,7 @@ function TopNavContent() {
                       <Button 
                         variant="ghost" 
                         size="sm"
-                        className="h-9 px-2 gap-2 hover:bg-muted/80 hover:text-foreground transition-colors group border-2 "
+                        className="h-9 px-2 gap-2 hover:bg-muted/80 hover:text-foreground transition-colors group"
                       >
                         <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden flex-shrink-0 border border-border/50 group-hover:border-primary/50 group-hover:bg-primary/20 transition-all">
                           {profile?.avatar_url ? (
@@ -716,20 +716,20 @@ function TopNavContent() {
                   <Button 
                     variant="ghost" 
                     onClick={() => setShowHowItWorksModal(true)}
-                    className="h-9 px-4 font-medium"
+                    className="h-9 px-3 text-sm font-medium hidden md:flex"
                   >
                     How it works
                   </Button>
                   <Button 
                     variant="ghost" 
                     onClick={() => setShowAuthModal(true)}
-                    className="h-9 px-4 font-medium"
+                    className="h-9 px-3 text-sm font-medium"
                   >
                     Log In
                   </Button>
                   <Button 
                     onClick={() => setShowAuthModal(true)}
-                    className="h-9 px-4 font-medium"
+                    className="h-9 px-4 text-sm font-medium"
                   >
                     Sign Up
                   </Button>
@@ -739,7 +739,7 @@ function TopNavContent() {
           </div>
 
           {/* Secondary Navigation - Category Links */}
-          <div className="flex items-center gap-0.5 h-12 border-t border-border/50 overflow-x-auto scrollbar-hide">
+          <div className="flex items-center gap-1 h-12 border-t border-border/50 overflow-x-auto scrollbar-hide px-1">
             <Link
               href="/wagers"
               onClick={(e) => {
@@ -750,13 +750,13 @@ function TopNavContent() {
                 setSearchQuery(''); // Clear search input
                 router.push(`/wagers?${params.toString()}`);
               }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md whitespace-nowrap text-sm font-medium transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-md whitespace-nowrap text-sm font-medium transition-all ${
                 pathname === "/wagers" && !searchParams?.get("category")
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
               }`}
             >
-              <Home className="h-4 w-4" />
+              <Home className="h-3.5 w-3.5 flex-shrink-0" />
               <span>All</span>
             </Link>
             {WAGER_CATEGORIES.map((category) => {
@@ -773,16 +773,16 @@ function TopNavContent() {
                     setSearchQuery(''); // Clear search input
                     router.push(`/wagers?${params.toString()}`);
                   }}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-md whitespace-nowrap text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-md whitespace-nowrap text-sm font-medium transition-all ${
                     pathname === "/wagers" && searchParams?.get("category") === category.id
                       ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   }`}
                 >
-                  <span>{category.icon}</span>
+                  <span className="text-base flex-shrink-0">{category.icon}</span>
                   <span>{category.label}</span>
                   {count > 0 && (
-                    <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs font-semibold ${
+                    <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-xs font-semibold ${
                       pathname === "/wagers" && searchParams?.get("category") === category.id
                         ? "bg-primary/20 text-primary"
                         : "bg-muted text-muted-foreground"
@@ -799,11 +799,11 @@ function TopNavContent() {
 
       {/* Mobile Menu */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-lg border-b border-border">
-        <div className="flex items-center justify-between h-14 px-4">
-          <Link href="/wagers" className="flex items-center gap-2.5">
+        <div className="flex items-center justify-between h-14 px-3">
+          <Link href="/wagers" className="flex items-center hover:opacity-80 transition-opacity">
             <Logo size="sm" variant="full" />
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {/* Wallet Balance - Mobile Top Bar */}
             {user && (
               <Button
@@ -836,9 +836,9 @@ function TopNavContent() {
 
         {/* Mobile Menu Dropdown */}
         {showMobileMenu && (
-          <div className="border-t border-border/50 bg-background">
+          <div className="border-t border-border/50 bg-background max-h-[calc(100vh-3.5rem)] overflow-y-auto">
             {/* Mobile Search Bar */}
-            <div className="px-3 py-3 border-b border-border/50">
+            <div className="px-3 py-2.5 border-b border-border/50 sticky top-0 bg-background z-10">
               <form 
                 onSubmit={(e) => {
                   handleSearch(e);
@@ -893,67 +893,67 @@ function TopNavContent() {
                 </div>
               </form>
             </div>
-            <div className="px-3 py-3 space-y-1">
+            <div className="px-2 py-2 space-y-0.5">
               {user ? (
                 <>
                   <Link
                     href="/wagers"
                     onClick={() => setShowMobileMenu(false)}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                       isActive("/wagers")
                         ? "bg-primary/10 text-primary"
                         : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                     }`}
                   >
-                    <Home className="h-5 w-5 flex-shrink-0" />
+                    <Home className="h-4 w-4 flex-shrink-0" />
                     <span>Wagers</span>
                   </Link>
                   <Link
                     href="/leaderboard"
                     onClick={() => setShowMobileMenu(false)}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                       isActive("/leaderboard")
                         ? "bg-primary/10 text-primary"
                         : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                     }`}
                   >
-                    <Trophy className="h-5 w-5 flex-shrink-0" />
+                    <Trophy className="h-4 w-4 flex-shrink-0" />
                     <span>Leaderboard</span>
                   </Link>
                   <Link
                     href="/activity"
                     onClick={() => setShowMobileMenu(false)}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                       isActive("/activity")
                         ? "bg-primary/10 text-primary"
                         : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                     }`}
                   >
-                    <Activity className="h-5 w-5 flex-shrink-0" />
+                    <Activity className="h-4 w-4 flex-shrink-0" />
                     <span>Activity</span>
                   </Link>
                   <Link
                     href="/quizzes"
                     onClick={() => setShowMobileMenu(false)}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                       isActive("/quizzes") || pathname?.startsWith("/quiz/")
                         ? "bg-primary/10 text-primary"
                         : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                     }`}
                   >
-                    <BookOpen className="h-5 w-5 flex-shrink-0" />
+                    <BookOpen className="h-4 w-4 flex-shrink-0" />
                     <span>Quizzes</span>
                   </Link>
                   <Link
                     href="/notifications"
                     onClick={() => setShowMobileMenu(false)}
-                    className={`relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                       isActive("/notifications")
                         ? "bg-primary/10 text-primary"
                         : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                     }`}
                   >
-                    <Bell className="h-5 w-5 flex-shrink-0" />
+                    <Bell className="h-4 w-4 flex-shrink-0" />
                     <span>Notifications</span>
                     {unreadCount > 0 && (
                       <span className="ml-auto bg-primary text-primary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center min-w-[20px]">
@@ -964,29 +964,29 @@ function TopNavContent() {
                   <Link
                     href="/wallet"
                     onClick={() => setShowMobileMenu(false)}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                       isActive("/wallet")
                         ? "bg-primary/10 text-primary"
                         : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                     }`}
                   >
-                    <Wallet className="h-5 w-5 flex-shrink-0" />
+                    <Wallet className="h-4 w-4 flex-shrink-0" />
                     <span>Wallet</span>
                   </Link>
                   
                   {/* Separator */}
-                  <div className="h-px bg-border my-1 mx-3" />
+                  <div className="h-px bg-border my-2 mx-3" />
                   
                   <Link
                     href="/profile"
                     onClick={() => setShowMobileMenu(false)}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                       isActive("/profile")
                         ? "bg-primary/10 text-primary"
                         : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                     }`}
                   >
-                    <User className="h-5 w-5 flex-shrink-0" />
+                    <User className="h-4 w-4 flex-shrink-0" />
                     <span>Profile</span>
                   </Link>
                   <button
@@ -994,9 +994,9 @@ function TopNavContent() {
                       setShowMobileMenu(false);
                       setShowCreateModal(true);
                     }}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-medium transition-colors"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-medium transition-all active:scale-[0.98]"
                   >
-                    <Plus className="h-5 w-5 flex-shrink-0" />
+                    <Plus className="h-4 w-4 flex-shrink-0" />
                     <span>Create Wager</span>
                   </button>
                   <button
@@ -1004,9 +1004,9 @@ function TopNavContent() {
                       setShowMobileMenu(false);
                       setShowLogoutDialog(true);
                     }}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 text-sm font-medium transition-colors"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 text-sm font-medium transition-all active:scale-[0.98]"
                   >
-                    <LogOut className="h-5 w-5 flex-shrink-0" />
+                    <LogOut className="h-4 w-4 flex-shrink-0" />
                     <span>Logout</span>
                   </button>
                 </>
@@ -1017,7 +1017,7 @@ function TopNavContent() {
                       setShowMobileMenu(false);
                       setShowHowItWorksModal(true);
                     }}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 text-sm font-medium transition-colors"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 text-sm font-medium transition-all active:scale-[0.98]"
                   >
                     How it works
                   </button>
@@ -1026,9 +1026,9 @@ function TopNavContent() {
                       setShowMobileMenu(false);
                       setShowAuthModal(true);
                     }}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 text-sm font-medium transition-colors"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-medium transition-all active:scale-[0.98]"
                   >
-                    <User className="h-5 w-5 flex-shrink-0" />
+                    <User className="h-4 w-4 flex-shrink-0" />
                     <span>Login</span>
                   </button>
                 </>

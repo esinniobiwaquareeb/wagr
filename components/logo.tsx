@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 interface LogoProps {
@@ -15,6 +16,17 @@ export function Logo({
   variant = "full"
 }: LogoProps) {
 
+  const imageSizeClasses = useMemo(() => {
+    switch (size) {
+      case "sm":
+        return { width: 80, height: 24 };
+      case "lg":
+        return { width: 160, height: 48 };
+      default:
+        return { width: 120, height: 36 };
+    }
+  }, [size]);
+
   const textSizeClasses = useMemo(() => {
     switch (size) {
       case "sm":
@@ -26,118 +38,66 @@ export function Logo({
     }
   }, [size]);
 
-  // Variant 1: Space Grotesk - Modern, condensed, tech-forward
-  if (variant === "v1") {
+  // Variant 1-4: All use logo image
+  if (variant === "v1" || variant === "v2" || variant === "v3" || variant === "v4") {
     return (
-      <span 
-        className={cn(
-          "font-bold tracking-tight",
-          textSizeClasses,
-          className
-        )}
-        style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-      >
-        <span className="text-foreground">wagered</span>
-        <span className="text-primary">.app</span>
-      </span>
-    );
-  }
-
-  // Variant 2: Outfit - Clean, geometric, confident
-  if (variant === "v2") {
-    return (
-      <span 
-        className={cn(
-          "font-bold tracking-tight",
-          textSizeClasses,
-          className
-        )}
-        style={{ fontFamily: "'Outfit', sans-serif" }}
-      >
-        <span className="text-foreground">wagered</span>
-        <span className="text-primary">.app</span>
-      </span>
-    );
-  }
-
-  // Variant 3: Rajdhani - Bold, modern, tech-inspired
-  if (variant === "v3") {
-    return (
-      <span 
-        className={cn(
-          "font-bold tracking-wide uppercase",
-          textSizeClasses,
-          className
-        )}
-        style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: "0.05em" }}
-      >
-        <span className="text-foreground">wagered</span>
-        <span className="text-primary">.app</span>
-      </span>
-    );
-  }
-
-  // Variant 4: DM Sans - Minimalist, clean, professional
-  if (variant === "v4") {
-    return (
-      <span 
-        className={cn(
-          "font-bold tracking-normal",
-          textSizeClasses,
-          className
-        )}
-        style={{ fontFamily: "'DM Sans', sans-serif" }}
-      >
-        <span className="text-foreground">wagered</span>
-        <span className="text-primary">.app</span>
-      </span>
+      <div className={cn("relative flex items-center m-0 p-0", className)}>
+        <Image
+          src="/logo.png"
+          alt="wagr"
+          width={imageSizeClasses.width}
+          height={imageSizeClasses.height}
+          className="object-contain block m-0 p-0"
+          priority
+        />
+      </div>
     );
   }
 
   if (variant === "icon") {
+    const iconSize = size === "sm" ? { width: 32, height: 32 } : size === "lg" ? { width: 64, height: 64 } : { width: 48, height: 48 };
     return (
-      <div className={cn("relative flex items-center justify-center", className)}>
-        <span 
-          className={cn(
-            "font-bold text-primary",
-            size === "sm" ? "text-lg" : size === "lg" ? "text-3xl" : "text-xl"
-          )}
-          style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-        >
-          W
-        </span>
+      <div className={cn("relative flex items-center justify-center m-0 p-0", className)}>
+        <Image
+          src="/logo.png"
+          alt="wagr"
+          width={iconSize.width}
+          height={iconSize.height}
+          className="object-contain block m-0 p-0"
+          priority
+        />
       </div>
     );
   }
 
   if (variant === "text") {
+    // For text variant, use logo image but smaller
+    const textImageSize = size === "sm" ? { width: 100, height: 30 } : size === "lg" ? { width: 200, height: 60 } : { width: 150, height: 45 };
     return (
-      <span 
-        className={cn(
-          "font-bold tracking-tight",
-          textSizeClasses,
-          className
-        )}
-        style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-      >
-        <span className="text-foreground">wagered</span>
-        <span className="text-primary">.app</span>
-      </span>
+      <div className={cn("relative flex items-center m-0 p-0", className)}>
+        <Image
+          src="/logo.png"
+          alt="wagr"
+          width={textImageSize.width}
+          height={textImageSize.height}
+          className="object-contain block m-0 p-0"
+          priority
+        />
+      </div>
     );
   }
 
-  // Default "full" variant: Use v1 (Space Grotesk)
+  // Default "full" variant: Use logo image
   return (
-    <span 
-      className={cn(
-        "font-bold tracking-tight",
-        textSizeClasses,
-        className
-      )}
-      style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-    >
-      <span className="text-foreground">wagered</span>
-      {/* <span className="text-primary">.app</span> */}
-    </span>
+    <div className={cn("relative flex items-center m-0 p-0", className)}>
+      <Image
+        src="/logo.png"
+        alt="wagr"
+        width={imageSizeClasses.width}
+        height={imageSizeClasses.height}
+        className="object-contain block m-0 p-0"
+        priority
+      />
+    </div>
   );
 }
