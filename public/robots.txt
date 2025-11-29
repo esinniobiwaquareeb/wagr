@@ -6,6 +6,16 @@ Allow: /
 Disallow: /api/
 Disallow: /admin/
 
+# Allow important pages for SEO
+Allow: /about
+Allow: /contact
+Allow: /faq
+Allow: /terms
+Allow: /privacy
+Allow: /help
+Allow: /wagers
+Allow: /leaderboard
+
 # Sitemap
 Sitemap: https://wagered.app/sitemap.xml
 

@@ -5,6 +5,7 @@ import { ConditionalNav } from "@/components/conditional-nav";
 import { PWAInstaller } from "@/components/pwa-installer";
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "@/components/theme-provider";
+import { StructuredData, getOrganizationSchema, getSiteNavigationSchema } from "@/components/seo/structured-data";
 import './globals.css'
 
 const geist = Geist({ subsets: ["latin"] });
@@ -111,30 +112,44 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Rajdhani:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "WebApplication",
-              "name": "wagered.app",
-              "description": "Join and create wagers in real-time. Wager on sports, finance, politics, entertainment, and more.",
-              "url": siteUrl,
-              "applicationCategory": "EntertainmentApplication",
-              "operatingSystem": "Web",
-              "offers": {
-                "@type": "Offer",
-                "price": "0",
-                "priceCurrency": "USD"
+        <StructuredData data={[
+          {
+            "@context": "https://schema.org",
+            "@type": "WebApplication",
+            "name": "wagered.app",
+            "description": "Join and create wagers in real-time. Wager on sports, finance, politics, entertainment, and more.",
+            "url": siteUrl,
+            "applicationCategory": "EntertainmentApplication",
+            "operatingSystem": "Web",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "aggregateRating": {
+              "@type": "AggregateRating",
+              "ratingValue": "4.5",
+              "ratingCount": "100"
+            }
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "name": "wagered.app",
+            "url": siteUrl,
+            "description": "A modern wagering platform for sports, finance, politics, and entertainment",
+            "potentialAction": {
+              "@type": "SearchAction",
+              "target": {
+                "@type": "EntryPoint",
+                "urlTemplate": `${siteUrl}/wagers?search={search_term_string}`
               },
-              "aggregateRating": {
-                "@type": "AggregateRating",
-                "ratingValue": "4.5",
-                "ratingCount": "100"
-              }
-            })
-          }}
-        />
+              "query-input": "required name=search_term_string"
+            }
+          },
+          getOrganizationSchema(),
+          ...getSiteNavigationSchema()
+        ]} />
       </head>
       <body className={`${geist.className} antialiased`} suppressHydrationWarning>
         <ThemeProvider

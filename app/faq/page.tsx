@@ -1,3 +1,19 @@
+import { StructuredData } from "@/components/seo/structured-data";
+import { Breadcrumbs } from "@/components/seo/breadcrumbs";
+import type { Metadata } from 'next';
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://wagered.app';
+
+export const metadata: Metadata = {
+  title: 'FAQ - Frequently Asked Questions',
+  description: 'Find answers to common questions about wagered.app, including how to create wagers, how winnings are calculated, platform fees, and more.',
+  openGraph: {
+    title: 'FAQ - Frequently Asked Questions | wagered.app',
+    description: 'Find answers to common questions about wagered.app',
+    url: `${siteUrl}/faq`,
+  },
+};
+
 export default function FAQPage() {
   const faqs = [
     {
@@ -42,24 +58,41 @@ export default function FAQPage() {
     },
   ];
 
-  return (
-    <main className="flex-1 pb-24 md:pb-0">
-      <div className="max-w-4xl mx-auto p-4 md:p-6">
-        <h1 className="text-3xl md:text-4xl font-bold mb-4">Frequently Asked Questions</h1>
-        <p className="text-muted-foreground mb-8">
-          Find answers to common questions about wagered.app.
-        </p>
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": faqs.map(faq => ({
+      "@type": "Question",
+      "name": faq.question,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": faq.answer
+      }
+    }))
+  };
 
-        <div className="space-y-4">
-          {faqs.map((faq, index) => (
-            <div key={index} className="bg-card border border-border rounded-lg p-5 md:p-6">
-              <h3 className="text-lg font-semibold mb-2">{faq.question}</h3>
-              <p className="text-muted-foreground">{faq.answer}</p>
-            </div>
-          ))}
+  return (
+    <>
+      <StructuredData data={faqSchema} />
+      <main className="flex-1 pb-24 md:pb-0">
+        <div className="max-w-4xl mx-auto p-4 md:p-6">
+          <Breadcrumbs items={[{ name: "FAQ", url: "/faq" }]} className="mb-6" />
+          <h1 className="text-3xl md:text-4xl font-bold mb-4">Frequently Asked Questions</h1>
+          <p className="text-muted-foreground mb-8">
+            Find answers to common questions about wagered.app.
+          </p>
+
+          <div className="space-y-4">
+            {faqs.map((faq, index) => (
+              <div key={index} className="bg-card border border-border rounded-lg p-5 md:p-6">
+                <h3 className="text-lg font-semibold mb-2">{faq.question}</h3>
+                <p className="text-muted-foreground">{faq.answer}</p>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </>
   );
 }
 

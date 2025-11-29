@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Send } from "lucide-react";
+import { StructuredData } from "@/components/seo/structured-data";
+import { Breadcrumbs } from "@/components/seo/breadcrumbs";
+import { contactPageSchema } from "./metadata";
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -174,8 +177,11 @@ export default function ContactPage() {
   };
 
   return (
-    <main className="flex-1 pb-24 md:pb-0">
+    <>
+      <StructuredData data={contactPageSchema} />
+      <main className="flex-1 pb-24 md:pb-0">
       <div className="max-w-4xl mx-auto p-4 md:p-6">
+        <Breadcrumbs items={[{ name: "Contact", url: "/contact" }]} className="mb-6" />
         <h1 className="text-3xl md:text-4xl font-bold mb-4">Contact Us</h1>
         <p className="text-muted-foreground mb-8">
           Have a question or need help? We're here to assist you.
@@ -260,6 +266,7 @@ export default function ContactPage() {
         </div>
       </div>
     </main>
+    </>
   );
 }
 
