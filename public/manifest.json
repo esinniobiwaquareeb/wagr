@@ -6,7 +6,7 @@
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#A969A7",
+  "theme_color": "#107DFF",
   "orientation": "portrait-primary",
   "categories": ["entertainment", "finance", "social"],
   "lang": "en",

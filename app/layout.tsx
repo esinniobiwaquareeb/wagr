@@ -106,7 +106,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="wagered.app" />
         <meta name="application-name" content="wagered.app" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="msapplication-TileColor" content="#A969A7" />
+        <meta name="msapplication-TileColor" content="#107DFF" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
