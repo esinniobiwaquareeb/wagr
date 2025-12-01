@@ -17,7 +17,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { utcToLocal, localToUTC, isDeadlineElapsed, getTimeRemaining } from "@/lib/deadline-utils";
 import { useDeadlineCountdown } from "@/hooks/use-deadline-countdown";
 import { DeadlineDisplay } from "@/components/deadline-display";
-import { PLATFORM_FEE_PERCENTAGE } from "@/lib/constants";
+import { PLATFORM_FEE_PERCENTAGE, WAGER_CATEGORIES } from "@/lib/constants";
 import { WagerComments } from "@/components/wager-comments";
 import { useSettings } from "@/hooks/use-settings";
 import { WagerActivities } from "@/components/wager-activities";
@@ -35,6 +35,7 @@ interface Wager {
   winning_side: string | null;
   fee_percentage: number;
   currency?: string;
+  category?: string | null;
   is_system_generated?: boolean;
   is_public?: boolean;
   creator_id?: string;
@@ -84,6 +85,7 @@ export default function WagerDetail() {
     sideB: "",
     amount: "",
     deadline: "",
+    category: "",
   });
   const { toast } = useToast();
   
@@ -898,6 +900,7 @@ export default function WagerDetail() {
       sideB: wager.side_b,
       amount: wager.amount.toString(),
       deadline: utcToLocal(wager.deadline),
+      category: wager.category || "",
     });
     setShowEditDialog(true);
   };
@@ -1007,8 +1010,9 @@ export default function WagerDetail() {
           side_a: trimmedSideA,
           side_b: trimmedSideB,
           amount: newAmount,
-      // Convert local datetime to UTC for storage
-      deadline: localToUTC(editFormData.deadline),
+          // Convert local datetime to UTC for storage
+          deadline: localToUTC(editFormData.deadline),
+          category: editFormData.category || null,
         })
         .eq("id", wager.id)
         .eq("creator_id", user.id);
@@ -1269,6 +1273,22 @@ export default function WagerDetail() {
                   min={new Date().toISOString().slice(0, 16)}
                   className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Category</label>
+                <select
+                  value={editFormData.category}
+                  onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="">No category</option>
+                  {WAGER_CATEGORIES.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.icon} {cat.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 

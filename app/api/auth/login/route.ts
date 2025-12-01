@@ -33,12 +33,11 @@ export async function POST(request: NextRequest) {
 
         const supabase = await createClient();
 
-        // Find user by email (exclude deleted users)
+        // Find user by email (check deleted_at in code, not in query, to avoid query issues)
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('id, email, username, password_hash, two_factor_enabled, two_factor_secret, two_factor_backup_codes, is_admin, is_suspended, email_verified, deleted_at')
           .eq('email', email.trim().toLowerCase())
-          .is('deleted_at', null)
           .single();
 
         if (profileError || !profile) {
@@ -49,14 +48,14 @@ export async function POST(request: NextRequest) {
           throw new AppError(ErrorCode.INVALID_CREDENTIALS, "The email or password you entered doesn't match our records");
         }
 
-        // Check if account is deleted
+        // Check if account is deleted (must check before password verification)
         if (profile.deleted_at) {
           throw new AppError(ErrorCode.ACCOUNT_DELETED, "Account deleted. Kindly contact support");
         }
 
-        // Check if account is suspended
+        // Check if account is suspended (before password verification to prevent timing attacks)
         if (profile.is_suspended) {
-          throw new AppError(ErrorCode.ACCOUNT_SUSPENDED, "Account suspended. Kindly contact support");
+          throw new AppError(ErrorCode.ACCOUNT_SUSPENDED, "Account suspended, Kindly contact support");
         }
 
         // Verify password

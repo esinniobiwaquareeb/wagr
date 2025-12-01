@@ -99,6 +99,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         }
 
         // Password strength validation for sign up
+        // Get min password length from settings (defaults to 8)
+        // We'll validate on frontend with 6 as minimum, but backend will enforce the actual setting
         if (password.length < 6) {
           setError("Your password needs to be at least 6 characters");
           setIsLoading(false);

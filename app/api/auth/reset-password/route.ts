@@ -37,7 +37,8 @@ export async function POST(request: NextRequest) {
         const { minPasswordLength } = await getSecuritySettings();
         const passwordValidation = await validatePasswordStrength(password, minPasswordLength);
         if (!passwordValidation.valid) {
-          throw new AppError(ErrorCode.VALIDATION_ERROR, passwordValidation.error || 'Invalid password');
+          // Return specific error message with the actual minimum length required
+          throw new AppError(ErrorCode.VALIDATION_ERROR, `Your password needs to be at least ${minPasswordLength} characters`);
         }
 
         const supabase = await createClient();

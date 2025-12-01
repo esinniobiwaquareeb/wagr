@@ -48,6 +48,15 @@ async function apiFetch<T>(
   const data = await response.json();
 
   if (!response.ok) {
+    // If account is suspended or deleted, clear auth state
+    if (data.error?.code === 'ACCOUNT_SUSPENDED' || data.error?.code === 'ACCOUNT_DELETED') {
+      // Clear auth cache and trigger logout
+      if (typeof window !== 'undefined') {
+        const { authCache } = await import('@/lib/auth/cache');
+        authCache.clear();
+        window.dispatchEvent(new Event('auth-state-changed'));
+      }
+    }
     throw new Error(data.error?.message || 'API request failed');
   }
 

@@ -28,9 +28,21 @@ export function generateCryptoWagers(currentPrices: Record<string, number>): Cry
     priceTargets.forEach(({ target, days, amount }) => {
       const deadline = new Date(now);
       deadline.setDate(deadline.getDate() + days);
+      // Set time to end of day (23:59:59) for clarity
+      deadline.setHours(23, 59, 59, 999);
+      
+      // Format deadline with date and time
+      const deadlineFormatted = deadline.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
       
       wagers.push({
-        title: `Will Bitcoin reach $${target.toLocaleString(undefined, { maximumFractionDigits: 0 })} by ${deadline.toLocaleDateString()}?`,
+        title: `Will Bitcoin reach $${target.toLocaleString(undefined, { maximumFractionDigits: 0 })} by ${deadlineFormatted}?`,
         description: `Current BTC price: $${btcPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
         side_a: "Yes",
         side_b: "No",
@@ -47,9 +59,21 @@ export function generateCryptoWagers(currentPrices: Record<string, number>): Cry
   if (ethPrice > 0) {
     const deadline = new Date(now);
     deadline.setDate(deadline.getDate() + 30);
+    // Set time to end of day (23:59:59) for clarity
+    deadline.setHours(23, 59, 59, 999);
+    
+    // Format deadline with date and time
+    const deadlineFormatted = deadline.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
     
     wagers.push({
-      title: `Will Ethereum reach $${(ethPrice * 1.2).toLocaleString(undefined, { maximumFractionDigits: 0 })} by ${deadline.toLocaleDateString()}?`,
+      title: `Will Ethereum reach $${(ethPrice * 1.2).toLocaleString(undefined, { maximumFractionDigits: 0 })} by ${deadlineFormatted}?`,
       description: `Current ETH price: $${ethPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
       side_a: "Yes",
       side_b: "No",

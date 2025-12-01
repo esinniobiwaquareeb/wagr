@@ -8,6 +8,9 @@ export async function GET(request: NextRequest) {
     const user = await getCurrentUser();
 
     if (!user) {
+      // User might be suspended or deleted - clear session cookie
+      const { clearSessionCookie } = await import('@/lib/auth/session');
+      await clearSessionCookie();
       return successResponseNext({ user: null });
     }
 

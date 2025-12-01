@@ -49,7 +49,8 @@ export async function POST(request: NextRequest) {
         const { minPasswordLength } = await getSecuritySettings();
         const passwordValidation = await validatePasswordStrength(password, minPasswordLength);
         if (!passwordValidation.valid) {
-          throw new AppError(ErrorCode.VALIDATION_ERROR, passwordValidation.error || 'Invalid password');
+          // Return specific error message with the actual minimum length required
+          throw new AppError(ErrorCode.VALIDATION_ERROR, `Your password needs to be at least ${minPasswordLength} characters`);
         }
 
         // Validate username
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
 
         // If email exists, reject registration
         if (existingEmail) {
-          throw new AppError(ErrorCode.VALIDATION_ERROR, 'An account with this email already exists');
+          throw new AppError(ErrorCode.VALIDATION_ERROR, 'Registration failed, email already exist');
         }
 
         // Check if username already exists (use maybeSingle to handle not found gracefully)
@@ -137,7 +138,7 @@ export async function POST(request: NextRequest) {
             // PostgreSQL unique constraint violation
             const detail = profileError.details || '';
             if (detail.includes('email') || profileError.message?.includes('email')) {
-              throw new AppError(ErrorCode.VALIDATION_ERROR, 'An account with this email already exists');
+              throw new AppError(ErrorCode.VALIDATION_ERROR, 'Registration failed, email already exist');
             }
             if (detail.includes('username') || profileError.message?.includes('username')) {
               throw new AppError(ErrorCode.VALIDATION_ERROR, 'This username is already taken');

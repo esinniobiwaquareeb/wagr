@@ -49,9 +49,14 @@ AVAILABLE SIDE OPTIONS (choose the most appropriate):
 
 Create wagers with:
 - Clear questions (max 80 chars)
+  - IMPORTANT: Include specific date AND time in the title (e.g., "by Dec 1, 2025 at 11:59 PM")
+  - Format: "Will [event] happen by [Month Day, Year at HH:MM AM/PM]?"
 - Descriptions explaining the wager
 - Two sides: Choose the most appropriate side format based on category
 - Deadlines 1-7 days from now
+  - IMPORTANT: Include specific time (not just date) in ISO format
+  - Set to end of day (23:59:59) or appropriate time based on event
+  - Format deadline as ISO string: "YYYY-MM-DDTHH:MM:SS.000Z"
 - Most appropriate category from the list above
 - Reasoning for why it's a good wager
 
@@ -105,15 +110,33 @@ Return JSON array:
     const jsonMatch = content.match(/\[[\s\S]*\]/);
     const wagers = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
 
-    return wagers.map((w: any) => ({
-      title: w.title || 'Unknown wager',
-      description: w.description || '',
-      sideA: w.sideA || 'Yes',
-      sideB: w.sideB || 'No',
-      deadline: w.deadline || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-      category: w.category || 'politics',
-      reasoning: w.reasoning || '',
-    })).slice(0, 5);
+    return wagers.map((w: any) => {
+      // Ensure deadline includes time (set to end of day if only date provided)
+      let deadline = w.deadline;
+      if (deadline) {
+        const deadlineDate = new Date(deadline);
+        // If deadline doesn't have time component, set to end of day
+        if (deadlineDate.getHours() === 0 && deadlineDate.getMinutes() === 0 && deadlineDate.getSeconds() === 0) {
+          deadlineDate.setHours(23, 59, 59, 999);
+        }
+        deadline = deadlineDate.toISOString();
+      } else {
+        // Default: 3 days from now at end of day
+        const defaultDeadline = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+        defaultDeadline.setHours(23, 59, 59, 999);
+        deadline = defaultDeadline.toISOString();
+      }
+      
+      return {
+        title: w.title || 'Unknown wager',
+        description: w.description || '',
+        sideA: w.sideA || 'Yes',
+        sideB: w.sideB || 'No',
+        deadline: deadline,
+        category: w.category || 'politics',
+        reasoning: w.reasoning || '',
+      };
+    }).slice(0, 5);
   } catch (error) {
     console.error('Anthropic analysis error:', error);
     throw error;

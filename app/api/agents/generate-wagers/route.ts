@@ -39,6 +39,8 @@ export async function GET(request: NextRequest) {
       sports: 0,
       weather: 0,
       entertainment: 0,
+      technology: 0,
+      religion: 0,
       errors: [] as string[],
       timestamp: new Date().toISOString(),
     };
@@ -120,14 +122,16 @@ export async function GET(request: NextRequest) {
         const { fetchPoliticalNews, fetchGeneralNews } = await import("@/lib/api/news");
         const { analyzeNewsForWagers, getTrendingNews } = await import("@/lib/ai/news-analyzer");
         
-        // Fetch news from multiple categories
+        // Fetch news from ALL categories to ensure comprehensive coverage
         const newsPromises = [
           fetchPoliticalNews(process.env.NEWS_API_KEY).catch(() => []),
-          fetchGeneralNews(process.env.NEWS_API_KEY, 'cryptocurrency OR bitcoin OR ethereum').catch(() => []),
-          fetchGeneralNews(process.env.NEWS_API_KEY, 'stock market OR finance OR economy').catch(() => []),
-          fetchGeneralNews(process.env.NEWS_API_KEY, 'sports OR football OR basketball').catch(() => []),
-          fetchGeneralNews(process.env.NEWS_API_KEY, 'entertainment OR movie OR music').catch(() => []),
-          fetchGeneralNews(process.env.NEWS_API_KEY, 'technology OR tech OR innovation').catch(() => []),
+          fetchGeneralNews(process.env.NEWS_API_KEY, 'cryptocurrency OR bitcoin OR ethereum OR blockchain').catch(() => []),
+          fetchGeneralNews(process.env.NEWS_API_KEY, 'stock market OR finance OR economy OR trading').catch(() => []),
+          fetchGeneralNews(process.env.NEWS_API_KEY, 'sports OR football OR basketball OR soccer OR tennis').catch(() => []),
+          fetchGeneralNews(process.env.NEWS_API_KEY, 'entertainment OR movie OR music OR awards OR celebrity').catch(() => []),
+          fetchGeneralNews(process.env.NEWS_API_KEY, 'technology OR tech OR innovation OR AI OR software').catch(() => []),
+          fetchGeneralNews(process.env.NEWS_API_KEY, 'religion OR religious OR faith OR church OR mosque').catch(() => []),
+          fetchGeneralNews(process.env.NEWS_API_KEY, 'weather OR climate OR temperature OR rain OR storm').catch(() => []),
         ];
         
         const allNewsArticles = (await Promise.all(newsPromises)).flat();
@@ -162,28 +166,14 @@ export async function GET(request: NextRequest) {
           });
         });
         
-        // Process wagers by category
+        // Process wagers by category - ensure ALL categories are created
         const allNewsWagers: any[] = [];
         for (const [category, wagers] of wagersByCategory.entries()) {
           allNewsWagers.push(...wagers);
-          
-          // Update results counter based on category
-          if (category === 'politics') {
-            results.politics += wagers.length;
-          } else if (category === 'crypto') {
-            results.crypto += wagers.length;
-          } else if (category === 'finance') {
-            results.finance += wagers.length;
-          } else if (category === 'sports') {
-            results.sports += wagers.length;
-          } else if (category === 'entertainment') {
-            results.entertainment += wagers.length;
-          }
         }
-        
-        const politicsWagers = allNewsWagers;
 
-        for (const wager of politicsWagers) {
+        // Create wagers for ALL categories
+        for (const wager of allNewsWagers) {
           const origin = request.nextUrl?.origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
           const response = await fetch(`${origin}/api/wagers/create-system`, {
             method: 'POST',
@@ -195,11 +185,29 @@ export async function GET(request: NextRequest) {
           });
 
           if (response.ok) {
-            results.politics++;
+            // Update results counter based on actual category
+            const category = wager.category || 'other';
+            if (category === 'politics') {
+              results.politics++;
+            } else if (category === 'crypto') {
+              results.crypto++;
+            } else if (category === 'finance') {
+              results.finance++;
+            } else if (category === 'sports') {
+              results.sports++;
+            } else if (category === 'entertainment') {
+              results.entertainment++;
+            } else if (category === 'technology') {
+              results.technology++;
+            } else if (category === 'religion') {
+              results.religion++;
+            } else if (category === 'weather') {
+              results.weather++;
+            }
           } else {
             const error = await response.json();
             if (response.status !== 409) {
-              results.errors.push(`Politics: ${error.error}`);
+              results.errors.push(`${wager.category || 'unknown'}: ${error.error || error.message || 'Failed to create wager'}`);
             }
           }
         }

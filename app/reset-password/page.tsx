@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Lock, CheckCircle } from "lucide-react";
@@ -21,10 +21,10 @@ function ResetPasswordContent() {
   const [tokenValid, setTokenValid] = useState<boolean | null>(null);
 
   // Check if token is present
-  useState(() => {
+  useEffect(() => {
     const token = searchParams.get('token');
     setTokenValid(!!token);
-  });
+  }, [searchParams]);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,6 +47,7 @@ function ResetPasswordContent() {
         return;
       }
 
+      // Basic frontend validation - backend will enforce actual requirements
       if (password.length < 6) {
         setError("Password must be at least 6 characters long");
         setLoading(false);
@@ -178,7 +179,6 @@ function ResetPasswordContent() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your new password"
                   required
-                  minLength={6}
                   className="w-full px-4 py-3 pr-10 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
                 />
                 <button
@@ -194,7 +194,7 @@ function ResetPasswordContent() {
                 </button>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Must be at least 6 characters long
+                Must be at least 6 characters long (8 recommended)
               </p>
             </div>
 
@@ -210,7 +210,6 @@ function ResetPasswordContent() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Confirm your new password"
                   required
-                  minLength={6}
                   className="w-full px-4 py-3 pr-10 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
                 />
                 <button

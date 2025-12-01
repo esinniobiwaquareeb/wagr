@@ -50,6 +50,8 @@ AVAILABLE SIDE OPTIONS (choose the most appropriate):
 
 For each article, create a wager with:
 1. A clear, concise title (max 80 characters) that asks a specific question
+   - IMPORTANT: Include the specific date AND time in the title (e.g., "by Dec 1, 2025 at 11:59 PM")
+   - Format: "Will [event] happen by [Month Day, Year at HH:MM AM/PM]?"
 2. A description explaining what the wager is about
 3. Two sides: Choose the most appropriate side format based on the category and question type
    - Use "Yes/No" for general questions
@@ -59,6 +61,9 @@ For each article, create a wager with:
    - Use "Higher/Lower" for comparisons
    - Use specific names/values for custom outcomes (e.g., team names, specific prices)
 4. A deadline within 1-7 days from now
+   - IMPORTANT: Include specific time (not just date) in ISO format
+   - Set to end of day (23:59:59) or appropriate time based on event
+   - Format deadline as ISO string: "YYYY-MM-DDTHH:MM:SS.000Z"
 5. The most appropriate category from the list above
 6. Reasoning for why this is a good wager
 
@@ -132,15 +137,33 @@ Return JSON array with this structure:
     const wagers = Array.isArray(parsed) ? parsed : parsed.wagers || [];
 
     // Validate and format wagers
-    return wagers.map((w: any) => ({
-      title: w.title || 'Unknown wager',
-      description: w.description || '',
-      sideA: w.sideA || 'Yes',
-      sideB: w.sideB || 'No',
-      deadline: w.deadline || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-      category: w.category || 'politics',
-      reasoning: w.reasoning || '',
-    })).slice(0, 5);
+    return wagers.map((w: any) => {
+      // Ensure deadline includes time (set to end of day if only date provided)
+      let deadline = w.deadline;
+      if (deadline) {
+        const deadlineDate = new Date(deadline);
+        // If deadline doesn't have time component, set to end of day
+        if (deadlineDate.getHours() === 0 && deadlineDate.getMinutes() === 0 && deadlineDate.getSeconds() === 0) {
+          deadlineDate.setHours(23, 59, 59, 999);
+        }
+        deadline = deadlineDate.toISOString();
+      } else {
+        // Default: 3 days from now at end of day
+        const defaultDeadline = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+        defaultDeadline.setHours(23, 59, 59, 999);
+        deadline = defaultDeadline.toISOString();
+      }
+      
+      return {
+        title: w.title || 'Unknown wager',
+        description: w.description || '',
+        sideA: w.sideA || 'Yes',
+        sideB: w.sideB || 'No',
+        deadline: deadline,
+        category: w.category || 'politics',
+        reasoning: w.reasoning || '',
+      };
+    }).slice(0, 5);
   } catch (error) {
     console.error('OpenAI analysis error:', error);
     throw error;

@@ -99,11 +99,31 @@ function extractSimpleWagers(
   
   return articles.slice(0, 5).map((article, index) => {
     const deadline = new Date(Date.now() + (index + 1) * 24 * 60 * 60 * 1000);
+    // Set time to end of day for clarity
+    deadline.setHours(23, 59, 59, 999);
+    
     const category = categories[index % categories.length];
     const sides = sideOptions[index % sideOptions.length];
     
+    // Format deadline with date and time for title
+    const deadlineFormatted = deadline.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+    
+    // Create title with deadline
+    let title = article.title.length > 60 ? article.title.substring(0, 57) + '...' : article.title;
+    // Add deadline to title if it doesn't already include it
+    if (!title.toLowerCase().includes('by ') && !title.toLowerCase().includes('at ')) {
+      title = `${title} by ${deadlineFormatted}?`;
+    }
+    
     return {
-      title: article.title.length > 80 ? article.title.substring(0, 77) + '...' : article.title,
+      title: title,
       description: article.description || article.title,
       sideA: sides.sideA,
       sideB: sides.sideB,

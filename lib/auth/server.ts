@@ -25,12 +25,21 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   const supabase = await createClient();
   const { data: profile, error } = await supabase
     .from('profiles')
-    .select('id, email, username, email_verified, is_admin, deleted_at')
+    .select('id, email, username, email_verified, is_admin, deleted_at, is_suspended')
     .eq('id', userId)
     .is('deleted_at', null)
     .single();
 
   if (error || !profile) {
+    return null;
+  }
+
+  // If account is suspended, delete all sessions and return null
+  if (profile.is_suspended) {
+    const { deleteAllUserSessions } = await import('./session');
+    await deleteAllUserSessions(userId);
+    const { clearSessionCookie } = await import('./session');
+    await clearSessionCookie();
     return null;
   }
 
