@@ -1,12 +1,10 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { createSession, setSessionCookie } from '@/lib/auth/session';
 import { sendEmailAsync } from '@/lib/email-queue';
 import { sendEmail } from '@/lib/email-service';
 import { AppError, logError } from '@/lib/error-handler';
 import { ErrorCode } from '@/lib/error-handler';
 import { withRateLimit } from '@/lib/middleware-rate-limit';
-import { getClientIP } from '@/lib/rate-limit';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 
 export async function GET(request: NextRequest) {
@@ -88,32 +86,11 @@ export async function GET(request: NextRequest) {
           });
         }
 
-        // Check if user already has a session (from registration)
-        // If not, create one for auto-login
-        const clientIP = getClientIP(req);
-        const userAgent = req.headers.get('user-agent') || undefined;
-        let hasSession = false;
-        
-        try {
-          // Try to create a session for auto-login
-          const sessionToken = await createSession(verification.user_id, clientIP, userAgent);
-          hasSession = true;
-          
-          // Create response with session cookie
-          const response = successResponseNext({
-            message: 'Email verified successfully! Welcome to wagr!',
-            hasSession: true,
-          });
-          
-          return await setSessionCookie(sessionToken, response) || response;
-        } catch (sessionError) {
-          // If session creation fails, user can still login manually
-          logError(sessionError as Error);
-        }
-
+        // DO NOT create session - user must login after verification
+        // This ensures proper authentication flow: register -> verify -> login
         return successResponseNext({
-          message: 'Email verified successfully! Welcome to wagr!',
-          hasSession: false,
+          message: 'Email verified successfully! Please log in to access your account.',
+          verified: true,
         });
       } catch (error) {
         logError(error as Error);

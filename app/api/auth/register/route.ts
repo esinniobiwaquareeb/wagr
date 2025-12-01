@@ -2,13 +2,10 @@ import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { hashPassword, validatePasswordStrength } from '@/lib/auth/password';
 import { generateEmailVerificationToken, getExpirationTime, generateUUID } from '@/lib/auth/tokens';
-import { createSession, setSessionCookie } from '@/lib/auth/session';
-import { sendEmailAsync } from '@/lib/email-queue';
 import { sendEmail } from '@/lib/email-service';
 import { AppError, logError } from '@/lib/error-handler';
 import { ErrorCode } from '@/lib/error-handler';
 import { withRateLimit } from '@/lib/middleware-rate-limit';
-import { getClientIP } from '@/lib/rate-limit';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 
 export async function POST(request: NextRequest) {
@@ -195,16 +192,11 @@ export async function POST(request: NextRequest) {
           // Don't fail registration, but log the error
         }
 
-        // Create session and set cookie
-        const clientIP = getClientIP(req);
-        const userAgent = req.headers.get('user-agent') || undefined;
-        const sessionToken = await createSession(profile.id, clientIP, userAgent);
+        // DO NOT create session - user must verify email first, then login
+        // Send welcome email will be sent after email verification
 
-        // Send welcome email (after verification)
-        // This will be sent after email is verified
-
-        const response = successResponseNext({
-          message: 'Account created successfully. Please check your email to verify your account.',
+        return successResponseNext({
+          message: 'Account created successfully. Please check your email to verify your account before logging in.',
           user: {
             id: profile.id,
             email: profile.email,
@@ -212,9 +204,6 @@ export async function POST(request: NextRequest) {
             email_verified: false,
           },
         });
-
-        // Set session cookie on the response
-        return await setSessionCookie(sessionToken, response) || response;
       } catch (error) {
         logError(error as Error);
         return appErrorToResponse(error);

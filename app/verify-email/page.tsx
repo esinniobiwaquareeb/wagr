@@ -41,39 +41,19 @@ function VerifyEmailContent() {
           setMessage('Your email is already verified. You can now log in.');
         } else {
           setStatus('success');
-          setMessage('Email verified successfully! Welcome to wagr!');
+          setMessage('Email verified successfully! Please log in to access your account.');
         }
 
-        // If session was created, auto-login by refreshing and redirecting
-        if (data.hasSession) {
-          toast({
-            title: "Email verified!",
-            description: "Your account has been verified. Logging you in...",
-          });
-          
-          // Refresh to update auth state
-          router.refresh();
-          
-          // Trigger auth state change
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new Event('auth-state-changed'));
-          }
-          
-          // Redirect to wagers page after a short delay
-          setTimeout(() => {
-            router.push('/wagers');
-          }, 1000);
-        } else {
-          toast({
-            title: "Email verified!",
-            description: "Your account has been verified. You can now log in.",
-          });
+        // Always redirect to login page - no auto-login
+        toast({
+          title: "Email verified!",
+          description: "Your account has been verified. Please log in to continue.",
+        });
 
-          // Redirect to login with success message after 2 seconds
-          setTimeout(() => {
-            router.push('/wagers?login=true&verified=true');
-          }, 2000);
-        }
+        // Redirect to login page after 2 seconds
+        setTimeout(() => {
+          router.push('/wagers?login=true&verified=true');
+        }, 2000);
       } catch (error) {
         setStatus('error');
         setMessage('Something went wrong. Please try again.');

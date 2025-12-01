@@ -132,18 +132,16 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           throw new Error(errorMessage);
         }
 
-        // Show success message in modal instead of closing
+        // Show success message in modal - user is NOT logged in
+        // They must verify email first, then login
         setRegistrationSuccess(true);
         setEmail("");
         setPassword("");
         setUsername("");
         setIsLoading(false);
         
-        // Clear auth cache and trigger auth state change event (user is logged in after registration)
-        authCache.clear();
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new Event('auth-state-changed'));
-        }
+        // DO NOT clear auth cache or trigger auth state change
+        // User is not logged in - they need to verify email and then login
       } else {
         // Login validation
         if (password.length < 1) {
