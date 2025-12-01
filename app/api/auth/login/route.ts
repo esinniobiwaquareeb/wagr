@@ -38,9 +38,32 @@ export async function POST(request: NextRequest) {
           .from('profiles')
           .select('id, email, username, password_hash, two_factor_enabled, two_factor_secret, two_factor_backup_codes, is_admin, is_suspended, email_verified, deleted_at')
           .eq('email', email.trim().toLowerCase())
-          .single();
+          .maybeSingle();
 
-        if (profileError || !profile) {
+        // Handle database errors
+        if (profileError) {
+          // Log the actual error for debugging with full details
+          logError(new Error(`Database error in login: ${profileError.message}`), {
+            error: profileError,
+            code: profileError.code,
+            details: profileError.details,
+            hint: profileError.hint,
+            email: email.trim().toLowerCase(),
+          });
+          
+          // Check for specific error codes
+          // PGRST116 = no rows returned (this is expected for invalid credentials, handled below)
+          if (profileError.code === 'PGRST116') {
+            // This is actually "not found", which is fine - treat as invalid credentials
+            throw new AppError(ErrorCode.INVALID_CREDENTIALS, "The email or password you entered doesn't match our records");
+          }
+          
+          // Connection or other database errors
+          throw new AppError(ErrorCode.DATABASE_ERROR, 'An error occurred while trying to log in. Please try again.');
+        }
+
+        // If no profile found, return invalid credentials
+        if (!profile) {
           throw new AppError(ErrorCode.INVALID_CREDENTIALS, "The email or password you entered doesn't match our records");
         }
 

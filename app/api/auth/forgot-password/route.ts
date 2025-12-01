@@ -40,10 +40,27 @@ export async function POST(request: NextRequest) {
           .from('profiles')
           .select('id, email, username')
           .eq('email', email.trim().toLowerCase())
-          .single();
+          .maybeSingle();
 
         // Always return success to prevent email enumeration
-        if (profileError || !profile) {
+        if (profileError) {
+          // PGRST116 = no rows returned (expected for non-existent email)
+          if (profileError.code === 'PGRST116') {
+            return successResponseNext({
+              message: 'If an account with that email exists, a password reset link has been sent',
+            });
+          }
+          // Other database errors - log but don't reveal
+          logError(new Error(`Database error in forgot-password: ${profileError.message}`), {
+            error: profileError,
+            code: profileError.code,
+          });
+          return successResponseNext({
+            message: 'If an account with that email exists, a password reset link has been sent',
+          });
+        }
+
+        if (!profile) {
           return successResponseNext({
             message: 'If an account with that email exists, a password reset link has been sent',
           });

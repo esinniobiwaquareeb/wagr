@@ -48,9 +48,23 @@ export async function POST(request: NextRequest) {
           .from('password_resets')
           .select('*, profiles(*)')
           .eq('token', token)
-          .single();
+          .maybeSingle();
 
-        if (resetError || !resetRecord) {
+        // Handle database errors
+        if (resetError) {
+          // PGRST116 = no rows returned (expected for invalid token)
+          if (resetError.code === 'PGRST116') {
+            throw new AppError(ErrorCode.VALIDATION_ERROR, 'Invalid or expired reset token');
+          }
+          // Other database errors
+          logError(new Error(`Database error in reset-password: ${resetError.message}`), {
+            error: resetError,
+            code: resetError.code,
+          });
+          throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to reset password. Please try again.');
+        }
+
+        if (!resetRecord) {
           throw new AppError(ErrorCode.VALIDATION_ERROR, 'Invalid or expired reset token');
         }
 

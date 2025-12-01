@@ -27,10 +27,31 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     .from('profiles')
     .select('id, email, username, email_verified, is_admin, deleted_at, is_suspended')
     .eq('id', userId)
-    .is('deleted_at', null)
-    .single();
+    .maybeSingle();
 
-  if (error || !profile) {
+  // Handle database errors - if it's a connection error or other DB issue, return null
+  if (error) {
+    // PGRST116 = no rows returned (user doesn't exist or is deleted)
+    if (error.code === 'PGRST116') {
+      return null;
+    }
+    // Log other database errors but don't throw - just return null
+    const { logError } = await import('@/lib/error-handler');
+    logError(new Error(`Database error in getCurrentUser: ${error.message}`), {
+      error,
+      code: error.code,
+      userId,
+    });
+    return null;
+  }
+
+  // If no profile found, return null
+  if (!profile) {
+    return null;
+  }
+
+  // Check if account is deleted (check in code, not in query)
+  if (profile.deleted_at) {
     return null;
   }
 

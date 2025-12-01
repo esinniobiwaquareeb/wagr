@@ -35,9 +35,23 @@ export async function GET(request: NextRequest) {
           .from('email_verifications')
           .select('*, profiles(*)')
           .eq('token', token)
-          .single();
+          .maybeSingle();
 
-        if (verificationError || !verification) {
+        // Handle database errors
+        if (verificationError) {
+          // PGRST116 = no rows returned (expected for invalid token)
+          if (verificationError.code === 'PGRST116') {
+            throw new AppError(ErrorCode.VALIDATION_ERROR, 'Invalid or expired verification token');
+          }
+          // Other database errors
+          logError(new Error(`Database error in verify-email: ${verificationError.message}`), {
+            error: verificationError,
+            code: verificationError.code,
+          });
+          throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to verify email. Please try again.');
+        }
+
+        if (!verification) {
           throw new AppError(ErrorCode.VALIDATION_ERROR, 'Invalid or expired verification token');
         }
 
@@ -131,9 +145,27 @@ export async function POST(request: NextRequest) {
           .from('profiles')
           .select('id, email, username, email_verified')
           .eq('email', email.trim().toLowerCase())
-          .single();
+          .maybeSingle();
 
-        if (profileError || !profile) {
+        // Handle database errors - don't reveal if email exists for security
+        if (profileError) {
+          // PGRST116 = no rows returned (expected for non-existent email)
+          if (profileError.code === 'PGRST116') {
+            return successResponseNext({
+              message: 'If an account with that email exists and is not verified, a verification email has been sent.',
+            });
+          }
+          // Other database errors - log but don't reveal
+          logError(new Error(`Database error in resend verification: ${profileError.message}`), {
+            error: profileError,
+            code: profileError.code,
+          });
+          return successResponseNext({
+            message: 'If an account with that email exists and is not verified, a verification email has been sent.',
+          });
+        }
+
+        if (!profile) {
           // Don't reveal if email exists for security
           return successResponseNext({
             message: 'If an account with that email exists and is not verified, a verification email has been sent.',
