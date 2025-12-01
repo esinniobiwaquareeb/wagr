@@ -38,18 +38,21 @@ export async function GET(request: NextRequest) {
     }
 
     // Always use separate queries for username and email (more reliable than OR)
+    // Exclude deleted users
     const [usernameResults, emailResults] = await Promise.all([
       supabase
         .from('profiles')
         .select('id, username, email, avatar_url')
         .ilike('username', `%${searchQuery}%`)
         .not('username', 'is', null)
+        .is('deleted_at', null)
         .limit(10),
       supabase
         .from('profiles')
         .select('id, username, email, avatar_url')
         .ilike('email', `%${searchQuery}%`)
         .not('username', 'is', null)
+        .is('deleted_at', null)
         .limit(10),
     ]);
 

@@ -6,6 +6,7 @@ import { PWAInstaller } from "@/components/pwa-installer";
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "@/components/theme-provider";
 import { StructuredData, getOrganizationSchema, getSiteNavigationSchema } from "@/components/seo/structured-data";
+import { MonitoringInit } from "@/components/monitoring-init";
 import './globals.css'
 
 const geist = Geist({ subsets: ["latin"] });
@@ -159,6 +160,7 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
+          <MonitoringInit />
           <ConditionalNav>
             {children}
           </ConditionalNav>

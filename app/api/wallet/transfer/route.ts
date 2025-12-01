@@ -70,11 +70,12 @@ export async function POST(request: NextRequest) {
       throw new AppError(ErrorCode.VALIDATION_ERROR, 'You cannot transfer funds to yourself');
     }
 
-    // Find recipient by username
+    // Find recipient by username (exclude deleted users)
     const { data: recipientProfile, error: recipientError } = await supabase
       .from('profiles')
       .select('id, username, email')
       .eq('username', trimmedUsername)
+      .is('deleted_at', null)
       .single();
 
     if (recipientError || !recipientProfile) {

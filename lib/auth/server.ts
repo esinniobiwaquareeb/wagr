@@ -25,8 +25,9 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   const supabase = await createClient();
   const { data: profile, error } = await supabase
     .from('profiles')
-    .select('id, email, username, email_verified, is_admin')
+    .select('id, email, username, email_verified, is_admin, deleted_at')
     .eq('id', userId)
+    .is('deleted_at', null)
     .single();
 
   if (error || !profile) {

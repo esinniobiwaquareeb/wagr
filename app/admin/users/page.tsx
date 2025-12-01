@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { format } from "date-fns";
-import { Shield, User as UserIcon, Lock, Coins, TrendingUp, Calendar, Ban, CheckCircle, ShieldCheck, ShieldAlert, Mail, Users as UsersIcon, CreditCard, AlertCircle, Clock } from "lucide-react";
+import { Shield, User as UserIcon, Lock, Coins, TrendingUp, Calendar, Ban, CheckCircle, ShieldCheck, ShieldAlert, Mail, Users as UsersIcon, CreditCard, AlertCircle, Clock, Eye, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import Image from "next/image";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/client";
-import { apiGet, apiPatch } from "@/lib/api-client";
+import { apiGet, apiPatch, apiDelete } from "@/lib/api-client";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -57,6 +57,7 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [showSuspendDialog, setShowSuspendDialog] = useState(false);
   const [showUnsuspendDialog, setShowUnsuspendDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [suspensionReason, setSuspensionReason] = useState("");
 
@@ -145,6 +146,44 @@ export default function AdminUsersPage() {
   const handleConfirmUnsuspend = () => {
     if (selectedUser) {
       handleSuspendUser(selectedUser.id, false);
+    }
+  };
+
+  const handleDeleteClick = (user: User) => {
+    setSelectedUser(user);
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteUser = useCallback(async (userId: string) => {
+    if (!isAdmin) return;
+
+    try {
+      await apiDelete(`/admin/users/${userId}`);
+
+      toast({
+        title: "Success",
+        description: "User account deleted successfully",
+      });
+
+      // Refresh users list
+      fetchUsers();
+      
+      // Close dialog and reset state
+      setShowDeleteDialog(false);
+      setSelectedUser(null);
+    } catch (error: any) {
+      console.error("Error deleting user:", error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to delete user account.",
+        variant: "destructive",
+      });
+    }
+  }, [isAdmin, toast, fetchUsers]);
+
+  const handleConfirmDelete = () => {
+    if (selectedUser) {
+      handleDeleteUser(selectedUser.id);
     }
   };
 
@@ -477,28 +516,46 @@ export default function AdminUsersPage() {
               header: "Actions",
               cell: (row) => (
                 <div className="flex items-center gap-2">
+                  <Link
+                    href={`/admin/users/${row.id}`}
+                    className="inline-flex items-center justify-center p-2 hover:bg-muted rounded transition-colors"
+                    title="View user details"
+                  >
+                    <Eye className="h-4 w-4 text-muted-foreground hover:text-primary transition" />
+                  </Link>
                   {!row.is_admin && (
-                    row.is_suspended ? (
+                    <>
+                      {row.is_suspended ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => handleUnsuspendClick(row)}
+                        >
+                          <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                          Unsuspend
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => handleSuspendClick(row)}
+                        >
+                          <Ban className="h-3.5 w-3.5 mr-1" />
+                          Suspend
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"
-                        className="text-xs"
-                        onClick={() => handleUnsuspendClick(row)}
+                        className="text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => handleDeleteClick(row)}
                       >
-                        <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                        Unsuspend
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />
+                        Delete
                       </Button>
-                    ) : (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        className="text-xs"
-                        onClick={() => handleSuspendClick(row)}
-                      >
-                        <Ban className="h-3.5 w-3.5 mr-1" />
-                        Suspend
-                      </Button>
-                    )
+                    </>
                   )}
                 </div>
               ),
@@ -597,6 +654,48 @@ export default function AdminUsersPage() {
         cancelText="Cancel"
         variant="default"
         onConfirm={handleConfirmUnsuspend}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={showDeleteDialog && selectedUser !== null}
+        onOpenChange={(open) => {
+          setShowDeleteDialog(open);
+          if (!open) {
+            setSelectedUser(null);
+          }
+        }}
+        title="Delete User Account"
+        description={
+          selectedUser ? (
+            <div className="space-y-4 mt-2">
+              <p className="text-sm text-muted-foreground">
+                You are about to delete the account for <strong>{selectedUser.username || selectedUser.email || 'this user'}</strong>.
+              </p>
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>⚠️ This action will:</p>
+                <ul className="list-disc list-inside ml-2 space-y-0.5">
+                  <li>Permanently mark the account as deleted (soft delete)</li>
+                  <li>Immediately log out the user from all sessions</li>
+                  <li>Prevent the user from logging in</li>
+                  <li>Show "Account deleted. Kindly contact support" error message</li>
+                </ul>
+                <p className="mt-2 font-semibold text-foreground">⚠️ Important:</p>
+                <ul className="list-disc list-inside ml-2 space-y-0.5">
+                  <li>Users with activities (wagers, transactions, quizzes, etc.) cannot be deleted</li>
+                  <li>This is a soft delete - user data is preserved but account is deactivated</li>
+                  <li>This action cannot be undone</li>
+                </ul>
+              </div>
+            </div>
+          ) : (
+            ""
+          )
+        }
+        confirmText="Delete Account"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={handleConfirmDelete}
       />
     </main>
   );

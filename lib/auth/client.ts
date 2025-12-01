@@ -70,14 +70,22 @@ export async function getCurrentUser(forceRefresh = false): Promise<AuthUser | n
  */
 export async function logout(): Promise<void> {
   try {
-    await fetch('/api/auth/logout', {
+    const response = await fetch('/api/auth/logout', {
       method: 'POST',
       credentials: 'include',
+      cache: 'no-store',
     });
-    // Clear auth cache on logout
+    
+    // Clear auth cache on logout (regardless of response)
     authCache.clear();
+    
+    if (!response.ok) {
+      console.warn('Logout API returned non-OK status:', response.status);
+    }
   } catch (error) {
     console.error('Error logging out:', error);
+    // Clear cache even if API call fails
+    authCache.clear();
   }
 }
 

@@ -34,9 +34,25 @@ export function AdminSidebar() {
   };
 
   const handleLogout = async () => {
-    await logout();
-    window.dispatchEvent(new Event('auth-state-changed'));
-    router.push("/admin/login");
+    try {
+      // Clear auth cache first
+      const { authCache } = await import('@/lib/auth/cache');
+      authCache.clear();
+      
+      // Call logout API
+      await logout();
+      
+      // Dispatch auth state change event
+      window.dispatchEvent(new Event('auth-state-changed'));
+      
+      // Force a full page reload to ensure all state is cleared
+      // Use window.location.href for a hard redirect
+      window.location.href = '/admin/login';
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if logout fails, redirect to login page
+      window.location.href = '/admin/login';
+    }
   };
 
   const isActive = (path: string) => pathname === path;

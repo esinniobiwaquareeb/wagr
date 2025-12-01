@@ -15,9 +15,11 @@ export async function GET(request: NextRequest) {
     const supabase = createServiceRoleClient();
     
     // Get all profiles (emails are in profiles table with custom auth)
+    // Exclude deleted users by default
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
       .select("*")
+      .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
     if (profilesError) {

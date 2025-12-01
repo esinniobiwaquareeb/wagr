@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { format } from "date-fns";
-import { ArrowUp, ArrowDown, ExternalLink, Link as LinkIcon, Copy, Check } from "lucide-react";
+import { ArrowUp, ArrowDown, ExternalLink, Link as LinkIcon, Copy, Check, Eye } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { getCurrentUser } from "@/lib/auth/client";
 import Link from "next/link";
@@ -423,6 +423,19 @@ export default function AdminTransactionsPage() {
                 <span className="text-sm text-muted-foreground">
                   {format(new Date(row.created_at), "MMM d, yyyy HH:mm")}
                 </span>
+              ),
+            },
+            {
+              id: "actions",
+              header: "Actions",
+              cell: (row) => (
+                <Link
+                  href={`/admin/transactions/${row.id}`}
+                  className="inline-flex items-center justify-center p-2 hover:bg-muted rounded transition-colors"
+                  title="View transaction details"
+                >
+                  <Eye className="h-4 w-4 text-muted-foreground hover:text-primary transition" />
+                </Link>
               ),
             },
           ]}

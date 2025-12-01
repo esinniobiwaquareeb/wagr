@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
       const query = supabase
         .from('profiles')
         .select('id, username, avatar_url, balance', { count: 'exact' })
+        .is('deleted_at', null)
         .order('balance', { ascending: false })
         .range(offset, offset + limit - 1);
 
@@ -48,9 +49,11 @@ export async function GET(request: NextRequest) {
     }
 
     // For wins/winnings-based leaderboard, calculate stats
+    // Exclude deleted users
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, username');
+      .select('id, username')
+      .is('deleted_at', null);
 
     if (!profiles) {
       return successResponseNext({ leaderboard: [] });

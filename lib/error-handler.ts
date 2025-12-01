@@ -9,6 +9,7 @@ export enum ErrorCode {
   INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
   SESSION_EXPIRED = 'SESSION_EXPIRED',
   ACCOUNT_SUSPENDED = 'ACCOUNT_SUSPENDED',
+  ACCOUNT_DELETED = 'ACCOUNT_DELETED',
   EMAIL_NOT_VERIFIED = 'EMAIL_NOT_VERIFIED',
   
   // Validation errors
@@ -73,6 +74,7 @@ function getDefaultStatusCode(code: ErrorCode): number {
       return 401;
     case ErrorCode.FORBIDDEN:
     case ErrorCode.ACCOUNT_SUSPENDED:
+    case ErrorCode.ACCOUNT_DELETED:
     case ErrorCode.EMAIL_NOT_VERIFIED:
       return 403;
     case ErrorCode.VALIDATION_ERROR:
@@ -133,10 +135,22 @@ export function logError(error: Error | AppError, context?: any) {
   // In production, send to error tracking service (e.g., Sentry)
   console.error('Error:', errorInfo);
 
-  // TODO: Integrate with error tracking service
-  // if (process.env.NODE_ENV === 'production') {
-  //   Sentry.captureException(error, { extra: context });
-  // }
+  // Use monitoring utility for error tracking
+  if (typeof window === 'undefined') {
+    // Server-side: dynamically import to avoid bundling issues
+    import('./monitoring').then(({ captureException }) => {
+      captureException(error, context);
+    }).catch(() => {
+      // Monitoring not available, already logged
+    });
+  } else {
+    // Client-side: dynamically import to avoid bundling issues
+    import('./monitoring').then(({ captureException }) => {
+      captureException(error, context);
+    }).catch(() => {
+      // Monitoring not available, already logged
+    });
+  }
 }
 
 /**
