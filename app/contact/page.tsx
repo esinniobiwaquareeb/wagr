@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Send } from "lucide-react";
+import { Mail, Send, Phone, MessageSquare } from "lucide-react";
 import { StructuredData } from "@/components/seo/structured-data";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { contactPageSchema } from "./metadata";
@@ -15,7 +15,38 @@ export default function ContactPage() {
     message: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [supportInfo, setSupportInfo] = useState({
+    email: "support@wagr.app",
+    phone: "",
+    note: "",
+  });
+  const [loadingInfo, setLoadingInfo] = useState(true);
   const { toast } = useToast();
+
+  // Fetch support information from platform settings
+  useEffect(() => {
+    const fetchSupportInfo = async () => {
+      try {
+        const response = await fetch('/api/settings/public');
+        if (response.ok) {
+          const data = await response.json();
+          const settings = data.settings || {};
+          
+          setSupportInfo({
+            email: settings['support.email'] || process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@wagr.app',
+            phone: settings['support.phone'] || '',
+            note: settings['support.note'] || '',
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching support info:', error);
+      } finally {
+        setLoadingInfo(false);
+      }
+    };
+
+    fetchSupportInfo();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,13 +226,47 @@ export default function ContactPage() {
             </p>
 
             <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <Mail className="h-5 w-5 text-primary mt-0.5" />
-                <div>
-                  <p className="font-medium">Email</p>
-                  <p className="text-sm text-muted-foreground">support@wagered.app.app</p>
+              {supportInfo.email && (
+                <div className="flex items-start gap-3">
+                  <Mail className="h-5 w-5 text-primary mt-0.5" />
+                  <div>
+                    <p className="font-medium">Support Email</p>
+                    <a 
+                      href={`mailto:${supportInfo.email}`}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      {supportInfo.email}
+                    </a>
+                  </div>
                 </div>
-              </div>
+              )}
+              
+              {supportInfo.phone && (
+                <div className="flex items-start gap-3">
+                  <Phone className="h-5 w-5 text-primary mt-0.5" />
+                  <div>
+                    <p className="font-medium">Contact Phone</p>
+                    <a 
+                      href={`tel:${supportInfo.phone}`}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      {supportInfo.phone}
+                    </a>
+                  </div>
+                </div>
+              )}
+              
+              {supportInfo.note && (
+                <div className="flex items-start gap-3">
+                  <MessageSquare className="h-5 w-5 text-primary mt-0.5" />
+                  <div>
+                    <p className="font-medium">Support Note</p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-line">
+                      {supportInfo.note}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

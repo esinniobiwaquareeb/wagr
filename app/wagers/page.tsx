@@ -9,9 +9,9 @@ import { AuthModal } from "@/components/auth-modal";
 import { CreateWagerModal } from "@/components/create-wager-modal";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { PLATFORM_FEE_PERCENTAGE } from "@/lib/constants";
+import { PLATFORM_FEE_PERCENTAGE, WAGER_CATEGORIES } from "@/lib/constants";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
-import { wagersApi } from "@/lib/api-client";
+import { wagersApi, preferencesApi } from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
 
 interface Wager {
@@ -51,6 +51,7 @@ function WagersPageContent() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [userEntries, setUserEntries] = useState<Map<string, { amount: number; side: string }>>(new Map());
+  const [preferredCategories, setPreferredCategories] = useState<string[] | null>(null);
   const { user } = useAuth();
   const supabase = createClient();
   const router = useRouter();
@@ -155,13 +156,27 @@ function WagersPageContent() {
       }
     }
     
-    // Filter by category (applies to both search results and normal tab results)
+    // Filter by category from URL params (applies to both search results and normal tab results)
     if (selectedCategory) {
       tabWagers = tabWagers.filter(wager => wager.category === selectedCategory);
     }
     
+    // Filter by user preferences (only if user has selected specific categories and not all)
+    if (user && preferredCategories !== null && preferredCategories.length > 0) {
+      const allCategoryIds = WAGER_CATEGORIES.map(cat => cat.id);
+      const hasAllCategories = preferredCategories.length === allCategoryIds.length && 
+        allCategoryIds.every(id => preferredCategories.includes(id));
+      
+      // Only filter if user has selected some but not all categories
+      if (!hasAllCategories) {
+        tabWagers = tabWagers.filter(wager => 
+          !wager.category || preferredCategories.includes(wager.category)
+        );
+      }
+    }
+    
     return tabWagers;
-  }, [activeTab, systemWagers, userWagers, expiredWagers, settledWagers, searchQuery, selectedCategory, allWagers]);
+  }, [activeTab, systemWagers, userWagers, expiredWagers, settledWagers, searchQuery, selectedCategory, allWagers, user, preferredCategories]);
 
   // Pull to refresh
   const { isRefreshing, pullDistance } = usePullToRefresh({
@@ -266,6 +281,27 @@ function WagersPageContent() {
       router.replace('/wagers', { scroll: false });
     }
   }, [user, searchParams, router]);
+
+  // Fetch user preferences for category filtering
+  useEffect(() => {
+    if (!user) {
+      setPreferredCategories(null);
+      return;
+    }
+
+    const fetchPreferences = async () => {
+      try {
+        const response = await preferencesApi.get();
+        const categories = response.preferences?.preferred_categories || [];
+        setPreferredCategories(categories);
+      } catch (error) {
+        console.error('Error fetching preferences:', error);
+        setPreferredCategories(null);
+      }
+    };
+
+    fetchPreferences();
+  }, [user]);
 
   useEffect(() => {
     fetchWagers();
