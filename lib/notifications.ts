@@ -23,6 +23,7 @@ export interface NotificationData {
 
 /**
  * Create a notification for a user
+ * Checks user preferences before creating notification
  */
 export async function createNotification(data: NotificationData): Promise<void> {
   try {
@@ -30,6 +31,26 @@ export async function createNotification(data: NotificationData): Promise<void> 
     if (!supabaseServiceKey || !supabaseUrl || !supabaseAdmin) {
       console.error("SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_URL is not configured. Cannot create notification.");
       return;
+    }
+
+    // Check user preferences
+    const { data: preferences } = await supabaseAdmin
+      .from('user_preferences')
+      .select('notification_enabled, notification_types')
+      .eq('user_id', data.user_id)
+      .maybeSingle();
+
+    // If notifications are disabled, don't create notification
+    if (preferences && preferences.notification_enabled === false) {
+      return;
+    }
+
+    // If notification types are specified, check if this type is enabled
+    if (preferences?.notification_types && Array.isArray(preferences.notification_types) && preferences.notification_types.length > 0) {
+      if (!preferences.notification_types.includes(data.type)) {
+        // User has specific notification types enabled, and this type is not in the list
+        return;
+      }
     }
 
     const { data: insertedData, error } = await supabaseAdmin
@@ -67,6 +88,45 @@ export async function createNotification(data: NotificationData): Promise<void> 
           title: data.title,
         },
       });
+      return;
+    }
+
+    // Send push notification if enabled (async, don't wait)
+    if (insertedData) {
+      // Check if push notifications are enabled for this user
+      const { data: pushPrefs } = await supabaseAdmin
+        .from('user_preferences')
+        .select('push_notifications_enabled')
+        .eq('user_id', data.user_id)
+        .maybeSingle();
+
+      if (pushPrefs?.push_notifications_enabled === true) {
+        // Send push notification asynchronously (don't wait)
+        const pushUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const apiSecret = process.env.NOTIFICATION_API_SECRET || process.env.CRON_SECRET;
+        
+        fetch(`${pushUrl}/api/push/send`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(apiSecret && { 'Authorization': `Bearer ${apiSecret}` }),
+          },
+          body: JSON.stringify({
+            user_id: data.user_id,
+            title: data.title,
+            body: data.message,
+            url: data.link || null,
+            data: {
+              ...data.metadata,
+              notification_id: insertedData.id,
+              type: data.type,
+            },
+          }),
+        }).catch((error) => {
+          console.error('Failed to send push notification:', error);
+          // Don't throw - push notifications are non-critical
+        });
+      }
     }
   } catch (error) {
     console.error("Failed to create notification (exception):", {
@@ -83,6 +143,11 @@ export async function createNotification(data: NotificationData): Promise<void> 
 
 /**
  * Create notification when a wager is resolved
+ * @param userId - The user ID to notify
+ * @param wagerId - The wager ID
+ * @param wagerTitle - The wager title
+ * @param won - Whether the user won
+ * @param amount - The amount won (if won) or lost (if lost)
  */
 export async function notifyWagerResolved(
   userId: string,
@@ -94,10 +159,10 @@ export async function notifyWagerResolved(
   await createNotification({
     user_id: userId,
     type: "wager_resolved",
-    title: won ? "You won a wager! 🎉" : "Oops, you lost this bet 😔",
+    title: won ? "You won a wager! 🎉" : "You lost a wager 😔",
     message: won
-      ? `You won ${amount} on "${wagerTitle}"`
-      : `Unfortunately, you lost the wager "${wagerTitle}". Better luck next time!`,
+      ? `You won ${amount} on the wager "${wagerTitle}"`
+      : `You lost ${amount} on the wager "${wagerTitle}". Better luck next time!`,
     link: `/wager/${wagerId}`,
     metadata: {
       wager_id: wagerId,

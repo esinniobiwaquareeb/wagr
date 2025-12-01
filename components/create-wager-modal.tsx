@@ -14,8 +14,8 @@ import { WAGER_CATEGORIES, COMMON_SIDES, DEFAULT_WAGER_AMOUNT, PLATFORM_FEE_PERC
 import Link from 'next/link';
 import { useSettings } from "@/hooks/use-settings";
 
-// Common amount presets
-const AMOUNT_PRESETS = [10, 25, 50, 100, 250, 500, 1000];
+// Common amount presets (will be filtered based on minimum wager amount)
+const BASE_AMOUNT_PRESETS = [10, 25, 50, 100, 250, 500, 1000];
 
 interface CreateWagerModalProps {
   open: boolean;
@@ -30,12 +30,28 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
   const [submitting, setSubmitting] = useState(false);
   const [userBalance, setUserBalance] = useState<number | null>(null);
   const [checkingBalance, setCheckingBalance] = useState(false);
+  const [checkingTitle, setCheckingTitle] = useState(false);
+  const [similarWagers, setSimilarWagers] = useState<Array<{
+    id: string;
+    shortId: string | null;
+    title: string;
+    sideA: string;
+    sideB: string;
+    amount: number;
+    deadline: string;
+  }>>([]);
+  const [titleSuggestions, setTitleSuggestions] = useState<string[]>([]);
   const { toast } = useToast();
   const { getSetting, getWagerLimits } = useSettings();
   
   // Get settings values
   const platformFeePercentage = getSetting('fees.wager_platform_fee_percentage', PLATFORM_FEE_PERCENTAGE) as number;
   const wagerLimits = getWagerLimits();
+  
+  // Filter amount presets based on minimum wager amount
+  const AMOUNT_PRESETS = useMemo(() => {
+    return BASE_AMOUNT_PRESETS.filter(preset => preset >= wagerLimits.minAmount);
+  }, [wagerLimits.minAmount]);
   
   // A/B Testing
   const formVariant = useMemo(() => getVariant(AB_TESTS.CREATE_FORM_LAYOUT), []);
@@ -71,6 +87,8 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
         creatorSide: "a",
       });
       setSubmitting(false);
+      setSimilarWagers([]);
+      setTitleSuggestions([]);
     }
   }, [open]);
 
@@ -90,6 +108,55 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
       setUserBalance(0);
     }
   }, [user, supabase]);
+
+  // Check for duplicate titles as user types (debounced)
+  const checkTitleDuplicate = useCallback(async (title: string) => {
+    if (!title || title.trim().length < 5) {
+      setSimilarWagers([]);
+      setTitleSuggestions([]);
+      return;
+    }
+
+    setCheckingTitle(true);
+    try {
+      const response = await fetch('/api/wagers/check-title', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: title.trim() }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        setSimilarWagers(data.data.similarWagers || []);
+        setTitleSuggestions(data.data.suggestions || []);
+      } else {
+        setSimilarWagers([]);
+        setTitleSuggestions([]);
+      }
+    } catch (error) {
+      console.error('Error checking title:', error);
+      setSimilarWagers([]);
+      setTitleSuggestions([]);
+    } finally {
+      setCheckingTitle(false);
+    }
+  }, []);
+
+  // Debounce title checking
+  useEffect(() => {
+    if (!formData.title || formData.title.trim().length < 5) {
+      setSimilarWagers([]);
+      setTitleSuggestions([]);
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      checkTitleDuplicate(formData.title);
+    }, 500); // Wait 500ms after user stops typing
+
+    return () => clearTimeout(timeoutId);
+  }, [formData.title, checkTitleDuplicate]);
 
   // Check balance whenever amount changes
   const checkBalance = useCallback(async () => {
@@ -400,16 +467,26 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
       if (onSuccess) {
         onSuccess();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating wager:", error);
       const { extractErrorMessage } = await import('@/lib/error-extractor');
-      const errorMessage = extractErrorMessage(error, "Something went wrong. Give it another try.");
       
-      toast({
-        title: "Couldn't create wager",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      // Check if error contains similar wagers (duplicate title)
+      if (error?.details?.similarWagers && Array.isArray(error.details.similarWagers)) {
+        setSimilarWagers(error.details.similarWagers);
+        toast({
+          title: "Similar wager already exists",
+          description: "Please use a different title or join the existing wager below.",
+          variant: "destructive",
+        });
+      } else {
+        const errorMessage = extractErrorMessage(error, "Something went wrong. Give it another try.");
+        toast({
+          title: "Couldn't create wager",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -440,6 +517,56 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
               className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
               maxLength={wagerLimits.maxTitleLength || 200}
             />
+            {checkingTitle && (
+              <p className="text-xs text-muted-foreground mt-1">Checking for similar wagers...</p>
+            )}
+            {similarWagers.length > 0 && !checkingTitle && (
+              <div className="mt-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <p className="text-xs font-medium text-yellow-800 dark:text-yellow-200 mb-2">
+                  ⚠️ Similar wager(s) already exist:
+                </p>
+                <div className="space-y-2">
+                  {similarWagers.slice(0, 3).map((wager) => (
+                    <div key={wager.id} className="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-yellow-200 dark:border-yellow-800">
+                      <p className="font-medium text-foreground mb-1">{wager.title}</p>
+                      <p className="text-muted-foreground mb-2">
+                        {wager.sideA} vs {wager.sideB} • {formatCurrency(wager.amount, formData.currency)}
+                      </p>
+                      <Link
+                        href={`/wager/${wager.shortId || wager.id}`}
+                        className="text-primary hover:underline text-xs font-medium"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          onOpenChange(false);
+                          router.push(`/wager/${wager.shortId || wager.id}`);
+                        }}
+                      >
+                        Join this wager instead →
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+                {titleSuggestions.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-yellow-200 dark:border-yellow-800">
+                    <p className="text-xs font-medium text-yellow-800 dark:text-yellow-200 mb-2">
+                      💡 Suggested titles:
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {titleSuggestions.map((suggestion, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, title: suggestion })}
+                          className="text-xs px-2 py-1 bg-white dark:bg-gray-800 border border-yellow-200 dark:border-yellow-800 rounded hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition"
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Side Selection */}
@@ -528,7 +655,7 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
                 value={formData.amount}
                 onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                 placeholder="Custom amount"
-                min="1"
+                min={wagerLimits.minAmount}
                 step="0.01"
                 className="flex-1 px-2.5 py-1.5 text-sm border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
               />

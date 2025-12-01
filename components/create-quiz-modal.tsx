@@ -422,7 +422,18 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
           });
           return false;
         }
-        return true; // Options are optional
+        
+        // Quiz deadline is mandatory
+        if (!formData.endDate || !formData.endDate.trim()) {
+          toast({
+            title: "Deadline required",
+            description: "Please set a deadline for the quiz.",
+            variant: "destructive",
+          });
+          return false;
+        }
+        
+        return true;
       
       case 3:
         const total = parseInt(formData.totalQuestions) || 0;

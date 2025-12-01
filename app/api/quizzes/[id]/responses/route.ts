@@ -25,7 +25,7 @@ export async function GET(
     // Get quiz
     const { data: quiz, error: quizError } = await serviceSupabase
       .from('quizzes')
-      .select('id, title, status, end_date, settled_at')
+      .select('id, title, status, end_date, settled_at, total_questions')
       .eq('id', quizId)
       .single();
 
@@ -97,16 +97,27 @@ export async function GET(
 
     // Get all participants for leaderboard (only if quiz is settled or completed)
     let allParticipants = [];
-    if (['completed', 'settled'].includes(quiz.status)) {
+    if (['completed', 'settled'].includes(quiz.status) || quizHasEnded) {
       const { data: participants } = await serviceSupabase
         .from('quiz_participants')
-        .select('*, profiles:user_id(username, avatar_url)')
+        .select('*, profiles:user_id(username, avatar_url, email)')
         .eq('quiz_id', quizId)
         .eq('status', 'completed')
         .order('score', { ascending: false })
         .order('completed_at', { ascending: true });
 
       allParticipants = participants || [];
+      
+      // Calculate percentage_score if not present
+      const totalPossiblePoints = quiz.total_questions || 1;
+      allParticipants = allParticipants.map((p: any) => ({
+        ...p,
+        percentage_score: p.percentage_score != null 
+          ? p.percentage_score 
+          : totalPossiblePoints > 0 
+            ? ((p.score || 0) / totalPossiblePoints) * 100 
+            : 0,
+      }));
     }
 
     return successResponseNext({

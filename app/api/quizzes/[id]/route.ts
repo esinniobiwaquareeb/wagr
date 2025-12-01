@@ -58,11 +58,13 @@ export async function GET(
       .eq('quiz_id', quizId)
       .order('order_index', { ascending: true });
 
-    // Get participant counts
+    // Get participant counts and details
     const { data: participants } = await serviceSupabase
       .from('quiz_participants')
-      .select('status, user_id, profiles:user_id(username, avatar_url, email)')
-      .eq('quiz_id', quizId);
+      .select('*, profiles:user_id(username, avatar_url, email)')
+      .eq('quiz_id', quizId)
+      .order('score', { ascending: false })
+      .order('completed_at', { ascending: true });
 
     const participantCounts = {
       total: participants?.length || 0,
@@ -72,12 +74,23 @@ export async function GET(
       completed: participants?.filter(p => p.status === 'completed').length || 0,
     };
 
+    // Calculate percentage_score for all participants if not present
+    const totalPossiblePoints = questions?.reduce((sum: number, q: any) => sum + (q.points || 1), 0) || quiz.total_questions || 1;
+    const participantsWithScores = (participants || []).map((p: any) => ({
+      ...p,
+      percentage_score: p.percentage_score != null 
+        ? p.percentage_score 
+        : totalPossiblePoints > 0 && p.score != null
+          ? ((p.score / totalPossiblePoints) * 100)
+          : null,
+    }));
+
     return successResponseNext({
       quiz: {
         ...quiz,
         questions: questions || [],
         participantCounts,
-        participants: participants || [],
+        participants: participantsWithScores,
       },
     });
   } catch (error) {
@@ -105,10 +118,10 @@ export async function PATCH(
     const quizId = validateIDParam(id, 'quiz ID', false); // Only UUID for quizzes
     const body = await request.json();
 
-    // Get quiz first
+    // Get quiz first with all necessary fields
     const { data: quiz, error: quizError } = await supabase
       .from('quizzes')
-      .select('id, creator_id, status')
+      .select('id, creator_id, status, max_participants, entry_fee_per_question, total_questions, total_cost')
       .eq('id', quizId)
       .single();
 
@@ -121,10 +134,18 @@ export async function PATCH(
       throw new AppError(ErrorCode.FORBIDDEN, 'Only the creator can update this quiz');
     }
 
-    // Only allow updates if status is 'draft'
-    if (quiz.status !== 'draft') {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Can only update quizzes in draft status');
+    // Allow updates if status is 'draft' or 'open' (but not 'completed', 'settled', or 'cancelled')
+    if (!['draft', 'open'].includes(quiz.status)) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Can only update quizzes in draft or open status');
     }
+
+    // Get current participant count
+    const { count: currentParticipantCount } = await serviceSupabase
+      .from('quiz_participants')
+      .select('*', { count: 'exact', head: true })
+      .eq('quiz_id', quizId);
+
+    const actualParticipantCount = currentParticipantCount || 0;
 
     // Build update object
     const updateData: any = {};
@@ -158,6 +179,181 @@ export async function PATCH(
 
     if (body.durationMinutes !== undefined) {
       updateData.duration_minutes = body.durationMinutes || null;
+    }
+
+    // Handle maxParticipants change intelligently
+    if (body.maxParticipants !== undefined) {
+      const newMaxParticipants = parseInt(body.maxParticipants);
+      if (isNaN(newMaxParticipants) || newMaxParticipants <= 0) {
+        throw new AppError(ErrorCode.VALIDATION_ERROR, 'Max participants must be a positive number');
+      }
+
+      // Get quiz limits from settings
+      const { getQuizLimits } = await import('@/lib/settings');
+      const { minParticipants, maxParticipants: maxParticipantsLimit } = await getQuizLimits();
+      
+      if (newMaxParticipants < minParticipants) {
+        throw new AppError(ErrorCode.VALIDATION_ERROR, `Minimum participants is ${minParticipants}`);
+      }
+      
+      if (newMaxParticipants > maxParticipantsLimit) {
+        throw new AppError(ErrorCode.VALIDATION_ERROR, `Maximum participants is ${maxParticipantsLimit}`);
+      }
+
+      // Cannot reduce below current participant count
+      if (newMaxParticipants < actualParticipantCount) {
+        throw new AppError(ErrorCode.VALIDATION_ERROR, `Cannot reduce max participants below current participant count (${actualParticipantCount})`);
+      }
+
+      const oldMaxParticipants = quiz.max_participants;
+      const participantDifference = newMaxParticipants - oldMaxParticipants;
+
+      if (participantDifference !== 0) {
+        // Calculate cost difference
+        const { getQuizPlatformFee } = await import('@/lib/settings');
+        const platformFeePercentage = await getQuizPlatformFee();
+        
+        const entryFeePerQuestion = body.entryFeePerQuestion !== undefined 
+          ? parseFloat(body.entryFeePerQuestion) 
+          : quiz.entry_fee_per_question;
+        const totalQuestions = body.totalQuestions !== undefined 
+          ? parseInt(body.totalQuestions) 
+          : quiz.total_questions;
+
+        const baseCostDifference = entryFeePerQuestion * totalQuestions * participantDifference;
+        const platformFeeDifference = baseCostDifference * platformFeePercentage;
+        const totalCostDifference = baseCostDifference + platformFeeDifference;
+
+        // Get user balance
+        const { data: profile } = await serviceSupabase
+          .from('profiles')
+          .select('balance')
+          .eq('id', user.id)
+          .single();
+
+        if (!profile) {
+          throw new AppError(ErrorCode.DATABASE_ERROR, 'User profile not found');
+        }
+
+        if (participantDifference > 0) {
+          // Increasing participants - deduct from balance
+          if ((profile.balance || 0) < totalCostDifference) {
+            throw new AppError(ErrorCode.INSUFFICIENT_BALANCE, `Insufficient balance. Need ${totalCostDifference} to increase participants to ${newMaxParticipants}`);
+          }
+
+          // Deduct balance
+          await serviceSupabase.rpc('increment_balance', {
+            user_id: user.id,
+            amt: -totalCostDifference,
+          });
+
+          // Record transaction
+          await serviceSupabase.from('transactions').insert({
+            user_id: user.id,
+            type: 'quiz_update',
+            amount: -totalCostDifference,
+            reference: quizId,
+            description: `Quiz update: Increased max participants from ${oldMaxParticipants} to ${newMaxParticipants}`,
+          });
+
+          // Update total_cost
+          updateData.total_cost = (quiz.total_cost || 0) + totalCostDifference;
+        } else {
+          // Decreasing participants - refund to balance
+          await serviceSupabase.rpc('increment_balance', {
+            user_id: user.id,
+            amt: Math.abs(totalCostDifference),
+          });
+
+          // Record transaction
+          await serviceSupabase.from('transactions').insert({
+            user_id: user.id,
+            type: 'quiz_refund',
+            amount: Math.abs(totalCostDifference),
+            reference: quizId,
+            description: `Quiz update: Decreased max participants from ${oldMaxParticipants} to ${newMaxParticipants}`,
+          });
+
+          // Update total_cost
+          updateData.total_cost = Math.max(0, (quiz.total_cost || 0) - Math.abs(totalCostDifference));
+        }
+      }
+
+      updateData.max_participants = newMaxParticipants;
+    }
+
+    // Handle entryFeePerQuestion or totalQuestions changes (recalculate total_cost)
+    if (body.entryFeePerQuestion !== undefined || body.totalQuestions !== undefined) {
+      const entryFeePerQuestion = body.entryFeePerQuestion !== undefined 
+        ? parseFloat(body.entryFeePerQuestion) 
+        : quiz.entry_fee_per_question;
+      const totalQuestions = body.totalQuestions !== undefined 
+        ? parseInt(body.totalQuestions) 
+        : quiz.total_questions;
+      const maxParticipants = body.maxParticipants !== undefined 
+        ? parseInt(body.maxParticipants) 
+        : quiz.max_participants;
+
+      if (entryFeePerQuestion && totalQuestions && maxParticipants) {
+        const { getQuizPlatformFee } = await import('@/lib/settings');
+        const platformFeePercentage = await getQuizPlatformFee();
+        
+        const baseCost = entryFeePerQuestion * totalQuestions * maxParticipants;
+        const platformFee = baseCost * platformFeePercentage;
+        const newTotalCost = baseCost + platformFee;
+
+        // Calculate difference
+        const costDifference = newTotalCost - (quiz.total_cost || 0);
+
+        if (costDifference !== 0) {
+          // Get user balance
+          const { data: profile } = await serviceSupabase
+            .from('profiles')
+            .select('balance')
+            .eq('id', user.id)
+            .single();
+
+          if (!profile) {
+            throw new AppError(ErrorCode.DATABASE_ERROR, 'User profile not found');
+          }
+
+          if (costDifference > 0) {
+            // Cost increased - deduct from balance
+            if ((profile.balance || 0) < costDifference) {
+              throw new AppError(ErrorCode.INSUFFICIENT_BALANCE, `Insufficient balance. Need ${costDifference} to update quiz costs`);
+            }
+
+            await serviceSupabase.rpc('increment_balance', {
+              user_id: user.id,
+              amt: -costDifference,
+            });
+
+            await serviceSupabase.from('transactions').insert({
+              user_id: user.id,
+              type: 'quiz_update',
+              amount: -costDifference,
+              reference: quizId,
+              description: 'Quiz update: Cost increased due to fee or question count change',
+            });
+          } else {
+            // Cost decreased - refund to balance
+            await serviceSupabase.rpc('increment_balance', {
+              user_id: user.id,
+              amt: Math.abs(costDifference),
+            });
+
+            await serviceSupabase.from('transactions').insert({
+              user_id: user.id,
+              type: 'quiz_refund',
+              amount: Math.abs(costDifference),
+              reference: quizId,
+              description: 'Quiz update: Cost decreased due to fee or question count change',
+            });
+          }
+
+          updateData.total_cost = newTotalCost;
+        }
+      }
     }
 
     // Update quiz

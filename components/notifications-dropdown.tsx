@@ -148,12 +148,22 @@ export function NotificationsDropdown({
     }
   };
 
-  const handleNotificationClick = (notification: Notification) => {
+  const handleNotificationClick = async (notification: Notification) => {
+    // Mark as read if unread
     if (!notification.read) {
-      markAsRead(notification.id);
+      await markAsRead(notification.id);
     }
-    if (notification.link) {
-      router.push(notification.link);
+    
+    // Generate link if not present
+    let link = notification.link;
+    if (!link) {
+      const { generateNotificationLink } = await import('@/lib/notification-links');
+      link = generateNotificationLink(notification.type, notification.metadata, notification.link);
+    }
+    
+    // Navigate if link exists
+    if (link) {
+      router.push(link);
       setOpen(false);
     }
   };
@@ -208,35 +218,52 @@ export function NotificationsDropdown({
             </div>
           ) : (
             <div className="py-2">
-              {notifications.map((notification) => (
-                <DropdownMenuItem
-                  key={notification.id}
-                  className="flex flex-col items-start gap-1 p-3 cursor-pointer focus:bg-muted min-h-[60px] touch-manipulation active:bg-muted/80"
-                  onClick={() => handleNotificationClick(notification)}
-                >
-                  <div className="flex items-start justify-between w-full gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className={`text-sm font-semibold ${!notification.read ? 'text-foreground' : 'text-muted-foreground'}`}>
-                          {notification.title}
+              {notifications.map((notification) => {
+                // Generate link if not present (will be computed in handleNotificationClick if needed)
+                const link = notification.link;
+                const hasMetadata = !!(notification.metadata?.wager_id || notification.metadata?.quiz_id || notification.metadata?.transaction_id || notification.metadata?.reference);
+                const clickable = link || hasMetadata;
+                
+                return (
+                  <DropdownMenuItem
+                    key={notification.id}
+                    className={`flex flex-col items-start gap-1 p-3 min-h-[60px] touch-manipulation ${
+                      clickable 
+                        ? 'cursor-pointer focus:bg-muted active:bg-muted/80 hover:bg-muted/50' 
+                        : 'cursor-default'
+                    }`}
+                    onClick={() => clickable && handleNotificationClick(notification)}
+                    disabled={!clickable}
+                  >
+                    <div className="flex items-start justify-between w-full gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className={`text-sm font-semibold ${!notification.read ? 'text-foreground' : 'text-muted-foreground'}`}>
+                            {notification.title}
+                          </p>
+                          {!notification.read && (
+                            <span className="h-2 w-2 rounded-full bg-primary flex-shrink-0 mt-1" />
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                          {notification.message}
                         </p>
-                        {!notification.read && (
-                          <span className="h-2 w-2 rounded-full bg-primary flex-shrink-0 mt-1" />
-                        )}
+                        <div className="flex items-center justify-between gap-2 mt-1">
+                          <p className="text-[10px] text-muted-foreground">
+                            {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                          </p>
+                          {clickable && (
+                            <span className="text-[10px] text-primary font-medium flex items-center gap-1">
+                              Tap to view
+                              <ExternalLink className="h-3 w-3" />
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground line-clamp-2">
-                        {notification.message}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground mt-1">
-                        {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
-                      </p>
                     </div>
-                    {notification.link && (
-                      <ExternalLink className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-1" />
-                    )}
-                  </div>
-                </DropdownMenuItem>
-              ))}
+                  </DropdownMenuItem>
+                );
+              })}
             </div>
           )}
         </ScrollArea>

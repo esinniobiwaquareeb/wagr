@@ -163,6 +163,11 @@ export async function POST(request: NextRequest) {
       throw new AppError(ErrorCode.VALIDATION_ERROR, 'Total questions must be a positive number');
     }
 
+    // Quiz deadline is mandatory
+    if (!endDate || typeof endDate !== 'string' || !endDate.trim()) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Quiz deadline (endDate) is required');
+    }
+
     // Get quiz limits from settings
     const { getQuizLimits } = await import('@/lib/settings');
     const { minParticipants, maxParticipants: maxParticipantsLimit, minQuestions, maxQuestions } = await getQuizLimits();

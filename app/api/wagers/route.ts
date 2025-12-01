@@ -191,6 +191,45 @@ export async function POST(request: NextRequest) {
       throw new AppError(ErrorCode.INSUFFICIENT_BALANCE, 'Insufficient balance');
     }
 
+    // Check for similar/duplicate wager titles
+    const { areTitlesSimilar } = await import('@/lib/wager-title-matcher');
+    const trimmedTitle = title.trim();
+    const { data: existingWagers } = await supabase
+      .from('wagers')
+      .select('id, title, side_a, side_b, amount, short_id, status')
+      .eq('status', 'OPEN')
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (existingWagers && existingWagers.length > 0) {
+      const similarWagers = existingWagers.filter(wager => 
+        areTitlesSimilar(trimmedTitle, wager.title)
+      );
+
+      if (similarWagers.length > 0) {
+        // Refund balance before throwing error
+        await supabase.rpc('increment_balance', {
+          user_id: user.id,
+          amt: amount,
+        });
+
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          'A similar wager already exists. Please use a different title or join the existing wager.',
+          {
+            similarWagers: similarWagers.map(w => ({
+              id: w.id,
+              shortId: w.short_id,
+              title: w.title,
+              sideA: w.side_a,
+              sideB: w.side_b,
+              amount: w.amount,
+            })),
+          }
+        );
+      }
+    }
+
     // Deduct balance for wager creation
     const { error: balanceError } = await supabase.rpc('increment_balance', {
       user_id: user.id,

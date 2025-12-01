@@ -39,6 +39,17 @@ export async function GET(request: NextRequest) {
       throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch notifications');
     }
 
+    // Generate links for notifications that don't have them
+    const { generateNotificationLink } = await import('@/lib/notification-links');
+    const notificationsWithLinks = (notifications || []).map(notification => ({
+      ...notification,
+      link: notification.link || generateNotificationLink(
+        notification.type,
+        notification.metadata,
+        notification.link
+      ),
+    }));
+
     // Get unread count
     const { count: unreadCount } = await supabase
       .from('notifications')
@@ -48,7 +59,7 @@ export async function GET(request: NextRequest) {
 
     return successResponseNext(
       {
-        notifications: notifications || [],
+        notifications: notificationsWithLinks,
         unreadCount: unreadCount || 0,
       },
       getPaginationMeta(page, limit, count || 0)

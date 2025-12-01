@@ -368,26 +368,51 @@ export default function QuizDetailPage() {
   };
 
   const handleExportResults = async () => {
-    if (!quiz || !quiz.participants) return;
+    if (!quiz) return;
 
     setExporting(true);
     try {
+      // Get all participants with completed status
+      const participantsToExport = allParticipants.length > 0 
+        ? allParticipants 
+        : (quiz.participants || []).filter((p: any) => p.status === 'completed');
+      
+      if (participantsToExport.length === 0) {
+        toast({
+          title: "No data to export",
+          description: "No completed participants found.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Calculate total possible points
+      const totalPossiblePoints = quiz.questions?.reduce((sum: number, q: any) => sum + (q.points || 1), 0) || quiz.total_questions || 1;
+
       // Prepare CSV data
       const headers = ['Rank', 'Username', 'Email', 'Score', 'Percentage', 'Winnings', 'Completed At'];
-      const rows = (quiz.participants || [])
+      const rows = participantsToExport
         .sort((a, b) => {
           if (b.score !== a.score) return b.score - a.score;
-          return new Date(a.completed_at).getTime() - new Date(b.completed_at).getTime();
+          return new Date(a.completed_at || 0).getTime() - new Date(b.completed_at || 0).getTime();
         })
-        .map((p, index) => [
-          p.rank || index + 1,
-          p.profiles?.username || 'Unknown',
-          p.profiles?.email || '',
-          p.score,
-          `${p.percentage_score.toFixed(2)}%`,
-          formatCurrency(p.winnings, DEFAULT_CURRENCY),
-          p.completed_at ? format(new Date(p.completed_at), 'PPp') : '',
-        ]);
+        .map((p: any, index: number) => {
+          const percentage = p.percentage_score != null 
+            ? p.percentage_score 
+            : totalPossiblePoints > 0 
+              ? ((p.score || 0) / totalPossiblePoints) * 100 
+              : 0;
+          
+          return [
+            p.rank || index + 1,
+            p.profiles?.username || 'Unknown',
+            p.profiles?.email || '',
+            p.score || 0,
+            `${percentage.toFixed(2)}%`,
+            formatCurrency(p.winnings || 0, DEFAULT_CURRENCY),
+            p.completed_at ? format(new Date(p.completed_at), 'PPp') : '',
+          ];
+        });
 
       // Create CSV content
       const csvContent = [
@@ -580,11 +605,41 @@ export default function QuizDetailPage() {
                       settled_at: quiz.settled_at,
                     }}
                     participant={participant}
-                    participants={allParticipants.length > 0 ? allParticipants : (quiz.participants || [])}
+                    participants={allParticipants.length > 0 ? allParticipants : (quiz.participants || []).filter((p: any) => p.status === 'completed')}
                     responses={responses}
                     showDetails={true}
                   />
                 )}
+              </div>
+            )}
+
+            {/* Show scoreboard for all participants if quiz is settled or completed (for creator) */}
+            {isCreator && (quiz.status === 'settled' || quiz.status === 'completed') && quiz.participants && quiz.participants.length > 0 && (
+              <div className="mt-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <BarChart3 className="h-5 w-5" />
+                      Scoreboard - All Participants
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <QuizResults
+                      quiz={{
+                        id: quiz.id,
+                        title: quiz.title,
+                        total_questions: quiz.total_questions,
+                        entry_fee_per_question: quiz.entry_fee_per_question,
+                        status: quiz.status,
+                        settled_at: quiz.settled_at,
+                      }}
+                      participant={undefined}
+                      participants={(quiz.participants || []).filter((p: any) => p.status === 'completed')}
+                      responses={[]}
+                      showDetails={false}
+                    />
+                  </CardContent>
+                </Card>
               </div>
             )}
           </>

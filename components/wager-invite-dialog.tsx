@@ -401,13 +401,17 @@ export function WagerInviteDialog({
                     onClick={() => addInvite(`@${user.username}`)}
                     className="w-full px-3 py-2 text-left hover:bg-muted flex items-center gap-2 transition-colors"
                   >
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">@{user.username}</span>
-                    {user.email && (
-                      <span className="text-xs text-muted-foreground ml-auto truncate max-w-[150px]">
-                        {user.email}
-                      </span>
-                    )}
+                    <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">@{user.username}</span>
+                        {user.email && (
+                          <span className="text-xs text-muted-foreground truncate">
+                            {user.email}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </button>
                 ))}
               </div>
@@ -461,12 +465,16 @@ export function WagerInviteDialog({
                         {invite.invitee ? (
                           <>
                             <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                            <span className="text-sm font-medium truncate">@{invite.invitee.username}</span>
-                            {invite.invitee.email && (
-                              <span className="text-xs text-muted-foreground truncate hidden sm:block">
-                                {invite.invitee.email}
-                              </span>
-                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium truncate">@{invite.invitee.username}</span>
+                                {invite.invitee.email && (
+                                  <span className="text-xs text-muted-foreground truncate">
+                                    {invite.invitee.email}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </>
                         ) : (
                           <>

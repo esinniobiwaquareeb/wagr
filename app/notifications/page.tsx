@@ -282,71 +282,109 @@ export default function NotificationsPage() {
           </div>
         ) : (
           <div className="space-y-2 md:space-y-3">
-            {notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className={`bg-card border-2 rounded-lg p-3 md:p-4 transition-all ${
-                  notification.read
-                    ? "border-border opacity-75"
-                    : "border-primary/50 bg-primary/5 shadow-sm"
-                }`}
-              >
-                <div className="flex items-start gap-3 md:gap-4">
-                  {/* Icon */}
-                  <div className={`flex-shrink-0 w-10 h-10 md:w-12 md:h-12 rounded-lg flex items-center justify-center text-xl md:text-2xl ${getNotificationColor(notification.type)}`}>
-                    {getNotificationIcon(notification.type)}
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <h3 className={`font-semibold text-sm md:text-base ${notification.read ? 'text-muted-foreground' : 'text-foreground'}`}>
-                        {notification.title}
-                      </h3>
-                      {!notification.read && (
-                        <div className="flex-shrink-0 w-2 h-2 rounded-full bg-primary" />
-                      )}
+            {notifications.map((notification) => {
+              // Generate link if not present
+              const link = notification.link;
+              const hasMetadata = !!(notification.metadata?.wager_id || notification.metadata?.quiz_id || notification.metadata?.transaction_id || notification.metadata?.reference);
+              const clickable = link || hasMetadata;
+              
+              const handleCardClick = async () => {
+                if (clickable) {
+                  // Generate link if not present
+                  let targetLink = link;
+                  if (!targetLink) {
+                    const { generateNotificationLink } = await import('@/lib/notification-links');
+                    targetLink = generateNotificationLink(notification.type, notification.metadata, notification.link);
+                  }
+                  
+                  if (targetLink) {
+                    markAsRead(notification.id);
+                    router.push(targetLink);
+                  }
+                }
+              };
+              
+              const getActionText = () => {
+                if (notification.type.includes('wager')) return 'View Wager';
+                if (notification.type.includes('quiz')) return 'View Quiz';
+                if (notification.type.includes('balance') || notification.type.includes('wallet')) return 'View Wallet';
+                if (notification.type.includes('transaction')) return 'View Transaction';
+                return 'View';
+              };
+              
+              return (
+                <div
+                  key={notification.id}
+                  onClick={handleCardClick}
+                  className={`bg-card border-2 rounded-lg p-3 md:p-4 transition-all ${
+                    notification.read
+                      ? "border-border opacity-75"
+                      : "border-primary/50 bg-primary/5 shadow-sm"
+                  } ${
+                    clickable 
+                      ? "cursor-pointer hover:border-primary/70 hover:shadow-md active:scale-[0.99]" 
+                      : "cursor-default"
+                  }`}
+                >
+                  <div className="flex items-start gap-3 md:gap-4">
+                    {/* Icon */}
+                    <div className={`flex-shrink-0 w-10 h-10 md:w-12 md:h-12 rounded-lg flex items-center justify-center text-xl md:text-2xl ${getNotificationColor(notification.type)}`}>
+                      {getNotificationIcon(notification.type)}
                     </div>
-                    <p className="text-xs md:text-sm text-muted-foreground mb-2 leading-relaxed">
-                      {notification.message}
-                    </p>
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <span className="text-[10px] md:text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        {notification.link && (
-                          <Link
-                            href={notification.link}
-                            onClick={() => markAsRead(notification.id)}
-                            className="text-[10px] md:text-xs text-primary hover:underline flex items-center gap-1"
-                          >
-                            View
-                            <ExternalLink className="h-3 w-3" />
-                          </Link>
-                        )}
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <h3 className={`font-semibold text-sm md:text-base ${notification.read ? 'text-muted-foreground' : 'text-foreground'}`}>
+                          {notification.title}
+                        </h3>
                         {!notification.read && (
-                          <button
-                            onClick={() => markAsRead(notification.id)}
-                            className="p-1.5 hover:bg-muted rounded transition active:scale-95 touch-manipulation"
-                            title="Mark as read"
-                          >
-                            <Check className="h-3.5 w-3.5 text-muted-foreground" />
-                          </button>
+                          <div className="flex-shrink-0 w-2 h-2 rounded-full bg-primary" />
                         )}
-                        <button
-                          onClick={() => deleteNotification(notification.id)}
-                          className="p-1.5 hover:bg-destructive/10 rounded transition active:scale-95 touch-manipulation"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
-                        </button>
+                      </div>
+                      <p className="text-xs md:text-sm text-muted-foreground mb-2 leading-relaxed">
+                        {notification.message}
+                      </p>
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-[10px] md:text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          {clickable && (
+                            <span className="text-[10px] md:text-xs text-primary font-medium flex items-center gap-1">
+                              {getActionText()}
+                              <ExternalLink className="h-3 w-3" />
+                            </span>
+                          )}
+                          {!notification.read && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                markAsRead(notification.id);
+                              }}
+                              className="p-1.5 hover:bg-muted rounded transition active:scale-95 touch-manipulation"
+                              title="Mark as read"
+                            >
+                              <Check className="h-3.5 w-3.5 text-muted-foreground" />
+                            </button>
+                          )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteNotification(notification.id);
+                            }}
+                            className="p-1.5 hover:bg-destructive/10 rounded transition active:scale-95 touch-manipulation"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

@@ -202,7 +202,18 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
   const data = event.notification.data;
-  const urlToOpen = data?.url || '/';
+  let urlToOpen = data?.url || '/';
+  
+  // Handle quiz notifications - generate link from metadata if url not present
+  if (!urlToOpen || urlToOpen === '/') {
+    if (data?.quiz_id) {
+      urlToOpen = `/quiz/${data.quiz_id}`;
+    } else if (data?.wager_id) {
+      urlToOpen = `/wager/${data.wager_id}`;
+    } else if (data?.transaction_id) {
+      urlToOpen = `/wallet/transactions?transaction=${data.transaction_id}`;
+    }
+  }
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {

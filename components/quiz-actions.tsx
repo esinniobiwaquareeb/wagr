@@ -27,6 +27,7 @@ export function QuizActions({
     participant &&
     ['invited', 'accepted'].includes(participant.status);
 
+  // Only show accept button if status is 'invited'
   if (participant && participant.status === 'invited') {
     return (
       <div className="pt-4 border-t">
@@ -53,6 +54,11 @@ export function QuizActions({
         </p>
       </div>
     );
+  }
+
+  // Don't show accept button if already accepted or other status
+  if (participant && participant.status !== 'invited' && participant.status !== 'accepted' && participant.status !== 'started' && participant.status !== 'completed') {
+    return null;
   }
 
   if (canTakeQuiz) {

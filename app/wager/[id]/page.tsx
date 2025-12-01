@@ -1364,27 +1364,29 @@ export default function WagerDetail() {
               >
                 {wager.status === "SETTLED" ? "Settled" : wager.status === "RESOLVED" ? "Resolved" : wager.status}
               </span>
-              {/* Share & Invite buttons - available for all wagers */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleShare}
-                  className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-muted hover:bg-muted/80 text-foreground border border-border transition active:scale-[0.98] touch-manipulation flex-shrink-0"
-                  title="Copy wager link"
-                >
-                  <Share2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                  <span className="text-[10px] md:text-xs font-medium hidden sm:inline">Share</span>
-                </button>
-                {user && (
+              {/* Share & Invite buttons - only available before deadline */}
+              {wager && !isDeadlineElapsed(wager.deadline) && (
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setShowInviteDialog(true)}
-                    className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 border border-primary transition active:scale-[0.98] touch-manipulation flex-shrink-0"
-                    title="Invite people to wager"
+                    onClick={handleShare}
+                    className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-muted hover:bg-muted/80 text-foreground border border-border transition active:scale-[0.98] touch-manipulation flex-shrink-0"
+                    title="Copy wager link"
                   >
-                    <UserPlus className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                    <span className="text-[10px] md:text-xs font-medium hidden sm:inline">Invite</span>
+                    <Share2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                    <span className="text-[10px] md:text-xs font-medium hidden sm:inline">Share</span>
                   </button>
-                )}
-              </div>
+                  {user && (
+                    <button
+                      onClick={() => setShowInviteDialog(true)}
+                      className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 border border-primary transition active:scale-[0.98] touch-manipulation flex-shrink-0"
+                      title="Invite people to wager"
+                    >
+                      <UserPlus className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                      <span className="text-[10px] md:text-xs font-medium hidden sm:inline">Invite</span>
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           
