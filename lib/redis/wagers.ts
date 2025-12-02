@@ -23,10 +23,12 @@ function getWagerListKey(params: {
   category?: string | null;
   search?: string | null;
   currency?: string | null;
+  userId?: string | null;
 }): string {
-  const { page = 1, limit = 20, status, category, search, currency } = params;
+  const { page = 1, limit = 20, status, category, search, currency, userId } = params;
   const parts = [
     'wagers:list',
+    userId ? `u:${userId}` : 'u:anonymous',
     `p:${page}`,
     `l:${limit}`,
     status ? `s:${status}` : '',
@@ -73,6 +75,7 @@ export async function cacheWagerList(
     category?: string | null;
     search?: string | null;
     currency?: string | null;
+    userId?: string | null;
   },
   data: any
 ): Promise<void> {
@@ -90,6 +93,7 @@ export async function getCachedWagerList(params: {
   category?: string | null;
   search?: string | null;
   currency?: string | null;
+  userId?: string | null;
 }): Promise<any | null> {
   const key = getWagerListKey(params);
   return getCached(key);
@@ -197,6 +201,7 @@ export async function getOrFetchWagerList<T>(
     category?: string | null;
     search?: string | null;
     currency?: string | null;
+    userId?: string | null;
   },
   fetchFn: () => Promise<T>
 ): Promise<T> {

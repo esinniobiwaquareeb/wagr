@@ -22,9 +22,14 @@ export async function GET(request: NextRequest) {
     const search = url.searchParams.get('search');
     const currency = url.searchParams.get('currency');
 
+    // Get current user to filter private wagers
+    const { getCurrentUser } = await import('@/lib/auth/server');
+    const currentUser = await getCurrentUser();
+    const userId = currentUser?.id || null;
+
     // Use Redis caching with cache-aside pattern
     const result = await getOrFetchWagerList(
-      { page, limit, status, category, search, currency },
+      { page, limit, status, category, search, currency, userId },
       async () => {
         // Build query
         let query = supabase
@@ -52,10 +57,8 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Apply pagination
-        query = query.range(offset, offset + limit - 1);
-
-        const { data: wagers, error, count } = await query;
+        // Fetch all matching wagers (we'll filter by visibility after)
+        const { data: allWagers, error, count } = await query;
 
         if (error) {
           logError(new Error(`Failed to fetch wagers: ${error.message}`), {
@@ -70,6 +73,20 @@ export async function GET(request: NextRequest) {
             { databaseError: error }
           );
         }
+
+        // Filter by visibility: Only show public wagers OR wagers where user is the creator
+        let wagers = allWagers || [];
+        if (userId) {
+          // User is logged in: show public wagers OR their own private wagers
+          wagers = wagers.filter(w => w.is_public === true || w.creator_id === userId);
+        } else {
+          // User is not logged in: only show public wagers
+          wagers = wagers.filter(w => w.is_public === true);
+        }
+
+        // Apply pagination after filtering
+        const totalFiltered = wagers.length;
+        wagers = wagers.slice(offset, offset + limit);
 
         // Get entry counts for each wager
         const wagerIds = wagers?.map(w => w.id) || [];
@@ -100,7 +117,7 @@ export async function GET(request: NextRequest) {
 
         return {
           wagers: wagers || [],
-          pagination: getPaginationMeta(page, limit, count || 0),
+          pagination: getPaginationMeta(page, limit, totalFiltered),
         };
       }
     );

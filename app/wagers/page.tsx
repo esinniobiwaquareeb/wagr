@@ -411,7 +411,7 @@ function WagersPageContent() {
             }`}
           >
             <User className="h-5 w-5" />
-            <span className="text-xs font-medium">User</span>
+            <span className="text-xs font-medium">Community</span>
             <span className="text-xs font-semibold">{userWagers.length}</span>
           </button>
           <button
@@ -423,7 +423,7 @@ function WagersPageContent() {
             }`}
           >
             <Clock className="h-5 w-5" />
-            <span className="text-xs font-medium">Expired</span>
+            <span className="text-xs font-medium">Ended</span>
             <span className="text-xs font-semibold">{expiredWagers.length}</span>
           </button>
           <button
@@ -506,7 +506,7 @@ function WagersPageContent() {
               }`}
             >
               <User className="h-4 w-4" />
-              <span>User</span>
+              <span>Community</span>
               <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                 activeTab === 'user' 
                   ? 'bg-primary/10 text-primary' 
@@ -527,7 +527,7 @@ function WagersPageContent() {
               }`}
             >
               <Clock className="h-4 w-4" />
-              <span>Expired</span>
+              <span>Ended</span>
               <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                 activeTab === 'expired' 
                   ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400' 

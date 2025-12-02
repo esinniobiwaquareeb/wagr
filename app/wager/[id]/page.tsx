@@ -115,14 +115,63 @@ export default function WagerDetail() {
       fetchingRef.current = false;
       return;
     }
+    
+    // If wager is already loaded and user is the creator, skip the privacy check
+    // This prevents re-checking when fetchWager is called again after user loads
+    if (wager && wager.id === wagerData.id && user && user.id && !wagerData.is_public) {
+      const existingCreatorId = String(wager.creator_id || '').trim().toLowerCase();
+      const existingUserId = String(user.id).trim().toLowerCase();
+      if (existingCreatorId === existingUserId) {
+        console.log('Wager already loaded and user is creator, skipping privacy check in fetchWager');
+        // Continue to update the wager data without re-checking privacy
+      }
+    }
+
+    // Check if wager is private and user is not the creator
+    // IMPORTANT: Only block if user is loaded AND they're definitely not the creator
+    // If user is not loaded yet, allow access (will be checked again when user loads via useEffect)
+    // This prevents blocking the creator if user loads after wager is fetched
+    if (!wagerData.is_public && wagerData.creator_id) {
+      // Only check if user is fully loaded with an ID
+      if (user && user.id) {
+        // Convert both to strings, trim whitespace, and lowercase for comparison
+        const creatorId = String(wagerData.creator_id).trim().toLowerCase();
+        const userId = String(user.id).trim().toLowerCase();
+        
+        // Debug logging
+        console.log('Initial private wager check in fetchWager:', {
+          creatorId,
+          userId,
+          match: creatorId === userId,
+          wagerId: wagerData.id,
+          wagerTitle: wagerData.title,
+          rawCreatorId: wagerData.creator_id,
+          rawUserId: user.id
+        });
+        
+        // Only block if IDs definitely don't match
+        // If they match, continue loading the wager
+        if (creatorId && userId && creatorId !== userId) {
+          console.log('Blocking access in fetchWager - user is not the creator');
+          setLoading(false);
+          fetchingRef.current = false;
+          toast({
+            title: "Private Wager",
+            description: "This wager is private and only visible to its creator.",
+            variant: "destructive",
+          });
+          router.push('/wagers');
+          return;
+        } else {
+          console.log('Allowing access in fetchWager - user is the creator or IDs match');
+        }
+      } else {
+        console.log('User not loaded yet in fetchWager, allowing access temporarily - will re-check in useEffect');
+      }
+    }
 
     // Use the actual UUID for cache key and entry queries (not short_id)
     const actualWagerId = wagerData.id;
-    
-    // Always fetch fresh data (no cache)
-    // For private wagers, allow access via direct link (simple sharing)
-    // Anyone with the link can access private wagers
-    // This enables simple sharing via WhatsApp, etc.
 
     setWager(wagerData);
 
@@ -271,6 +320,75 @@ export default function WagerDetail() {
       }
     };
   }, [wagerId, supabase]); // Removed fetchWager and debouncedRefetch from dependencies
+
+  // Re-validate access when user loads (in case wager was fetched before user was available)
+  // Use a ref to track if we've already checked to prevent multiple redirects
+  const accessCheckRef = useRef<string | null>(null);
+  const hasRedirectedRef = useRef(false);
+  
+  useEffect(() => {
+    // Don't do anything if we've already redirected
+    if (hasRedirectedRef.current) {
+      console.log('Already redirected, skipping check');
+      return;
+    }
+    
+    // Skip if we've already checked this wager/user combination
+    const checkKey = `${wager?.id}-${user?.id}`;
+    if (accessCheckRef.current === checkKey) {
+      console.log('Skipping duplicate access check');
+      return;
+    }
+    
+    // Only check if we have all required data
+    if (user && user.id && wager && !wager.is_public && wager.creator_id) {
+      // Convert both to strings and trim for comparison
+      const creatorId = String(wager.creator_id).trim().toLowerCase();
+      const userId = String(user.id).trim().toLowerCase();
+      
+      // Debug: Log the comparison
+      console.log('Private wager access validation in useEffect:', {
+        creatorId,
+        userId,
+        match: creatorId === userId,
+        wagerId: wager.id,
+        wagerTitle: wager.title
+      });
+      
+      // Mark as checked first
+      accessCheckRef.current = checkKey;
+      
+      // Only redirect if IDs definitely don't match
+      if (creatorId && userId && creatorId !== userId) {
+        console.log('BLOCKING access - user is NOT the creator, redirecting...');
+        hasRedirectedRef.current = true;
+        toast({
+          title: "Private Wager",
+          description: "This wager is private and only visible to its creator.",
+          variant: "destructive",
+        });
+        router.push('/wagers');
+      } else {
+        // User is the creator - allow access (no redirect)
+        console.log('ALLOWING access - user IS the creator, IDs match');
+        // Don't set hasRedirectedRef - allow access
+      }
+    } else {
+      console.log('Missing data for access check:', {
+        hasUser: !!user,
+        hasUserId: !!(user && user.id),
+        hasWager: !!wager,
+        isPublic: wager?.is_public,
+        hasCreatorId: !!wager?.creator_id
+      });
+    }
+  }, [user, wager, toast, router]);
+  
+  // Reset check refs when wager ID changes
+  useEffect(() => {
+    accessCheckRef.current = null;
+    hasRedirectedRef.current = false;
+  }, [wagerId]);
 
   const handleJoinClick = (side: "a" | "b") => {
     if (!user) {

@@ -343,7 +343,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             <button
               onClick={() => {
                 setVerificationSuccess(false);
-                onClose();
+                setIsSignUp(false);
+                setError(null);
               }}
               className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-medium hover:opacity-90 transition active:scale-[0.98] touch-manipulation text-base"
             >

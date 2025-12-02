@@ -189,8 +189,19 @@ function TopNavContent() {
         .subscribe();
 
       // Listen for custom balance update events (triggered after wager creation/join)
-      const handleBalanceUpdate = () => {
-        fetchWalletBalance();
+      const handleBalanceUpdate = async () => {
+        // Force refresh by bypassing the guard for event-triggered updates
+        // Add a small delay to ensure database transaction is committed
+        setTimeout(async () => {
+          try {
+            const { walletApi } = await import('@/lib/api-client');
+            const response = await walletApi.getBalance();
+            setWalletBalance(response.balance);
+          } catch (error) {
+            // Silent fail - balance will update via real-time subscription
+            console.error('Error fetching wallet balance from event:', error);
+          }
+        }, 300); // Small delay to ensure transaction is committed
       };
       window.addEventListener('balance-updated', handleBalanceUpdate);
 
@@ -1083,20 +1094,23 @@ function TopNavContent() {
             open={showCreateModal}
             onOpenChange={setShowCreateModal}
             onSuccess={() => {
-              // Refresh balance immediately after wager creation
+              // Refresh balance after wager creation
+              // Add a small delay to ensure database transaction is committed
               if (user) {
-                const fetchBalance = async () => {
+                // Dispatch event first to trigger immediate update attempt
+                window.dispatchEvent(new CustomEvent('balance-updated'));
+                
+                // Also fetch balance after a short delay to ensure transaction is committed
+                setTimeout(async () => {
                   try {
                     const { walletApi } = await import('@/lib/api-client');
                     const response = await walletApi.getBalance();
                     setWalletBalance(response.balance);
                   } catch (error) {
                     // Silent fail - balance will update via real-time subscription
+                    console.error('Error refreshing balance:', error);
                   }
-                };
-                fetchBalance();
-                // Also dispatch event for immediate update
-                window.dispatchEvent(new CustomEvent('balance-updated'));
+                }, 500); // 500ms delay to ensure transaction is committed
               }
               
               // Refresh category counts
