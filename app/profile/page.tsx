@@ -279,12 +279,12 @@ export default function Profile() {
       return;
     }
 
-    // Validate username format (alphanumeric and underscores only)
-    const usernameRegex = /^[a-zA-Z0-9_]+$/;
+    // Validate username format (must match server rules: letters, numbers, underscores, hyphens)
+    const usernameRegex = /^[a-zA-Z0-9_-]+$/;
     if (!usernameRegex.test(trimmedUsername)) {
       toast({
         title: "Username format issue",
-        description: "You can only use letters, numbers, and underscores",
+        description: "You can only use letters, numbers, underscores, and hyphens",
         variant: "destructive",
       });
       return;

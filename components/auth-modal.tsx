@@ -98,6 +98,15 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           return;
         }
 
+        // Validate username format (must match server rules)
+        // Allowed characters: letters, numbers, underscores, and hyphens
+        const usernameRegex = /^[a-zA-Z0-9_-]+$/;
+        if (!usernameRegex.test(trimmedUsername)) {
+          setError("Username can only contain letters, numbers, underscores, and hyphens");
+          setIsLoading(false);
+          return;
+        }
+
         // Password strength validation for sign up
         // Get min password length from settings (defaults to 8)
         // We'll validate on frontend with 6 as minimum, but backend will enforce the actual setting
