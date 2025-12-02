@@ -140,6 +140,15 @@ export async function POST(
             .maybeSingle();
 
           if (profile) {
+            // Prevent creator from inviting themselves
+            if (profile.id === quiz.creator_id) {
+              results.errors.push({
+                identifier: trimmedInvite,
+                error: 'You cannot invite yourself to your own quiz',
+              });
+              continue;
+            }
+
             // Check if already invited
             const { data: existing } = await serviceSupabase
               .from('quiz_participants')
@@ -235,6 +244,15 @@ export async function POST(
             .maybeSingle();
 
           if (profile) {
+            // Prevent creator from inviting themselves
+            if (profile.id === quiz.creator_id) {
+              results.errors.push({
+                identifier: trimmedInvite,
+                error: 'You cannot invite yourself to your own quiz',
+              });
+              continue;
+            }
+
             // Check if already invited
             const { data: existing } = await serviceSupabase
               .from('quiz_participants')

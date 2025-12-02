@@ -38,15 +38,20 @@ export async function POST(
       throw new AppError(ErrorCode.VALIDATION_ERROR, `Invitation already ${participant.status}`);
     }
 
-    // Get quiz to check status
+    // Get quiz to check status and creator
     const { data: quiz } = await serviceSupabase
       .from('quizzes')
-      .select('id, status, max_participants')
+      .select('id, status, max_participants, creator_id')
       .eq('id', quizId)
       .single();
 
     if (!quiz) {
       throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Quiz not found');
+    }
+
+    // Prevent creator from accepting their own quiz invitation
+    if (quiz.creator_id === user.id) {
+      throw new AppError(ErrorCode.FORBIDDEN, 'You cannot participate in your own quiz');
     }
 
     // Check if quiz is still open

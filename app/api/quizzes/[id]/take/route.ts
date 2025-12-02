@@ -37,6 +37,11 @@ export async function POST(
       throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Quiz not found');
     }
 
+    // Prevent creator from taking their own quiz
+    if (quiz.creator_id === user.id) {
+      throw new AppError(ErrorCode.FORBIDDEN, 'You cannot participate in your own quiz');
+    }
+
     // Check if quiz is open or in progress
     if (!['open', 'in_progress'].includes(quiz.status)) {
       throw new AppError(ErrorCode.VALIDATION_ERROR, 'Quiz is not available for taking');
