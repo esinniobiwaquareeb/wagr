@@ -39,6 +39,11 @@ export async function fetchPoliticalNews(apiKey: string, country: string = 'us')
     );
 
     if (!response.ok) {
+      // Special-case unauthorized so we don't spam logs and can fail gracefully
+      if (response.status === 401) {
+        console.warn('News API unauthorized. Check NEWS_API_KEY configuration.');
+        return [];
+      }
       throw new Error(`News API error: ${response.statusText}`);
     }
 
@@ -55,7 +60,7 @@ export async function fetchPoliticalNews(apiKey: string, country: string = 'us')
     // Return top trending articles (already sorted by popularity)
     return recentArticles.slice(0, 10);
   } catch (error) {
-    console.error('Error fetching political news:', error);
+    // Avoid noisy logs – callers can decide how to handle/log
     throw error;
   }
 }
@@ -81,6 +86,11 @@ export async function fetchGeneralNews(apiKey: string, query: string = 'election
     );
 
     if (!response.ok) {
+      // Special-case unauthorized so we don't spam logs and can fail gracefully
+      if (response.status === 401) {
+        console.warn('News API unauthorized. Check NEWS_API_KEY configuration.');
+        return [];
+      }
       throw new Error(`News API error: ${response.statusText}`);
     }
 
@@ -97,7 +107,7 @@ export async function fetchGeneralNews(apiKey: string, query: string = 'election
     // Return top trending articles (already sorted by popularity)
     return recentArticles.slice(0, 10);
   } catch (error) {
-    console.error('Error fetching general news:', error);
+    // Avoid noisy logs – callers can decide how to handle/log
     throw error;
   }
 }
