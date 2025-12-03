@@ -313,8 +313,17 @@ export function QuizInviteDialog({
                       onClick={() => addInvite(user.username ? `@${user.username}` : user.email || '')}
                       className="w-full text-left p-2 rounded hover:bg-muted flex items-center gap-2"
                     >
-                      <User className="h-4 w-4" />
-                      <span>{user.username ? `@${user.username}` : user.email}</span>
+                      <User className="h-4 w-4 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        {user.username && (
+                          <div className="font-medium">@{user.username}</div>
+                        )}
+                        {user.email && (
+                          <div className={`text-sm text-muted-foreground ${user.username ? 'mt-0.5' : ''}`}>
+                            {user.email}
+                          </div>
+                        )}
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -386,13 +395,19 @@ export function QuizInviteDialog({
                         ) : (
                           <XCircle className="h-4 w-4 text-muted-foreground" />
                         )}
-                        <div>
-                          <p className="font-medium">
-                            {invite.invitee?.username 
-                              ? `@${invite.invitee.username}` 
-                              : invite.invitee?.email || 'Unknown'}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
+                        <div className="flex-1 min-w-0">
+                          {invite.invitee?.username && (
+                            <p className="font-medium">@{invite.invitee.username}</p>
+                          )}
+                          {invite.invitee?.email && (
+                            <p className={`text-sm text-muted-foreground ${invite.invitee?.username ? 'mt-0.5' : 'font-medium'}`}>
+                              {invite.invitee.email}
+                            </p>
+                          )}
+                          {!invite.invitee?.username && !invite.invitee?.email && (
+                            <p className="font-medium text-muted-foreground">Unknown</p>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-1">
                             {invite.status === 'completed' ? 'Completed' : 
                              invite.status === 'started' ? 'In Progress' :
                              invite.status === 'accepted' ? 'Accepted' : 'Pending'}

@@ -778,21 +778,23 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="startDate">Start Date (Optional)</Label>
+                    <Label htmlFor="startDate">Start Date</Label>
                     <Input
                       id="startDate"
                       type="datetime-local"
                       value={formData.startDate}
+                      required
                       onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="endDate">End Date (Optional)</Label>
+                    <Label htmlFor="endDate">End Date</Label>
                     <Input
                       id="endDate"
                       type="datetime-local"
                       value={formData.endDate}
+                      required
                       onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                     />
                   </div>
