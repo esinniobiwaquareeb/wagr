@@ -72,8 +72,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Skip wallet/balance and wallet/transactions endpoints - never cache these
-  if (url.pathname.includes('/api/wallet/balance') || url.pathname.includes('/api/wallet/transactions')) {
+  // Skip ALL API endpoints - never cache API responses
+  if (url.pathname.startsWith('/api/')) {
     // Always fetch fresh from network, never cache
     event.respondWith(fetch(request));
     return;
@@ -83,18 +83,14 @@ self.addEventListener('fetch', (event) => {
     (async () => {
       // Determine cache strategy based on request type
       const isImage = request.destination === 'image' || url.pathname.match(/\.(jpg|jpeg|png|gif|webp|svg|ico)$/i);
-      const isAPI = url.pathname.startsWith('/api/');
       const isHTML = request.destination === 'document' || request.headers.get('accept')?.includes('text/html');
 
       let cacheToUse = RUNTIME_CACHE;
-      let maxAge = CACHE_DURATIONS.API;
+      let maxAge = CACHE_DURATIONS.STATIC;
 
       if (isImage) {
         cacheToUse = IMAGE_CACHE;
         maxAge = CACHE_DURATIONS.IMAGES;
-      } else if (isAPI) {
-        cacheToUse = API_CACHE;
-        maxAge = CACHE_DURATIONS.API;
       } else if (isHTML) {
         maxAge = CACHE_DURATIONS.HTML;
       }
@@ -129,7 +125,7 @@ self.addEventListener('fetch', (event) => {
       try {
         const response = await fetch(request);
         
-        // Cache successful responses
+        // Cache successful responses (only for static assets, images, and HTML)
         if (response.status === 200) {
           // Clone response before caching (responses can only be read once)
           const responseToCache = response.clone();

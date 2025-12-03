@@ -307,9 +307,7 @@ export default function Profile() {
         description: "Your changes have been saved",
       });
       setEditing(false);
-      // Clear cache and refresh profile in background
-      const { cache, CACHE_KEYS } = await import('@/lib/cache');
-      cache.remove(CACHE_KEYS.USER_PROFILE(user.id));
+      // Refresh profile in background
       fetchProfile(true).catch(() => {});
     } catch (error: any) {
       // Check for unique constraint violation or validation error
@@ -416,9 +414,7 @@ export default function Profile() {
       const { profileApi } = await import('@/lib/api-client');
       await profileApi.update({ avatar_url: avatarUrl });
 
-      // Clear cache and refresh
-      const { cache, CACHE_KEYS } = await import('@/lib/cache');
-      cache.remove(CACHE_KEYS.USER_PROFILE(user.id));
+      // Refresh profile
       await fetchProfile(true);
 
       // Trigger profile update event for sidebar
@@ -740,18 +736,8 @@ export default function Profile() {
               isOpen={show2FASetup}
               onClose={async () => {
                 setShow2FASetup(false);
-                // Clear cache to ensure fresh data
-                if (user) {
-                  const { cache, CACHE_KEYS } = await import('@/lib/cache');
-                  cache.remove(CACHE_KEYS.USER_PROFILE(user.id));
-                }
               }}
               onComplete={async () => {
-                // Clear cache and refresh profile
-                if (user) {
-                  const { cache, CACHE_KEYS } = await import('@/lib/cache');
-                  cache.remove(CACHE_KEYS.USER_PROFILE(user.id));
-                }
                 await fetchProfile(true);
                 setShow2FASetup(false);
               }}
@@ -760,18 +746,8 @@ export default function Profile() {
               isOpen={show2FAManage}
               onClose={async () => {
                 setShow2FAManage(false);
-                // Clear cache to ensure fresh data
-                if (user) {
-                  const { cache, CACHE_KEYS } = await import('@/lib/cache');
-                  cache.remove(CACHE_KEYS.USER_PROFILE(user.id));
-                }
               }}
               onComplete={async () => {
-                // Clear cache and refresh profile
-                if (user) {
-                  const { cache, CACHE_KEYS } = await import('@/lib/cache');
-                  cache.remove(CACHE_KEYS.USER_PROFILE(user.id));
-                }
                 await fetchProfile(true);
                 setShow2FAManage(false);
                 // Clear 2FA verification on disable

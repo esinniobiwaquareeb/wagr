@@ -35,10 +35,6 @@ export function AdminSidebar() {
 
   const handleLogout = async () => {
     try {
-      // Clear auth cache first
-      const { authCache } = await import('@/lib/auth/cache');
-      authCache.clear();
-      
       // Call logout API
       await logout();
       

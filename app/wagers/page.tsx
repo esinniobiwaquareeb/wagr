@@ -63,11 +63,11 @@ function WagersPageContent() {
   const selectedCategory = searchParams?.get('category') || null;
   const searchQuery = searchParams?.get('search') || '';
 
-  // Helper function to check if wager is expired
-  const isExpired = (wager: WagerWithEntries) => {
+  // Helper function to check if wager is expired (memoized)
+  const isExpired = useCallback((wager: WagerWithEntries) => {
     if (!wager.deadline || wager.status !== "OPEN") return false;
     return new Date(wager.deadline).getTime() < Date.now();
-  };
+  }, []);
 
   // Separate wagers by type
   const systemWagers = useMemo(() => {
@@ -81,7 +81,7 @@ function WagersPageContent() {
       const deadlineB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
       return deadlineA - deadlineB;
     });
-  }, [allWagers]);
+  }, [allWagers, isExpired]);
 
   const userWagers = useMemo(() => {
     const filtered = allWagers.filter(w => 
@@ -94,7 +94,7 @@ function WagersPageContent() {
       const deadlineB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
       return deadlineA - deadlineB;
     });
-  }, [allWagers]);
+  }, [allWagers, isExpired]);
 
   const expiredWagers = useMemo(() => {
     return allWagers.filter(w => isExpired(w)).sort((a, b) => {
@@ -102,7 +102,7 @@ function WagersPageContent() {
       const deadlineB = b.deadline ? new Date(b.deadline).getTime() : 0;
       return deadlineB - deadlineA;
     });
-  }, [allWagers]);
+  }, [allWagers, isExpired]);
 
   const settledWagers = useMemo(() => {
     return allWagers.filter(w => w.status === "SETTLED" || w.status === "RESOLVED").sort((a, b) => {
@@ -176,7 +176,7 @@ function WagersPageContent() {
     }
     
     return tabWagers;
-  }, [activeTab, systemWagers, userWagers, expiredWagers, settledWagers, searchQuery, selectedCategory, allWagers, user, preferredCategories]);
+  }, [activeTab, systemWagers, userWagers, expiredWagers, settledWagers, searchQuery, selectedCategory, allWagers, user, preferredCategories, isExpired]);
 
   // Pull to refresh
   const { isRefreshing, pullDistance } = usePullToRefresh({
@@ -218,7 +218,8 @@ function WagersPageContent() {
 
     try {
       setLoading(true);
-      const response = await wagersApi.list({ limit: 200 });
+      // Increased limit to 500 to show more wagers
+      const response = await wagersApi.list({ limit: 500 });
       const wagersData = response?.wagers || (Array.isArray(response) ? response : []);
 
       const wagersWithCounts: WagerWithEntries[] = wagersData.map((wager: any) => {
@@ -296,6 +297,7 @@ function WagersPageContent() {
         setPreferredCategories(categories);
       } catch (error) {
         console.error('Error fetching preferences:', error);
+        // Silently fail - preferences are optional, don't show error toast
         setPreferredCategories(null);
       }
     };
@@ -306,6 +308,8 @@ function WagersPageContent() {
   useEffect(() => {
     fetchWagers();
 
+    // Subscribe to wager changes
+    // If user is logged in, also listen for their private wagers
     const wagersChannel = supabase
       .channel("wagers-list")
       .on(
@@ -314,12 +318,21 @@ function WagersPageContent() {
           event: "*", 
           schema: "public", 
           table: "wagers",
-          filter: "is_public=eq.true"
+          // Remove filter to listen to all wagers - client-side filtering handles visibility
+          // This ensures private wagers created by the user appear in real-time
         },
         (payload) => {
           // Only refetch on INSERT or UPDATE, not DELETE (to reduce reloads)
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            debouncedRefetchRef.current();
+            // Check if this is a wager the user should see
+            const wager = payload.new as any;
+            const shouldRefetch = 
+              wager.is_public === true || 
+              (user && wager.creator_id === user.id);
+            
+            if (shouldRefetch) {
+              debouncedRefetchRef.current();
+            }
           }
         }
       )
@@ -357,7 +370,7 @@ function WagersPageContent() {
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [supabase]); // Removed fetchWagers dependency - using ref instead to prevent unnecessary re-subscriptions
+  }, [supabase, user]); // Added user dependency to re-subscribe when user changes
 
   const handleTabChange = (tab: TabType) => {
     const params = new URLSearchParams(searchParams?.toString() || '');

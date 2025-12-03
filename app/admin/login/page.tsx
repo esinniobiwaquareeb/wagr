@@ -7,7 +7,6 @@ import { Shield, Lock, Mail, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { TwoFactorVerify } from "@/components/two-factor-verify";
 import { getCurrentUser } from "@/lib/auth/client";
-import { authCache } from "@/lib/auth/cache";
 
 export default function AdminLogin() {
   const router = useRouter();
@@ -129,9 +128,6 @@ export default function AdminLogin() {
         setEmail("");
         setPassword("");
         
-        // Clear auth cache to force fresh fetch
-        authCache.clear();
-        
         // Trigger auth state update
         window.dispatchEvent(new Event('auth-state-changed'));
         
@@ -204,9 +200,6 @@ export default function AdminLogin() {
         // Clear form
         setEmail("");
         setPassword("");
-        
-        // Clear auth cache to force fresh fetch
-        authCache.clear();
         
         // Trigger auth state update
         window.dispatchEvent(new Event('auth-state-changed'));

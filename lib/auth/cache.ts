@@ -1,5 +1,7 @@
 /**
- * Global auth cache to prevent multiple API calls
+ * Auth cache - DISABLED
+ * All caching has been removed. This file is kept for backwards compatibility
+ * but all methods are no-ops.
  */
 
 import { requestDeduplication, generateRequestKey } from '@/lib/request-deduplication';
@@ -11,50 +13,33 @@ interface AuthCacheEntry {
 }
 
 class AuthCache {
-  private cache: AuthCacheEntry | null = null;
-  private readonly CACHE_TTL = 60000; // 1 minute cache
-  private readonly REQUEST_KEY = 'auth/me';
-
   /**
-   * Get cached user if still valid
+   * Get cached user - DISABLED (always returns undefined)
    */
   get(): AuthUser | null | undefined {
-    if (!this.cache) return undefined;
-    
-    const age = Date.now() - this.cache.timestamp;
-    if (age < this.CACHE_TTL) {
-      return this.cache.user;
-    }
-    
-    // Cache expired
-    this.cache = null;
     return undefined;
   }
 
   /**
-   * Set cached user
+   * Set cached user - DISABLED (no-op)
    */
   set(user: AuthUser | null): void {
-    this.cache = {
-      user,
-      timestamp: Date.now(),
-    };
+    // No-op - caching disabled
   }
 
   /**
-   * Clear cache
+   * Clear cache - DISABLED (no-op)
    */
   clear(): void {
-    this.cache = null;
+    // No-op - caching disabled
   }
 
   /**
    * Get request key for deduplication
    */
   getRequestKey(): string {
-    return this.REQUEST_KEY;
+    return 'auth/me';
   }
 }
 
 export const authCache = new AuthCache();
-

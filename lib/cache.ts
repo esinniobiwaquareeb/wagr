@@ -1,6 +1,7 @@
 /**
- * Centralized caching utility for frontend
- * Provides sessionStorage, localStorage, and in-memory caching
+ * Frontend cache utility - DISABLED
+ * All caching has been removed. This file is kept for backwards compatibility
+ * but all methods are no-ops.
  */
 
 interface CacheEntry<T> {
@@ -10,175 +11,50 @@ interface CacheEntry<T> {
 }
 
 class CacheManager {
-  public memoryCache = new Map<string, CacheEntry<any>>(); // Made public for cache age checking
-  private readonly DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes
-
   /**
-   * Get data from cache (checks memory, then sessionStorage, then localStorage)
+   * Get data from cache - DISABLED (always returns null)
    */
   get<T>(key: string): T | null {
-    // Check memory cache first
-    const memoryEntry = this.memoryCache.get(key);
-    if (memoryEntry && Date.now() - memoryEntry.timestamp < memoryEntry.ttl) {
-      return memoryEntry.data as T;
-    }
-
-    // Check sessionStorage
-    if (typeof window !== 'undefined') {
-      try {
-        const sessionData = sessionStorage.getItem(`cache_${key}`);
-        if (sessionData) {
-          const entry: CacheEntry<T> = JSON.parse(sessionData);
-          if (Date.now() - entry.timestamp < entry.ttl) {
-            // Also store in memory for faster access
-            this.memoryCache.set(key, entry);
-            return entry.data;
-          } else {
-            sessionStorage.removeItem(`cache_${key}`);
-          }
-        }
-      } catch (e) {
-        // SessionStorage might be unavailable
-      }
-    }
-
     return null;
   }
 
   /**
-   * Set data in cache
+   * Set data in cache - DISABLED (no-op)
    */
-  set<T>(key: string, data: T, ttl: number = this.DEFAULT_TTL): void {
-    const entry: CacheEntry<T> = {
-      data,
-      timestamp: Date.now(),
-      ttl,
-    };
-
-    // Store in memory
-    this.memoryCache.set(key, entry);
-
-    // Store in sessionStorage
-    if (typeof window !== 'undefined') {
-      try {
-        sessionStorage.setItem(`cache_${key}`, JSON.stringify(entry));
-      } catch (e) {
-        // SessionStorage might be full, clear old entries
-        this.clearOldEntries();
-        try {
-          sessionStorage.setItem(`cache_${key}`, JSON.stringify(entry));
-        } catch (e2) {
-          // Still failed, just use memory cache
-        }
-      }
-    }
+  set<T>(key: string, data: T, ttl?: number): void {
+    // No-op - caching disabled
   }
 
   /**
-   * Remove specific cache entry
+   * Remove specific cache entry - DISABLED (no-op)
    */
   remove(key: string): void {
-    this.memoryCache.delete(key);
-    if (typeof window !== 'undefined') {
-      try {
-        sessionStorage.removeItem(`cache_${key}`);
-      } catch (e) {
-        // Ignore
-      }
-    }
+    // No-op - caching disabled
   }
 
   /**
-   * Clear all cache entries
+   * Clear all cache entries - DISABLED (no-op)
    */
   clear(): void {
-    this.memoryCache.clear();
-    if (typeof window !== 'undefined') {
-      try {
-        const keys = Object.keys(sessionStorage);
-        keys.forEach(key => {
-          if (key.startsWith('cache_')) {
-            sessionStorage.removeItem(key);
-          }
-        });
-      } catch (e) {
-        // Ignore
-      }
-    }
+    // No-op - caching disabled
   }
 
   /**
-   * Clear old cache entries to free up space
-   */
-  private clearOldEntries(): void {
-    if (typeof window === 'undefined') return;
-
-    try {
-      const keys = Object.keys(sessionStorage);
-      const now = Date.now();
-      let cleared = 0;
-
-      for (const key of keys) {
-        if (key.startsWith('cache_')) {
-          try {
-            const data = sessionStorage.getItem(key);
-            if (data) {
-              const entry: CacheEntry<any> = JSON.parse(data);
-              if (now - entry.timestamp >= entry.ttl) {
-                sessionStorage.removeItem(key);
-                cleared++;
-              }
-            }
-          } catch (e) {
-            // Invalid entry, remove it
-            sessionStorage.removeItem(key);
-            cleared++;
-          }
-        }
-      }
-
-      // If still not enough space, remove oldest entries
-      if (cleared < 10) {
-        const cacheEntries: Array<{ key: string; timestamp: number }> = [];
-        for (const key of keys) {
-          if (key.startsWith('cache_')) {
-            try {
-              const data = sessionStorage.getItem(key);
-              if (data) {
-                const entry: CacheEntry<any> = JSON.parse(data);
-                cacheEntries.push({ key, timestamp: entry.timestamp });
-              }
-            } catch (e) {
-              // Ignore
-            }
-          }
-        }
-
-        // Sort by timestamp and remove oldest 20%
-        cacheEntries.sort((a, b) => a.timestamp - b.timestamp);
-        const toRemove = Math.ceil(cacheEntries.length * 0.2);
-        for (let i = 0; i < toRemove; i++) {
-          sessionStorage.removeItem(cacheEntries[i].key);
-        }
-      }
-    } catch (e) {
-      // Ignore errors during cleanup
-    }
-  }
-
-  /**
-   * Check if cache entry exists and is valid
+   * Check if cache entry exists - DISABLED (always returns false)
    */
   has(key: string): boolean {
-    return this.get(key) !== null;
+    return false;
   }
+
+  // Public property for backwards compatibility (but unused)
+  public memoryCache = new Map<string, CacheEntry<any>>();
 }
 
 // Singleton instance
 export const cache = new CacheManager();
 
 /**
- * Cache keys for different data types
+ * Cache keys for different data types (kept for backwards compatibility)
  */
 export const CACHE_KEYS = {
   WAGERS: 'wagers',
@@ -195,16 +71,15 @@ export const CACHE_KEYS = {
 } as const;
 
 /**
- * Cache TTL constants (in milliseconds)
+ * Cache TTL constants (kept for backwards compatibility but unused)
  */
 export const CACHE_TTL = {
-  WAGERS: 30 * 1000, // 30 seconds
-  WAGER: 60 * 1000, // 1 minute
-  USER_PROFILE: 5 * 60 * 1000, // 5 minutes
-  USER_PREFERENCES: 10 * 60 * 1000, // 10 minutes
-  TRANSACTIONS: 2 * 60 * 1000, // 2 minutes
-  NOTIFICATIONS: 30 * 1000, // 30 seconds
-  LEADERBOARD: 5 * 60 * 1000, // 5 minutes
-  ADMIN_DATA: 2 * 60 * 1000, // 2 minutes
+  WAGERS: 30 * 1000,
+  WAGER: 60 * 1000,
+  USER_PROFILE: 5 * 60 * 1000,
+  USER_PREFERENCES: 10 * 60 * 1000,
+  TRANSACTIONS: 2 * 60 * 1000,
+  NOTIFICATIONS: 30 * 1000,
+  LEADERBOARD: 5 * 60 * 1000,
+  ADMIN_DATA: 2 * 60 * 1000,
 } as const;
-

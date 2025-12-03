@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { TwoFactorVerify } from "@/components/two-factor-verify";
 import { markSessionAs2FAVerified } from "@/lib/session-2fa";
-import { authCache } from "@/lib/auth/cache";
 import { Eye, EyeOff } from "lucide-react";
 
 interface AuthModalProps {
@@ -194,8 +193,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           markSessionAs2FAVerified(data.data.user.id);
         }
         
-        // Clear auth cache and trigger auth state change event FIRST to update UI immediately
-        authCache.clear();
+        // Trigger auth state change event to update UI immediately
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('auth-state-changed'));
         }
