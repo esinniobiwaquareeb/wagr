@@ -226,7 +226,36 @@ export async function POST(
               userId: profile.id,
             });
           } else {
-            results.notFound.push(trimmedInvite);
+            // User doesn't exist - send invitation email anyway
+            try {
+              sendEmailAsync({
+                to: trimmedInvite,
+                type: 'quiz-invitation',
+                data: {
+                  recipientName: trimmedInvite.split('@')[0],
+                  inviterName: inviterName,
+                  quizTitle: quiz.title,
+                  quizDescription: quiz.description || '',
+                  quizUrl: quizUrl,
+                  entryFeePerQuestion: quiz.entry_fee_per_question,
+                  totalQuestions: quiz.total_questions,
+                  maxParticipants: quiz.max_participants,
+                  endDate: quiz.end_date || undefined,
+                },
+                subject: `Quiz Invitation: ${quiz.title}`,
+              });
+
+              results.invited.push({
+                identifier: trimmedInvite,
+                type: 'email',
+              });
+            } catch (emailError) {
+              logger.error('Failed to send quiz invitation email to non-user', { emailError, invite: trimmedInvite });
+              results.errors.push({
+                identifier: trimmedInvite,
+                error: 'Failed to send invitation email',
+              });
+            }
           }
         } else {
           // Username lookup (remove @ if present, case-insensitive)
