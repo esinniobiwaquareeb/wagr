@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -125,59 +125,12 @@ export default function QuizDetailPage() {
     return quizHasEnded && completedCount > 0;
   }, [quiz, isCreator, quizHasEnded]);
 
-  useEffect(() => {
-    if (quizId) {
-      fetchQuiz();
-    }
-  }, [quizId, user]);
-
-  const fetchQuiz = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/quizzes/${quizId}`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error?.message || 'Failed to fetch quiz');
-      }
-
-      const quizData = data.data?.quiz || null;
-      setQuiz(quizData);
-
-      // Check if user is a participant
-      if (user && quizData?.participants) {
-        const userParticipant = quizData.participants.find(
-          (p: any) => p.user_id === user.id
-        );
-        setParticipant(userParticipant);
-
-        const quizEndedServer = quizData?.end_date
-          ? new Date(quizData.end_date).getTime() <= Date.now()
-          : ['completed', 'settled', 'cancelled'].includes(quizData?.status);
-
-        if (userParticipant && userParticipant.status === 'completed' && quizEndedServer) {
-          fetchParticipantResponses();
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching quiz:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to load quiz",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleStartQuiz = () => {
-    setTakingQuiz(true);
-  };
-
-  const fetchParticipantResponses = async () => {
-    if (!user || !quizId || !quizHasEnded) return;
+  const fetchingResponsesRef = useRef(false);
+  const fetchedResponsesRef = useRef(false);
+  const fetchParticipantResponses = useCallback(async () => {
+    if (!user || !quizId || fetchingResponsesRef.current) return;
     
+    fetchingResponsesRef.current = true;
     try {
       setLoadingResults(true);
       const response = await fetch(`/api/quizzes/${quizId}/responses`);
@@ -193,6 +146,7 @@ export default function QuizDetailPage() {
         if (data.data.participant) {
           setParticipant(data.data.participant);
         }
+        fetchedResponsesRef.current = true;
       }
     } catch (error) {
       console.error('Error fetching responses:', error);
@@ -210,8 +164,113 @@ export default function QuizDetailPage() {
       }
     } finally {
       setLoadingResults(false);
+      fetchingResponsesRef.current = false;
     }
+  }, [user, quizId, toast]);
+
+  const fetchingRef = useRef(false);
+  const fetchErrorRef = useRef<string | null>(null);
+  const fetchQuiz = useCallback(async () => {
+    if (!quizId || fetchingRef.current) return;
+    
+    fetchingRef.current = true;
+    try {
+      setLoading(true);
+      setQuiz(null); // Clear previous quiz data
+      const response = await fetch(`/api/quizzes/${quizId}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        const errorMessage = data.error?.message || 'Failed to fetch quiz';
+        fetchErrorRef.current = errorMessage;
+        
+        // If FORBIDDEN, redirect to quizzes page
+        if (response.status === 403 || data.error?.code === 'FORBIDDEN') {
+          toast({
+            title: "Access Denied",
+            description: errorMessage,
+            variant: "destructive",
+          });
+          setTimeout(() => {
+            router.push('/quizzes');
+          }, 2000);
+          return;
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      fetchErrorRef.current = null;
+      const quizData = data.data?.quiz || null;
+      setQuiz(quizData);
+
+      // Check if user is a participant
+      if (user && quizData?.participants) {
+        const userParticipant = quizData.participants.find(
+          (p: any) => p.user_id === user.id
+        );
+        setParticipant(userParticipant);
+      }
+    } catch (error) {
+      console.error('Error fetching quiz:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to load quiz";
+      fetchErrorRef.current = errorMessage;
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      fetchingRef.current = false;
+    }
+  }, [quizId, user, toast, router]);
+
+  // Fetch quiz when quizId changes, or when user loads after initial fetch failed
+  const lastFetchedQuizIdRef = useRef<string | null>(null);
+  const lastFetchedUserIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!quizId) return;
+    
+    const quizIdChanged = quizId !== lastFetchedQuizIdRef.current;
+    const userLoaded = user?.id && user.id !== lastFetchedUserIdRef.current;
+    const shouldRefetch = quizIdChanged || (userLoaded && fetchErrorRef.current && !quiz);
+    
+    if (shouldRefetch) {
+      lastFetchedQuizIdRef.current = quizId;
+      if (user?.id) {
+        lastFetchedUserIdRef.current = user.id;
+      }
+      if (quizIdChanged) {
+        fetchErrorRef.current = null;
+        fetchedResponsesRef.current = false;
+      }
+      fetchQuiz();
+    }
+  }, [quizId, user?.id, fetchQuiz, quiz]);
+
+  const handleStartQuiz = () => {
+    setTakingQuiz(true);
   };
+
+  // Fetch responses when quiz has ended and participant has completed (only once)
+  useEffect(() => {
+    if (
+      quiz && 
+      participant && 
+      participant.status === 'completed' && 
+      quizHasEnded && 
+      !fetchedResponsesRef.current &&
+      !fetchingResponsesRef.current
+    ) {
+      fetchParticipantResponses();
+    }
+  }, [quiz, participant, quizHasEnded, fetchParticipantResponses]);
+  
+  // Reset fetched flag when quizId changes
+  useEffect(() => {
+    fetchedResponsesRef.current = false;
+  }, [quizId]);
 
   const handleQuizComplete = async (quizResponses: any[]) => {
     // Store initial responses from submission
@@ -249,7 +308,19 @@ export default function QuizDetailPage() {
       });
 
       setShowSettleDialog(false);
-      fetchQuiz();
+      
+      // Wait a moment for database to update, then refresh quiz data
+      setTimeout(async () => {
+        await fetchQuiz();
+        // Also fetch participant responses to get updated data with ranks and winnings
+        // Reset the fetched flag to force a refresh
+        fetchedResponsesRef.current = false;
+        fetchingResponsesRef.current = false;
+        // Fetch responses if quiz has ended (which it should be after settlement)
+        if (quiz?.end_date || ['completed', 'settled', 'cancelled'].includes(quiz?.status || '')) {
+          await fetchParticipantResponses();
+        }
+      }, 500);
     } catch (error) {
       console.error('Error settling quiz:', error);
       toast({
@@ -614,7 +685,7 @@ export default function QuizDetailPage() {
             )}
 
             {/* Show scoreboard for all participants if quiz is settled or completed (for creator) */}
-            {isCreator && (quiz.status === 'settled' || quiz.status === 'completed') && quiz.participants && quiz.participants.length > 0 && (
+            {isCreator && (quiz.status === 'settled' || quiz.status === 'completed') && (
               <div className="mt-6">
                 <Card>
                   <CardHeader>
@@ -624,20 +695,38 @@ export default function QuizDetailPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <QuizResults
-                      quiz={{
-                        id: quiz.id,
-                        title: quiz.title,
-                        total_questions: quiz.total_questions,
-                        entry_fee_per_question: quiz.entry_fee_per_question,
-                        status: quiz.status,
-                        settled_at: quiz.settled_at,
-                      }}
-                      participant={undefined}
-                      participants={(quiz.participants || []).filter((p: any) => p.status === 'completed')}
-                      responses={[]}
-                      showDetails={false}
-                    />
+                    {(() => {
+                      // Use allParticipants if available (from responses API), otherwise use quiz.participants
+                      const participantsToShow = allParticipants.length > 0 
+                        ? allParticipants 
+                        : (quiz.participants || []).filter((p: any) => p.status === 'completed');
+                      
+                      if (participantsToShow.length === 0) {
+                        return (
+                          <div className="text-center py-12">
+                            <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                            <p className="text-muted-foreground">No completed participants yet</p>
+                          </div>
+                        );
+                      }
+                      
+                      return (
+                        <QuizResults
+                          quiz={{
+                            id: quiz.id,
+                            title: quiz.title,
+                            total_questions: quiz.total_questions,
+                            entry_fee_per_question: quiz.entry_fee_per_question,
+                            status: quiz.status,
+                            settled_at: quiz.settled_at,
+                          }}
+                          participant={undefined}
+                          participants={participantsToShow}
+                          responses={[]}
+                          showDetails={false}
+                        />
+                      );
+                    })()}
                   </CardContent>
                 </Card>
               </div>
