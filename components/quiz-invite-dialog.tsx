@@ -121,7 +121,35 @@ export function QuizInviteDialog({
             const users = data.success && data.data?.users 
               ? data.data.users 
               : data.users || data.data?.users || [];
-            setSearchResults(users);
+            
+            // Filter out already invited users
+            const invitedUserIds = new Set(
+              invitedUsers.map(inv => inv.invitee_id || inv.invitee?.id).filter(Boolean)
+            );
+            const invitedUsernames = new Set(
+              invitedUsers.map(inv => inv.invitee?.username?.toLowerCase()).filter(Boolean)
+            );
+            const invitedEmails = new Set(
+              invitedUsers.map(inv => inv.invitee?.email?.toLowerCase()).filter(Boolean)
+            );
+            
+            const filteredUsers = users.filter((user: any) => {
+              // Exclude if user ID is already invited
+              if (user.id && invitedUserIds.has(user.id)) {
+                return false;
+              }
+              // Exclude if username is already invited
+              if (user.username && invitedUsernames.has(user.username.toLowerCase())) {
+                return false;
+              }
+              // Exclude if email is already invited
+              if (user.email && invitedEmails.has(user.email.toLowerCase())) {
+                return false;
+              }
+              return true;
+            });
+            
+            setSearchResults(filteredUsers);
           }
         } else {
           if (!cancelled) {
@@ -145,7 +173,7 @@ export function QuizInviteDialog({
     return () => {
       cancelled = true;
     };
-  }, [debouncedSearch]);
+  }, [debouncedSearch, invitedUsers]);
 
   const addInvite = (identifier: string) => {
     const trimmed = identifier.trim().toLowerCase();

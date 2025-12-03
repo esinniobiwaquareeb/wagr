@@ -114,7 +114,7 @@ export async function DELETE(
     // Get wager
     const { data: wager, error: wagerError } = await supabase
       .from('wagers')
-      .select('creator_id, status, deadline')
+      .select('id, creator_id, status, deadline')
       .or(`id.eq.${wagerId},short_id.eq.${wagerId}`)
       .single();
 
@@ -156,11 +156,13 @@ export async function DELETE(
       throw new AppError(ErrorCode.VALIDATION_ERROR, 'Cannot delete wager with participants');
     }
 
-    // Get wager amount for refund
+    // Get wager amount for refund - use the actual UUID from the wager we fetched
+    const actualWagerId = wager.id; // Use the UUID from the fetched wager, not the sanitized input
+
     const { data: fullWager } = await supabase
       .from('wagers')
       .select('amount')
-      .eq('id', wagerId)
+      .eq('id', actualWagerId)
       .single();
 
     // Refund creator's entry
@@ -175,16 +177,38 @@ export async function DELETE(
         user_id: user.id,
         type: 'wager_refund',
         amount: fullWager.amount,
-        reference: wagerId,
+        reference: actualWagerId,
         description: 'Wager deleted - refund',
       });
     }
 
-    // Delete wager (cascade will delete entries)
+    // Delete wager activities first to prevent trigger from trying to insert after wager is deleted
+    await supabase
+      .from('wager_activities')
+      .delete()
+      .eq('wager_id', actualWagerId);
+
+    // Delete wager comments
+    await supabase
+      .from('wager_comments')
+      .delete()
+      .eq('wager_id', actualWagerId);
+
+    // Delete wager entries (this will trigger create_leave_activity, but wager still exists)
+    const { error: entriesDeleteError } = await supabase
+      .from('wager_entries')
+      .delete()
+      .eq('wager_id', actualWagerId);
+
+    if (entriesDeleteError) {
+      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to delete wager entries');
+    }
+
+    // Delete wager (entries already deleted, activities already deleted, so no trigger issues)
     const { error: deleteError } = await supabase
       .from('wagers')
       .delete()
-      .eq('id', wagerId);
+      .eq('id', actualWagerId);
 
     if (deleteError) {
       throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to delete wager');
