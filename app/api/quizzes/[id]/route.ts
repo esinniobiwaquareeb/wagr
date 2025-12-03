@@ -139,13 +139,22 @@ export async function PATCH(
       throw new AppError(ErrorCode.VALIDATION_ERROR, 'Can only update quizzes in draft or open status');
     }
 
-    // Get current participant count
+    // Get current participant count and check if any have started
     const { count: currentParticipantCount } = await serviceSupabase
       .from('quiz_participants')
       .select('*', { count: 'exact', head: true })
       .eq('quiz_id', quizId);
 
     const actualParticipantCount = currentParticipantCount || 0;
+
+    // Check if any participants have started (for questions editing restriction)
+    const { count: startedCount } = await serviceSupabase
+      .from('quiz_participants')
+      .select('*', { count: 'exact', head: true })
+      .eq('quiz_id', quizId)
+      .in('status', ['started', 'completed']);
+
+    const hasStartedParticipants = (startedCount || 0) > 0;
 
     // Build update object
     const updateData: any = {};
@@ -356,6 +365,130 @@ export async function PATCH(
       }
     }
 
+    // Handle questions update (only if provided and quiz is in draft status)
+    if (body.questions !== undefined && Array.isArray(body.questions)) {
+      // Can only update questions if quiz is in draft and no participants have started
+      if (quiz.status !== 'draft') {
+        throw new AppError(ErrorCode.VALIDATION_ERROR, 'Questions can only be updated when quiz is in draft status');
+      }
+
+      if (hasStartedParticipants) {
+        throw new AppError(ErrorCode.VALIDATION_ERROR, 'Cannot update questions when participants have already started');
+      }
+
+      const questions = body.questions;
+      const newTotalQuestions = body.totalQuestions !== undefined 
+        ? parseInt(body.totalQuestions) 
+        : quiz.total_questions;
+
+      // Validate questions count matches totalQuestions
+      if (questions.length !== newTotalQuestions) {
+        throw new AppError(ErrorCode.VALIDATION_ERROR, `Must provide exactly ${newTotalQuestions} questions`);
+      }
+
+      // Validate questions
+      for (let i = 0; i < questions.length; i++) {
+        const q = questions[i];
+        if (!q.questionText || typeof q.questionText !== 'string' || q.questionText.trim().length === 0) {
+          throw new AppError(ErrorCode.VALIDATION_ERROR, `Question ${i + 1} text is required`);
+        }
+        if (!q.answers || !Array.isArray(q.answers) || q.answers.length < 2) {
+          throw new AppError(ErrorCode.VALIDATION_ERROR, `Question ${i + 1} must have at least 2 answers`);
+        }
+        const correctAnswers = q.answers.filter((a: any) => a.isCorrect === true);
+        if (correctAnswers.length !== 1) {
+          throw new AppError(ErrorCode.VALIDATION_ERROR, `Question ${i + 1} must have exactly one correct answer`);
+        }
+      }
+
+      // Delete existing questions and answers (cascade will handle answers)
+      const { error: deleteQuestionsError } = await serviceSupabase
+        .from('quiz_questions')
+        .delete()
+        .eq('quiz_id', quizId);
+
+      if (deleteQuestionsError) {
+        throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to delete existing questions: ${deleteQuestionsError.message}`);
+      }
+
+      // Create new questions and answers
+      for (let i = 0; i < questions.length; i++) {
+        const q = questions[i];
+        
+        // Create question
+        const { data: question, error: questionError } = await serviceSupabase
+          .from('quiz_questions')
+          .insert({
+            quiz_id: quizId,
+            question_text: q.questionText.trim(),
+            question_type: q.questionType || 'multiple_choice',
+            points: q.points || 1,
+            order_index: i + 1,
+          })
+          .select()
+          .single();
+
+        if (questionError || !question) {
+          throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to create question ${i + 1}: ${questionError?.message || 'Unknown error'}`);
+        }
+
+        // Create answers
+        for (let j = 0; j < q.answers.length; j++) {
+          const answer = q.answers[j];
+          const { error: answerError } = await serviceSupabase
+            .from('quiz_answers')
+            .insert({
+              question_id: question.id,
+              answer_text: answer.answerText.trim(),
+              is_correct: answer.isCorrect === true,
+              order_index: j + 1,
+            });
+
+          if (answerError) {
+            throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to create answer ${j + 1} for question ${i + 1}: ${answerError.message}`);
+          }
+        }
+      }
+
+      // Update total_questions if changed
+      if (body.totalQuestions !== undefined) {
+        updateData.total_questions = newTotalQuestions;
+      }
+    }
+
+    // Handle settlement method and related fields
+    if (body.settlementMethod !== undefined) {
+      const validMethods = ['proportional', 'top_winners', 'equal_split'];
+      if (!validMethods.includes(body.settlementMethod)) {
+        throw new AppError(ErrorCode.VALIDATION_ERROR, `Settlement method must be one of: ${validMethods.join(', ')}`);
+      }
+      updateData.settlement_method = body.settlementMethod;
+
+      // Handle topWinnersCount
+      if (body.settlementMethod === 'top_winners') {
+        if (body.topWinnersCount !== undefined) {
+          const topWinnersCount = parseInt(body.topWinnersCount);
+          if (isNaN(topWinnersCount) || topWinnersCount < 1) {
+            throw new AppError(ErrorCode.VALIDATION_ERROR, 'Top winners count must be at least 1');
+          }
+          updateData.top_winners_count = topWinnersCount;
+        }
+      } else {
+        updateData.top_winners_count = null;
+      }
+    }
+
+    // Handle other quiz settings
+    if (body.randomizeQuestions !== undefined) {
+      updateData.randomize_questions = Boolean(body.randomizeQuestions);
+    }
+    if (body.randomizeAnswers !== undefined) {
+      updateData.randomize_answers = Boolean(body.randomizeAnswers);
+    }
+    if (body.showResultsImmediately !== undefined) {
+      updateData.show_results_immediately = Boolean(body.showResultsImmediately);
+    }
+
     // Update quiz
     const { data: updatedQuiz, error: updateError } = await serviceSupabase
       .from('quizzes')
@@ -368,7 +501,20 @@ export async function PATCH(
       throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to update quiz: ${updateError.message}`);
     }
 
-    return successResponseNext({ quiz: updatedQuiz });
+    // Fetch complete quiz with questions and answers
+    const { data: completeQuiz } = await serviceSupabase
+      .from('quizzes')
+      .select(`
+        *,
+        quiz_questions (
+          *,
+          quiz_answers (*)
+        )
+      `)
+      .eq('id', quizId)
+      .single();
+
+    return successResponseNext({ quiz: completeQuiz || updatedQuiz });
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);

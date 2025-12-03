@@ -153,9 +153,26 @@ BEGIN
       top_count INTEGER;
       winners_pool NUMERIC;
       participant_record RECORD;
+      winner_count INTEGER := 0;
+      total_distributed_winners NUMERIC := 0;
+      last_winner_id UUID;
+      rounding_diff NUMERIC;
     BEGIN
       top_count := COALESCE(quiz_record.top_winners_count, 3);
-      winners_pool := ROUND(winnings_pool / top_count, 2);
+      
+      -- Count actual completed participants
+      SELECT COUNT(*) INTO winner_count
+      FROM quiz_participants
+      WHERE quiz_id = quiz_id_param AND status = 'completed';
+      
+      IF winner_count = 0 THEN
+        PERFORM refund_quiz_participants(quiz_id_param);
+        RETURN;
+      END IF;
+      
+      -- Use actual winner count, not top_count if fewer participants
+      winner_count := LEAST(winner_count, top_count);
+      winners_pool := ROUND(winnings_pool / winner_count, 2);
       
       FOR participant_record IN
         SELECT * FROM quiz_participants
@@ -163,6 +180,9 @@ BEGIN
         ORDER BY score DESC, completed_at ASC
         LIMIT top_count
       LOOP
+        last_winner_id := participant_record.id;
+        total_distributed_winners := total_distributed_winners + winners_pool;
+        
         -- Add winnings to user balance
         PERFORM increment_balance(participant_record.user_id, winners_pool);
         
@@ -181,36 +201,73 @@ BEGIN
           'Quiz Win: "' || quiz_record.title || '" - Top Winner'
         );
       END LOOP;
+      
+      -- Handle rounding differences
+      IF last_winner_id IS NOT NULL AND ABS(total_distributed_winners - winnings_pool) > 0.01 THEN
+        rounding_diff := ROUND(winnings_pool - total_distributed_winners, 2);
+        IF ABS(rounding_diff) > 0 THEN
+          UPDATE quiz_participants
+          SET winnings = winnings + rounding_diff
+          WHERE id = last_winner_id;
+          
+          PERFORM increment_balance(
+            (SELECT user_id FROM quiz_participants WHERE id = last_winner_id),
+            rounding_diff
+          );
+        END IF;
+      END IF;
     END;
   ELSIF settlement_method = 'equal_split' THEN
     -- Equal split among all participants
     DECLARE
       participant_record RECORD;
+      last_participant_id UUID;
+      rounding_diff NUMERIC;
+      total_distributed_equal NUMERIC := 0;
     BEGIN
       user_winnings := ROUND(winnings_pool / participants_count, 2);
       
       FOR participant_record IN
         SELECT * FROM quiz_participants
         WHERE quiz_id = quiz_id_param AND status = 'completed'
+        ORDER BY completed_at ASC
       LOOP
-      -- Add winnings to user balance
-      PERFORM increment_balance(participant_record.user_id, user_winnings);
-      
-      -- Update participant winnings
-      UPDATE quiz_participants
-      SET winnings = user_winnings
-      WHERE id = participant_record.id;
-      
-      -- Record transaction
-      INSERT INTO transactions (user_id, type, amount, reference, description)
-      VALUES (
-        participant_record.user_id,
-        'quiz_win',
-        user_winnings,
-        quiz_id_param::text,
-        'Quiz Win: "' || quiz_record.title || '" - Equal Split'
-      );
+        last_participant_id := participant_record.id;
+        total_distributed_equal := total_distributed_equal + user_winnings;
+        
+        -- Add winnings to user balance
+        PERFORM increment_balance(participant_record.user_id, user_winnings);
+        
+        -- Update participant winnings
+        UPDATE quiz_participants
+        SET winnings = user_winnings
+        WHERE id = participant_record.id;
+        
+        -- Record transaction
+        INSERT INTO transactions (user_id, type, amount, reference, description)
+        VALUES (
+          participant_record.user_id,
+          'quiz_win',
+          user_winnings,
+          quiz_id_param::text,
+          'Quiz Win: "' || quiz_record.title || '" - Equal Split'
+        );
       END LOOP;
+      
+      -- Handle rounding differences
+      IF last_participant_id IS NOT NULL AND ABS(total_distributed_equal - winnings_pool) > 0.01 THEN
+        rounding_diff := ROUND(winnings_pool - total_distributed_equal, 2);
+        IF ABS(rounding_diff) > 0 THEN
+          UPDATE quiz_participants
+          SET winnings = winnings + rounding_diff
+          WHERE id = last_participant_id;
+          
+          PERFORM increment_balance(
+            (SELECT user_id FROM quiz_participants WHERE id = last_participant_id),
+            rounding_diff
+          );
+        END IF;
+      END IF;
     END;
   END IF;
   
