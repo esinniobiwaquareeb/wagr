@@ -34,18 +34,21 @@ export async function createNotification(data: NotificationData): Promise<void> 
     }
 
     // Check user preferences
+    // Note: If preferences don't exist, we default to enabled (fail open)
     const { data: preferences } = await supabaseAdmin
       .from('user_preferences')
       .select('notification_enabled, notification_types')
       .eq('user_id', data.user_id)
       .maybeSingle();
 
-    // If notifications are disabled, don't create notification
+    // If notifications are explicitly disabled, don't create notification
+    // Default to enabled if preferences don't exist
     if (preferences && preferences.notification_enabled === false) {
       return;
     }
 
     // If notification types are specified, check if this type is enabled
+    // Only check if user has explicitly set notification_types (non-empty array)
     if (preferences?.notification_types && Array.isArray(preferences.notification_types) && preferences.notification_types.length > 0) {
       if (!preferences.notification_types.includes(data.type)) {
         // User has specific notification types enabled, and this type is not in the list
