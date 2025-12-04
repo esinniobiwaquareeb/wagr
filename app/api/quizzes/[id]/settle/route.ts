@@ -4,6 +4,8 @@ import { requireAuth } from '@/lib/auth/server';
 import { AppError, logError } from '@/lib/error-handler';
 import { ErrorCode } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
+import { sendQuizSettlementEmail } from '@/lib/email-service';
+import { logger } from '@/lib/logger';
 
 /**
  * POST /api/quizzes/[id]/settle
@@ -115,6 +117,58 @@ export async function POST(
       .order('settled_at', { ascending: false })
       .limit(1)
       .single();
+
+    // Send email notifications to all participants
+    try {
+      const { data: participants } = await serviceSupabase
+        .from('quiz_participants')
+        .select(`
+          id,
+          user_id,
+          score,
+          winnings,
+          rank,
+          status,
+          profiles:user_id (
+            email,
+            username
+          )
+        `)
+        .eq('quiz_id', quizId)
+        .eq('status', 'completed');
+
+      if (participants && participants.length > 0) {
+        for (const participant of participants) {
+          // Handle both array and single object responses from Supabase
+          const profile = Array.isArray(participant.profiles) 
+            ? participant.profiles[0] 
+            : participant.profiles;
+          
+          if (profile && profile.email) {
+            try {
+              await sendQuizSettlementEmail(
+                profile.email,
+                profile.username || null,
+                settledQuiz.title,
+                (participant.winnings || 0) > 0,
+                participant.winnings || 0,
+                participant.rank,
+                quizId
+              );
+            } catch (emailError) {
+              logger.error('Failed to send quiz settlement email', {
+                error: emailError,
+                participantId: participant.id,
+                userId: participant.user_id,
+              });
+            }
+          }
+        }
+      }
+    } catch (emailError) {
+      // Don't fail the settlement if emails fail
+      logger.error('Error sending quiz settlement emails', { error: emailError, quizId });
+    }
 
     return successResponseNext({
       message: 'Quiz settled successfully',

@@ -185,6 +185,7 @@ SELECT set_setting('email.enable_wager_joined', 'true'::jsonb, 'email', 'Wager J
 SELECT set_setting('email.enable_balance_updates', 'true'::jsonb, 'email', 'Balance Update Emails', 'Send emails for balance changes', 'boolean', false, false);
 SELECT set_setting('email.enable_welcome_emails', 'true'::jsonb, 'email', 'Welcome Emails', 'Send welcome emails to new users', 'boolean', false, false);
 SELECT set_setting('email.enable_quiz_invitations', 'true'::jsonb, 'email', 'Quiz Invitation Emails', 'Send emails for quiz invitations', 'boolean', false, false);
+SELECT set_setting('email.enable_quiz_settlement', 'true'::jsonb, 'email', 'Quiz Settlement Emails', 'Send emails when quizzes are settled with results and winnings', 'boolean', false, false);
 
 -- Notification Settings
 SELECT set_setting('notifications.enable_push', 'true'::jsonb, 'notifications', 'Enable Push Notifications', 'Enable browser push notifications', 'boolean', true, false);

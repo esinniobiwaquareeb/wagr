@@ -6,6 +6,7 @@
 
 import { sendEmail, type SendEmailOptions } from './email-service';
 import { logger } from './logger';
+import { getSetting } from './settings';
 
 interface QueuedEmail extends SendEmailOptions {
   id: string;
@@ -21,23 +22,73 @@ class EmailQueue {
 
   /**
    * Add email to queue (non-blocking)
+   * Checks platform settings before queuing
    */
-  enqueue(options: SendEmailOptions): void {
-    const email: QueuedEmail = {
-      ...options,
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      retries: 0,
-      createdAt: Date.now(),
-    };
+  async enqueue(options: SendEmailOptions): Promise<void> {
+    try {
+      // Check if email notifications are enabled globally
+      const emailNotificationsEnabled = await getSetting<boolean>('notifications.enable_email', true);
+      if (!emailNotificationsEnabled) {
+        logger.info('Email notifications disabled globally, skipping:', { to: options.to, type: options.type });
+        return;
+      }
 
-    this.queue.push(email);
-    logger.info('Email queued:', { to: options.to, type: options.type, id: email.id });
+      // Check specific email type settings
+      let typeEnabled = true;
+      const emailType = options.type as string;
+      
+      // Map email types to settings (handle both formats)
+      if (emailType === 'quiz-invitation' || emailType === 'quiz_invitation') {
+        typeEnabled = await getSetting<boolean>('email.enable_quiz_invitations', true);
+      } else if (emailType === 'wager_resolved' || emailType === 'wager-settlement') {
+        typeEnabled = await getSetting<boolean>('email.enable_wager_settlement', true);
+      } else if (emailType === 'wager_joined' || emailType === 'wager-joined') {
+        typeEnabled = await getSetting<boolean>('email.enable_wager_joined', true);
+      } else if (emailType === 'balance_update' || emailType === 'balance-update') {
+        typeEnabled = await getSetting<boolean>('email.enable_balance_updates', true);
+      } else if (emailType === 'welcome') {
+        typeEnabled = await getSetting<boolean>('email.enable_welcome_emails', true);
+      } else if (emailType === 'quiz-settlement' || emailType === 'quiz_settled') {
+        // Check if quiz settlement emails are enabled (default to true if not set)
+        typeEnabled = await getSetting<boolean>('email.enable_quiz_settlement', true);
+      }
 
-    // Start processing if not already running
-    if (!this.processing) {
-      this.processQueue().catch((error) => {
-        logger.error('Email queue processing error:', error);
-      });
+      if (!typeEnabled) {
+        logger.info(`Email type ${options.type} disabled, skipping:`, { to: options.to, type: options.type });
+        return;
+      }
+
+      const email: QueuedEmail = {
+        ...options,
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        retries: 0,
+        createdAt: Date.now(),
+      };
+
+      this.queue.push(email);
+      logger.info('Email queued:', { to: options.to, type: options.type, id: email.id });
+
+      // Start processing if not already running
+      if (!this.processing) {
+        this.processQueue().catch((error) => {
+          logger.error('Email queue processing error:', error);
+        });
+      }
+    } catch (error) {
+      // If settings check fails, log but don't block (fail open for reliability)
+      logger.error('Error checking email settings, sending anyway:', { error, type: options.type });
+      const email: QueuedEmail = {
+        ...options,
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        retries: 0,
+        createdAt: Date.now(),
+      };
+      this.queue.push(email);
+      if (!this.processing) {
+        this.processQueue().catch((err) => {
+          logger.error('Email queue processing error:', err);
+        });
+      }
     }
   }
 
@@ -117,9 +168,10 @@ const emailQueue = new EmailQueue();
 /**
  * Send email in background (non-blocking)
  * Returns immediately without waiting for email to be sent
+ * Checks platform settings before sending
  */
-export function sendEmailAsync(options: SendEmailOptions): void {
-  emailQueue.enqueue(options);
+export async function sendEmailAsync(options: SendEmailOptions): Promise<void> {
+  await emailQueue.enqueue(options);
 }
 
 /**

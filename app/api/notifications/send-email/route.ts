@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { sendWagerSettlementEmail, sendWagerJoinedEmail, sendBalanceUpdateEmail, sendWelcomeEmail } from '@/lib/email-service';
+import { sendWagerSettlementEmail, sendWagerJoinedEmail, sendBalanceUpdateEmail, sendWelcomeEmail, sendQuizSettlementEmail } from '@/lib/email-service';
 import { logger } from '@/lib/logger';
+import { getSetting } from '@/lib/settings';
 
 /**
  * API endpoint to send email notifications
@@ -57,6 +58,15 @@ export async function POST(request: NextRequest) {
     const userEmail = user.user.email;
     const userName = profile?.username || null;
 
+    // Check if email notifications are enabled globally
+    const emailNotificationsEnabled = await getSetting<boolean>('notifications.enable_email', true);
+    if (!emailNotificationsEnabled) {
+      return NextResponse.json({
+        success: false,
+        message: 'Email notifications are disabled',
+      });
+    }
+
     // Get notification details if notification_id is provided
     let notificationData = null;
     if (notification_id) {
@@ -67,6 +77,38 @@ export async function POST(request: NextRequest) {
         .single();
       
       notificationData = notification;
+    }
+
+    // Check specific email type settings
+    let typeEnabled = true;
+    switch (type) {
+      case 'wager_resolved':
+        typeEnabled = await getSetting<boolean>('email.enable_wager_settlement', true);
+        break;
+      case 'wager_joined':
+        typeEnabled = await getSetting<boolean>('email.enable_wager_joined', true);
+        break;
+      case 'balance_update':
+        typeEnabled = await getSetting<boolean>('email.enable_balance_updates', true);
+        break;
+      case 'welcome':
+        typeEnabled = await getSetting<boolean>('email.enable_welcome_emails', true);
+        break;
+      case 'quiz_invitation':
+      case 'quiz-invitation':
+        typeEnabled = await getSetting<boolean>('email.enable_quiz_invitations', true);
+        break;
+      case 'quiz_settled':
+      case 'quiz-settlement':
+        typeEnabled = await getSetting<boolean>('email.enable_quiz_settlement', true);
+        break;
+    }
+
+    if (!typeEnabled) {
+      return NextResponse.json({
+        success: false,
+        message: `Email type ${type} is disabled`,
+      });
     }
 
     // Send email based on type
@@ -131,6 +173,30 @@ export async function POST(request: NextRequest) {
       case 'welcome':
         sendWelcomeEmail(userEmail, userName);
         emailSent = true; // Email queued successfully
+        break;
+
+      case 'quiz_settled':
+      case 'quiz-settlement':
+        if (metadata?.quiz_id && metadata?.won !== undefined) {
+          const { data: quiz } = await supabase
+            .from('quizzes')
+            .select('title')
+            .eq('id', metadata.quiz_id)
+            .single();
+
+          if (quiz) {
+            sendQuizSettlementEmail(
+              userEmail,
+              userName,
+              quiz.title,
+              metadata.won === true,
+              metadata.amount || 0,
+              metadata.rank || null,
+              metadata.quiz_id
+            );
+            emailSent = true; // Email queued successfully
+          }
+        }
         break;
 
       default:

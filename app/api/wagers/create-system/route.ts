@@ -3,7 +3,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import { PLATFORM_FEE_PERCENTAGE } from "@/lib/constants";
+import { getWagerPlatformFee } from "@/lib/settings";
 
 interface SystemWagerRequest {
   title: string;
@@ -77,6 +77,9 @@ export async function POST(request: Request) {
       );
     }
     
+    // Get the configured platform fee
+    const platformFee = await getWagerPlatformFee();
+    
     // Create the wager
     const { data: wager, error } = await supabase
       .from("wagers")
@@ -92,7 +95,7 @@ export async function POST(request: Request) {
         is_system_generated: true,
         source_data: body.source_data || null,
         currency: body.currency || "NGN",
-          fee_percentage: PLATFORM_FEE_PERCENTAGE,
+        fee_percentage: platformFee,
         status: "OPEN",
       })
       .select()

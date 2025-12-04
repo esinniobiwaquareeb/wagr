@@ -4,6 +4,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 import { AppError, ErrorCode, logError } from '@/lib/error-handler';
 import { getKycLevelConfig } from '@/lib/kyc/levels';
+import { sendKycApprovalEmail, sendKycRejectionEmail } from '@/lib/email-service';
 
 function normalizeSubmission(entry: any) {
   const user = entry.profiles || null;
@@ -127,6 +128,38 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
 
       if (profileError) {
         throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to update user profile.');
+      }
+
+      // Send approval email notification
+      // Handle both array and single object responses from Supabase
+      const profile = Array.isArray(submission.profiles) 
+        ? submission.profiles[0] 
+        : submission.profiles;
+      const userEmail = profile?.email;
+      const userName = profile?.username || null;
+      if (userEmail) {
+        try {
+          sendKycApprovalEmail(userEmail, userName, level, config.label);
+        } catch (emailError) {
+          // Log but don't fail the request if email fails
+          logError(new Error(`Failed to send KYC approval email: ${emailError instanceof Error ? emailError.message : String(emailError)}`));
+        }
+      }
+    } else if (status === 'rejected') {
+      // Send rejection email notification
+      // Handle both array and single object responses from Supabase
+      const profile = Array.isArray(submission.profiles) 
+        ? submission.profiles[0] 
+        : submission.profiles;
+      const userEmail = profile?.email;
+      const userName = profile?.username || null;
+      if (userEmail) {
+        try {
+          sendKycRejectionEmail(userEmail, userName, reason || 'Your submission did not meet our verification requirements.');
+        } catch (emailError) {
+          // Log but don't fail the request if email fails
+          logError(new Error(`Failed to send KYC rejection email: ${emailError instanceof Error ? emailError.message : String(emailError)}`));
+        }
       }
     }
 

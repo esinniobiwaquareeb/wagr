@@ -357,10 +357,16 @@ export default function AdminKycPage() {
           <Card className="border border-border/80">
             <CardContent className="p-0">
               <DataTable
-                data={submissions}
+                data={submissions.map(sub => ({
+                  ...sub,
+                  _searchUsername: sub.user?.username || '',
+                  _searchEmail: sub.user?.email || '',
+                  _searchName: `${sub.user?.username || ''} ${sub.user?.email || ''}`.trim(),
+                }))}
                 columns={columns}
                 searchable={true}
-                searchPlaceholder="Search submissions..."
+                searchPlaceholder="Search by name, username, or email..."
+                searchKeys={['_searchName', '_searchUsername', '_searchEmail', 'status', 'level_requested']}
                 pagination={true}
                 pageSize={10}
                 emptyMessage="No KYC submissions found for this filter."

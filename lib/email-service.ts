@@ -167,6 +167,37 @@ export function sendWelcomeEmail(
 }
 
 /**
+ * Send email notification for quiz settlement (non-blocking)
+ */
+export function sendQuizSettlementEmail(
+  userEmail: string,
+  userName: string | null,
+  quizTitle: string,
+  won: boolean,
+  amount: number,
+  rank: number | null,
+  quizId: string
+): void {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://wagr.app';
+  
+  sendEmailAsync({
+    to: userEmail,
+    type: 'quiz-settlement',
+    data: {
+      recipientName: userName || undefined,
+      quizTitle: quizTitle,
+      won: won,
+      amount: amount,
+      rank: rank,
+      quizUrl: `${appUrl}/quiz/${quizId}`,
+    },
+    subject: won 
+      ? `🎉 Quiz Results: You won ${amount} on "${quizTitle}"!` 
+      : `Quiz Results: "${quizTitle}"`,
+  });
+}
+
+/**
  * Send email when someone joins a user's wager (non-blocking)
  */
 export function sendWagerJoinedEmail(
@@ -214,6 +245,44 @@ export function sendBalanceUpdateEmail(
       : type === 'withdrawal'
       ? `Withdrawal of ${amount} processed`
       : `Balance update: ${amount}`,
+  });
+}
+
+/**
+ * Send email notification for KYC approval (non-blocking)
+ */
+export function sendKycApprovalEmail(
+  userEmail: string,
+  userName: string | null,
+  kycLevel: number,
+  kycLevelLabel: string
+): void {
+  sendEmailAsync({
+    to: userEmail,
+    type: 'kyc-approved',
+    data: {
+      recipientName: userName || undefined,
+      kycLevel: kycLevel,
+      kycLevelLabel: kycLevelLabel,
+    },
+  });
+}
+
+/**
+ * Send email notification for KYC rejection (non-blocking)
+ */
+export function sendKycRejectionEmail(
+  userEmail: string,
+  userName: string | null,
+  rejectionReason: string
+): void {
+  sendEmailAsync({
+    to: userEmail,
+    type: 'kyc-rejected',
+    data: {
+      recipientName: userName || undefined,
+      rejectionReason: rejectionReason,
+    },
   });
 }
 

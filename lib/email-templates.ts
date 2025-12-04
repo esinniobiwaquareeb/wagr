@@ -11,7 +11,10 @@ export type EmailType =
   | '2fa-enabled'
   | '2fa-disabled'
   | 'wager-invitation'
-  | 'quiz-invitation';
+  | 'quiz-invitation'
+  | 'quiz-settlement'
+  | 'kyc-approved'
+  | 'kyc-rejected';
 
 export interface EmailTemplateData {
   type: EmailType;
@@ -46,6 +49,13 @@ export interface EmailTemplateData {
   totalQuestions?: number;
   maxParticipants?: number;
   endDate?: string;
+  // Quiz settlement (reuses amount from wager invitation)
+  won?: boolean;
+  rank?: number | null;
+  // KYC
+  kycLevel?: number;
+  kycLevelLabel?: string;
+  rejectionReason?: string;
 }
 
 /**
@@ -63,6 +73,9 @@ export function getEmailSubject(type: EmailType, customSubject?: string): string
     '2fa-disabled': 'Two-factor authentication disabled',
     'wager-invitation': 'You\'ve been invited to a wager!',
     'quiz-invitation': 'You\'ve been invited to a quiz!',
+    'quiz-settlement': 'Quiz Results Available',
+    'kyc-approved': 'KYC Verification Approved',
+    'kyc-rejected': 'KYC Verification Rejected',
   };
 
   return subjects[type] || 'wagered.app notification';
@@ -379,6 +392,57 @@ export function generateEmailHTML(data: EmailTemplateData): string {
         </p>
       `;
       break;
+
+    case 'quiz-settlement':
+      const settlementQuizTitle = data.quizTitle || 'a quiz';
+      const settlementQuizUrl = data.quizUrl || `${appUrl}/quizzes`;
+      const quizWon = data.won === true;
+      const quizWinnings = data.amount || 0;
+      const quizRank = data.rank;
+      
+      if (quizWon && quizWinnings > 0) {
+        content = `
+          <p style="margin: 0 0 16px; ${baseStyles} font-size: 16px;">Congratulations! The quiz <strong>"${settlementQuizTitle}"</strong> has been settled, and you're a winner! 🎉</p>
+          
+          <div style="background-color: #d1fae5; padding: 24px; border-radius: 8px; border: 1px solid #10b981; margin: 24px 0;">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <p style="margin: 0 0 8px; ${baseStyles} font-size: 14px; color: #065f46; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Your Winnings</p>
+              <p style="margin: 0; ${baseStyles} font-size: 32px; font-weight: 700; color: #10b981;">${formatCurrency(quizWinnings)}</p>
+            </div>
+            ${quizRank ? `
+            <div style="text-align: center; padding-top: 20px; border-top: 1px solid #10b981;">
+              <p style="margin: 0 0 8px; ${baseStyles} font-size: 14px; color: #065f46; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Your Rank</p>
+              <p style="margin: 0; ${baseStyles} font-size: 24px; font-weight: 700; color: #065f46;">#${quizRank}</p>
+            </div>
+            ` : ''}
+          </div>
+          
+          <p style="margin: 24px 0 0; ${baseStyles} font-size: 16px;">Your winnings have been added to your account balance. You can view the full results and leaderboard by clicking the button below.</p>
+        `;
+        buttonText = 'View Quiz Results';
+        buttonUrl = settlementQuizUrl;
+        additionalInfo = '';
+      } else {
+        content = `
+          <p style="margin: 0 0 16px; ${baseStyles} font-size: 16px;">The quiz <strong>"${settlementQuizTitle}"</strong> has been settled.</p>
+          
+          <div style="background-color: #f9fafb; padding: 24px; border-radius: 8px; border: 1px solid #e5e7eb; margin: 24px 0;">
+            <p style="margin: 0 0 12px; ${baseStyles} font-size: 15px; color: #4b5563;">Thank you for participating! While you didn't win this time, we hope you enjoyed the quiz.</p>
+            ${quizRank ? `
+            <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+              <p style="margin: 0 0 6px; ${baseStyles} font-size: 12px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Your Rank</p>
+              <p style="margin: 0; ${baseStyles} font-size: 18px; font-weight: 600; color: #1f2937;">#${quizRank}</p>
+            </div>
+            ` : ''}
+          </div>
+          
+          <p style="margin: 24px 0 0; ${baseStyles} font-size: 16px;">You can view the full results and leaderboard by clicking the button below.</p>
+        `;
+        buttonText = 'View Quiz Results';
+        buttonUrl = settlementQuizUrl;
+        additionalInfo = '';
+      }
+      break;
   }
 
   return `
@@ -471,6 +535,15 @@ export function generateEmailText(data: EmailTemplateData): string {
   const appName = 'wagered.app';
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://wagered.app';
   const currency = (process.env.DEFAULT_CURRENCY || 'NGN') as 'NGN' | 'USD' | 'GBP' | 'EUR';
+  
+  const formatCurrencyText = (amount: number, curr: string = currency) => {
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: curr,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  };
 
   let content = '';
 
@@ -515,15 +588,33 @@ export function generateEmailText(data: EmailTemplateData): string {
       const endDateText = data.endDate ? new Date(data.endDate).toLocaleDateString() : '';
       const quizUrlText = data.quizUrl || `${appUrl}/quizzes`;
       const totalCostText = entryFeeText * totalQuestionsText;
-      const formatCurrencyText = (amount: number, curr: string = currency) => {
-        return new Intl.NumberFormat('en-NG', {
-          style: 'currency',
-          currency: curr,
-          minimumFractionDigits: 0,
-          maximumFractionDigits: 2,
-        }).format(amount);
-      };
       content = `Hi ${name},\n\n${quizInviterNameText} has invited you to participate in a quiz on ${appName}!\n\nQuiz: ${quizTitleText}\n${quizDescriptionText ? `Description: ${quizDescriptionText}\n` : ''}\nQuestions: ${totalQuestionsText}\nEntry Fee: ${formatCurrencyText(entryFeeText)} per question\nTotal Cost: ${formatCurrencyText(totalCostText)}\nMax Participants: ${maxParticipantsText}\n${endDateText ? `End Date: ${endDateText}\n` : ''}\nTake quiz now: ${quizUrlText}\n\nDon't have an account? Sign up for free at ${appUrl}/wagers?signup=true\n\nBest regards,\nThe ${appName} Team`;
+      break;
+
+    case 'quiz-settlement':
+      const settlementQuizTitleText = data.quizTitle || 'a quiz';
+      const settlementQuizUrlText = data.quizUrl || `${appUrl}/quizzes`;
+      const quizWonText = data.won === true;
+      const quizWinningsText = data.amount || 0;
+      const quizRankText = data.rank;
+      
+      if (quizWonText && quizWinningsText > 0) {
+        content = `Hi ${name},\n\nCongratulations! The quiz "${settlementQuizTitleText}" has been settled, and you're a winner! 🎉\n\nYour Winnings: ${formatCurrencyText(quizWinningsText)}\n${quizRankText ? `Your Rank: #${quizRankText}\n` : ''}\nYour winnings have been added to your account balance. View full results: ${settlementQuizUrlText}\n\nBest regards,\nThe ${appName} Team`;
+      } else {
+        content = `Hi ${name},\n\nThe quiz "${settlementQuizTitleText}" has been settled.\n\nThank you for participating! While you didn't win this time, we hope you enjoyed the quiz.\n${quizRankText ? `Your Rank: #${quizRankText}\n` : ''}\nView full results: ${settlementQuizUrlText}\n\nBest regards,\nThe ${appName} Team`;
+      }
+      break;
+
+    case 'kyc-approved':
+      const kycLevelText = data.kycLevel || 1;
+      const kycLevelLabelText = data.kycLevelLabel || `Level ${kycLevelText}`;
+      content = `Hi ${name},\n\nCongratulations! Your KYC verification has been approved.\n\nYour New Verification Level: ${kycLevelLabelText}\n\nYour account has been successfully upgraded to ${kycLevelLabelText}. You now have access to additional features and higher transaction limits.\n\nView your account: ${appUrl}/profile\n\nBest regards,\nThe ${appName} Team`;
+      break;
+
+    case 'kyc-rejected':
+      const rejectionReasonText = data.rejectionReason || 'Your submission did not meet our verification requirements.';
+      const supportEmailText = process.env.SUPPORT_EMAIL || 'support@wagered.app';
+      content = `Hi ${name},\n\nWe regret to inform you that your KYC verification has been rejected.\n\nRejection Reason:\n${rejectionReasonText}\n\nYou can submit a new KYC application from your profile page. Please ensure all information is accurate and all required documents are clear and valid.\n\nSubmit new application: ${appUrl}/profile\n\nNeed help? Contact our support team at ${supportEmailText}.\n\nBest regards,\nThe ${appName} Team`;
       break;
   }
 

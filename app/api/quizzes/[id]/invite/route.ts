@@ -199,7 +199,7 @@ export async function POST(
             // Send email notification
             if (profile.email) {
               try {
-                sendEmailAsync({
+                await sendEmailAsync({
                   to: profile.email,
                   type: 'quiz-invitation',
                   data: {
@@ -228,7 +228,7 @@ export async function POST(
           } else {
             // User doesn't exist - send invitation email anyway
             try {
-              sendEmailAsync({
+              await sendEmailAsync({
                 to: trimmedInvite,
                 type: 'quiz-invitation',
                 data: {
