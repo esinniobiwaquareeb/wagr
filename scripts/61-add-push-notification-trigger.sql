@@ -2,6 +2,7 @@
 -- This ensures push notifications are sent even when notifications are created by database triggers
 
 -- Function to trigger push notification when notification is created
+-- This function is designed to NEVER fail the transaction, even if push notification fails
 CREATE OR REPLACE FUNCTION trigger_push_notification()
 RETURNS TRIGGER LANGUAGE plpgsql 
 SECURITY DEFINER
@@ -14,140 +15,150 @@ DECLARE
   push_prefs_enabled BOOLEAN;
   notif_prefs_enabled BOOLEAN;
   headers_json jsonb;
+  pg_net_available BOOLEAN := false;
 BEGIN
-  -- Check user preferences first (push notifications are non-critical, so we can skip if prefs check fails)
+  -- Wrap entire function in exception handler to ensure it never fails the transaction
   BEGIN
-    SELECT 
-      COALESCE(push_notifications_enabled, true),
-      COALESCE(notification_enabled, true)
-    INTO push_prefs_enabled, notif_prefs_enabled
-    FROM user_preferences
-    WHERE user_id = NEW.user_id
-    LIMIT 1;
-  EXCEPTION
-    WHEN OTHERS THEN
-      -- If preferences check fails, default to enabled (fail open)
-      push_prefs_enabled := true;
-      notif_prefs_enabled := true;
-  END;
-
-  -- Skip if push notifications or all notifications are disabled for this user
-  IF push_prefs_enabled = false OR notif_prefs_enabled = false THEN
-    RETURN NEW;
-  END IF;
-
-  -- Get configuration from platform_settings table
-  -- Value is stored as JSONB, so we need to extract the string value
-  BEGIN
-    SELECT 
-      CASE 
-        WHEN jsonb_typeof(value) = 'string' THEN value #>> '{}'
-        ELSE value::text
-      END INTO app_url
-    FROM platform_settings
-    WHERE key = 'app.url'
-    LIMIT 1;
-    
-    -- Remove surrounding quotes if present (JSONB string values include quotes)
-    IF app_url IS NOT NULL AND app_url LIKE '"%"' THEN
-      app_url := substring(app_url from 2 for length(app_url) - 2);
-    END IF;
-  EXCEPTION
-    WHEN OTHERS THEN
-      app_url := NULL;
-  END;
-
-  -- If not found in platform_settings, try database setting as fallback
-  IF app_url IS NULL OR app_url = '' THEN
+    -- Check user preferences first (push notifications are non-critical, so we can skip if prefs check fails)
     BEGIN
-      app_url := current_setting('app.settings.app_url', true);
+      SELECT 
+        COALESCE(push_notifications_enabled, true),
+        COALESCE(notification_enabled, true)
+      INTO push_prefs_enabled, notif_prefs_enabled
+      FROM user_preferences
+      WHERE user_id = NEW.user_id
+      LIMIT 1;
+    EXCEPTION
+      WHEN OTHERS THEN
+        -- If preferences check fails, default to enabled (fail open)
+        push_prefs_enabled := true;
+        notif_prefs_enabled := true;
+    END;
+
+    -- Skip if push notifications or all notifications are disabled for this user
+    IF push_prefs_enabled = false OR notif_prefs_enabled = false THEN
+      RETURN NEW;
+    END IF;
+
+    -- Check if pg_net extension is available (do this once at the start)
+    BEGIN
+      SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'pg_net') INTO pg_net_available;
+    EXCEPTION
+      WHEN OTHERS THEN
+        pg_net_available := false;
+    END;
+
+    -- If pg_net is not available, skip silently (push notifications will be handled by application code)
+    IF NOT pg_net_available THEN
+      RETURN NEW;
+    END IF;
+
+    -- Get configuration from platform_settings table
+    -- Value is stored as JSONB, so we need to extract the string value
+    BEGIN
+      SELECT 
+        CASE 
+          WHEN jsonb_typeof(value) = 'string' THEN value #>> '{}'
+          ELSE value::text
+        END INTO app_url
+      FROM platform_settings
+      WHERE key = 'app.url'
+      LIMIT 1;
+      
+      -- Remove surrounding quotes if present (JSONB string values include quotes)
+      IF app_url IS NOT NULL AND app_url LIKE '"%"' THEN
+        app_url := substring(app_url from 2 for length(app_url) - 2);
+      END IF;
     EXCEPTION
       WHEN OTHERS THEN
         app_url := NULL;
     END;
-  END IF;
 
-  -- Default to localhost if not configured (for development)
-  IF app_url IS NULL OR app_url = '' THEN
-    app_url := 'http://localhost:3000';
-  END IF;
-
-  push_url := app_url || '/api/push/send';
-  
-  -- Get API secret from platform_settings
-  BEGIN
-    SELECT 
-      CASE 
-        WHEN jsonb_typeof(value) = 'string' THEN value #>> '{}'
-        ELSE value::text
-      END INTO api_secret
-    FROM platform_settings
-    WHERE key = 'app.notification_api_secret'
-    LIMIT 1;
-    
-    -- Remove surrounding quotes if present
-    IF api_secret IS NOT NULL AND api_secret LIKE '"%"' THEN
-      api_secret := substring(api_secret from 2 for length(api_secret) - 2);
+    -- If not found in platform_settings, try database setting as fallback
+    IF app_url IS NULL OR app_url = '' THEN
+      BEGIN
+        app_url := current_setting('app.settings.app_url', true);
+      EXCEPTION
+        WHEN OTHERS THEN
+          app_url := NULL;
+      END;
     END IF;
-  EXCEPTION
-    WHEN OTHERS THEN
-      api_secret := NULL;
-  END;
 
-  -- If not found in platform_settings, try database setting as fallback
-  IF api_secret IS NULL OR api_secret = '' THEN
+    -- If still not configured, skip (don't default to localhost in production)
+    IF app_url IS NULL OR app_url = '' THEN
+      RETURN NEW;
+    END IF;
+
+    push_url := app_url || '/api/push/send';
+    
+    -- Get API secret from platform_settings
     BEGIN
-      api_secret := current_setting('app.settings.notification_api_secret', true);
+      SELECT 
+        CASE 
+          WHEN jsonb_typeof(value) = 'string' THEN value #>> '{}'
+          ELSE value::text
+        END INTO api_secret
+      FROM platform_settings
+      WHERE key = 'app.notification_api_secret'
+      LIMIT 1;
+      
+      -- Remove surrounding quotes if present
+      IF api_secret IS NOT NULL AND api_secret LIKE '"%"' THEN
+        api_secret := substring(api_secret from 2 for length(api_secret) - 2);
+      END IF;
     EXCEPTION
       WHEN OTHERS THEN
         api_secret := NULL;
     END;
-  END IF;
-  
-  -- Try to use pg_net extension if available
-  -- Note: This requires pg_net extension to be enabled in Supabase
-  IF push_url IS NOT NULL AND push_url != '' THEN
+
+    -- If not found in platform_settings, try database setting as fallback
+    IF api_secret IS NULL OR api_secret = '' THEN
+      BEGIN
+        api_secret := current_setting('app.settings.notification_api_secret', true);
+      EXCEPTION
+        WHEN OTHERS THEN
+          api_secret := NULL;
+      END;
+    END IF;
+    
+    -- Build headers
+    headers_json := jsonb_build_object('Content-Type', 'application/json');
+    
+    -- Add Authorization header if secret is provided
+    IF api_secret IS NOT NULL AND api_secret != '' AND api_secret != '""' THEN
+      headers_json := headers_json || jsonb_build_object('Authorization', 'Bearer ' || api_secret);
+    END IF;
+    
+    -- Use pg_net to call push notification API (fire-and-forget, don't wait for response)
+    -- This is wrapped in its own exception handler to ensure it never fails
     BEGIN
-      -- Check if pg_net extension is available
-      IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_net') THEN
-        BEGIN
-          -- Build headers
-          headers_json := jsonb_build_object('Content-Type', 'application/json');
-          
-          -- Add Authorization header if secret is provided
-          IF api_secret IS NOT NULL AND api_secret != '' AND api_secret != '""' THEN
-            headers_json := headers_json || jsonb_build_object('Authorization', 'Bearer ' || api_secret);
-          END IF;
-          
-          -- Use pg_net to call push notification API
-          PERFORM net.http_post(
-            url := push_url,
-            headers := headers_json,
-            body := jsonb_build_object(
-              'user_id', NEW.user_id,
-              'title', NEW.title,
-              'body', NEW.message,
-              'url', COALESCE(NEW.link, '/'),
-              'data', jsonb_build_object(
-                'notification_id', NEW.id,
-                'type', NEW.type,
-                'metadata', COALESCE(NEW.metadata, '{}'::jsonb)
-              )
-            )
-          );
-        EXCEPTION
-          WHEN OTHERS THEN
-            -- Log error but don't fail the notification insert
-            RAISE WARNING 'Failed to send push notification: %', SQLERRM;
-        END;
-      END IF;
+      PERFORM net.http_post(
+        url := push_url,
+        headers := headers_json,
+        body := jsonb_build_object(
+          'user_id', NEW.user_id,
+          'title', NEW.title,
+          'body', NEW.message,
+          'url', COALESCE(NEW.link, '/'),
+          'data', jsonb_build_object(
+            'notification_id', NEW.id,
+            'type', NEW.type,
+            'metadata', COALESCE(NEW.metadata, '{}'::jsonb)
+          )
+        )
+      );
     EXCEPTION
       WHEN OTHERS THEN
-        -- Log error but don't fail the notification insert
-        -- Push notifications are non-critical
-        RAISE WARNING 'Failed to trigger push notification (pg_net may not be available): %', SQLERRM;
+        -- Silently ignore errors - push notifications are non-critical
+        -- Don't even log warnings to avoid spam
+        NULL;
     END;
-  END IF;
+  EXCEPTION
+    WHEN OTHERS THEN
+      -- Catch-all: ensure this function NEVER fails the transaction
+      -- Push notifications are completely non-critical
+      NULL;
+  END;
 
   RETURN NEW;
 END;

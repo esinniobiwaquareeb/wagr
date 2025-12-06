@@ -30,7 +30,7 @@ async function fetchSubmissionWithUser(supabaseAdmin: ReturnType<typeof createSe
       payload,
       created_at,
       updated_at,
-      profiles:profiles!inner(
+      profiles:profiles(
         id,
         username,
         email,
@@ -45,13 +45,27 @@ async function fetchSubmissionWithUser(supabaseAdmin: ReturnType<typeof createSe
     `,
     )
     .eq('id', id)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
+  if (error) {
+    logError(new Error(`Database error fetching KYC submission: ${error.message}`));
+    throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch KYC submission');
+  }
+
+  if (!data) {
     throw new AppError(ErrorCode.NOT_FOUND, 'KYC submission not found');
   }
 
-  return data;
+  // Ensure profiles is always an object (not array) for consistency
+  // TypeScript: handle the case where Supabase might return an array
+  const normalizedData = {
+    ...data,
+    profiles: Array.isArray(data.profiles) 
+      ? (data.profiles[0] || null)
+      : data.profiles
+  };
+
+  return normalizedData;
 }
 
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
