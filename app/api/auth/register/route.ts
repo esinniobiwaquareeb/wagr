@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
             balance: 0,
           })
           .select()
-          .single();
+          .maybeSingle();
 
         if (profileError || !profile) {
           // Check for unique constraint violations

@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
       .from('profiles')
       .select('id, username, email, avatar_url, balance, email_verified, email_verified_at, two_factor_enabled, created_at, kyc_level, kyc_level_label, bvn_verified, nin_verified, face_verified, document_verified')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     if (error || !profile) {
       throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch profile');
@@ -63,7 +63,7 @@ export async function PATCH(request: NextRequest) {
         .select('id')
         .eq('username', trimmedUsername)
         .neq('id', user.id)
-        .single();
+        .maybeSingle();
 
       if (existing) {
         throw new AppError(ErrorCode.VALIDATION_ERROR, 'Username is already taken');
@@ -85,7 +85,7 @@ export async function PATCH(request: NextRequest) {
       .update(updates)
       .eq('id', user.id)
       .select('id, username, email, avatar_url, balance, email_verified, email_verified_at, two_factor_enabled, created_at, kyc_level, kyc_level_label, bvn_verified, nin_verified, face_verified, document_verified')
-      .single();
+      .maybeSingle();
 
     if (error || !profile) {
       throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to update profile');

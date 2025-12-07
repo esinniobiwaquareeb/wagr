@@ -28,7 +28,7 @@ export async function POST(
       .select('id, status, quiz_id')
       .eq('quiz_id', quizId)
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
     if (participantError || !participant) {
       throw new AppError(ErrorCode.NOT_FOUND, 'You are not invited to this quiz');
@@ -43,7 +43,7 @@ export async function POST(
       .from('quizzes')
       .select('id, status, max_participants, creator_id')
       .eq('id', quizId)
-      .single();
+      .maybeSingle();
 
     if (!quiz) {
       throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Quiz not found');

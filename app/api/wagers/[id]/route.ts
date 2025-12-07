@@ -36,9 +36,14 @@ export async function GET(
         .from('wagers')
         .select('*, profiles:creator_id(username, avatar_url)')
         .or(`id.eq.${wagerId},short_id.eq.${wagerId}`)
-        .single();
+        .maybeSingle();
 
-      if (error || !wager) {
+      if (error) {
+        logError(new Error(`Database error fetching wager: ${error.message}`), { error, wagerId });
+        throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch wager');
+      }
+
+      if (!wager) {
         throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Wager not found');
       }
 
@@ -116,9 +121,14 @@ export async function DELETE(
       .from('wagers')
       .select('id, creator_id, status, deadline')
       .or(`id.eq.${wagerId},short_id.eq.${wagerId}`)
-      .single();
+      .maybeSingle();
 
-    if (wagerError || !wager) {
+    if (wagerError) {
+      logError(new Error(`Database error fetching wager: ${wagerError.message}`), { wagerError, wagerId });
+      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch wager');
+    }
+
+    if (!wager) {
       throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Wager not found');
     }
 
@@ -159,11 +169,16 @@ export async function DELETE(
     // Get wager amount for refund - use the actual UUID from the wager we fetched
     const actualWagerId = wager.id; // Use the UUID from the fetched wager, not the sanitized input
 
-    const { data: fullWager } = await supabase
+    const { data: fullWager, error: fullWagerError } = await supabase
       .from('wagers')
       .select('amount')
       .eq('id', actualWagerId)
-      .single();
+      .maybeSingle();
+
+    if (fullWagerError) {
+      logError(new Error(`Database error fetching wager amount: ${fullWagerError.message}`), { fullWagerError, actualWagerId });
+      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch wager details');
+    }
 
     // Refund creator's entry
     if (fullWager) {

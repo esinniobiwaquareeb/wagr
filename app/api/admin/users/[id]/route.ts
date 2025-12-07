@@ -27,7 +27,7 @@ export async function DELETE(
       .from('profiles')
       .select('id, is_admin, deleted_at')
       .eq('id', id)
-      .single();
+      .maybeSingle();
 
     if (profileError || !profile) {
       throw new AppError(ErrorCode.NOT_FOUND, 'User not found');

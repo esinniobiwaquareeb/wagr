@@ -30,7 +30,7 @@ export async function getSetting<T = any>(key: string, defaultValue?: T): Promis
       .from('platform_settings')
       .select('value')
       .eq('key', key)
-      .single();
+      .maybeSingle();
 
     if (data?.value !== undefined && data?.value !== null) {
       return data.value as T;

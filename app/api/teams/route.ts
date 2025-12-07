@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
         description: description?.trim() || null,
       })
       .select()
-      .single();
+      .maybeSingle();
 
     if (teamError || !team) {
       throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to create team');
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
         )
       `)
       .eq('id', team.id)
-      .single();
+      .maybeSingle();
 
     return successResponseNext({ team: teamWithMembers }, undefined, 201);
   } catch (error) {

@@ -27,7 +27,7 @@ export async function GET(
       .from('quizzes')
       .select('id')
       .eq('id', quizId)
-      .single();
+      .maybeSingle();
 
     if (!quiz) {
       throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Quiz not found');

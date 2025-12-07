@@ -29,18 +29,28 @@ export async function POST(
       .from('quizzes')
       .select('id, creator_id, status, end_date')
       .eq('id', quizId)
-      .single();
+      .maybeSingle();
 
-    if (quizError || !quiz) {
+    if (quizError) {
+      logError(new Error(`Database error fetching quiz: ${quizError.message}`), { quizError, quizId });
+      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch quiz');
+    }
+
+    if (!quiz) {
       throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Quiz not found');
     }
 
     // Check if user is creator or admin
-    const { data: profile } = await serviceSupabase
+    const { data: profile, error: profileError } = await serviceSupabase
       .from('profiles')
       .select('is_admin')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
+
+    if (profileError) {
+      logError(new Error(`Database error fetching profile: ${profileError.message}`), { profileError, userId: user.id });
+      // Continue with default (not admin) rather than failing
+    }
 
     const isAdmin = profile?.is_admin === true;
     const isCreator = quiz.creator_id === user.id;
@@ -103,20 +113,30 @@ export async function POST(
     }
 
     // Get updated quiz
-    const { data: settledQuiz } = await serviceSupabase
+    const { data: settledQuiz, error: settledQuizError } = await serviceSupabase
       .from('quizzes')
       .select('*')
       .eq('id', quizId)
-      .single();
+      .maybeSingle();
+
+    if (settledQuizError || !settledQuiz) {
+      logError(new Error(`Failed to fetch settled quiz: ${settledQuizError?.message || 'Quiz not found'}`), { settledQuizError, quizId });
+      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch settled quiz');
+    }
 
     // Get settlement details
-    const { data: settlement } = await serviceSupabase
+    const { data: settlement, error: settlementError } = await serviceSupabase
       .from('quiz_settlements')
       .select('*')
       .eq('quiz_id', quizId)
       .order('settled_at', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
+
+    if (settlementError) {
+      logError(new Error(`Failed to fetch settlement: ${settlementError.message}`), { settlementError, quizId });
+      // Don't fail if settlement not found - it might not exist yet
+    }
 
     // Send email notifications to all participants
     try {

@@ -118,7 +118,7 @@ export default function AdminWagersPage() {
         .from("wagers")
         .select("deadline")
         .eq("id", wagerId)
-        .single();
+        .maybeSingle();
 
       if (fetchError) throw fetchError;
       if (!wagerData) throw new Error("Wager not found");
@@ -164,7 +164,7 @@ export default function AdminWagersPage() {
           .from("wagers")
           .select("status, winning_side")
           .eq("id", wagerId)
-          .single();
+          .maybeSingle();
 
         if (settleError) {
           // If RPC call returned an error

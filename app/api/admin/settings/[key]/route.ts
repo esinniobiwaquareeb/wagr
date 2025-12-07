@@ -31,7 +31,7 @@ export async function GET(
       .from('platform_settings')
       .select('*')
       .eq('key', sanitizedKey)
-      .single();
+      .maybeSingle();
 
     if (error || !setting) {
       throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Setting not found');
@@ -43,7 +43,7 @@ export async function GET(
         .from('profiles')
         .select('is_admin')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       if (!profile?.is_admin) {
         throw new AppError(ErrorCode.FORBIDDEN, 'Only admins can access this setting');
@@ -83,7 +83,7 @@ export async function PATCH(
       .from('profiles')
       .select('is_admin')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     if (!profile?.is_admin) {
       throw new AppError(ErrorCode.FORBIDDEN, 'Only admins can update settings');
@@ -101,7 +101,7 @@ export async function PATCH(
       .from('platform_settings')
       .select('data_type, category, label, description, is_public, requires_restart')
       .eq('key', sanitizedKey)
-      .single();
+      .maybeSingle();
 
     const settingDataType = data_type || existingSetting?.data_type || 'string';
 
@@ -137,7 +137,7 @@ export async function PATCH(
         onConflict: 'key',
       })
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
       logError(new Error(`Failed to update setting: ${error.message}`), { error });

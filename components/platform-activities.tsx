@@ -119,7 +119,7 @@ export function PlatformActivities() {
               )
             `)
             .eq("id", payload.new.id)
-            .single();
+            .maybeSingle();
 
           if (newActivity) {
             setActivities((prev) => [newActivity, ...prev]);

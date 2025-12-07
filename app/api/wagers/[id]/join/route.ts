@@ -40,9 +40,14 @@ export async function POST(
       .from('wagers')
       .select('id, title, amount, deadline, status, side_a, side_b')
       .or(`id.eq.${wagerId},short_id.eq.${wagerId}`)
-      .single();
+      .maybeSingle();
 
-    if (wagerError || !wager) {
+    if (wagerError) {
+      logError(new Error(`Database error fetching wager: ${wagerError.message}`), { wagerError, wagerId });
+      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch wager');
+    }
+
+    if (!wager) {
       throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Wager not found');
     }
 
@@ -57,23 +62,34 @@ export async function POST(
     }
 
     // Check if user already joined
-    const { data: existingEntry } = await supabase
+    const { data: existingEntry, error: existingEntryError } = await supabase
       .from('wager_entries')
       .select('id')
       .eq('wager_id', wager.id)
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
+
+    if (existingEntryError && existingEntryError.code !== 'PGRST116') {
+      // PGRST116 is "no rows returned" which is fine
+      logError(new Error(`Database error checking existing entry: ${existingEntryError.message}`), { existingEntryError, wagerId: wager.id, userId: user.id });
+      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to check existing entry');
+    }
 
     if (existingEntry) {
       throw new AppError(ErrorCode.ALREADY_JOINED, 'You have already joined this wager');
     }
 
     // Check user balance
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('balance')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
+
+    if (profileError) {
+      logError(new Error(`Database error fetching profile: ${profileError.message}`), { profileError, userId: user.id });
+      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch user balance');
+    }
 
     if (!profile || (profile.balance || 0) < wager.amount) {
       throw new AppError(ErrorCode.INSUFFICIENT_BALANCE, 'Insufficient balance');
@@ -116,11 +132,16 @@ export async function POST(
     });
 
     // Get updated wager with entry counts
-    const { data: updatedWager } = await supabase
+    const { data: updatedWager, error: updatedWagerError } = await supabase
       .from('wagers')
       .select('*, profiles:creator_id(username, avatar_url)')
       .eq('id', wager.id)
-      .single();
+      .maybeSingle();
+
+    if (updatedWagerError) {
+      logError(new Error(`Database error fetching updated wager: ${updatedWagerError.message}`), { updatedWagerError, wagerId: wager.id });
+      // Don't fail the request - entry was created successfully
+    }
 
     const { data: entries } = await supabase
       .from('wager_entries')

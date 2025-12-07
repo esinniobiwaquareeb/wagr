@@ -274,7 +274,7 @@ function TopNavContent() {
         .from("profiles")
         .select("username, avatar_url")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
         return;

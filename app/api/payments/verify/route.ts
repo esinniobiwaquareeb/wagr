@@ -78,7 +78,13 @@ export async function GET(request: NextRequest) {
       .select('*')
       .eq('reference', paymentReference)
       .eq('type', 'deposit')
-      .single();
+      .maybeSingle();
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      // PGRST116 is "no rows returned" which is fine
+      logError(new Error(`Error checking existing transaction: ${checkError.message}`), { checkError, paymentReference });
+      // Continue processing - don't fail for this
+    }
 
     if (existingTransaction) {
       // Transaction already processed by webhook
@@ -107,7 +113,7 @@ export async function GET(request: NextRequest) {
           created_at: new Date().toISOString(),
         })
         .select()
-        .single();
+        .maybeSingle();
 
       // If transaction insert fails due to duplicate, it was already processed by webhook
       if (transactionError) {

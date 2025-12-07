@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
       .from('profiles')
       .select('balance')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     if (!profile || (profile.balance || 0) < amount) {
       throw new AppError(ErrorCode.INSUFFICIENT_BALANCE, 'Insufficient balance');
@@ -302,7 +302,7 @@ export async function POST(request: NextRequest) {
         fee_percentage: await (await import('@/lib/settings')).getWagerPlatformFee(),
       })
       .select()
-      .single();
+      .maybeSingle();
 
     if (wagerError || !wager) {
       // Log the actual error for debugging

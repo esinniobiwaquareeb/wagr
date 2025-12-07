@@ -35,7 +35,7 @@ export function PushNotificationSettings() {
           .from('user_preferences')
           .select('push_notifications_enabled')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         // If no preferences exist, create one with default false
         if (prefError && prefError.code === 'PGRST116') {

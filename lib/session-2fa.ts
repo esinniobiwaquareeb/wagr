@@ -85,7 +85,7 @@ export async function requires2FAForLogin(
     .from('profiles')
     .select('two_factor_enabled')
     .eq('id', userId)
-    .single();
+    .maybeSingle();
   
   if (error || !profile) {
     return false; // If we can't check, allow login (fail open)

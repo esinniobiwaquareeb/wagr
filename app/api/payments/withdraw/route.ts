@@ -60,10 +60,15 @@ export async function POST(request: NextRequest) {
       .from('profiles')
       .select('balance')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
-    if (profileError || !profile) {
+    if (profileError) {
+      logError(new Error(`Database error fetching profile: ${profileError.message}`), { profileError, userId: user.id });
       throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch user balance');
+    }
+
+    if (!profile) {
+      throw new AppError(ErrorCode.DATABASE_ERROR, 'User profile not found');
     }
 
     if (profile.balance < amount) {
@@ -111,11 +116,15 @@ export async function POST(request: NextRequest) {
         reference: reference,
       })
       .select()
-      .single();
+      .maybeSingle();
 
     if (withdrawalError) {
-      logError(new Error(`Error creating withdrawal: ${withdrawalError.message}`));
+      logError(new Error(`Error creating withdrawal: ${withdrawalError.message}`), { withdrawalError, userId: user.id });
       throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to create withdrawal request');
+    }
+
+    if (!withdrawal) {
+      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to create withdrawal: No data returned');
     }
 
     // Reserve the amount by deducting from balance

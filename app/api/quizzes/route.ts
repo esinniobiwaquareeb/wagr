@@ -221,7 +221,7 @@ export async function POST(request: NextRequest) {
       .from('profiles')
       .select('balance')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     if (!profile || (profile.balance || 0) < totalCost) {
       throw new AppError(
@@ -256,7 +256,7 @@ export async function POST(request: NextRequest) {
           top_winners_count: topWinnersCount || null,
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (quizError || !quiz) {
         throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to create quiz: ${quizError?.message || 'Unknown error'}`);
@@ -291,7 +291,7 @@ export async function POST(request: NextRequest) {
             order_index: i + 1,
           })
           .select()
-          .single();
+          .maybeSingle();
 
         if (questionError || !question) {
           logError(new Error(`Failed to create question ${i + 1}: ${questionError?.message}`), { questionError });
@@ -328,7 +328,7 @@ export async function POST(request: NextRequest) {
           )
         `)
         .eq('id', quiz.id)
-        .single();
+        .maybeSingle();
 
       return successResponseNext({
         quiz: completeQuiz,

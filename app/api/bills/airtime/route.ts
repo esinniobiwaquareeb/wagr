@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
       .from('profiles')
       .select('balance, username')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     if (profileError || !profile) {
       throw new AppError(ErrorCode.DATABASE_ERROR, 'Unable to fetch your wallet balance.');
@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
         },
       })
       .select('id')
-      .single();
+      .maybeSingle();
 
     if (billPaymentError || !billPaymentRecord) {
       logError(new Error('bill_payments insert failed'), {

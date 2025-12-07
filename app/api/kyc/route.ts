@@ -19,7 +19,7 @@ async function buildKycSummary(userId: string): Promise<KycSummary> {
       'id, email_verified, email_verified_at, kyc_level, kyc_level_label, bvn_verified, nin_verified, face_verified, document_verified, kyc_last_submitted_at, kyc_last_reviewed_at',
     )
     .eq('id', userId)
-    .single();
+    .maybeSingle();
 
   if (profileError || !profile) {
     throw new AppError(ErrorCode.DATABASE_ERROR, 'Unable to load profile for KYC summary.');
@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
       .from('profiles')
       .select('kyc_level, email_verified, bvn_verified, nin_verified, face_verified, document_verified')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     if (profileError || !profile) {
       throw new AppError(ErrorCode.DATABASE_ERROR, 'Unable to load your profile.');

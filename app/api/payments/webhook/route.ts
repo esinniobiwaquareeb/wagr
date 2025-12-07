@@ -66,12 +66,21 @@ export async function POST(request: NextRequest) {
       }
 
       // Check if already processed (idempotency check)
-      const { data: existingTransaction } = await supabase
+      const { data: existingTransaction, error: existingTransactionError } = await supabase
         .from('transactions')
         .select('*')
         .eq('reference', reference)
         .eq('type', 'deposit')
-        .single();
+        .maybeSingle();
+
+      if (existingTransactionError && existingTransactionError.code !== 'PGRST116') {
+        // PGRST116 is "no rows returned" which is fine - not a real error
+        logError(new Error(`Error checking existing transaction: ${existingTransactionError.message}`), {
+          existingTransactionError,
+          reference,
+        });
+        // Continue processing - don't fail webhook for this
+      }
 
       if (existingTransaction) {
         // Already processed - return success to acknowledge webhook
@@ -99,7 +108,7 @@ export async function POST(request: NextRequest) {
           created_at: new Date().toISOString(),
         })
         .select()
-        .single();
+        .maybeSingle();
 
       // If transaction insert fails due to duplicate, it was already processed
       if (transactionError) {
@@ -196,7 +205,7 @@ export async function POST(request: NextRequest) {
         .from('withdrawals')
         .select('*')
         .eq('reference', reference)
-        .single();
+        .maybeSingle();
 
       if (withdrawalError || !withdrawal) {
         console.error('Withdrawal not found:', withdrawalError);
@@ -252,7 +261,7 @@ export async function POST(request: NextRequest) {
         .from('withdrawals')
         .select('*')
         .eq('reference', reference)
-        .single();
+        .maybeSingle();
 
       if (withdrawalError || !withdrawal) {
         console.error('Withdrawal not found:', withdrawalError);

@@ -38,7 +38,7 @@ export async function POST(
       .from('wagers')
       .select('id, title, description, side_a, side_b, amount, deadline, short_id, creator_id')
       .or(`id.eq.${wagerId},short_id.eq.${wagerId}`)
-      .single();
+      .maybeSingle();
 
     if (wagerError || !wager) {
       throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Wager not found');
@@ -49,7 +49,7 @@ export async function POST(
       .from('profiles')
       .select('username, email')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     const inviterName = inviterProfile?.username || inviterProfile?.email || 'Someone';
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://wagered.app';
@@ -70,7 +70,7 @@ export async function POST(
         .select('id, name')
         .eq('id', teamId)
         .eq('creator_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (team) {
         const { data: members } = await supabase

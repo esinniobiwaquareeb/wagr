@@ -37,7 +37,7 @@ export async function POST(
       .from('quizzes')
       .select('id, title, description, creator_id, max_participants, status, entry_fee_per_question, total_questions, end_date')
       .eq('id', quizId)
-      .single();
+      .maybeSingle();
 
     if (quizError || !quiz) {
       throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Quiz not found');
@@ -64,7 +64,7 @@ export async function POST(
       .from('profiles')
       .select('username, email')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     const inviterName = inviterProfile?.username || inviterProfile?.email || 'Someone';
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://wagered.app';
@@ -85,7 +85,7 @@ export async function POST(
         .select('id, name')
         .eq('id', teamId)
         .eq('creator_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (team) {
         const { data: members } = await supabase

@@ -108,7 +108,7 @@ export default function WagerDetail() {
       : supabase.from("wagers").select("*").eq("short_id", wagerId);
     
     const { data: wagerData, error } = await query
-      .single();
+      .maybeSingle();
 
     if (error || !wagerData) {
       setLoading(false);
@@ -480,7 +480,7 @@ export default function WagerDetail() {
         .from("profiles")
         .select("balance")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
       if (!profile || profile.balance < wager!.amount) {
         toast({
@@ -544,7 +544,7 @@ export default function WagerDetail() {
         .from("wagers")
         .select("*")
         .eq("id", wager.id)
-        .single();
+        .maybeSingle();
 
       if (wagerData) {
         setWager(wagerData);
@@ -797,7 +797,7 @@ export default function WagerDetail() {
         .select("*")
         .eq("id", userEntry.id)
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       if (fetchError || !freshEntry) {
         toast({
@@ -1075,7 +1075,7 @@ export default function WagerDetail() {
             .from("profiles")
             .select("balance")
             .eq("id", user.id)
-            .single();
+            .maybeSingle();
 
           if (!profile || profile.balance < amountDifference) {
             toast({

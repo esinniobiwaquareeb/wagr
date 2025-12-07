@@ -69,7 +69,7 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
           `
           )
           .eq("id", wagerId)
-          .single();
+          .maybeSingle();
 
         if (error || !wagerData) {
           throw error || new Error("Wager not found");
@@ -188,7 +188,7 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
           .from("wagers")
           .select("status, winning_side")
           .eq("id", wagerId)
-          .single();
+          .maybeSingle();
 
         if (settleError) {
           const errorMessage = settleError.message || JSON.stringify(settleError) || 'Unknown error';

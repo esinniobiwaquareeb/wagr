@@ -68,7 +68,7 @@ export async function createNotification(data: NotificationData): Promise<void> 
         read: false,
       })
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error("Error creating notification:", {

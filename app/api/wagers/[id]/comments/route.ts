@@ -33,7 +33,7 @@ export async function POST(
       .from('wagers')
       .select('id')
       .or(`id.eq.${wagerId},short_id.eq.${wagerId}`)
-      .single();
+      .maybeSingle();
 
     if (wagerError || !wager) {
       throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Wager not found');
@@ -48,7 +48,7 @@ export async function POST(
         .from('wager_comments')
         .select('id, wager_id')
         .eq('id', parent_id)
-        .single();
+        .maybeSingle();
 
       if (parentError || !parentComment) {
         throw new AppError(ErrorCode.VALIDATION_ERROR, 'Parent comment not found');
@@ -69,7 +69,7 @@ export async function POST(
         parent_id: parent_id || null,
       })
       .select()
-      .single();
+      .maybeSingle();
 
     if (insertError) {
       logError(insertError as Error);

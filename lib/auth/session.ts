@@ -71,7 +71,7 @@ export async function getUserIdFromSession(token: string): Promise<string | null
     .from('sessions')
     .select('user_id, expires_at')
     .eq('token', token)
-    .single();
+    .maybeSingle();
 
   if (error || !data) {
     return null;

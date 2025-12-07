@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
           .from('profiles')
           .select('password_hash, email, username')
           .eq('id', userId)
-          .single();
+          .maybeSingle();
 
         if (profileError || !profile) {
           throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch profile');

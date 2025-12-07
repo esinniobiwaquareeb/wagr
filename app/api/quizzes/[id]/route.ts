@@ -28,9 +28,14 @@ export async function GET(
       .from('quizzes')
       .select('*, profiles:creator_id(username, avatar_url, email)')
       .eq('id', quizId)
-      .single();
+      .maybeSingle();
 
-    if (error || !quiz) {
+    if (error) {
+      logError(new Error(`Database error fetching quiz: ${error.message}`), { error, quizId });
+      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch quiz');
+    }
+
+    if (!quiz) {
       throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Quiz not found');
     }
 
@@ -39,12 +44,17 @@ export async function GET(
     
     if (!isCreator) {
       // Check if user is a participant
-      const { data: participant } = await serviceSupabase
+      const { data: participant, error: participantError } = await serviceSupabase
         .from('quiz_participants')
         .select('id')
         .eq('quiz_id', quizId)
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
+
+      if (participantError) {
+        logError(new Error(`Database error checking participant: ${participantError.message}`), { participantError, quizId, userId: user.id });
+        throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to check participant status');
+      }
 
       if (!participant) {
         throw new AppError(ErrorCode.FORBIDDEN, 'You are not invited to this quiz');
@@ -123,9 +133,14 @@ export async function PATCH(
       .from('quizzes')
       .select('id, creator_id, status, max_participants, entry_fee_per_question, total_questions, total_cost')
       .eq('id', quizId)
-      .single();
+      .maybeSingle();
 
-    if (quizError || !quiz) {
+    if (quizError) {
+      logError(new Error(`Database error fetching quiz: ${quizError.message}`), { quizError, quizId });
+      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch quiz');
+    }
+
+    if (!quiz) {
       throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Quiz not found');
     }
 
@@ -238,7 +253,7 @@ export async function PATCH(
           .from('profiles')
           .select('balance')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
         if (!profile) {
           throw new AppError(ErrorCode.DATABASE_ERROR, 'User profile not found');
@@ -316,11 +331,16 @@ export async function PATCH(
 
         if (costDifference !== 0) {
           // Get user balance
-          const { data: profile } = await serviceSupabase
+          const { data: profile, error: profileError } = await serviceSupabase
             .from('profiles')
             .select('balance')
             .eq('id', user.id)
-            .single();
+            .maybeSingle();
+
+          if (profileError) {
+            logError(new Error(`Database error fetching profile: ${profileError.message}`), { profileError, userId: user.id });
+            throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch user profile');
+          }
 
           if (!profile) {
             throw new AppError(ErrorCode.DATABASE_ERROR, 'User profile not found');
@@ -426,10 +446,15 @@ export async function PATCH(
             order_index: i + 1,
           })
           .select()
-          .single();
+          .maybeSingle();
 
-        if (questionError || !question) {
-          throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to create question ${i + 1}: ${questionError?.message || 'Unknown error'}`);
+        if (questionError) {
+          logError(new Error(`Failed to create question ${i + 1}: ${questionError.message}`), { questionError, quizId, questionIndex: i });
+          throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to create question ${i + 1}: ${questionError.message}`);
+        }
+
+        if (!question) {
+          throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to create question ${i + 1}: No data returned`);
         }
 
         // Create answers
@@ -495,14 +520,19 @@ export async function PATCH(
       .update(updateData)
       .eq('id', quizId)
       .select()
-      .single();
+      .maybeSingle();
 
     if (updateError) {
+      logError(new Error(`Failed to update quiz: ${updateError.message}`), { updateError, quizId });
       throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to update quiz: ${updateError.message}`);
     }
 
+    if (!updatedQuiz) {
+      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to update quiz: No data returned');
+    }
+
     // Fetch complete quiz with questions and answers
-    const { data: completeQuiz } = await serviceSupabase
+    const { data: completeQuiz, error: completeQuizError } = await serviceSupabase
       .from('quizzes')
       .select(`
         *,
@@ -512,7 +542,13 @@ export async function PATCH(
         )
       `)
       .eq('id', quizId)
-      .single();
+      .maybeSingle();
+
+    if (completeQuizError) {
+      logError(new Error(`Failed to fetch complete quiz: ${completeQuizError.message}`), { completeQuizError, quizId });
+      // Return updated quiz if complete fetch fails
+      return successResponseNext({ quiz: updatedQuiz });
+    }
 
     return successResponseNext({ quiz: completeQuiz || updatedQuiz });
   } catch (error) {
@@ -544,9 +580,14 @@ export async function DELETE(
       .from('quizzes')
       .select('id, title, creator_id, status, total_cost')
       .eq('id', quizId)
-      .single();
+      .maybeSingle();
 
-    if (quizError || !quiz) {
+    if (quizError) {
+      logError(new Error(`Database error fetching quiz: ${quizError.message}`), { quizError, quizId });
+      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch quiz');
+    }
+
+    if (!quiz) {
       throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Quiz not found');
     }
 

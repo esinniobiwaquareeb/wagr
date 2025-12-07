@@ -50,7 +50,7 @@ export async function refundBillPayment({
       description: 'Refund for failed airtime purchase',
     })
     .select('id')
-    .single();
+    .maybeSingle();
 
   if (refundTransactionError || !refundTransaction) {
     logError(new Error(refundTransactionError?.message || 'refund_transaction_failed'), {

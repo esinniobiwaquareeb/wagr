@@ -28,7 +28,7 @@ export async function GET(
       .from('wagers')
       .select('id')
       .or(`id.eq.${wagerId},short_id.eq.${wagerId}`)
-      .single();
+      .maybeSingle();
 
     if (!wager) {
       throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Wager not found');

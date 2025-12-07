@@ -142,7 +142,7 @@ export default function AdminUserDetailPage({ params }: AdminUserDetailPageProps
           .from("profiles")
           .select("*")
           .eq("id", userId)
-          .single();
+          .maybeSingle();
 
         if (userError || !userData) {
           throw userError || new Error("User not found");

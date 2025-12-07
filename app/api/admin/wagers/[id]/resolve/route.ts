@@ -33,7 +33,7 @@ export async function POST(
       .from('wagers')
       .select('id, status')
       .or(`id.eq.${wagerId},short_id.eq.${wagerId}`)
-      .single();
+      .maybeSingle();
 
     if (wagerError || !wager) {
       throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Wager not found');

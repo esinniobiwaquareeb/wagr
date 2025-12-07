@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
         fee_percentage: await (await import('@/lib/settings')).getWagerPlatformFee(),
       })
       .select()
-      .single();
+      .maybeSingle();
 
     if (wagerError || !wager) {
       throw new AppError(

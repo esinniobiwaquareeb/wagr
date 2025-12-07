@@ -112,7 +112,7 @@ export async function PATCH(request: NextRequest) {
       .from('profiles')
       .select('id, is_admin')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (profileError || !profile) {
       throw new AppError(ErrorCode.NOT_FOUND, 'User not found');

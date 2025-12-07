@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
       .from('profiles')
       .select('balance')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     if (error || !profile) {
       throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch balance');

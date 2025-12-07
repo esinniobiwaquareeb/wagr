@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
       .from('user_preferences')
       .select('*')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
     if (error && error.code !== 'PGRST116') {
       throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch preferences');
@@ -87,7 +87,7 @@ export async function PATCH(request: NextRequest) {
         onConflict: 'user_id',
       })
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
       throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to update preferences');

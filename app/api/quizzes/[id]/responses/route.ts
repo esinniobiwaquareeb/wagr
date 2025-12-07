@@ -27,7 +27,7 @@ export async function GET(
       .from('quizzes')
       .select('id, title, status, end_date, settled_at, total_questions')
       .eq('id', quizId)
-      .single();
+      .maybeSingle();
 
     if (quizError || !quiz) {
       throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Quiz not found');
@@ -39,7 +39,7 @@ export async function GET(
       .select('id, status, completed_at')
       .eq('quiz_id', quizId)
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
     if (participantError || !participant) {
       throw new AppError(ErrorCode.FORBIDDEN, 'You are not a participant in this quiz');
@@ -93,7 +93,7 @@ export async function GET(
       .from('quiz_participants')
       .select('*, profiles:user_id(username, avatar_url)')
       .eq('id', participant.id)
-      .single();
+      .maybeSingle();
 
     // Get all participants for leaderboard (only if quiz is settled or completed)
     let allParticipants = [];

@@ -85,7 +85,7 @@ export default function AdminQuizDetailPage({ params }: AdminQuizDetailPageProps
           `
           )
           .eq("id", quizId)
-          .single();
+          .maybeSingle();
 
         if (quizError || !quizData) {
           throw quizError || new Error("Quiz not found");

@@ -33,7 +33,7 @@ export async function PATCH(
       .from('wagers')
       .select('id, status')
       .or(`id.eq.${sanitizedId},short_id.eq.${sanitizedId}`)
-      .single();
+      .maybeSingle();
 
     if (wagerError || !wager) {
       throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Wager not found');
@@ -117,7 +117,7 @@ export async function PATCH(
       .update(updateData)
       .eq('id', wager.id)
       .select()
-      .single();
+      .maybeSingle();
 
     if (updateError) {
       throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to update wager: ${updateError.message}`);
@@ -156,7 +156,7 @@ export async function DELETE(
       .from('wagers')
       .select('id, status')
       .or(`id.eq.${sanitizedId},short_id.eq.${sanitizedId}`)
-      .single();
+      .maybeSingle();
 
     if (wagerError || !wager) {
       throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Wager not found');

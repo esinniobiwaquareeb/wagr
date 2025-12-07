@@ -31,7 +31,7 @@ export async function POST(
       .from('quizzes')
       .select('*')
       .eq('id', quizId)
-      .single();
+      .maybeSingle();
 
     if (quizError || !quiz) {
       throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Quiz not found');
@@ -53,7 +53,7 @@ export async function POST(
       .select('*')
       .eq('quiz_id', quizId)
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
     if (participantError || !participant) {
       throw new AppError(ErrorCode.VALIDATION_ERROR, 'You are not invited to this quiz');
@@ -85,7 +85,7 @@ export async function POST(
           })
           .eq('id', participant.id)
           .select()
-          .single();
+          .maybeSingle();
 
         if (updateError) {
           throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to start quiz');
@@ -207,7 +207,7 @@ export async function POST(
         .from('quiz_participants')
         .select('*')
         .eq('id', participant.id)
-        .single();
+        .maybeSingle();
 
       // Get all responses for results
       const { data: allResponses } = await serviceSupabase

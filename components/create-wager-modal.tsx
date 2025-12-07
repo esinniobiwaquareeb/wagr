@@ -100,7 +100,7 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
       .from("profiles")
       .select("balance")
       .eq("id", user.id)
-      .single();
+      .maybeSingle();
     
     if (profile) {
       setUserBalance(profile.balance || 0);
@@ -175,7 +175,7 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
         .from("profiles")
         .select("balance")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
       
       if (profile) {
         setUserBalance(profile.balance || 0);

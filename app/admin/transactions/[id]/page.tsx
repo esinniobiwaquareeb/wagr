@@ -77,7 +77,7 @@ export default function AdminTransactionDetailPage({ params }: AdminTransactionD
             )
           `)
           .eq("id", transactionId)
-          .single();
+          .maybeSingle();
 
         if (transactionError || !transactionData) {
           throw transactionError || new Error("Transaction not found");

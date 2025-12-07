@@ -208,7 +208,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
           .from("profiles")
           .select("balance")
           .eq("id", user.id)
-          .single();
+          .maybeSingle();
         
         if (profile) {
           setUserBalance(profile.balance || 0);

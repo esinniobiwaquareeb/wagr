@@ -34,7 +34,7 @@ export async function PATCH(
       .from('wagers')
       .select('id')
       .or(`id.eq.${wagerId},short_id.eq.${wagerId}`)
-      .single();
+      .maybeSingle();
 
     if (wagerError || !wager) {
       throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Wager not found');
@@ -47,7 +47,7 @@ export async function PATCH(
       .from('wager_comments')
       .select('id, wager_id, user_id')
       .eq('id', validatedCommentId)
-      .single();
+      .maybeSingle();
 
     if (commentError || !comment) {
       throw new AppError(ErrorCode.VALIDATION_ERROR, 'Comment not found');
@@ -70,7 +70,7 @@ export async function PATCH(
       })
       .eq('id', validatedCommentId)
       .select()
-      .single();
+      .maybeSingle();
 
     if (updateError) {
       logError(updateError as Error);
@@ -109,7 +109,7 @@ export async function DELETE(
       .from('wagers')
       .select('id')
       .or(`id.eq.${wagerId},short_id.eq.${wagerId}`)
-      .single();
+      .maybeSingle();
 
     if (wagerError || !wager) {
       throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Wager not found');
@@ -122,7 +122,7 @@ export async function DELETE(
       .from('wager_comments')
       .select('id, wager_id, user_id')
       .eq('id', validatedCommentId)
-      .single();
+      .maybeSingle();
 
     if (commentError || !comment) {
       throw new AppError(ErrorCode.VALIDATION_ERROR, 'Comment not found');

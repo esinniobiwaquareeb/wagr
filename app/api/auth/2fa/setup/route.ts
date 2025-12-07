@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       .from('profiles')
       .select('email, two_factor_enabled, two_factor_secret')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (profileError || !profile) {
       throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch profile');

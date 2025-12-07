@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       .from('profiles')
       .select('is_admin')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     if (!profile?.is_admin) {
       throw new AppError(ErrorCode.FORBIDDEN, 'Only admins can access settings');
@@ -70,7 +70,7 @@ export async function PATCH(request: NextRequest) {
       .from('profiles')
       .select('is_admin')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     if (!profile?.is_admin) {
       throw new AppError(ErrorCode.FORBIDDEN, 'Only admins can update settings');
@@ -124,7 +124,7 @@ export async function PATCH(request: NextRequest) {
           onConflict: 'key',
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) {
         logError(new Error(`Failed to update setting ${key}: ${error.message}`), { error });

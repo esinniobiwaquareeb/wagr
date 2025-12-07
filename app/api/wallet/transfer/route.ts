@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       .from('profiles')
       .select('username')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     if (senderProfile?.username?.toLowerCase() === trimmedUsername.toLowerCase()) {
       throw new AppError(ErrorCode.VALIDATION_ERROR, 'You cannot transfer funds to yourself');
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       .select('id, username, email')
       .eq('username', trimmedUsername)
       .is('deleted_at', null)
-      .single();
+      .maybeSingle();
 
     if (recipientError || !recipientProfile) {
       throw new AppError(ErrorCode.VALIDATION_ERROR, 'User not found. Please check the username and try again.');
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
         description: description?.trim() || `Transfer to @${recipientProfile.username}`,
       })
       .select()
-      .single();
+      .maybeSingle();
 
     if (senderTxError || !senderTransaction) {
       logError(new Error(`Failed to create sender transaction: ${senderTxError?.message}`), {
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
         description: description?.trim() || `Transfer from @${senderProfile?.username || 'user'}`,
       })
       .select()
-      .single();
+      .maybeSingle();
 
     if (recipientTxError || !recipientTransaction) {
       // If recipient transaction fails, we should ideally rollback sender transaction

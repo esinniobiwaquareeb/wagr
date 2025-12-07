@@ -99,7 +99,7 @@ export async function POST(request: Request) {
         status: "OPEN",
       })
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error("Error creating system wager:", error);

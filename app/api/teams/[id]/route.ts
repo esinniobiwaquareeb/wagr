@@ -29,7 +29,7 @@ export async function PATCH(
       .from('teams')
       .select('id, creator_id')
       .eq('id', teamId)
-      .single();
+      .maybeSingle();
 
     if (teamError || !team) {
       throw new AppError(ErrorCode.NOT_FOUND, 'Team not found');
@@ -99,7 +99,7 @@ export async function PATCH(
         )
       `)
       .eq('id', teamId)
-      .single();
+      .maybeSingle();
 
     return successResponseNext({ team: updatedTeam });
   } catch (error) {
@@ -130,7 +130,7 @@ export async function DELETE(
       .from('teams')
       .select('id, creator_id')
       .eq('id', teamId)
-      .single();
+      .maybeSingle();
 
     if (teamError || !team) {
       throw new AppError(ErrorCode.NOT_FOUND, 'Team not found');

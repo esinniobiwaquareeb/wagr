@@ -29,7 +29,7 @@ export async function DELETE(
       .select('id, user_id, metadata')
       .eq('id', validatedInviteId)
       .eq('type', 'quiz_invitation')
-      .single();
+      .maybeSingle();
 
     if (notifError || !notification) {
       throw new AppError(ErrorCode.NOT_FOUND, 'Invitation not found');
@@ -51,7 +51,7 @@ export async function DELETE(
       .select('id, status')
       .eq('quiz_id', quizId)
       .eq('user_id', notification.user_id)
-      .single();
+      .maybeSingle();
 
     if (participant && participant.status === 'invited') {
       await serviceSupabase

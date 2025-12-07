@@ -29,7 +29,7 @@ export async function DELETE(
       .select('id, user_id, metadata')
       .eq('id', validatedInviteId)
       .eq('type', 'wager_invitation')
-      .single();
+      .maybeSingle();
 
     if (notifError || !notification) {
       throw new AppError(ErrorCode.NOT_FOUND, 'Invitation not found');

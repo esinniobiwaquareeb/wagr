@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
       .from('profiles')
       .select('username')
       .eq('id', user_id)
-      .single();
+      .maybeSingle();
 
     const userEmail = user.user.email;
     const userName = profile?.username || null;
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
         .from('notifications')
         .select('*')
         .eq('id', notification_id)
-        .single();
+        .maybeSingle();
       
       notificationData = notification;
     }
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
             .from('wagers')
             .select('title')
             .eq('id', metadata.wager_id)
-            .single();
+            .maybeSingle();
 
           if (wager) {
             sendWagerSettlementEmail(
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
             .from('wagers')
             .select('title')
             .eq('id', metadata.wager_id)
-            .single();
+            .maybeSingle();
 
           if (wager) {
             sendWagerJoinedEmail(
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
             .from('quizzes')
             .select('title')
             .eq('id', metadata.quiz_id)
-            .single();
+            .maybeSingle();
 
           if (quiz) {
             sendQuizSettlementEmail(
