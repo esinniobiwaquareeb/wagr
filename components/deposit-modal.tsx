@@ -81,7 +81,7 @@ export function DepositModal({ open, onOpenChange, onSuccess }: DepositModalProp
         },
         credentials: 'include',
         body: JSON.stringify({
-          amount: amount * 100, // Convert to kobo
+          amount: amount, // Amount in main currency (NGN), backend will convert to kobo
         }),
       });
 
