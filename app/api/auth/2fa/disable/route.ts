@@ -29,9 +29,9 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       token,
       requireAuth: true,
-      body: {
+      body: JSON.stringify({
         password,
-      },
+      }),
     });
 
     if (!response.success) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServiceRoleClient } from '@/lib/supabase/server';
 import { logError } from '@/lib/error-handler';
+
+const NESTJS_API_BASE = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://localhost:3001/api/v1';
 
 /**
  * GET /api/agents/settle-quizzes
@@ -19,35 +20,42 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const serviceSupabase = createServiceRoleClient();
+    const apiSecret = process.env.SYSTEM_WAGER_API_SECRET;
     
-    // Call the database function to check and settle completed quizzes
-    const { data, error } = await serviceSupabase.rpc('check_and_settle_completed_quizzes');
-
-    if (error) {
-      logError(new Error(`Failed to settle quizzes: ${error.message}`), { error });
+    if (!apiSecret) {
       return NextResponse.json(
-        { 
-          success: false, 
-          error: error.message,
-          message: 'Failed to check and settle quizzes'
-        },
+        { error: "SYSTEM_WAGER_API_SECRET is not configured" },
         { status: 500 }
       );
     }
 
-    // Get count of quizzes that were settled (optional - for logging)
-    const { data: settledQuizzes } = await serviceSupabase
-      .from('quizzes')
-      .select('id')
-      .eq('status', 'settled')
-      .not('settled_at', 'is', null)
-      .gte('settled_at', new Date(Date.now() - 60000).toISOString()); // Settled in last minute
+    // Call NestJS backend to settle quizzes
+    const response = await fetch(`${NESTJS_API_BASE}/system/quizzes/settle`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiSecret}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      logError(new Error(`Failed to settle quizzes: ${data.error || data.message}`), { data });
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: data.error || data.message || 'Failed to settle quizzes',
+          message: 'Failed to check and settle quizzes'
+        },
+        { status: response.status }
+      );
+    }
 
     return NextResponse.json({
       success: true,
       message: 'Quiz settlement check completed',
-      settledCount: settledQuizzes?.length || 0,
+      settledCount: data.data?.settled || 0,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

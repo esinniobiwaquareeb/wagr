@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { nestjsServerFetch } from '@/lib/nestjs-server';
 import { requireAuth } from '@/lib/auth/server';
-import { logger } from '@/lib/logger';
+import { logError } from '@/lib/error-handler';
+import { cookies } from 'next/headers';
 
 /**
  * API endpoint to delete push notification subscription
  */
 export async function POST(request: NextRequest) {
   try {
+    await requireAuth();
     const body = await request.json();
     const { subscription } = body;
 
@@ -26,28 +28,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get authenticated user
-    const user = await requireAuth();
-    const supabase = await createClient();
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
 
-    // Delete subscription from database
-    const { error: dbError } = await supabase
-      .from('push_subscriptions')
-      .delete()
-      .eq('user_id', user.id)
-      .eq('endpoint', subscription.endpoint);
+    if (!token) {
+      throw new Error('Authentication required');
+    }
 
-    if (dbError) {
-      logger.error('Error deleting push subscription:', dbError);
+    // Call NestJS backend
+    const response = await nestjsServerFetch('/notifications/push/unsubscribe', {
+      method: 'POST',
+      token,
+      requireAuth: true,
+      body: JSON.stringify({
+        subscription: {
+          endpoint: subscription.endpoint,
+        },
+      }),
+    });
+
+    if (!response.success) {
       return NextResponse.json(
-        { error: 'Failed to delete subscription' },
-        { status: 500 }
+        { error: response.error?.message || 'Failed to delete subscription' },
+        { status: response.error?.statusCode || 500 }
       );
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    logger.error('Error in push unsubscribe endpoint:', error);
+    logError(error as Error);
     return NextResponse.json(
       {
         error: 'Internal server error',

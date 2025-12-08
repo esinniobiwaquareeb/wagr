@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback, useRef } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from 'next/navigation';
 import { useAuth } from "@/hooks/use-auth";
 import { formatDistanceToNow, format } from "date-fns";
@@ -24,7 +23,6 @@ interface Notification {
 }
 
 export default function NotificationsPage() {
-  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth({
@@ -83,25 +81,20 @@ export default function NotificationsPage() {
     if (user && !authLoading) {
       fetchNotifications();
 
-      // Subscribe to real-time updates
-      const channel = supabase
-        .channel(`notifications:${user.id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "notifications",
-            filter: `user_id=eq.${user.id}`,
-          },
-          () => {
-            debouncedRefetchNotifications();
-          }
-        )
-        .subscribe();
+      // Poll for updates every 30 seconds (replaces real-time subscriptions)
+      const pollInterval = setInterval(() => {
+        fetchNotifications();
+      }, 30000);
+
+      // Listen for custom notification update events
+      const handleNotificationUpdate = () => {
+        debouncedRefetchNotifications();
+      };
+      window.addEventListener('notification-updated', handleNotificationUpdate);
 
       return () => {
-        channel.unsubscribe();
+        clearInterval(pollInterval);
+        window.removeEventListener('notification-updated', handleNotificationUpdate);
         if (debounceTimeoutRef.current) {
           clearTimeout(debounceTimeoutRef.current);
         }
@@ -109,7 +102,7 @@ export default function NotificationsPage() {
     } else if (!user && !authLoading) {
       setLoading(false);
     }
-  }, [user, authLoading, supabase]); // Removed fetchNotifications and debouncedRefetchNotifications from dependencies
+  }, [user, authLoading, fetchNotifications, debouncedRefetchNotifications]);
 
   const markAsRead = async (notificationId: string) => {
     if (!user) return;

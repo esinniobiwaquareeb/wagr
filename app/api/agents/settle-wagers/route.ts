@@ -3,10 +3,9 @@
 // Configured to run periodically (adjust schedule in Vercel dashboard)
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
-// Note: Using Node.js runtime for better compatibility with Supabase
-// export const runtime = 'edge';
+const NESTJS_API_BASE = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://localhost:3001/api/v1';
+
 export const maxDuration = 300; // 5 minutes max
 
 export async function GET(request: NextRequest) {
@@ -19,82 +18,41 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const apiSecret = process.env.SYSTEM_WAGER_API_SECRET;
     
-    if (!supabaseUrl || !supabaseServiceKey) {
+    if (!apiSecret) {
       return NextResponse.json(
-        { error: "Missing Supabase configuration" },
+        { error: "SYSTEM_WAGER_API_SECRET is not configured" },
         { status: 500 }
       );
     }
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
-    // Get expired wagers that need AI analysis for settlement
-    const { data: expiredWagers } = await supabase
-      .from('wagers')
-      .select('id, title, description, deadline, winning_side, status')
-      .eq('status', 'OPEN')
-      .not('deadline', 'is', null)
-      .lte('deadline', new Date().toISOString())
-      .is('winning_side', null)
-      .limit(10);
-    
-    // Use AI to determine outcomes for wagers without winning_side
-    if (expiredWagers && expiredWagers.length > 0) {
-      const aiApiKey = process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY;
-      
-      if (aiApiKey) {
-        const { analyzeNewsForSettlement } = await import("@/lib/ai/news-analyzer");
-        
-        for (const wager of expiredWagers) {
-          try {
-            const analysis = await analyzeNewsForSettlement(
-              wager.title,
-              wager.description || '',
-              wager.deadline,
-              aiApiKey
-            );
-            
-            if (analysis.winningSide && analysis.confidence >= 70) {
-              // Update wager with AI-determined winning side
-              await supabase
-                .from('wagers')
-                .update({ 
-                  winning_side: analysis.winningSide.toUpperCase(),
-                  source_data: {
-                    ai_settlement: true,
-                    ai_reasoning: analysis.reasoning,
-                    ai_confidence: analysis.confidence,
-                  }
-                })
-                .eq('id', wager.id);
-            }
-          } catch (error) {
-            console.error(`Error analyzing wager ${wager.id}:`, error);
-          }
-        }
-      }
-    }
-    
-    // Call the database function to check and settle expired wagers
-    // This function already handles single-participant refunds internally
-    const { data, error } = await supabase.rpc("check_and_settle_expired_wagers");
 
-    if (error) {
-      console.error("Error settling wagers:", error);
-      return NextResponse.json({ 
-        error: error.message,
-        details: error 
-      }, { status: 500 });
+    // Call NestJS backend to settle wagers
+    const response = await fetch(`${NESTJS_API_BASE}/system/wagers/settle`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiSecret}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return NextResponse.json(
+        { 
+          error: "Wager settlement failed",
+          message: data.error || data.message || 'Unknown error'
+        },
+        { status: response.status }
+      );
     }
 
     return NextResponse.json({ 
       success: true, 
       message: "Wager settlement agent completed",
       timestamp: new Date().toISOString(),
-      settlementResult: data,
+      settlementResult: data.data || data,
     });
   } catch (error) {
     console.error("Error in settle-wagers agent:", error);

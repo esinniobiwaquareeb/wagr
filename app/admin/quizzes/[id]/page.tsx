@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import { ArrowLeft, Clock, CheckCircle2, Users, AlertTriangle, ExternalLink, BookOpen, Trophy, DollarSign, Calendar, Award } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { getCurrentUser } from "@/lib/auth/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
@@ -55,7 +54,6 @@ interface QuizQuestion {
 export default function AdminQuizDetailPage({ params }: AdminQuizDetailPageProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const supabase = useMemo(() => createClient(), []);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [quiz, setQuiz] = useState<any>(null);
@@ -70,58 +68,25 @@ export default function AdminQuizDetailPage({ params }: AdminQuizDetailPageProps
 
       setLoading(true);
       try {
-        // Fetch quiz with creator info
-        const { data: quizData, error: quizError } = await supabase
-          .from("quizzes")
-          .select(
-            `
-            *,
-            creator:profiles!quizzes_creator_id_fkey(
-              id,
-              username,
-              email,
-              avatar_url
-            )
-          `
-          )
-          .eq("id", quizId)
-          .maybeSingle();
+        const { apiGet } = await import('@/lib/api-client');
+        const response = await apiGet<{ quiz: any }>(`/quizzes/${quizId}`);
 
-        if (quizError || !quizData) {
-          throw quizError || new Error("Quiz not found");
+        if (!response.quiz) {
+          throw new Error("Quiz not found");
         }
 
+        const quizData = response.quiz;
         setQuiz(quizData);
 
-        // Fetch participants
-        const { data: participantData, error: participantError } = await supabase
-          .from("quiz_participants")
-          .select(
-            `
-            *,
-            user:profiles!quiz_participants_user_id_fkey(
-              id,
-              username,
-              email,
-              avatar_url
-            )
-          `
-          )
-          .eq("quiz_id", quizId)
-          .order("score", { ascending: false })
-          .order("completed_at", { ascending: true });
-
-        if (participantError) {
-          throw participantError;
-        }
-
-        const participantsWithFallback = (participantData || []).map((p: any) => ({
+        // Extract participants from quiz data
+        const participantData = quizData.participants || [];
+        const participantsWithFallback = participantData.map((p: any) => ({
           ...p,
-          user: Array.isArray(p.user) ? p.user[0] || null : p.user || null,
+          user: p.user || null,
         }));
 
         // Calculate ranks
-        const rankedParticipants = participantsWithFallback.map((p, index) => ({
+        const rankedParticipants = participantsWithFallback.map((p: any, index: number) => ({
           ...p,
           rank: p.status === "completed" ? index + 1 : null,
           _searchUsername: p.user?.username || '',
@@ -131,34 +96,15 @@ export default function AdminQuizDetailPage({ params }: AdminQuizDetailPageProps
         setParticipants(rankedParticipants);
 
         // Calculate totals
-        const completed = rankedParticipants.filter((p) => p.status === "completed");
+        const completed = rankedParticipants.filter((p: any) => p.status === "completed");
         const totalPool = Number(quizData.base_cost || 0);
-        const totalWinnings = completed.reduce((sum, p) => sum + Number(p.winnings || 0), 0);
+        const totalWinnings = completed.reduce((sum: number, p: any) => sum + Number(p.winnings || 0), 0);
         setTotalPrizePool(totalPool);
         setTotalDistributed(totalWinnings);
 
-        // Fetch questions
-        const { data: questionData, error: questionError } = await supabase
-          .from("quiz_questions")
-          .select(
-            `
-            *,
-            quiz_answers (
-              id,
-              answer_text,
-              is_correct,
-              order_index
-            )
-          `
-          )
-          .eq("quiz_id", quizId)
-          .order("order_index", { ascending: true });
-
-        if (questionError) {
-          console.error("Error fetching questions:", questionError);
-        } else {
-          setQuestions(questionData || []);
-        }
+        // Extract questions from quiz data
+        const questionData = quizData.questions || [];
+        setQuestions(questionData);
       } catch (error) {
         console.error("Failed to load quiz", error);
         toast({
@@ -170,7 +116,7 @@ export default function AdminQuizDetailPage({ params }: AdminQuizDetailPageProps
         setLoading(false);
       }
     },
-    [isAdmin, supabase, toast],
+    [isAdmin, toast],
   );
 
   useEffect(() => {

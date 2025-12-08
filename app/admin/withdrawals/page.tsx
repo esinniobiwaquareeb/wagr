@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
@@ -27,7 +26,6 @@ interface Withdrawal {
 }
 
 export default function AdminWithdrawals() {
-  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
@@ -51,14 +49,9 @@ export default function AdminWithdrawals() {
     if (!isAdmin) return;
 
     try {
-      const { data, error } = await supabase
-        .from("withdrawals")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(500);
-
-      if (error) throw error;
-      setWithdrawals(data || []);
+      const { apiGet } = await import('@/lib/api-client');
+      const response = await apiGet<{ withdrawals: Withdrawal[] }>('/admin/withdrawals?limit=500');
+      setWithdrawals(response.withdrawals || []);
     } catch (error) {
       console.error("Error fetching withdrawals:", error);
       toast({
@@ -67,7 +60,7 @@ export default function AdminWithdrawals() {
         variant: "destructive",
       });
     }
-  }, [supabase, isAdmin, toast]);
+  }, [isAdmin, toast]);
 
   useEffect(() => {
     checkAdmin().then(() => {

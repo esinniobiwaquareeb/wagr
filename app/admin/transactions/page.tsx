@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
@@ -30,7 +29,6 @@ interface Transaction {
 }
 
 export default function AdminTransactionsPage() {
-  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
@@ -59,27 +57,19 @@ export default function AdminTransactionsPage() {
     if (!isAdmin) return;
 
     try {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select(`
-          *,
-          profiles:user_id (
-            id,
-            username,
-            email
-          )
-        `)
-        .order("created_at", { ascending: false })
-        .limit(500);
-
-      if (error) throw error;
+      const { apiGet } = await import('@/lib/api-client');
+      const response = await apiGet<{ transactions: Transaction[] }>('/admin/transactions?limit=500');
       
-      // Transform the data - Supabase returns profiles as an array, extract first element
-      const transformedData = (data || []).map((transaction: any) => ({
+      // Transform the data to match expected format
+      const transformedData = (response.transactions || []).map((transaction: any) => ({
         ...transaction,
-        profiles: Array.isArray(transaction.profiles) 
-          ? transaction.profiles[0] 
-          : transaction.profiles || null,
+        profiles: transaction.user
+          ? {
+              id: transaction.user.id,
+              username: transaction.user.username,
+              email: transaction.user.email,
+            }
+          : null,
       }));
       
       setTransactions(transformedData);
@@ -91,7 +81,7 @@ export default function AdminTransactionsPage() {
         variant: "destructive",
       });
     }
-  }, [supabase, isAdmin, toast]);
+  }, [isAdmin, toast]);
 
   useEffect(() => {
     let mounted = true;

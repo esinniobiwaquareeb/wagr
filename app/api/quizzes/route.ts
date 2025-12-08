@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
     return successResponseNext({
       quizzes: response.data.quizzes || [],
-    }, response.meta);
+    });
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);

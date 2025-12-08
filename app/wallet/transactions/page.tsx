@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback, useRef } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -22,7 +21,6 @@ interface Transaction {
 }
 
 export default function TransactionsPage() {
-  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const { user, loading: authLoading } = useAuth({
     requireAuth: true,
@@ -76,31 +74,26 @@ export default function TransactionsPage() {
     if (user) {
       fetchTransactions();
 
-      // Subscribe to real-time updates
-      const channel = supabase
-        .channel(`transactions:${user.id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "transactions",
-            filter: `user_id=eq.${user.id}`,
-          },
-          () => {
-            debouncedRefetch();
-          }
-        )
-        .subscribe();
+      // Poll for updates every 30 seconds (replaces real-time subscriptions)
+      const pollInterval = setInterval(() => {
+        fetchTransactions();
+      }, 30000);
+
+      // Listen for custom balance update events
+      const handleBalanceUpdate = () => {
+        debouncedRefetch();
+      };
+      window.addEventListener('balance-updated', handleBalanceUpdate);
 
       return () => {
-        channel.unsubscribe();
+        clearInterval(pollInterval);
+        window.removeEventListener('balance-updated', handleBalanceUpdate);
         if (debounceTimeoutRef.current) {
           clearTimeout(debounceTimeoutRef.current);
         }
       };
     }
-  }, [user, supabase]); // Removed fetchTransactions and debouncedRefetch from dependencies
+  }, [user, fetchTransactions, debouncedRefetch]);
 
   const getTransactionTypeLabel = (type: string) => {
     const labels: Record<string, string> = {

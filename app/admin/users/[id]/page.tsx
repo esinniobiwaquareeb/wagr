@@ -29,7 +29,6 @@ import {
   Ban,
   AlertCircle,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { getCurrentUser } from "@/lib/auth/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
@@ -111,7 +110,6 @@ interface QuizParticipation {
 export default function AdminUserDetailPage({ params }: AdminUserDetailPageProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const supabase = useMemo(() => createClient(), []);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
@@ -137,135 +135,57 @@ export default function AdminUserDetailPage({ params }: AdminUserDetailPageProps
 
       setLoading(true);
       try {
-        // Fetch user profile
-        const { data: userData, error: userError } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", userId)
-          .maybeSingle();
+        const { apiGet } = await import('@/lib/api-client');
+        const response = await apiGet<{
+          user: any;
+          statistics: any;
+          activities: {
+            wagersCreated: Wager[];
+            wagerEntries: WagerEntry[];
+            transactions: Transaction[];
+            quizzesCreated: Quiz[];
+            quizParticipations: QuizParticipation[];
+            withdrawals: any[];
+            billPayments: any[];
+          };
+        }>(`/admin/users/${userId}`);
 
-        if (userError || !userData) {
-          throw userError || new Error("User not found");
+        if (!response.user) {
+          throw new Error("User not found");
         }
 
-        setUser(userData);
+        setUser(response.user);
+        setTransactions(response.activities.transactions || []);
+        setWagersCreated(response.activities.wagersCreated || []);
+        
+        // Transform wager entries to match expected format
+        const entriesWithWager = (response.activities.wagerEntries || []).map((entry: any) => ({
+          ...entry,
+          wager: entry.wager || null,
+          _searchWagerTitle: entry.wager?.title || '',
+        }));
+        setWagerEntries(entriesWithWager);
+        
+        setQuizzesCreated(response.activities.quizzesCreated || []);
+        
+        // Transform quiz participations to match expected format
+        const participationsWithQuiz = (response.activities.quizParticipations || []).map((p: any) => ({
+          ...p,
+          quiz: p.quiz || null,
+          _searchQuizTitle: p.quiz?.title || '',
+        }));
+        setQuizParticipations(participationsWithQuiz);
 
-        // Fetch transactions
-        const { data: transactionsData, error: transactionsError } = await supabase
-          .from("transactions")
-          .select("*")
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false })
-          .limit(500);
-
-        if (!transactionsError) {
-          setTransactions(transactionsData || []);
-        }
-
-        // Fetch wagers created
-        const { data: wagersData, error: wagersError } = await supabase
-          .from("wagers")
-          .select("*")
-          .eq("creator_id", userId)
-          .order("created_at", { ascending: false })
-          .limit(100);
-
-        if (!wagersError) {
-          setWagersCreated(wagersData || []);
-        }
-
-        // Fetch wager entries
-        const { data: entriesData, error: entriesError } = await supabase
-          .from("wager_entries")
-          .select(
-            `
-            *,
-            wager:wagers(
-              id,
-              title,
-              status,
-              winning_side
-            )
-          `
-          )
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false })
-          .limit(100);
-
-        if (!entriesError) {
-          const entriesWithWager = (entriesData || []).map((entry: any) => {
-            const wager = Array.isArray(entry.wager) ? entry.wager[0] || null : entry.wager || null;
-            return {
-              ...entry,
-              wager,
-              _searchWagerTitle: wager?.title || '',
-            };
-          });
-          setWagerEntries(entriesWithWager);
-        }
-
-        // Fetch quizzes created
-        const { data: quizzesData, error: quizzesError } = await supabase
-          .from("quizzes")
-          .select("*")
-          .eq("creator_id", userId)
-          .order("created_at", { ascending: false })
-          .limit(100);
-
-        if (!quizzesError) {
-          setQuizzesCreated(quizzesData || []);
-        }
-
-        // Fetch quiz participations
-        const { data: participationsData, error: participationsError } = await supabase
-          .from("quiz_participants")
-          .select(
-            `
-            *,
-            quiz:quizzes(
-              id,
-              title,
-              status
-            )
-          `
-          )
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false })
-          .limit(100);
-
-        if (!participationsError) {
-          const participationsWithQuiz = (participationsData || []).map((p: any) => {
-            const quiz = Array.isArray(p.quiz) ? p.quiz[0] || null : p.quiz || null;
-            return {
-              ...p,
-              quiz,
-              _searchQuizTitle: quiz?.title || '',
-            };
-          });
-          setQuizParticipations(participationsWithQuiz);
-        }
-
-        // Calculate statistics after all data is loaded
-        const transactionsList = transactionsData || [];
-        const totalDeposits = transactionsList
-          .filter((t) => t.type === "deposit" || t.type === "transfer_in" || t.type === "wager_win" || t.type === "quiz_win" || t.type === "wager_refund" || t.type === "quiz_refund")
-          .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-        const totalWithdrawals = transactionsList
-          .filter((t) => t.type === "withdrawal" || t.type === "transfer_out" || t.type === "wager_join" || t.type === "wager_create" || t.type === "quiz_creation" || t.type === "bill_airtime" || t.type === "bill_data")
-          .reduce((sum, t) => sum + Math.abs(Number(t.amount || 0)), 0);
-        const totalWinnings = transactionsList
-          .filter((t) => t.type === "wager_win" || t.type === "quiz_win")
-          .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-
+        // Use statistics from backend
         setStats({
-          totalTransactions: transactionsList.length,
-          totalDeposits,
-          totalWithdrawals,
-          totalWinnings,
-          wagersCreated: wagersData?.length || 0,
-          wagerEntries: entriesData?.length || 0,
-          quizzesCreated: quizzesData?.length || 0,
-          quizParticipations: participationsData?.length || 0,
+          totalTransactions: response.statistics.totalTransactions || 0,
+          totalDeposits: response.statistics.totalDeposits || 0,
+          totalWithdrawals: response.statistics.totalWithdrawals || 0,
+          totalWinnings: response.statistics.totalWinnings || 0,
+          wagersCreated: response.statistics.wagersCreated || 0,
+          wagerEntries: response.statistics.wagerEntries || 0,
+          quizzesCreated: response.statistics.quizzesCreated || 0,
+          quizParticipations: response.statistics.quizParticipations || 0,
         });
       } catch (error) {
         console.error("Failed to load user details", error);
@@ -278,7 +198,7 @@ export default function AdminUserDetailPage({ params }: AdminUserDetailPageProps
         setLoading(false);
       }
     },
-    [isAdmin, supabase, toast],
+    [isAdmin, toast],
   );
 
   useEffect(() => {

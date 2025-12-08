@@ -1,4 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
+// Simple in-memory rate limiting (for Next.js API routes)
+// Note: NestJS backend has its own throttling, this is just for Next.js API routes
 
 interface RateLimitOptions {
   identifier: string; // user_id or ip_address
@@ -13,97 +14,61 @@ interface RateLimitResult {
   resetAt: Date;
 }
 
+// In-memory store (cleared on server restart)
+const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+
 /**
- * Rate limiting utility using database
- * For production, consider using Redis for better performance
+ * Simple in-memory rate limiting utility
+ * For production, rate limiting should be handled by NestJS backend throttling
  */
 export async function checkRateLimit(
   options: RateLimitOptions
 ): Promise<RateLimitResult> {
   const { identifier, endpoint, limit, window } = options;
   
-  // Use service role for rate limiting (bypasses RLS)
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const now = Date.now();
+  const key = `${identifier}:${endpoint}`;
+  const windowMs = window * 1000;
   
-  if (!supabaseUrl || !supabaseServiceKey) {
-    // Fail open if not configured
+  // Clean up old entries periodically (every 1000 calls)
+  if (rateLimitStore.size > 1000) {
+    for (const [k, v] of rateLimitStore.entries()) {
+      if (v.resetAt < now) {
+        rateLimitStore.delete(k);
+      }
+    }
+  }
+  
+  const entry = rateLimitStore.get(key);
+  
+  if (!entry || entry.resetAt < now) {
+    // New window or expired entry
+    const resetAt = now + windowMs;
+    rateLimitStore.set(key, { count: 1, resetAt });
     return {
       allowed: true,
-      remaining: limit,
-      resetAt: new Date(Date.now() + window * 1000),
+      remaining: limit - 1,
+      resetAt: new Date(resetAt),
     };
   }
   
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-  const now = new Date();
-  const queryWindowStart = new Date(now.getTime() - window * 1000);
-
-  // Clean old records (async, don't wait)
-  void supabase.rpc('clean_old_rate_limits');
-
-  // Get current count for this identifier and endpoint
-  const { data: rateLimits, error } = await supabase
-    .from('rate_limits')
-    .select('count, window_start')
-    .eq('identifier', identifier)
-    .eq('endpoint', endpoint)
-    .gte('window_start', queryWindowStart.toISOString())
-    .order('window_start', { ascending: false })
-    .limit(1);
-
-  if (error) {
-    console.error('Rate limit check error:', error);
-    // On error, allow the request (fail open)
-    return {
-      allowed: true,
-      remaining: limit,
-      resetAt: new Date(now.getTime() + window * 1000),
-    };
-  }
-
-  const currentWindow = rateLimits?.[0];
-  const currentCount = currentWindow?.count || 0;
-
-  if (currentCount >= limit) {
+  if (entry.count >= limit) {
     // Rate limit exceeded
-    const resetAt = currentWindow
-      ? new Date(new Date(currentWindow.window_start).getTime() + window * 1000)
-      : new Date(now.getTime() + window * 1000);
-
     return {
       allowed: false,
       remaining: 0,
-      resetAt,
+      resetAt: new Date(entry.resetAt),
     };
   }
-
-  // Increment count or create new record
-  // Calculate window start by rounding down to the nearest window boundary
-  const windowStartMs = Math.floor(now.getTime() / (window * 1000)) * (window * 1000);
-  const recordWindowStart = new Date(windowStartMs);
-  const windowStartStr = recordWindowStart.toISOString();
   
-  const { error: upsertError } = await supabase
-    .from('rate_limits')
-    .upsert({
-      identifier,
-      endpoint,
-      count: currentCount + 1,
-      window_start: windowStartStr,
-    }, {
-      onConflict: 'identifier,endpoint,window_start',
-    });
-
-  if (upsertError) {
-    console.error('Rate limit upsert error:', upsertError);
-  }
-
+  // Increment count
+  entry.count++;
+  rateLimitStore.set(key, entry);
+  
   return {
     allowed: true,
-    remaining: limit - currentCount - 1,
-    resetAt: new Date(now.getTime() + window * 1000),
+    remaining: limit - entry.count,
+    resetAt: new Date(entry.resetAt),
   };
 }
 

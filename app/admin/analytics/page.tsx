@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
@@ -68,7 +67,6 @@ interface FinancialMetrics {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 export default function AdminAnalyticsPage() {
-  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
@@ -136,42 +134,43 @@ export default function AdminAnalyticsPage() {
         : null;
 
       // Fetch transactions
-      let transactionsQuery = supabase.from("transactions").select("*");
+      const { apiGet } = await import('@/lib/api-client');
+      const transactionsParams = new URLSearchParams();
+      transactionsParams.set('limit', '10000');
       if (dateFilter) {
-        transactionsQuery = transactionsQuery
-          .gte("created_at", dateFilter.start)
-          .lte("created_at", dateFilter.end);
+        transactionsParams.set('startDate', dateFilter.start);
+        transactionsParams.set('endDate', dateFilter.end);
       }
-      const { data: transactionsData, error: transactionsError } = await transactionsQuery
-        .order("created_at", { ascending: false })
-        .limit(10000);
-
-      if (transactionsError) throw transactionsError;
-      setTransactions(transactionsData || []);
+      const transactionsResponse = await apiGet<{ transactions: Transaction[] }>(`/admin/transactions?${transactionsParams.toString()}`);
+      const transactionsData = transactionsResponse.transactions || [];
+      setTransactions(transactionsData);
 
       // Fetch wagers
-      let wagersQuery = supabase.from("wagers").select("id, fee_percentage, status, created_at");
+      const wagersParams = new URLSearchParams();
       if (dateFilter) {
-        wagersQuery = wagersQuery
-          .gte("created_at", dateFilter.start)
-          .lte("created_at", dateFilter.end);
+        wagersParams.set('startDate', dateFilter.start);
+        wagersParams.set('endDate', dateFilter.end);
       }
-      const { data: wagersData, error: wagersError } = await wagersQuery;
+      const wagersResponse = await apiGet<{ wagers: Wager[] }>(`/admin/wagers?${wagersParams.toString()}`);
+      const wagersData = (wagersResponse.wagers || []).map(w => ({
+        id: w.id,
+        fee_percentage: w.fee_percentage || 0.05,
+        status: w.status,
+        created_at: w.created_at,
+      }));
+      setWagers(wagersData);
 
-      if (wagersError) throw wagersError;
-      setWagers(wagersData || []);
-
-      // Fetch wager entries
-      let entriesQuery = supabase.from("wager_entries").select("id, wager_id, amount, created_at");
-      if (dateFilter) {
-        entriesQuery = entriesQuery
-          .gte("created_at", dateFilter.start)
-          .lte("created_at", dateFilter.end);
-      }
-      const { data: entriesData, error: entriesError } = await entriesQuery;
-
-      if (entriesError) throw entriesError;
-      setWagerEntries(entriesData || []);
+      // Fetch wager entries (we'll need to get these from wagers or create an endpoint)
+      // For now, we'll calculate from transactions
+      const entriesData: WagerEntry[] = transactionsData
+        .filter(t => t.type === 'wager_join' || t.type === 'wager_entry')
+        .map(t => ({
+          id: t.id,
+          wager_id: (t as any).wager_id || '',
+          amount: Math.abs(t.amount),
+          created_at: t.created_at,
+        }));
+      setWagerEntries(entriesData);
 
       // Calculate daily data
       const start = dateFilter ? parseISO(dateFilter.start) : parseISO((transactionsData || [])[0]?.created_at || new Date().toISOString());
@@ -252,7 +251,7 @@ export default function AdminAnalyticsPage() {
         variant: "destructive",
       });
     }
-  }, [supabase, isAdmin, toast, dateRange, startDate, endDate, customDateRange, getDateFilter]);
+  }, [isAdmin, toast, dateRange, startDate, endDate, customDateRange, getDateFilter]);
 
   useEffect(() => {
     checkAdmin().then(() => {

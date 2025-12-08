@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/table";
 import { getCurrentUser } from "@/lib/auth/client";
 import { apiGet } from "@/lib/api-client";
-import { createClient } from "@/lib/supabase/client";
 
 interface Stats {
   totalUsers: number;
@@ -58,7 +57,6 @@ interface Transaction {
 }
 
 export default function AdminPage() {
-  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
@@ -126,14 +124,8 @@ export default function AdminPage() {
     if (!isAdmin) return;
 
     try {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(20);
-
-      if (error) throw error;
-      setRecentTransactions(data || []);
+      const response = await apiGet<{ transactions: Transaction[] }>('/admin/transactions?limit=20');
+      setRecentTransactions(response.transactions || []);
     } catch (error) {
       console.error("Error fetching recent transactions:", error);
       toast({
@@ -142,7 +134,7 @@ export default function AdminPage() {
         variant: "destructive",
       });
     }
-  }, [isAdmin, supabase, toast]);
+  }, [isAdmin, toast]);
 
   const handleResolveWager = async (wagerId: string, winningSide: "a" | "b") => {
     if (!isAdmin) return;

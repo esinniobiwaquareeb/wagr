@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     return successResponseNext({
-      message: response.data?.message || 'Password changed successfully',
+      message: (response.data as any)?.message || 'Password changed successfully',
     });
   } catch (error) {
     logError(error as Error);

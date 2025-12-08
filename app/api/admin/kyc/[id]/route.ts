@@ -60,7 +60,7 @@ export async function PATCH(
           method: 'POST',
           token,
           requireAuth: true,
-          body: { reason },
+          body: JSON.stringify({ reason }),
         }
       );
 

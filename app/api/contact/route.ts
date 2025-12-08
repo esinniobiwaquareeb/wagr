@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { nestjsServerFetch } from '@/lib/nestjs-server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,28 +47,26 @@ export async function POST(request: NextRequest) {
     }
     const sanitizedMessage = sanitizeString(message, 5000);
 
-    // Store contact message in database
-    const supabase = await createClient();
-    
-    // Create contact_messages table if it doesn't exist (you may need to run a migration)
-    // For now, we'll use a simple approach - you can enhance this with a proper table
-    const { error } = await supabase
-      .from('contact_messages')
-      .insert({
-        name: sanitizedName,
-        email: sanitizedEmail,
-        subject: sanitizedSubject,
-        message: sanitizedMessage,
-        created_at: new Date().toISOString(),
+    // Store contact message via NestJS backend
+    try {
+      const response = await nestjsServerFetch('/contact', {
+        method: 'POST',
+        requireAuth: false,
+        body: JSON.stringify({
+          name: sanitizedName,
+          email: sanitizedEmail,
+          subject: sanitizedSubject,
+          message: sanitizedMessage,
+        }),
       });
 
-    if (error) {
-      // If table doesn't exist, log the message (in production, you'd want to set up the table)
-      console.error('Error storing contact message:', error);
-      // Don't log sensitive data
-      
+      if (!response.success) {
+        console.error('Error storing contact message:', response.error);
+        // Still return success to user, but log for admin review
+      }
+    } catch (error) {
+      console.error('Error calling contact API:', error);
       // Still return success to user, but log for admin review
-      // In production, set up the contact_messages table or use an email service
     }
 
     return NextResponse.json({

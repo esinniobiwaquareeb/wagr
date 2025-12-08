@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     return successResponseNext({
-      message: response.data?.message || 'Password reset successfully. You can now log in with your new password.',
+      message: (response.data as any)?.message || 'Password reset successfully. You can now log in with your new password.',
     });
   } catch (error) {
     logError(error as Error);

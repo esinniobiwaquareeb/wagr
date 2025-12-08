@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useEffect, useCallback } from "react";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import {
@@ -37,105 +36,70 @@ interface Activity {
 }
 
 export function PlatformActivities() {
-  const supabase = useMemo(() => createClient(), []);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const pageSize = 50;
 
-  const fetchActivities = useCallback(async (page = 0, append = false) => {
+  const fetchActivities = useCallback(async (page = 1, append = false) => {
     try {
       setLoadingMore(true);
-      const from = page * pageSize;
-      const to = from + pageSize - 1;
 
-      const { data, error } = await supabase
-        .from("wager_activities")
-        .select(`
-          *,
-          profiles:user_id (
-            username,
-            avatar_url
-          ),
-          wagers:wager_id (
-            id,
-            title,
-            side_a,
-            side_b,
-            short_id
-          )
-        `)
-        .order("created_at", { ascending: false })
-        .range(from, to);
-
-      if (error) throw error;
-
-      if (data) {
-        if (append) {
-          setActivities((prev) => [...prev, ...data]);
-        } else {
-          setActivities(data);
-        }
-        setHasMore(data.length === pageSize);
+      const response = await fetch(`/api/wagers/activities?page=${page}&limit=${pageSize}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch activities');
       }
+
+      const data = await response.json();
+      
+      // Handle response format: { success: true, data: [...], meta: {...} }
+      const activitiesData = data.success && Array.isArray(data.data)
+        ? data.data
+        : data.activities || [];
+
+      if (append) {
+        setActivities((prev) => [...prev, ...activitiesData]);
+      } else {
+        setActivities(activitiesData);
+      }
+
+      // Check if there are more pages
+      const total = data.meta?.total || 0;
+      const currentTotal = append ? activities.length + activitiesData.length : activitiesData.length;
+      setHasMore(currentTotal < total);
     } catch (error) {
       console.error("Error fetching activities:", error);
     } finally {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
-    fetchActivities(0, false);
+    fetchActivities(1, false);
 
-    // Subscribe to real-time updates for all activities
-    const channel = supabase
-      .channel("platform-activities")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "wager_activities",
-        },
-        async (payload) => {
-          // Fetch the new activity with related data
-          const { data: newActivity } = await supabase
-            .from("wager_activities")
-            .select(`
-              *,
-              profiles:user_id (
-                username,
-                avatar_url
-              ),
-              wagers:wager_id (
-                id,
-                title,
-                side_a,
-                side_b,
-                short_id
-              )
-            `)
-            .eq("id", payload.new.id)
-            .maybeSingle();
+    // Poll for updates every 30 seconds (replaces real-time subscriptions)
+    const pollInterval = setInterval(() => {
+      fetchActivities(1, false);
+    }, 30000);
 
-          if (newActivity) {
-            setActivities((prev) => [newActivity, ...prev]);
-          }
-        }
-      )
-      .subscribe();
+    // Listen for custom activity update events
+    const handleActivityUpdate = () => {
+      fetchActivities(1, false);
+    };
+    window.addEventListener('wager-activity-updated', handleActivityUpdate);
 
     return () => {
-      channel.unsubscribe();
+      clearInterval(pollInterval);
+      window.removeEventListener('wager-activity-updated', handleActivityUpdate);
     };
-  }, [supabase, fetchActivities]);
+  }, [fetchActivities]);
 
   const loadMore = () => {
     if (!loadingMore && hasMore) {
-      const nextPage = Math.floor(activities.length / pageSize);
+      const nextPage = Math.floor(activities.length / pageSize) + 1;
       fetchActivities(nextPage, true);
     }
   };

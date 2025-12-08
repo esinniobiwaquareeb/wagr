@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { nestjsServerFetch } from '@/lib/nestjs-server';
 import { requireAuth } from '@/lib/auth/server';
-import { logger } from '@/lib/logger';
+import { logError } from '@/lib/error-handler';
+import { cookies } from 'next/headers';
 
 /**
  * API endpoint to save push notification subscription
  */
 export async function POST(request: NextRequest) {
   try {
+    await requireAuth();
     const body = await request.json();
     const { subscription } = body;
 
@@ -26,33 +28,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get authenticated user
-    const user = await requireAuth();
-    const supabase = await createClient();
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
 
-    // Save subscription to database
-    const { error: dbError } = await supabase
-      .from('push_subscriptions')
-      .upsert({
-        user_id: user.id,
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
+    // Transform keys format if needed (from keys.p256dh/keys.auth to keys object)
+    const keys = subscription.keys || {};
+    const subscriptionData = {
+      subscription: {
         endpoint: subscription.endpoint,
-        keys: subscription.keys,
-        updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'user_id,endpoint',
-      });
+        keys: {
+          p256dh: keys.p256dh || keys.keys?.p256dh || '',
+          auth: keys.auth || keys.keys?.auth || '',
+        },
+      },
+    };
 
-    if (dbError) {
-      logger.error('Error saving push subscription:', dbError);
+    // Call NestJS backend
+    const response = await nestjsServerFetch('/notifications/push/subscribe', {
+      method: 'POST',
+      token,
+      requireAuth: true,
+      body: subscriptionData,
+    });
+
+    if (!response.success) {
       return NextResponse.json(
-        { error: 'Failed to save subscription' },
-        { status: 500 }
+        { error: response.error?.message || 'Failed to save subscription' },
+        { status: response.error?.statusCode || 500 }
       );
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    logger.error('Error in push subscribe endpoint:', error);
+    logError(error as Error);
     return NextResponse.json(
       {
         error: 'Internal server error',

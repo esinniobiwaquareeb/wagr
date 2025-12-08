@@ -1,130 +1,42 @@
-import { NextRequest } from 'next/server';
-import { createServiceRoleClient } from '@/lib/supabase/server';
-import { successResponseNext, errorResponse } from '@/lib/api-response';
+import { NextRequest, NextResponse } from 'next/server';
 import { logError } from '@/lib/error-handler';
-import { refundBillPayment, markPaymentAsFailed } from '@/lib/bills/payment-helpers';
-import { getBillsSettings } from '@/lib/settings';
-import { getBillsProvider } from '@/lib/bills/providers';
+
+const NESTJS_API_BASE = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://localhost:3001/api/v1';
 
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
-    const rawOrderId = url.searchParams.get('orderid') || url.searchParams.get('OrderID');
-    const rawRequestId = url.searchParams.get('requestid') || url.searchParams.get('RequestID');
-    const rawRemark = url.searchParams.get('orderremark') || url.searchParams.get('OrderRemark');
     
-    // Sanitize input parameters
-    const { sanitizeString } = await import('@/lib/security/input-sanitizer');
-    const orderId = rawOrderId ? sanitizeString(rawOrderId, 100) : null;
-    const requestId = rawRequestId ? sanitizeString(rawRequestId, 100) : null;
-    const remark = rawRemark ? sanitizeString(rawRemark, 500) : null;
+    // Build query string with all params
+    const queryParams = new URLSearchParams();
+    url.searchParams.forEach((value, key) => {
+      queryParams.append(key, value);
+    });
 
-    if (!orderId && !requestId) {
-      return errorResponse(
-        'INVALID_CALLBACK',
-        'orderid or requestid is required',
-        undefined,
-        400,
+    // Call NestJS backend callback endpoint
+    const response = await fetch(`${NESTJS_API_BASE}/bills/callback?${queryParams.toString()}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return NextResponse.json(
+        { error: data.error || 'Failed to process callback' },
+        { status: response.status }
       );
     }
 
-    const supabaseAdmin = createServiceRoleClient();
-    const { data: payment, error: paymentError } = await supabaseAdmin
-      .from('bill_payments')
-      .select('id, user_id, amount, status, reference, refunded_at, order_id, request_id, provider')
-      .or(
-        [
-          orderId ? `order_id.eq.${orderId.replace(/'/g, "''")}` : '',
-          requestId ? `request_id.eq.${requestId.replace(/'/g, "''")}` : '',
-        ]
-          .filter(Boolean)
-          .join(','),
-      )
-      .maybeSingle();
-
-    if (paymentError) {
-      logError(new Error(paymentError.message), { orderId, requestId });
-      return errorResponse('PAYMENT_NOT_FOUND', 'Unable to locate payment record', undefined, 404);
-    }
-
-    if (!payment) {
-      return errorResponse('PAYMENT_NOT_FOUND', 'No matching payment record', undefined, 404);
-    }
-
-    const billsSettings = await getBillsSettings();
-    const providerKey = payment.provider || billsSettings.defaultProvider;
-    const provider = getBillsProvider(providerKey, billsSettings);
-
-    if (!provider) {
-      logError(new Error('Provider not configured for bills callback'), {
-        providerKey,
-      });
-      return errorResponse('PROVIDER_NOT_AVAILABLE', 'Provider is not configured', undefined, 500);
-    }
-
-    const callbackResult = provider.normalizeCallback(url.searchParams);
-    const metadata = {
-      providerKey,
-      ...Object.fromEntries(url.searchParams.entries()),
-    };
-
-    // Already processed
-    if (payment.status === 'completed' && callbackResult.status === 'completed') {
-      return successResponseNext({ status: 'completed' });
-    }
-
-    if (callbackResult.status === 'completed') {
-      await supabaseAdmin
-        .from('bill_payments')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          order_id: callbackResult.orderId || orderId || payment.order_id,
-          status_code: callbackResult.statusCode || null,
-          remark: callbackResult.remark || remark || 'COMPLETED',
-          metadata,
-        })
-        .eq('id', payment.id);
-
-      return successResponseNext({ status: 'completed' });
-    }
-
-    if (callbackResult.status === 'processing') {
-      await supabaseAdmin
-        .from('bill_payments')
-        .update({
-          status: 'processing',
-          status_code: callbackResult.statusCode || null,
-          remark: callbackResult.remark || remark || 'PROCESSING',
-          metadata,
-        })
-        .eq('id', payment.id);
-
-      return successResponseNext({ status: 'processing' });
-    }
-
-    // Failure path
-    await markPaymentAsFailed({
-      supabaseAdmin,
-      paymentId: payment.id,
-      reason: callbackResult.remark || remark || 'ORDER_FAILED',
-      details: metadata,
-    });
-
-    if (!payment.refunded_at) {
-      await refundBillPayment({
-        supabaseAdmin,
-        userId: payment.user_id,
-        amount: Number(payment.amount),
-        paymentId: payment.id,
-        reference: payment.reference || `bill_airtime_${payment.id}`,
-      });
-    }
-
-    return successResponseNext({ status: 'failed' });
+    return NextResponse.json(data);
   } catch (error) {
     logError(error as Error);
-    return errorResponse('CALLBACK_ERROR', 'Failed to process callback', undefined, 500);
+    return NextResponse.json(
+      { error: 'Failed to process callback' },
+      { status: 500 }
+    );
   }
 }
 

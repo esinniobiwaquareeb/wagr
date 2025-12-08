@@ -34,9 +34,10 @@ export async function POST(request: NextRequest) {
       throw new Error(response.error?.message || 'Failed to transfer funds');
     }
 
+    const data = response.data as any;
     return successResponseNext({
-      message: response.data.message || 'Transfer successful',
-      transfer: response.data.transfer,
+      message: data.message || 'Transfer successful',
+      transfer: data.transfer,
     });
   } catch (error) {
     logError(error as Error);

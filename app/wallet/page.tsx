@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback, useRef, Suspense } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
@@ -33,7 +32,6 @@ interface Transaction {
 }
 
 function WalletContent() {
-  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading: authLoading, refresh: refreshAuth } = useAuth({
@@ -365,51 +363,29 @@ function WalletContent() {
     }
   }, [user, authLoading, searchParams, router]);
 
-  // Real-time subscription for profile balance updates
+  // Poll for updates and listen for balance update events
   useEffect(() => {
     if (!user) return;
 
-    const profileChannel = supabase
-      .channel(`wallet-profile:${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "profiles",
-          filter: `id=eq.${user.id}`,
-        },
-        () => {
-          debouncedRefetch();
-        }
-      )
-      .subscribe();
+    // Poll for updates every 30 seconds (replaces real-time subscriptions)
+    const pollInterval = setInterval(() => {
+      fetchWalletData(true);
+    }, 30000);
 
-    // Real-time subscription for transactions
-    const transactionsChannel = supabase
-      .channel(`wallet-transactions:${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "transactions",
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          debouncedRefetch();
-        }
-      )
-      .subscribe();
+    // Listen for custom balance update events
+    const handleBalanceUpdate = () => {
+      debouncedRefetch();
+    };
+    window.addEventListener('balance-updated', handleBalanceUpdate);
 
     return () => {
-      profileChannel.unsubscribe();
-      transactionsChannel.unsubscribe();
+      clearInterval(pollInterval);
+      window.removeEventListener('balance-updated', handleBalanceUpdate);
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [user, supabase]); // Removed fetchWalletData and debouncedRefetch from dependencies
+  }, [user, fetchWalletData, debouncedRefetch]);
 
   const handleWithdraw = async () => {
     // Validate amount

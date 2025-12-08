@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server';
-import { createServiceRoleClient } from '@/lib/supabase/server';
+import { nestjsServerFetch } from '@/lib/nestjs-server';
 import { requireAuth } from '@/lib/auth/server';
-import { AppError, logError } from '@/lib/error-handler';
-import { ErrorCode } from '@/lib/error-handler';
+import { logError } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
+import { cookies } from 'next/headers';
 
 /**
  * POST /api/quizzes/[id]/accept
@@ -14,87 +14,35 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await requireAuth();
-    const serviceSupabase = createServiceRoleClient();
+    await requireAuth();
     const { id } = await params;
     
-    // Sanitize and validate ID input
-    const { validateIDParam } = await import('@/lib/security/validator');
-    const quizId = validateIDParam(id, 'quiz ID', false); // Only UUID for quizzes
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
 
-    // Check if user is invited
-    const { data: participant, error: participantError } = await serviceSupabase
-      .from('quiz_participants')
-      .select('id, status, quiz_id')
-      .eq('quiz_id', quizId)
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (participantError || !participant) {
-      throw new AppError(ErrorCode.NOT_FOUND, 'You are not invited to this quiz');
+    if (!token) {
+      throw new Error('Authentication required');
     }
 
-    if (participant.status !== 'invited') {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, `Invitation already ${participant.status}`);
-    }
-
-    // Get quiz to check status and creator
-    const { data: quiz } = await serviceSupabase
-      .from('quizzes')
-      .select('id, status, max_participants, creator_id')
-      .eq('id', quizId)
-      .maybeSingle();
-
-    if (!quiz) {
-      throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Quiz not found');
-    }
-
-    // Prevent creator from accepting their own quiz invitation
-    if (quiz.creator_id === user.id) {
-      throw new AppError(ErrorCode.FORBIDDEN, 'You cannot participate in your own quiz');
-    }
-
-    // Check if quiz is still open
-    if (!['draft', 'open'].includes(quiz.status)) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Quiz is no longer accepting participants');
-    }
-
-    // Check if max participants reached
-    const { count: currentParticipants } = await serviceSupabase
-      .from('quiz_participants')
-      .select('*', { count: 'exact', head: true })
-      .eq('quiz_id', quizId)
-      .in('status', ['accepted', 'started', 'completed']);
-
-    if ((currentParticipants || 0) >= quiz.max_participants) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Quiz has reached maximum participants');
-    }
-
-    // Update participant status to accepted
-    const { error: updateError } = await serviceSupabase
-      .from('quiz_participants')
-      .update({ status: 'accepted' })
-      .eq('id', participant.id);
-
-    if (updateError) {
-      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to accept invitation');
-    }
-
-    // Mark notification as read if exists
-    await serviceSupabase
-      .from('notifications')
-      .update({ read: true })
-      .eq('type', 'quiz_invitation')
-      .eq('user_id', user.id)
-      .eq('metadata->>quiz_id', quizId);
-
-    return successResponseNext({
-      message: 'Invitation accepted successfully',
+    // Call NestJS backend
+    const response = await nestjsServerFetch<{
+      message: string;
       participant: {
-        id: participant.id,
-        status: 'accepted',
-      },
+        id: string;
+        status: string;
+      };
+    }>(`/quizzes/${id}/accept`, {
+      method: 'POST',
+      token,
+      requireAuth: true,
     });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'Failed to accept invitation');
+    }
+
+    return successResponseNext(response.data);
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);

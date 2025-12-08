@@ -24,9 +24,9 @@ export async function GET(request: NextRequest) {
     }
 
     return successResponseNext({
-      message: response.data?.message || 'Email verified successfully! Please log in to access your account.',
+      message: (response.data as any)?.message || 'Email verified successfully! Please log in to access your account.',
       verified: true,
-      alreadyVerified: response.data?.alreadyVerified || false,
+      alreadyVerified: (response.data as any)?.alreadyVerified || false,
     });
   } catch (error) {
     logError(error as Error);

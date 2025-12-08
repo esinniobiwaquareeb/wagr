@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY } from "@/lib/currency";
 import { useSettings } from "@/hooks/use-settings";
@@ -94,7 +93,6 @@ interface CreateQuizModalProps {
 export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initialData }: CreateQuizModalProps) {
   const isEditMode = !!quizId && !!initialData;
   const { user } = useAuth();
-  const supabase = createClient();
   const [submitting, setSubmitting] = useState(false);
   const [userBalance, setUserBalance] = useState<number | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
@@ -204,19 +202,18 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
   useEffect(() => {
     if (open && user) {
       const fetchBalance = async () => {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("balance")
-          .eq("id", user.id)
-          .maybeSingle();
-        
-        if (profile) {
-          setUserBalance(profile.balance || 0);
+        try {
+          const { walletApi } = await import('@/lib/api-client');
+          const response = await walletApi.getBalance();
+          setUserBalance(response.balance || 0);
+        } catch (error) {
+          console.error('Error fetching balance:', error);
+          setUserBalance(0);
         }
       };
       fetchBalance();
     }
-  }, [open, user, supabase]);
+  }, [open, user]);
 
   // Calculate total cost (base cost + platform fee)
   // Get platform fee from settings (default to 10% if not loaded yet)

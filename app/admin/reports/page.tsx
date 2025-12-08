@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
@@ -36,7 +35,6 @@ interface Analytics {
 }
 
 export default function AdminReportsPage() {
-  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
@@ -92,58 +90,65 @@ export default function AdminReportsPage() {
     if (!isAdmin) return;
 
     try {
-      let query = supabase
-        .from("transactions")
-        .select("*");
-
+      const { apiGet } = await import('@/lib/api-client');
+      
+      // Build query params
+      const params = new URLSearchParams();
+      params.set('limit', '1000');
+      
       // Apply date filter
       if (customDateRange && startDate && endDate) {
-        query = query
-          .gte("created_at", startOfDay(new Date(startDate)).toISOString())
-          .lte("created_at", endOfDay(new Date(endDate)).toISOString());
+        params.set('startDate', startOfDay(new Date(startDate)).toISOString());
+        params.set('endDate', endOfDay(new Date(endDate)).toISOString());
       } else if (dateRange !== "all") {
         const dateFilter = getDateFilter();
         if (dateFilter) {
-          query = query
-            .gte("created_at", dateFilter.start)
-            .lte("created_at", dateFilter.end);
+          params.set('startDate', dateFilter.start);
+          params.set('endDate', dateFilter.end);
         }
       }
 
       // Apply type filter
       if (transactionType !== "all") {
-        query = query.eq("type", transactionType);
+        params.set('type', transactionType);
       }
 
-      const { data, error } = await query
-        .order("created_at", { ascending: false })
-        .limit(1000);
+      const response = await apiGet<{ transactions: Transaction[] }>(`/admin/transactions?${params.toString()}`);
+      const data = response.transactions || [];
+      setTransactions(data);
 
-      if (error) throw error;
-      setTransactions(data || []);
-
-      // Fetch wagers and entries for commission calculation
-      let wagersQuery = supabase.from("wagers").select("id, fee_percentage, status, created_at");
-      let entriesQuery = supabase.from("wager_entries").select("id, wager_id, amount, created_at");
-
+      // Fetch wagers for commission calculation
+      const wagersParams = new URLSearchParams();
       if (customDateRange && startDate && endDate) {
-        const start = startOfDay(new Date(startDate)).toISOString();
-        const end = endOfDay(new Date(endDate)).toISOString();
-        wagersQuery = wagersQuery.gte("created_at", start).lte("created_at", end);
-        entriesQuery = entriesQuery.gte("created_at", start).lte("created_at", end);
+        wagersParams.set('startDate', startOfDay(new Date(startDate)).toISOString());
+        wagersParams.set('endDate', endOfDay(new Date(endDate)).toISOString());
       } else if (dateRange !== "all") {
         const dateFilter = getDateFilter();
         if (dateFilter) {
-          wagersQuery = wagersQuery.gte("created_at", dateFilter.start).lte("created_at", dateFilter.end);
-          entriesQuery = entriesQuery.gte("created_at", dateFilter.start).lte("created_at", dateFilter.end);
+          wagersParams.set('startDate', dateFilter.start);
+          wagersParams.set('endDate', dateFilter.end);
         }
       }
 
-      const { data: wagersData } = await wagersQuery;
-      const { data: entriesData } = await entriesQuery;
+      const wagersResponse = await apiGet<{ wagers: any[] }>(`/admin/wagers?${wagersParams.toString()}`);
+      const wagersData = (wagersResponse.wagers || []).map(w => ({
+        id: w.id,
+        fee_percentage: w.fee_percentage || 0.05,
+        status: w.status,
+        created_at: w.created_at,
+      }));
+      setWagers(wagersData);
 
-      setWagers(wagersData || []);
-      setWagerEntries(entriesData || []);
+      // Calculate entries from transactions
+      const entriesData = data
+        .filter(t => t.type === 'wager_join' || t.type === 'wager_entry')
+        .map(t => ({
+          id: t.id,
+          wager_id: (t as any).wager_id || '',
+          amount: Math.abs(t.amount),
+          created_at: t.created_at,
+        }));
+      setWagerEntries(entriesData);
 
       // Calculate platform commissions from resolved wagers
       const resolvedWagers = (wagersData || []).filter(w => w.status === "RESOLVED" || w.status === "SETTLED");
@@ -188,7 +193,7 @@ export default function AdminReportsPage() {
         variant: "destructive",
       });
     }
-  }, [supabase, isAdmin, toast, dateRange, transactionType, startDate, endDate, customDateRange]);
+  }, [isAdmin, toast, dateRange, transactionType, startDate, endDate, customDateRange, getDateFilter]);
 
   useEffect(() => {
     checkAdmin().then(() => {

@@ -19,7 +19,6 @@ import {
   Activity,
   Coins,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { getCurrentUser } from "@/lib/auth/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
@@ -52,7 +51,6 @@ interface Transaction {
 export default function AdminTransactionDetailPage({ params }: AdminTransactionDetailPageProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const supabase = useMemo(() => createClient(), []);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [transaction, setTransaction] = useState<Transaction | null>(null);
@@ -64,31 +62,24 @@ export default function AdminTransactionDetailPage({ params }: AdminTransactionD
 
       setLoading(true);
       try {
-        // Fetch transaction with user profile
-        const { data: transactionData, error: transactionError } = await supabase
-          .from("transactions")
-          .select(`
-            *,
-            profiles:user_id (
-              id,
-              username,
-              email,
-              avatar_url
-            )
-          `)
-          .eq("id", transactionId)
-          .maybeSingle();
+        const { apiGet } = await import('@/lib/api-client');
+        const response = await apiGet<{ transaction: any }>(`/admin/transactions/${transactionId}`);
 
-        if (transactionError || !transactionData) {
-          throw transactionError || new Error("Transaction not found");
+        if (!response.transaction) {
+          throw new Error("Transaction not found");
         }
 
-        // Transform the data - Supabase returns profiles as an array
+        // Transform the data to match expected format
         const transformedTransaction = {
-          ...transactionData,
-          profiles: Array.isArray(transactionData.profiles)
-            ? transactionData.profiles[0]
-            : transactionData.profiles || null,
+          ...response.transaction,
+          profiles: response.transaction.user
+            ? {
+                id: response.transaction.user.id,
+                username: response.transaction.user.username,
+                email: response.transaction.user.email,
+                avatar_url: response.transaction.user.avatar_url,
+              }
+            : null,
         };
 
         setTransaction(transformedTransaction);
@@ -104,7 +95,7 @@ export default function AdminTransactionDetailPage({ params }: AdminTransactionD
         setLoading(false);
       }
     },
-    [supabase, isAdmin, toast, router]
+    [isAdmin, toast, router]
   );
 
   useEffect(() => {

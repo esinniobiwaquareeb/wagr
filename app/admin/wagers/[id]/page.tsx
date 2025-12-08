@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import { ArrowLeft, Clock, CheckCircle2, Users, AlertTriangle, ExternalLink, Trophy } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { getCurrentUser } from "@/lib/auth/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
@@ -36,7 +35,6 @@ interface WagerEntry {
 export default function AdminWagerDetailPage({ params }: AdminWagerDetailPageProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const supabase = useMemo(() => createClient(), []);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [wager, setWager] = useState<any>(null);
@@ -55,68 +53,34 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
 
       setLoading(true);
       try {
-        const { data: wagerData, error } = await supabase
-          .from("wagers")
-          .select(
-            `
-            *,
-            creator:profiles!wagers_creator_id_fkey(
-              id,
-              username,
-              email,
-              avatar_url
-            )
-          `
-          )
-          .eq("id", wagerId)
-          .maybeSingle();
+        const { apiGet } = await import('@/lib/api-client');
+        const response = await apiGet<{ wager: any }>(`/wagers/${wagerId}`);
 
-        if (error || !wagerData) {
-          throw error || new Error("Wager not found");
+        if (!response.wager) {
+          throw new Error("Wager not found");
         }
 
+        const wagerData = response.wager;
         setWager(wagerData);
 
-        const { data: entryData, error: entryError } = await supabase
-          .from("wager_entries")
-          .select(
-            `
-            id,
-            user_id,
-            amount,
-            side,
-            created_at,
-            user:profiles!wager_entries_user_id_fkey(
-              id,
-              username,
-              email,
-              avatar_url
-            )
-          `
-          )
-          .eq("wager_id", wagerId)
-          .order("created_at", { ascending: true });
-
-        if (entryError) {
-          throw entryError;
-        }
-
-        const entriesWithFallback = (entryData || []).map((entry: any) => ({
+        // Extract entries from wager data
+        const entriesData = wagerData.entries || [];
+        const entriesWithFallback = entriesData.map((entry: any) => ({
           ...entry,
-          user: Array.isArray(entry.user) ? entry.user[0] || null : entry.user || null,
+          user: entry.user || null,
         }));
 
         setEntries(entriesWithFallback);
         setTotalParticipants(entriesWithFallback.length);
         setSideASum(
           entriesWithFallback
-            .filter((entry) => (entry.side || "").toLowerCase() === "a")
-            .reduce((sum, entry) => sum + Number(entry.amount || 0), 0),
+            .filter((entry: any) => (entry.side || "").toLowerCase() === "a")
+            .reduce((sum: number, entry: any) => sum + Number(entry.amount || 0), 0),
         );
         setSideBSum(
           entriesWithFallback
-            .filter((entry) => (entry.side || "").toLowerCase() === "b")
-            .reduce((sum, entry) => sum + Number(entry.amount || 0), 0),
+            .filter((entry: any) => (entry.side || "").toLowerCase() === "b")
+            .reduce((sum: number, entry: any) => sum + Number(entry.amount || 0), 0),
         );
       } catch (error) {
         console.error("Failed to load wager", error);
@@ -129,7 +93,7 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
         setLoading(false);
       }
     },
-    [isAdmin, supabase, toast],
+    [isAdmin, toast],
   );
 
   const handleResolveClick = (side: "a" | "b") => {
@@ -164,42 +128,26 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
         }
       }
 
-      // First, set the winning side
-      const { error: updateError } = await supabase
-        .from("wagers")
-        .update({ 
-          winning_side: winningSide
-        })
-        .eq("id", wagerId);
+      // Resolve the wager via API
+      const { apiPost } = await import('@/lib/api-client');
+      const resolveResponse = await apiPost<{ wager: any }>(`/admin/wagers/${wagerId}/resolve`, {
+        winning_side: winningSide,
+      });
 
-      if (updateError) throw updateError;
+      if (!resolveResponse.wager) {
+        throw new Error("Failed to resolve wager");
+      }
 
-      // Immediately settle the wager using the database function
+      // Wait a moment for the settlement to complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Verify the wager status was updated
       try {
-        const { error: settleError } = await supabase.rpc("settle_wager", {
-          wager_id_param: wagerId
-        });
+        const { apiGet } = await import('@/lib/api-client');
+        const checkResponse = await apiGet<{ wager: any }>(`/admin/wagers/${wagerId}`);
+        const updatedWager = checkResponse.wager;
 
-        // Wait a moment for the settlement to complete
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // Verify the wager status was updated
-        const { data: updatedWager, error: checkError } = await supabase
-          .from("wagers")
-          .select("status, winning_side")
-          .eq("id", wagerId)
-          .maybeSingle();
-
-        if (settleError) {
-          const errorMessage = settleError.message || JSON.stringify(settleError) || 'Unknown error';
-          console.error("Error settling wager (RPC error):", settleError);
-          
-          toast({
-            title: "Winning side set",
-            description: `Winning side has been set. Settlement will be processed automatically. Error: ${errorMessage}`,
-            variant: "default",
-          });
-        } else if (updatedWager?.status === "SETTLED" || updatedWager?.status === "RESOLVED") {
+        if (updatedWager?.status === "SETTLED" || updatedWager?.status === "RESOLVED") {
           toast({
             title: "Wager resolved",
             description: "Wager has been resolved and settled. Winnings have been distributed to participants.",
@@ -218,13 +166,9 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
             variant: "default",
           });
         }
-      } catch (rpcError: any) {
-        console.error("Exception during settlement:", rpcError);
-        toast({
-          title: "Winning side set",
-          description: `Winning side has been set. Settlement encountered an error: ${rpcError?.message || 'Unknown error'}. It will be processed automatically.`,
-          variant: "default",
-        });
+      } catch (checkError: any) {
+        console.error("Exception during status check:", checkError);
+        // Wager was resolved, but status check failed - that's okay
       }
 
       // Refresh wager details

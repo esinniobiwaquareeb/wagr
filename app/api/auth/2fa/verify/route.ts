@@ -29,10 +29,10 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       token,
       requireAuth: true,
-      body: {
+      body: JSON.stringify({
         code,
         isBackupCode,
-      },
+      }),
     });
 
     if (!response.success) {
