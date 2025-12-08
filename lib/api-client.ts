@@ -258,6 +258,8 @@ export const preferencesApi = {
  * Comments API
  */
 export const commentsApi = {
+  list: (wagerId: string) => apiGet<{ comments: any[] }>(`/wagers/${wagerId}/comments`),
+  
   create: (wagerId: string, data: { content: string; parent_id?: string }) =>
     apiPost<{ comment: any }>(`/wagers/${wagerId}/comments`, data),
   

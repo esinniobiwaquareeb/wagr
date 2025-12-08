@@ -188,6 +188,12 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           return;
         }
 
+        // Store token in localStorage for client-side requests
+        if (data.data?.token && typeof window !== 'undefined') {
+          const { setAuthToken } = await import('@/lib/nestjs-client');
+          setAuthToken(data.data.token);
+        }
+
         // Mark session as 2FA verified if 2FA was used
         if (data.data?.twoFactorVerified && data.data?.user) {
           markSessionAs2FAVerified(data.data.user.id);
@@ -240,6 +246,12 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         const { extractErrorFromResponse } = await import('@/lib/error-extractor');
         const errorMessage = await extractErrorFromResponse(response, 'Verification failed, please try again.');
         throw new Error(errorMessage);
+      }
+
+      // Store token in localStorage for client-side requests
+      if (data.data?.token && typeof window !== 'undefined') {
+        const { setAuthToken } = await import('@/lib/nestjs-client');
+        setAuthToken(data.data.token);
       }
 
       // Mark session as 2FA verified if 2FA was used (new API format: data.data)

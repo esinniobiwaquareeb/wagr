@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { nestjsServerFetch } from '@/lib/nestjs-server';
 import { requireAuth } from '@/lib/auth/server';
-import { AppError, logError } from '@/lib/error-handler';
-import { ErrorCode } from '@/lib/error-handler';
-import { successResponseNext, appErrorToResponse, getPaginationParams, getPaginationMeta } from '@/lib/api-response';
+import { logError } from '@/lib/error-handler';
+import { successResponseNext, appErrorToResponse, getPaginationParams } from '@/lib/api-response';
+import { cookies } from 'next/headers';
 
 /**
  * GET /api/notifications
@@ -11,37 +11,53 @@ import { successResponseNext, appErrorToResponse, getPaginationParams, getPagina
  */
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireAuth();
-    const supabase = await createClient();
-    const { page, limit } = getPaginationParams(request);
-    const offset = (page - 1) * limit;
+    await requireAuth();
+    
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
 
-    const url = new URL(request.url);
-    const read = url.searchParams.get('read'); // 'true' or 'false'
-
-    let query = supabase
-      .from('notifications')
-      .select('*', { count: 'exact' })
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-
-    if (read === 'true') {
-      query = query.eq('read', true);
-    } else if (read === 'false') {
-      query = query.eq('read', false);
+    if (!token) {
+      throw new Error('Authentication required');
     }
 
-    query = query.range(offset, offset + limit - 1);
+    const { page, limit } = getPaginationParams(request);
+    const url = new URL(request.url);
+    const read = url.searchParams.get('read'); // 'true' or 'false'
+    const unreadOnly = read === 'false' ? 'true' : undefined;
 
-    const { data: notifications, error, count } = await query;
+    // Build query string
+    const queryParams = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    if (unreadOnly) {
+      queryParams.append('unreadOnly', 'true');
+    }
 
-    if (error) {
-      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch notifications');
+    // Call NestJS backend to get notifications
+    const response = await nestjsServerFetch<{
+      notifications: any[];
+      unreadCount: number;
+      meta: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      };
+    }>(`/notifications?${queryParams.toString()}`, {
+      method: 'GET',
+      token,
+      requireAuth: true,
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'Failed to fetch notifications');
     }
 
     // Generate links for notifications that don't have them
     const { generateNotificationLink } = await import('@/lib/notification-links');
-    const notificationsWithLinks = (notifications || []).map(notification => ({
+    const notificationsWithLinks = (response.data.notifications || []).map(notification => ({
       ...notification,
       link: notification.link || generateNotificationLink(
         notification.type,
@@ -50,20 +66,10 @@ export async function GET(request: NextRequest) {
       ),
     }));
 
-    // Get unread count
-    const { count: unreadCount } = await supabase
-      .from('notifications')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('read', false);
-
-    return successResponseNext(
-      {
-        notifications: notificationsWithLinks,
-        unreadCount: unreadCount || 0,
-      },
-      getPaginationMeta(page, limit, count || 0)
-    );
+    return successResponseNext({
+      notifications: notificationsWithLinks,
+      unreadCount: response.data.unreadCount || 0,
+    }, response.data.meta);
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);
@@ -76,18 +82,28 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireAuth();
-    const supabase = await createClient();
+    await requireAuth();
+    
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
 
-    const { error } = await supabase.rpc('mark_all_notifications_read', {
-      user_id_param: user.id,
-    });
-
-    if (error) {
-      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to mark notifications as read');
+    if (!token) {
+      throw new Error('Authentication required');
     }
 
-    return successResponseNext({ message: 'All notifications marked as read' });
+    // Call NestJS backend to mark all notifications as read
+    const response = await nestjsServerFetch<{ message: string }>('/notifications/mark-all-read', {
+      method: 'POST',
+      token,
+      requireAuth: true,
+    });
+
+    if (!response.success) {
+      throw new Error(response.error?.message || 'Failed to mark notifications as read');
+    }
+
+    return successResponseNext({ message: response.data?.message || 'All notifications marked as read' });
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);

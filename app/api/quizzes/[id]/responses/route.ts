@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server';
-import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
+import { nestjsServerFetch } from '@/lib/nestjs-server';
 import { requireAuth } from '@/lib/auth/server';
-import { AppError, logError } from '@/lib/error-handler';
-import { ErrorCode } from '@/lib/error-handler';
+import { logError } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
+import { cookies } from 'next/headers';
 
 /**
  * GET /api/quizzes/[id]/responses
@@ -14,118 +14,29 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await requireAuth();
-    const serviceSupabase = createServiceRoleClient();
+    await requireAuth();
     const { id } = await params;
     
-    // Sanitize and validate ID input
-    const { validateIDParam } = await import('@/lib/security/validator');
-    const quizId = validateIDParam(id, 'quiz ID', false); // Only UUID for quizzes
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
 
-    // Get quiz
-    const { data: quiz, error: quizError } = await serviceSupabase
-      .from('quizzes')
-      .select('id, title, status, end_date, settled_at, total_questions')
-      .eq('id', quizId)
-      .maybeSingle();
-
-    if (quizError || !quiz) {
-      throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Quiz not found');
+    if (!token) {
+      throw new Error('Authentication required');
     }
 
-    // Check if user is a participant
-    const { data: participant, error: participantError } = await serviceSupabase
-      .from('quiz_participants')
-      .select('id, status, completed_at')
-      .eq('quiz_id', quizId)
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (participantError || !participant) {
-      throw new AppError(ErrorCode.FORBIDDEN, 'You are not a participant in this quiz');
-    }
-
-    if (participant.status !== 'completed') {
-      throw new AppError(ErrorCode.FORBIDDEN, 'You must complete the quiz to view results');
-    }
-
-    // Require quiz to end before exposing detailed answers to prevent sharing
-    const now = new Date();
-    const quizEndDate = quiz.end_date ? new Date(quiz.end_date) : null;
-    const quizHasEnded = quizEndDate ? quizEndDate <= now : quiz.status === 'settled';
-
-    if (!quizHasEnded) {
-      throw new AppError(
-        ErrorCode.FORBIDDEN,
-        'Results will be available after the quiz ends'
-      );
-    }
-
-    // Get all responses with questions and answers
-    const { data: responses, error: responsesError } = await serviceSupabase
-      .from('quiz_responses')
-      .select(`
-        *,
-        quiz_questions (
-          id,
-          question_text,
-          question_type,
-          points,
-          order_index,
-          quiz_answers (
-            id,
-            answer_text,
-            is_correct,
-            order_index
-          )
-        )
-      `)
-      .eq('participant_id', participant.id)
-      .order('quiz_questions(order_index)', { ascending: true });
-
-    if (responsesError) {
-      logError(new Error(`Failed to fetch responses: ${responsesError.message}`), { responsesError });
-      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch responses');
-    }
-
-    // Get participant details with score
-    const { data: participantDetails } = await serviceSupabase
-      .from('quiz_participants')
-      .select('*, profiles:user_id(username, avatar_url)')
-      .eq('id', participant.id)
-      .maybeSingle();
-
-    // Get all participants for leaderboard (only if quiz is settled or completed)
-    let allParticipants = [];
-    if (['completed', 'settled'].includes(quiz.status) || quizHasEnded) {
-      const { data: participants } = await serviceSupabase
-        .from('quiz_participants')
-        .select('*, profiles:user_id(username, avatar_url, email)')
-        .eq('quiz_id', quizId)
-        .eq('status', 'completed')
-        .order('score', { ascending: false })
-        .order('completed_at', { ascending: true });
-
-      allParticipants = participants || [];
-      
-      // Calculate percentage_score if not present
-      const totalPossiblePoints = quiz.total_questions || 1;
-      allParticipants = allParticipants.map((p: any) => ({
-        ...p,
-        percentage_score: p.percentage_score != null 
-          ? p.percentage_score 
-          : totalPossiblePoints > 0 
-            ? ((p.score || 0) / totalPossiblePoints) * 100 
-            : 0,
-      }));
-    }
-
-    return successResponseNext({
-      quiz,
-      participant: participantDetails,
-      responses: responses || [],
-      participants: allParticipants,
+    // Call NestJS backend to get quiz responses
+    const response = await nestjsServerFetch(`/quizzes/${id}/responses`, {
+      method: 'GET',
+      token,
+      requireAuth: true,
     });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'Failed to fetch quiz responses');
+    }
+
+    return successResponseNext(response.data);
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);

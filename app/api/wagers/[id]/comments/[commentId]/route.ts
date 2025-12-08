@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { nestjsServerFetch } from '@/lib/nestjs-server';
 import { requireAuth } from '@/lib/auth/server';
-import { AppError, logError } from '@/lib/error-handler';
-import { ErrorCode } from '@/lib/error-handler';
+import { logError } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
+import { cookies } from 'next/headers';
 
 /**
  * PATCH /api/wagers/[id]/comments/[commentId]
@@ -14,71 +14,40 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; commentId: string }> }
 ) {
   try {
-    const user = await requireAuth();
+    await requireAuth();
     const body = await request.json();
     const { content } = body;
-    const supabase = await createClient();
     const { id, commentId } = await params;
-    
-    // Sanitize and validate ID inputs
-    const { validateIDParam, validateUUIDParam } = await import('@/lib/security/validator');
-    const wagerId = validateIDParam(id, 'wager ID');
-    const validatedCommentId = validateUUIDParam(commentId, 'comment ID');
 
     if (!content || typeof content !== 'string' || !content.trim()) {
-      throw new AppError(ErrorCode.INVALID_INPUT, 'Comment content is required');
+      throw new Error('Comment content is required');
     }
 
-    // Verify wager exists (handle both UUID and short_id)
-    const { data: wager, error: wagerError } = await supabase
-      .from('wagers')
-      .select('id')
-      .or(`id.eq.${wagerId},short_id.eq.${wagerId}`)
-      .maybeSingle();
+    // Get auth token from cookies for server-side request
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
 
-    if (wagerError || !wager) {
-      throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Wager not found');
+    if (!token) {
+      throw new Error('Authentication required');
     }
 
-    const actualWagerId = wager.id;
+    // Call NestJS backend to update comment
+    const response = await nestjsServerFetch<any>(`/wagers/${id}/comments/${commentId}`, {
+      method: 'PATCH',
+      token,
+      requireAuth: true,
+      body: JSON.stringify({ content: content.trim() }),
+    });
 
-    // Verify comment exists and belongs to user
-    const { data: comment, error: commentError } = await supabase
-      .from('wager_comments')
-      .select('id, wager_id, user_id')
-      .eq('id', validatedCommentId)
-      .maybeSingle();
-
-    if (commentError || !comment) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Comment not found');
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'Failed to update comment');
     }
 
-    if (comment.wager_id !== actualWagerId) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Comment does not belong to this wager');
-    }
-
-    if (comment.user_id !== user.id) {
-      throw new AppError(ErrorCode.FORBIDDEN, 'You can only edit your own comments');
-    }
-
-    // Update comment
-    const { data: updatedComment, error: updateError } = await supabase
-      .from('wager_comments')
-      .update({
-        content: content.trim(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', validatedCommentId)
-      .select()
-      .maybeSingle();
-
-    if (updateError) {
-      logError(updateError as Error);
-      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to update comment');
-    }
+    // NestJS returns { success: true, data: { comment } }
+    const comment = response.data?.comment || (response.data as any)?.comment;
 
     return successResponseNext({
-      comment: updatedComment,
+      comment,
     });
   } catch (error) {
     logError(error as Error);
@@ -95,60 +64,33 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; commentId: string }> }
 ) {
   try {
-    const user = await requireAuth();
-    const supabase = await createClient();
+    await requireAuth();
     const { id, commentId } = await params;
-    
-    // Sanitize and validate ID inputs
-    const { validateIDParam, validateUUIDParam } = await import('@/lib/security/validator');
-    const wagerId = validateIDParam(id, 'wager ID');
-    const validatedCommentId = validateUUIDParam(commentId, 'comment ID');
 
-    // Verify wager exists (handle both UUID and short_id)
-    const { data: wager, error: wagerError } = await supabase
-      .from('wagers')
-      .select('id')
-      .or(`id.eq.${wagerId},short_id.eq.${wagerId}`)
-      .maybeSingle();
+    // Get auth token from cookies for server-side request
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
 
-    if (wagerError || !wager) {
-      throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Wager not found');
+    if (!token) {
+      throw new Error('Authentication required');
     }
 
-    const actualWagerId = wager.id;
+    // Call NestJS backend to delete comment
+    const response = await nestjsServerFetch<any>(`/wagers/${id}/comments/${commentId}`, {
+      method: 'DELETE',
+      token,
+      requireAuth: true,
+    });
 
-    // Verify comment exists and belongs to user
-    const { data: comment, error: commentError } = await supabase
-      .from('wager_comments')
-      .select('id, wager_id, user_id')
-      .eq('id', validatedCommentId)
-      .maybeSingle();
-
-    if (commentError || !comment) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Comment not found');
+    if (!response.success) {
+      throw new Error(response.error?.message || 'Failed to delete comment');
     }
 
-    if (comment.wager_id !== actualWagerId) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Comment does not belong to this wager');
-    }
-
-    if (comment.user_id !== user.id) {
-      throw new AppError(ErrorCode.FORBIDDEN, 'You can only delete your own comments');
-    }
-
-    // Delete comment (replies will be cascade deleted)
-    const { error: deleteError } = await supabase
-      .from('wager_comments')
-      .delete()
-      .eq('id', validatedCommentId);
-
-    if (deleteError) {
-      logError(deleteError as Error);
-      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to delete comment');
-    }
+    // NestJS returns { success: true, data: { message } }
+    const message = response.data?.message || 'Comment deleted successfully';
 
     return successResponseNext({
-      message: 'Comment deleted successfully',
+      message,
     });
   } catch (error) {
     logError(error as Error);

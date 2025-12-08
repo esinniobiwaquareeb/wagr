@@ -1,9 +1,56 @@
 import { NextRequest } from 'next/server';
-import { createServiceRoleClient } from '@/lib/supabase/server';
+import { nestjsServerFetch } from '@/lib/nestjs-server';
 import { requireAdmin } from '@/lib/auth/server';
-import { AppError, logError } from '@/lib/error-handler';
-import { ErrorCode } from '@/lib/error-handler';
+import { logError } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
+import { cookies } from 'next/headers';
+
+/**
+ * GET /api/admin/wagers
+ * Get all wagers (admin only)
+ */
+export async function GET(request: NextRequest) {
+  try {
+    await requireAdmin();
+    
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
+
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
+    // Get query parameters
+    const { searchParams } = new URL(request.url);
+    const queryParams = new URLSearchParams();
+    if (searchParams.get('status')) queryParams.set('status', searchParams.get('status')!);
+    if (searchParams.get('search')) queryParams.set('search', searchParams.get('search')!);
+    if (searchParams.get('creatorId')) queryParams.set('creatorId', searchParams.get('creatorId')!);
+    if (searchParams.get('limit')) queryParams.set('limit', searchParams.get('limit')!);
+    if (searchParams.get('offset')) queryParams.set('offset', searchParams.get('offset')!);
+
+    const query = queryParams.toString();
+
+    // Call NestJS backend to get wagers
+    const response = await nestjsServerFetch<{ wagers: any[] }>(`/admin/wagers${query ? `?${query}` : ''}`, {
+      method: 'GET',
+      token,
+      requireAuth: true,
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'Failed to fetch wagers');
+    }
+
+    return successResponseNext({
+      wagers: response.data.wagers || [],
+    });
+  } catch (error) {
+    logError(error as Error);
+    return appErrorToResponse(error);
+  }
+}
 
 /**
  * POST /api/admin/wagers
@@ -12,70 +59,29 @@ import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 export async function POST(request: NextRequest) {
   try {
     await requireAdmin();
-    const supabase = createServiceRoleClient();
     const body = await request.json();
+    
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
 
-    const {
-      title,
-      description,
-      amount,
-      sideA,
-      sideB,
-      deadline,
-      category,
-      currency = 'NGN',
-      isPublic = true,
-      isSystemGenerated = false,
-      creatorId = null,
-    } = body;
-
-    // Validation
-    if (!title || typeof title !== 'string' || title.trim().length < 5) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Title must be at least 5 characters');
+    if (!token) {
+      throw new Error('Authentication required');
     }
 
-    if (!sideA || !sideB || typeof sideA !== 'string' || typeof sideB !== 'string') {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Both sides are required');
+    // Call NestJS backend to create wager
+    const response = await nestjsServerFetch<{ wager: any }>('/admin/wagers', {
+      method: 'POST',
+      token,
+      requireAuth: true,
+      body: JSON.stringify(body),
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'Failed to create wager');
     }
 
-    if (!amount || typeof amount !== 'number' || amount <= 0) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Amount must be a positive number');
-    }
-
-    if (!deadline || !new Date(deadline)) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Deadline is required');
-    }
-
-    // Create wager (admin doesn't need to deduct balance)
-    const { data: wager, error: wagerError } = await supabase
-      .from('wagers')
-      .insert({
-        creator_id: creatorId || null,
-        title: title.trim(),
-        description: description?.trim() || null,
-        amount,
-        side_a: sideA.trim(),
-        side_b: sideB.trim(),
-        deadline: new Date(deadline).toISOString(),
-        category: category || null,
-        currency,
-        is_public: isPublic,
-        is_system_generated: isSystemGenerated,
-        status: 'OPEN',
-        fee_percentage: await (await import('@/lib/settings')).getWagerPlatformFee(),
-      })
-      .select()
-      .maybeSingle();
-
-    if (wagerError || !wager) {
-      throw new AppError(
-        ErrorCode.DATABASE_ERROR,
-        `Failed to create wager: ${wagerError?.message || 'Unknown error'}`,
-        { databaseError: wagerError }
-      );
-    }
-
-    return successResponseNext({ wager }, undefined, 201);
+    return successResponseNext({ wager: response.data.wager }, undefined, 201);
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);

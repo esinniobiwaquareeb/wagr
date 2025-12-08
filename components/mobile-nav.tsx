@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from 'next/navigation';
-import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Home, Plus, Wallet, Trophy, User, Settings, Bell, History, LogOut, Activity, BookOpen } from "lucide-react";
@@ -22,7 +21,6 @@ export function MobileNav() {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const supabase = createClient();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -82,23 +80,20 @@ export function MobileNav() {
     fetchingProfileRef.current = true;
 
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("username, avatar_url")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (error && error.code !== 'PGRST116') {
-        return;
+      const { profileApi } = await import('@/lib/api-client');
+      const profileData = await profileApi.get();
+      if (profileData?.profile) {
+        setProfile({
+          username: profileData.profile.username,
+          avatar_url: profileData.profile.avatar_url,
+        });
       }
-
-      setProfile(data);
     } catch (error) {
       // Silent fail for nav
     } finally {
       fetchingProfileRef.current = false;
     }
-  }, [user, supabase]);
+  }, [user]);
 
   // Debounced refetch function for subscriptions
   const debouncedRefetchProfile = useCallback(() => {
@@ -113,32 +108,20 @@ export function MobileNav() {
   useEffect(() => {
     fetchProfile();
 
-    // Subscribe to real-time profile updates
-    if (user) {
-      const channel = supabase
-        .channel(`nav-profile:${user.id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "profiles",
-            filter: `id=eq.${user.id}`,
-          },
-          () => {
-            debouncedRefetchProfile();
-          }
-        )
-        .subscribe();
+    // Poll for profile updates every 2 minutes
+    const interval = setInterval(() => {
+      if (user) {
+        debouncedRefetchProfile();
+      }
+    }, 120000);
 
-      return () => {
-        channel.unsubscribe();
-        if (debounceProfileTimeoutRef.current) {
-          clearTimeout(debounceProfileTimeoutRef.current);
-        }
-      };
-    }
-  }, [user, supabase]); // Removed fetchProfile and debouncedRefetchProfile from dependencies
+    return () => {
+      clearInterval(interval);
+      if (debounceProfileTimeoutRef.current) {
+        clearTimeout(debounceProfileTimeoutRef.current);
+      }
+    };
+  }, [user, debouncedRefetchProfile]);
 
   // Listen for custom profile update events
   useEffect(() => {
@@ -180,20 +163,15 @@ export function MobileNav() {
     fetchingNotificationsRef.current = true;
 
     try {
-      const { count, error } = await supabase
-        .from("notifications")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("read", false);
-
-      if (error) throw error;
-      setUnreadCount(count || 0);
+      const { notificationsApi } = await import('@/lib/api-client');
+      const response = await notificationsApi.list({ limit: 1, read: 'false' });
+      setUnreadCount(response.unreadCount || 0);
     } catch (error) {
       // Silent fail for nav
     } finally {
       fetchingNotificationsRef.current = false;
     }
-  }, [user, supabase]);
+  }, [user]);
 
   // Debounced refetch function for notifications
   const debouncedRefetchNotifications = useCallback(() => {
@@ -208,32 +186,20 @@ export function MobileNav() {
   useEffect(() => {
     fetchUnreadCount();
 
-    // Subscribe to real-time updates
-    if (user) {
-      const channel = supabase
-        .channel(`nav-notifications:${user.id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "notifications",
-            filter: `user_id=eq.${user.id}`,
-          },
-          () => {
-            debouncedRefetchNotifications();
-          }
-        )
-        .subscribe();
+    // Poll for notification updates every 30 seconds
+    const interval = setInterval(() => {
+      if (user) {
+        debouncedRefetchNotifications();
+      }
+    }, 30000);
 
-      return () => {
-        channel.unsubscribe();
-        if (debounceNotificationsTimeoutRef.current) {
-          clearTimeout(debounceNotificationsTimeoutRef.current);
-        }
-      };
-    }
-  }, [user, supabase]); // Removed fetchUnreadCount and debouncedRefetchNotifications from dependencies
+    return () => {
+      clearInterval(interval);
+      if (debounceNotificationsTimeoutRef.current) {
+        clearTimeout(debounceNotificationsTimeoutRef.current);
+      }
+    };
+  }, [user, debouncedRefetchNotifications]);
 
   // Listen for custom notification update events
   useEffect(() => {

@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { commentsApi } from "@/lib/api-client";
@@ -29,7 +28,6 @@ interface WagerCommentsProps {
 }
 
 export function WagerComments({ wagerId }: WagerCommentsProps) {
-  const supabase = useMemo(() => createClient(), []);
   const { user } = useAuth();
   const { toast } = useToast();
   const [comments, setComments] = useState<Comment[]>([]);
@@ -45,124 +43,39 @@ export function WagerComments({ wagerId }: WagerCommentsProps) {
 
   const fetchComments = useCallback(async () => {
     try {
-      const { data: commentsData, error: commentsError } = await supabase
-        .from("wager_comments")
-        .select("*")
-        .eq("wager_id", wagerId)
-        .is("parent_id", null)
-        .order("created_at", { ascending: false });
+      const response = await commentsApi.list(wagerId);
+      
+      // API client returns { comments: [...] } directly
+      const commentsData = response.comments || [];
 
-      if (commentsError) {
-        setComments([]);
-        return;
-      }
-
-      if (!commentsData || commentsData.length === 0) {
-        setComments([]);
-        return;
-      }
-
-      // Fetch profiles for all comment authors
-      const userIds = [...new Set(commentsData.map((c: any) => c.user_id).filter(Boolean))];
-      let profilesMap = new Map();
-
-      if (userIds.length > 0) {
-        const { data: profilesData, error: profilesError } = await supabase
-          .from("profiles")
-          .select("id, username, avatar_url")
-          .in("id", userIds);
-
-        if (profilesData) {
-          profilesMap = new Map(profilesData.map((p: any) => [p.id, p]));
-        }
-      }
-
-      // Attach profiles to comments
-      const commentsWithProfiles = commentsData.map((comment: any) => ({
-        ...comment,
-        profiles: profilesMap.get(comment.user_id) || null,
-      }));
-
-      // Fetch replies for each comment
-      const commentsWithReplies = await Promise.all(
-        commentsWithProfiles.map(async (comment: any) => {
-          const { data: replies, error: repliesError } = await supabase
-            .from("wager_comments")
-            .select("*")
-            .eq("parent_id", comment.id)
-            .order("created_at", { ascending: true });
-
-          if (repliesError) {
-            return {
-              ...comment,
-              replies: [],
-            };
-          }
-
-          if (!replies || replies.length === 0) {
-            return {
-              ...comment,
-              replies: [],
-            };
-          }
-
-          // Fetch profiles for reply authors
-          const replyUserIds = [...new Set(replies.map((r: any) => r.user_id).filter(Boolean))];
-          let replyProfilesMap = new Map();
-
-          if (replyUserIds.length > 0) {
-            const { data: replyProfiles, error: replyProfilesError } = await supabase
-              .from("profiles")
-              .select("id, username, avatar_url")
-              .in("id", replyUserIds);
-
-            if (replyProfiles) {
-              replyProfilesMap = new Map(replyProfiles.map((p: any) => [p.id, p]));
-            }
-          }
-
-          return {
-            ...comment,
-            replies: replies.map((reply: any) => ({
-              ...reply,
-              profiles: replyProfilesMap.get(reply.user_id) || null,
-            })),
-          };
-        })
-      );
-
-      setComments(commentsWithReplies);
+      setComments(commentsData);
     } catch (error) {
+      console.error("Error fetching comments:", error);
       setComments([]);
     } finally {
       setLoading(false);
     }
-  }, [wagerId, supabase]);
+  }, [wagerId]);
 
   useEffect(() => {
     fetchComments();
 
-    // Subscribe to real-time updates
-    const channel = supabase
-      .channel(`wager-comments:${wagerId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "wager_comments",
-          filter: `wager_id=eq.${wagerId}`,
-        },
-        () => {
-          fetchComments();
-        }
-      )
-      .subscribe();
+    // Poll for updates every 30 seconds (replaces real-time subscriptions)
+    const pollInterval = setInterval(() => {
+      fetchComments();
+    }, 30000);
+
+    // Listen for custom comment update events
+    const handleCommentUpdate = () => {
+      fetchComments();
+    };
+    window.addEventListener('wager-comment-updated', handleCommentUpdate);
 
     return () => {
-      channel.unsubscribe();
+      clearInterval(pollInterval);
+      window.removeEventListener('wager-comment-updated', handleCommentUpdate);
     };
-  }, [wagerId, supabase, fetchComments]);
+  }, [wagerId, fetchComments]);
 
   const scrollToBottom = () => {
     commentsEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -195,6 +108,8 @@ export function WagerComments({ wagerId }: WagerCommentsProps) {
       });
 
       setNewComment("");
+      // Dispatch event to update comments
+      window.dispatchEvent(new CustomEvent('wager-comment-updated'));
       await fetchComments();
       setTimeout(scrollToBottom, 100);
     } catch (error) {
@@ -238,6 +153,8 @@ export function WagerComments({ wagerId }: WagerCommentsProps) {
 
       setReplyContent({ ...replyContent, [parentId]: "" });
       setReplyingTo(null);
+      // Dispatch event to update comments
+      window.dispatchEvent(new CustomEvent('wager-comment-updated'));
       await fetchComments();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to post reply. Please try again.";
@@ -270,6 +187,8 @@ export function WagerComments({ wagerId }: WagerCommentsProps) {
 
       setEditingId(null);
       setEditContent({ ...editContent, [commentId]: "" });
+      // Dispatch event to update comments
+      window.dispatchEvent(new CustomEvent('wager-comment-updated'));
       await fetchComments();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to update comment. Please try again.";
@@ -289,6 +208,8 @@ export function WagerComments({ wagerId }: WagerCommentsProps) {
     setDeletingId(commentId);
     try {
       await commentsApi.delete(wagerId, commentId);
+      // Dispatch event to update comments
+      window.dispatchEvent(new CustomEvent('wager-comment-updated'));
       await fetchComments();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to delete comment. Please try again.";

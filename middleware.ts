@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { getUserIdFromSession } from "@/lib/auth/session";
+import { verifyJWTToken } from "@/lib/nestjs-server";
 
 export async function middleware(request: NextRequest) {
   // Skip middleware for static files and API routes (except auth)
@@ -12,25 +12,26 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Get session token from cookie
-  const sessionToken = request.cookies.get('wagr_session')?.value;
+  // Get JWT token from cookie
+  const token = request.cookies.get('auth_token')?.value || request.cookies.get('wagr_session')?.value;
 
-  if (sessionToken) {
-    // Verify session is valid
-    const userId = await getUserIdFromSession(sessionToken);
+  if (token) {
+    // Verify JWT token is valid
+    const user = await verifyJWTToken(token);
     
-    if (userId) {
-      // Session is valid, continue
+    if (user) {
+      // Token is valid, continue
       return NextResponse.next();
     } else {
-      // Invalid session, clear cookie
+      // Invalid token, clear cookie
       const response = NextResponse.next();
+      response.cookies.delete('auth_token');
       response.cookies.delete('wagr_session');
       return response;
     }
   }
 
-  // No session, continue (public routes are allowed)
+  // No token, continue (public routes are allowed)
   return NextResponse.next();
 }
 

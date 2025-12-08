@@ -7,8 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/use-debounce";
-import { createClient } from "@/lib/supabase/client";
-import { useMemo } from "react";
 
 interface TeamMember {
   user_id: string;
@@ -50,7 +48,6 @@ export function TeamManagerDialog({
   const [searchResults, setSearchResults] = useState<Array<{ id: string; username: string; email: string }>>([]);
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const { toast } = useToast();
-  const supabase = useMemo(() => createClient(), []);
   const debouncedSearch = useDebounce(memberSearch, 300);
 
   useEffect(() => {

@@ -3,8 +3,6 @@
  * This ensures that 2FA is required on every new login session
  */
 
-import { createClient } from '@supabase/supabase-js';
-
 const SESSION_2FA_KEY = '2fa_verified_session';
 
 /**
@@ -67,6 +65,8 @@ export function clear2FAVerification(): void {
 /**
  * Check if user needs 2FA verification for this login attempt
  * This should be called before allowing login to proceed
+ * 
+ * @deprecated This function is no longer used - 2FA check is handled by NestJS backend
  */
 export async function requires2FAForLogin(
   userId: string,
@@ -78,19 +78,8 @@ export async function requires2FAForLogin(
     return false;
   }
   
-  // Check if user has 2FA enabled
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
-  
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('two_factor_enabled')
-    .eq('id', userId)
-    .maybeSingle();
-  
-  if (error || !profile) {
-    return false; // If we can't check, allow login (fail open)
-  }
-  
-  return profile.two_factor_enabled === true;
+  // 2FA check is now handled by the NestJS backend during login
+  // This function is kept for backward compatibility but always returns false
+  return false;
 }
 

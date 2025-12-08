@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
 import { randomUUID } from 'crypto';
 import { requireAuth } from '@/lib/auth/server';
-import { createServiceRoleClient } from '@/lib/supabase/server';
+import { nestjsServerFetch } from '@/lib/nestjs-server';
+import { cookies } from 'next/headers';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { successResponseNext, appErrorToResponse, errorResponse } from '@/lib/api-response';
 import { AppError, ErrorCode, logError } from '@/lib/error-handler';
@@ -13,7 +14,6 @@ import {
   isValidNigerianPhoneNumber,
 } from '@/lib/bills/networks';
 import { getBillsProvider } from '@/lib/bills/providers';
-import { markPaymentAsFailed, refundBillPayment } from '@/lib/bills/payment-helpers';
 import { getPlanFromLocalCatalog } from '@/lib/bills/local-plan-loader';
 
 interface DataRequestBody {
@@ -109,7 +109,13 @@ export async function POST(request: NextRequest) {
       throw new AppError(ErrorCode.INVALID_INPUT, 'Please select a data plan.');
     }
 
-    const supabaseAdmin = createServiceRoleClient();
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
+
+    if (!token) {
+      throw new AppError(ErrorCode.UNAUTHORIZED, 'Authentication required');
+    }
 
     const plan = await getPlanFromLocalCatalog(network.code, body.dataPlanCode);
     if (!plan) {
@@ -129,17 +135,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('balance')
-      .eq('id', user.id)
-      .maybeSingle();
+    // Get balance from NestJS backend
+    const balanceResponse = await nestjsServerFetch<{ balance: number; currency: string }>('/wallet/balance', {
+      method: 'GET',
+      token,
+      requireAuth: true,
+    });
 
-    if (profileError || !profile) {
+    if (!balanceResponse.success || !balanceResponse.data) {
       throw new AppError(ErrorCode.DATABASE_ERROR, 'Unable to fetch your wallet balance.');
     }
 
-    const currentBalance = Number(profile.balance || 0);
+    const currentBalance = Number(balanceResponse.data.balance || 0);
     if (currentBalance < amount) {
       throw new AppError(
         ErrorCode.INSUFFICIENT_BALANCE,
@@ -149,144 +156,31 @@ export async function POST(request: NextRequest) {
 
     const reference = `bill_data_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const requestId = `DATA-${randomUUID()}`;
-
     const planLabel = body.dataPlanLabel || plan.label || body.dataPlanCode;
 
-    const { data: billPaymentRecord, error: billPaymentError } = await supabaseAdmin
-      .from('bill_payments')
-      .insert({
-        user_id: user.id,
-        category: 'data',
-        provider: providerKey,
-        amount,
-        phone_number: normalizedPhone,
-        network_code: network.code,
-        network_name: network.name,
-        data_plan_code: body.dataPlanCode,
-        data_plan_label: planLabel || null,
-        request_id: requestId,
-        reference,
-        status: 'pending',
-        metadata: {
-          network: network.name,
-          initiated_by: user.id,
-          data_plan_label: planLabel,
-        },
-      })
-      .select('id')
-      .maybeSingle();
-
-    if (billPaymentError || !billPaymentRecord) {
-      logError(new Error('bill_payments insert failed (data)'), {
-        error: billPaymentError,
-        userId: user.id,
-        providerKey,
-      });
-      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to prepare data purchase.');
-    }
-
-    const { error: transactionError } = await supabaseAdmin.from('transactions').insert({
-      user_id: user.id,
-      type: 'bill_data',
-      amount: -amount,
-      reference,
-      description: `Data purchase (${planLabel}) for ${normalizedPhone}`,
-    });
-
-    if (transactionError) {
-      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to record data transaction.');
-    }
-
-    const { error: balanceError } = await supabaseAdmin.rpc('increment_balance', {
-      user_id: user.id,
-      amt: -amount,
-    });
-
-    if (balanceError) {
-      logError(new Error(balanceError.message), {
-        userId: user.id,
-        amount,
-        reference,
-      });
-      throw new AppError(ErrorCode.DATABASE_ERROR, 'Unable to debit your wallet.');
-    }
-
-    let providerResult;
-    try {
-      providerResult = await provider.purchaseData({
-        amount,
+    // Call NestJS backend to purchase data
+    const purchaseResponse = await nestjsServerFetch<any>('/bills/data', {
+      method: 'POST',
+      token,
+      requireAuth: true,
+      body: JSON.stringify({
         phoneNumber: normalizedPhone,
         networkCode: network.code,
-        networkName: network.name,
         dataPlanCode: body.dataPlanCode,
         dataPlanLabel: planLabel,
-        requestId,
-        clientReference: reference,
-      });
-    } catch (providerError) {
-      await markPaymentAsFailed({
-        supabaseAdmin,
-        paymentId: billPaymentRecord.id,
-        reason: `${providerKey} data request failed`,
-        details: { error: providerError instanceof Error ? providerError.message : providerError },
-      });
-      await refundBillPayment({
-        supabaseAdmin,
-        userId: user.id,
-        amount,
-        paymentId: billPaymentRecord.id,
-        reference,
-      });
-      throw new AppError(
-        ErrorCode.EXTERNAL_SERVICE_ERROR,
-        'Failed to reach data provider. Your funds have been returned.',
-      );
-    }
-
-    const paymentStatus = providerResult.status;
-
-    const paymentUpdate: Record<string, any> = {
-      status: paymentStatus,
-      status_code: providerResult.providerStatusCode || null,
-      remark:
-        providerResult.providerStatus ||
-        providerResult.message ||
-        `Processed via ${provider.label}`,
-      order_id: providerResult.orderId || null,
-      metadata: {
         providerKey,
-        providerResponse: providerResult.rawResponse,
-        data_plan_label: planLabel,
-      },
-    };
+      }),
+    });
 
-    const now = new Date().toISOString();
-    if (paymentStatus === 'completed') {
-      paymentUpdate.completed_at = now;
-    }
-    if (paymentStatus === 'failed') {
-      paymentUpdate.failed_at = now;
-    }
-
-    await supabaseAdmin
-      .from('bill_payments')
-      .update(paymentUpdate)
-      .eq('id', billPaymentRecord.id);
-
-    if (paymentStatus === 'failed') {
-      await refundBillPayment({
-        supabaseAdmin,
-        userId: user.id,
-        amount,
-        paymentId: billPaymentRecord.id,
-        reference,
-      });
+    if (!purchaseResponse.success || !purchaseResponse.data) {
       throw new AppError(
-        ErrorCode.EXTERNAL_SERVICE_ERROR,
-        'Data purchase failed. Your balance has been refunded.',
+        ErrorCode.DATABASE_ERROR,
+        purchaseResponse.error?.message || 'Failed to prepare data purchase.',
       );
     }
 
+    // The NestJS backend handles the provider call and payment processing
+    const paymentStatus = purchaseResponse.data.status || 'processing';
     const message =
       paymentStatus === 'completed'
         ? 'Data purchase completed successfully.'
@@ -296,8 +190,8 @@ export async function POST(request: NextRequest) {
 
     return successResponseNext({
       status: paymentStatus,
-      orderId: providerResult.orderId,
-      requestId,
+      orderId: purchaseResponse.data.orderId || null,
+      requestId: purchaseResponse.data.requestId || requestId,
       amount,
       phoneNumber: normalizedPhone,
       network: network.name,

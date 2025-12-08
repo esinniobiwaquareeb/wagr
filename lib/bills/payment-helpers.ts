@@ -1,8 +1,16 @@
-import { createServiceRoleClient } from '@/lib/supabase/server';
+/**
+ * @deprecated These functions are deprecated. Bill payment operations are now handled by NestJS backend.
+ * These functions are kept for backward compatibility but should not be used.
+ * Use NestJS API endpoints instead.
+ */
+
 import { AppError, ErrorCode, logError } from '@/lib/error-handler';
 
-export type SupabaseServiceClient = ReturnType<typeof createServiceRoleClient>;
+export type SupabaseServiceClient = any; // Deprecated type
 
+/**
+ * @deprecated Use NestJS bills service instead
+ */
 export async function markPaymentAsFailed({
   supabaseAdmin,
   paymentId,
@@ -14,17 +22,14 @@ export async function markPaymentAsFailed({
   reason: string;
   details?: Record<string, any>;
 }) {
-  await supabaseAdmin
-    .from('bill_payments')
-    .update({
-      status: 'failed',
-      failed_at: new Date().toISOString(),
-      remark: reason,
-      ...(details && { metadata: details }),
-    })
-    .eq('id', paymentId);
+  // This function is deprecated - bill payment operations are handled by NestJS backend
+  // This is kept for backward compatibility only
+  console.warn('markPaymentAsFailed is deprecated. Use NestJS bills API instead.');
 }
 
+/**
+ * @deprecated Use NestJS bills service instead
+ */
 export async function refundBillPayment({
   supabaseAdmin,
   userId,
@@ -38,55 +43,8 @@ export async function refundBillPayment({
   paymentId: string;
   reference: string;
 }) {
-  const refundReference = `${reference}_refund`;
-
-  const { data: refundTransaction, error: refundTransactionError } = await supabaseAdmin
-    .from('transactions')
-    .insert({
-      user_id: userId,
-      type: 'bill_airtime_refund',
-      amount,
-      reference: refundReference,
-      description: 'Refund for failed airtime purchase',
-    })
-    .select('id')
-    .maybeSingle();
-
-  if (refundTransactionError || !refundTransaction) {
-    logError(new Error(refundTransactionError?.message || 'refund_transaction_failed'), {
-      userId,
-      amount,
-      paymentId,
-    });
-    throw new AppError(
-      ErrorCode.DATABASE_ERROR,
-      'Failed to refund your balance. Please contact support.',
-    );
-  }
-
-  const { error: refundBalanceError } = await supabaseAdmin.rpc('increment_balance', {
-    user_id: userId,
-    amt: amount,
-  });
-
-  if (refundBalanceError) {
-    logError(new Error(refundBalanceError.message), {
-      userId,
-      amount,
-      paymentId,
-    });
-    throw new AppError(
-      ErrorCode.DATABASE_ERROR,
-      'Refund could not be completed automatically. Please contact support.',
-    );
-  }
-
-  await supabaseAdmin
-    .from('bill_payments')
-    .update({
-      refunded_at: new Date().toISOString(),
-      refund_transaction_id: refundTransaction.id,
-    })
-    .eq('id', paymentId);
+  // This function is deprecated - bill payment operations are handled by NestJS backend
+  // This is kept for backward compatibility only
+  console.warn('refundBillPayment is deprecated. Use NestJS bills API instead.');
 }
 

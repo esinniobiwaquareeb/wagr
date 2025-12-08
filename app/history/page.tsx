@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback, useRef, Suspense } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState, useCallback, useRef, Suspense, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { History, Trophy, XCircle, Clock, Filter, CheckCircle2, Loader2 } from "lucide-react";
@@ -65,7 +64,6 @@ function HistoryPageSkeleton() {
 
 function HistoryPageContent() {
   const { user, loading: authLoading } = useAuth();
-  const supabase = useMemo(() => createClient(), []); // Create Supabase client for database operations
   const router = useRouter();
   const [entries, setEntries] = useState<WagerEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,54 +92,95 @@ function HistoryPageContent() {
     if (force) setRefreshing(true);
 
     try {
-      const { data, error } = await supabase
-        .from("wager_entries")
-        .select(`
-          id,
-          wager_id,
-          side,
-          amount,
-          created_at,
-          wager:wagers (
-            id,
-            title,
-            description,
-            side_a,
-            side_b,
-            amount,
-            status,
-            deadline,
-            winning_side,
-            currency,
-            category,
-            created_at
-          )
-        `)
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+      // Call a dedicated endpoint to get user's wager entries
+      // For now, we'll use the wagers API and filter client-side
+      // TODO: Create a dedicated /wagers/my-entries endpoint in NestJS
+      const response = await fetch(`/api/wagers?limit=500`, {
+        credentials: 'include',
+        cache: 'no-store',
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error('Failed to fetch wagers');
+      }
 
-      // Transform the data to match our interface
-      // Supabase returns nested relations as arrays, so we need to extract the first element
-      const transformedData = (data || []).map((entry: any) => ({
-        id: entry.id,
-        wager_id: entry.wager_id,
-        side: entry.side,
-        amount: entry.amount,
-        created_at: entry.created_at,
-        wager: Array.isArray(entry.wager) ? entry.wager[0] : entry.wager,
-      })).filter((entry: any) => entry.wager); // Filter out entries without wager data
+      const data = await response.json();
+      
+      if (data.success && data.data?.wagers) {
+        // Fetch entry details for wagers where user might have entries
+        // We'll need to check each wager to see if user has an entry
+        const entriesPromises = data.data.wagers.map(async (wager: any) => {
+          try {
+            // Fetch full wager details to get entries
+            const wagerResponse = await fetch(`/api/wagers/${wager.id}`, {
+              credentials: 'include',
+              cache: 'no-store',
+            });
+            
+            if (!wagerResponse.ok) return null;
+            
+            const wagerData = await wagerResponse.json();
+            if (!wagerData.success || !wagerData.data?.wager) return null;
+            
+            const fullWager = wagerData.data.wager;
+            const allEntries = [
+              ...(fullWager.entries?.sideA || []),
+              ...(fullWager.entries?.sideB || []),
+            ];
+            
+            const userEntry = allEntries.find((e: any) => e.user_id === user.id);
+            
+            if (userEntry) {
+              return {
+                id: userEntry.id,
+                wager_id: wager.id,
+                side: userEntry.side,
+                amount: parseFloat(userEntry.amount || 0),
+                created_at: userEntry.created_at,
+                wager: {
+                  id: fullWager.id,
+                  title: fullWager.title,
+                  description: fullWager.description,
+                  side_a: fullWager.side_a,
+                  side_b: fullWager.side_b,
+                  amount: parseFloat(fullWager.amount || 0),
+                  status: fullWager.status,
+                  deadline: fullWager.deadline,
+                  winning_side: fullWager.winning_side,
+                  currency: fullWager.currency || 'NGN',
+                  category: fullWager.category?.slug || fullWager.category?.label || fullWager.category_id || null,
+                  created_at: fullWager.created_at,
+                },
+              } as WagerEntry;
+            }
+            
+            return null;
+          } catch (error) {
+            return null;
+          }
+        });
 
-      setEntries(transformedData as WagerEntry[]);
+        const entriesResults = await Promise.all(entriesPromises);
+        const validEntries = entriesResults.filter((e): e is WagerEntry => e !== null);
+        
+        // Sort by created_at descending
+        validEntries.sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+
+        setEntries(validEntries);
+      } else {
+        setEntries([]);
+      }
     } catch (error) {
-      // Silent fail - user can retry
+      console.error('Error fetching history:', error);
+      setEntries([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
       fetchingRef.current = false;
     }
-  }, [user, supabase, refreshing]);
+  }, [user, refreshing]);
 
   useEffect(() => {
     if (!authLoading) {

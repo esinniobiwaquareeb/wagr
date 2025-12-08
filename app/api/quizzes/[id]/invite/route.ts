@@ -1,12 +1,9 @@
 import { NextRequest } from 'next/server';
-import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
+import { nestjsServerFetch } from '@/lib/nestjs-server';
 import { requireAuth } from '@/lib/auth/server';
-import { AppError, logError } from '@/lib/error-handler';
-import { ErrorCode } from '@/lib/error-handler';
+import { logError } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
-import { sendEmailAsync } from '@/lib/email-queue';
-import { logger } from '@/lib/logger';
-import { createNotification } from '@/lib/notifications';
+import { cookies } from 'next/headers';
 
 /**
  * POST /api/quizzes/[id]/invite
@@ -17,23 +14,36 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await requireAuth();
-    const supabase = await createClient();
-    const serviceSupabase = createServiceRoleClient();
+    await requireAuth();
     const { id } = await params;
-    
-    // Sanitize and validate ID input
-    const { validateIDParam } = await import('@/lib/security/validator');
-    const quizId = validateIDParam(id, 'quiz ID', false); // Only UUID for quizzes
     const body = await request.json();
-    const { invites = [], teamId } = body;
+    
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
 
-    if ((!invites || !Array.isArray(invites) || invites.length === 0) && !teamId) {
-      throw new AppError(ErrorCode.INVALID_INPUT, 'At least one invite or a team is required');
+    if (!token) {
+      throw new Error('Authentication required');
     }
 
-    // Get quiz details
-    const { data: quiz, error: quizError } = await supabase
+    // Call NestJS backend to invite users
+    const response = await nestjsServerFetch(`/quizzes/${id}/invite`, {
+      method: 'POST',
+      token,
+      requireAuth: true,
+      body: JSON.stringify(body),
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'Failed to invite users');
+    }
+
+    return successResponseNext(response.data);
+  } catch (error) {
+    logError(error as Error);
+    return appErrorToResponse(error);
+  }
+}
       .from('quizzes')
       .select('id, title, description, creator_id, max_participants, status, entry_fee_per_question, total_questions, end_date')
       .eq('id', quizId)

@@ -2,8 +2,8 @@
  * Server-side authentication utilities
  */
 
-import { createClient } from '@/lib/supabase/server';
-import { getCurrentUserId } from './session';
+import { verifyJWTToken } from '@/lib/nestjs-server';
+import { cookies } from 'next/headers';
 
 export interface AuthUser {
   id: string;
@@ -14,63 +14,37 @@ export interface AuthUser {
 }
 
 /**
- * Get current authenticated user
+ * Get current authenticated user from JWT token
  */
 export async function getCurrentUser(): Promise<AuthUser | null> {
-  const userId = await getCurrentUserId();
-  if (!userId) {
-    return null;
-  }
-
-  const supabase = await createClient();
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('id, email, username, email_verified, is_admin, deleted_at, is_suspended')
-    .eq('id', userId)
-    .maybeSingle();
-
-  // Handle database errors - if it's a connection error or other DB issue, return null
-  if (error) {
-    // PGRST116 = no rows returned (user doesn't exist or is deleted)
-    if (error.code === 'PGRST116') {
+  try {
+    // Get JWT token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || cookieStore.get('wagr_session')?.value;
+    
+    if (!token) {
       return null;
     }
-    // Log other database errors but don't throw - just return null
+
+    // Verify token with NestJS backend
+    const user = await verifyJWTToken(token);
+    
+    if (!user) {
+      return null;
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      email_verified: user.email_verified,
+      is_admin: user.is_admin,
+    };
+  } catch (error) {
     const { logError } = await import('@/lib/error-handler');
-    logError(new Error(`Database error in getCurrentUser: ${error.message}`), {
-      error,
-      code: error.code,
-      userId,
-    });
+    logError(error as Error);
     return null;
   }
-
-  // If no profile found, return null
-  if (!profile) {
-    return null;
-  }
-
-  // Check if account is deleted (check in code, not in query)
-  if (profile.deleted_at) {
-    return null;
-  }
-
-  // If account is suspended, delete all sessions and return null
-  if (profile.is_suspended) {
-    const { deleteAllUserSessions } = await import('./session');
-    await deleteAllUserSessions(userId);
-    const { clearSessionCookie } = await import('./session');
-    await clearSessionCookie();
-    return null;
-  }
-
-  return {
-    id: profile.id,
-    email: profile.email,
-    username: profile.username,
-    email_verified: profile.email_verified || false,
-    is_admin: profile.is_admin || false,
-  };
 }
 
 /**

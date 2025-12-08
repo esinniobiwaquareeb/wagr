@@ -8,8 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/use-debounce";
-import { createClient } from "@/lib/supabase/client";
-import { useMemo } from "react";
 
 interface Team {
   id: string;
@@ -77,7 +75,6 @@ export function WagerInviteDialog({
     invitee_email?: string;
   } | null>(null);
   const { toast } = useToast();
-  const supabase = useMemo(() => createClient(), []);
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   // Load teams

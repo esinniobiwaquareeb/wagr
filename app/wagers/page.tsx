@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback, useRef, Suspense } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { WagerCard } from "@/components/wager-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Home as HomeIcon, Loader2, Sparkles, User, Clock, CheckCircle } from "lucide-react";
@@ -53,7 +52,6 @@ function WagersPageContent() {
   const [userEntries, setUserEntries] = useState<Map<string, { amount: number; side: string }>>(new Map());
   const [preferredCategories, setPreferredCategories] = useState<string[] | null>(null);
   const { user } = useAuth();
-  const supabase = createClient();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -193,28 +191,10 @@ function WagersPageContent() {
     fetchingRef.current = true;
 
     let userEntriesMap = new Map<string, { amount: number; side: string }>();
-    if (user) {
-      const { data: userEntriesData } = await supabase
-        .from("wager_entries")
-        .select("wager_id, amount, side")
-        .eq("user_id", user.id);
-
-      userEntriesData?.forEach(entry => {
-        const existing = userEntriesMap.get(entry.wager_id);
-        if (existing) {
-          userEntriesMap.set(entry.wager_id, {
-            amount: existing.amount + Number(entry.amount),
-            side: existing.side,
-          });
-        } else {
-          userEntriesMap.set(entry.wager_id, {
-            amount: Number(entry.amount),
-            side: entry.side,
-          });
-        }
-      });
-      setUserEntries(userEntriesMap);
-    }
+    
+    // User entries will be fetched from individual wager details if needed
+    // For now, we'll extract from wager entries in the response
+    // TODO: Create a dedicated endpoint for user entries if needed
 
     try {
       setLoading(true);
@@ -224,6 +204,27 @@ function WagersPageContent() {
 
       const wagersWithCounts: WagerWithEntries[] = wagersData.map((wager: any) => {
         const entryCounts = wager.entryCounts || { sideA: 0, sideB: 0, total: 0 };
+        
+        // Extract user entry from wager entries if available
+        if (user && wager.entries) {
+          const userEntry = wager.entries.sideA?.find((e: any) => e.user_id === user.id) ||
+                          wager.entries.sideB?.find((e: any) => e.user_id === user.id);
+          if (userEntry) {
+            const existing = userEntriesMap.get(wager.id);
+            if (existing) {
+              userEntriesMap.set(wager.id, {
+                amount: existing.amount + Number(userEntry.amount || 0),
+                side: userEntry.side || existing.side,
+              });
+            } else {
+              userEntriesMap.set(wager.id, {
+                amount: Number(userEntry.amount || 0),
+                side: userEntry.side || 'a',
+              });
+            }
+          }
+        }
+        
         return {
           ...wager,
           entries_count: entryCounts.total > 0 ? Math.ceil(entryCounts.total / wager.amount) : 0,
@@ -231,8 +232,14 @@ function WagersPageContent() {
           side_b_count: Math.ceil(entryCounts.sideB / wager.amount),
           side_a_total: entryCounts.sideA,
           side_b_total: entryCounts.sideB,
+          // Handle category as object or string
+          category: typeof wager.category === 'object' 
+            ? (wager.category?.slug || wager.category?.label || wager.category_id)
+            : (wager.category || wager.category_id),
         };
       });
+      
+      setUserEntries(userEntriesMap);
       
       wagersWithCounts.sort((a, b) => {
         const aExpired = isExpired(a);
@@ -257,7 +264,7 @@ function WagersPageContent() {
       setLoading(false);
       fetchingRef.current = false;
     }
-  }, [supabase, user, toast]);
+  }, [user, toast, isExpired]);
 
   const debouncedRefetch = useCallback(() => {
     if (debounceTimeoutRef.current) {
@@ -308,69 +315,27 @@ function WagersPageContent() {
   useEffect(() => {
     fetchWagers();
 
-    // Subscribe to wager changes
-    // If user is logged in, also listen for their private wagers
-    const wagersChannel = supabase
-      .channel("wagers-list")
-      .on(
-        "postgres_changes",
-        { 
-          event: "*", 
-          schema: "public", 
-          table: "wagers",
-          // Remove filter to listen to all wagers - client-side filtering handles visibility
-          // This ensures private wagers created by the user appear in real-time
-        },
-        (payload) => {
-          // Only refetch on INSERT or UPDATE, not DELETE (to reduce reloads)
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            // Check if this is a wager the user should see
-            const wager = payload.new as any;
-            const shouldRefetch = 
-              wager.is_public === true || 
-              (user && wager.creator_id === user.id);
-            
-            if (shouldRefetch) {
-              debouncedRefetchRef.current();
-            }
-          }
-        }
-      )
-      .subscribe();
-
-    // Only listen to INSERT events (new entries) to reduce unnecessary reloads
-    // UPDATE/DELETE events are less critical and can be handled by user actions
-    const entriesChannel = supabase
-      .channel("wager-entries-list")
-      .on(
-        "postgres_changes",
-        { 
-          event: "INSERT", 
-          schema: "public", 
-          table: "wager_entries"
-        },
-        () => {
-          // Only refetch on new entries
-          debouncedRefetchRef.current();
-        }
-      )
-      .subscribe();
+    // Poll for updates every 30 seconds (replaces real-time subscriptions)
+    const pollInterval = setInterval(() => {
+      fetchWagers(true);
+    }, 30000);
 
     // Listen for wager update events from card components
     const handleWagerUpdate = () => {
       debouncedRefetchRef.current();
     };
     window.addEventListener('wager-updated', handleWagerUpdate);
+    window.addEventListener('balance-updated', handleWagerUpdate);
 
     return () => {
-      wagersChannel.unsubscribe();
-      entriesChannel.unsubscribe();
+      clearInterval(pollInterval);
       window.removeEventListener('wager-updated', handleWagerUpdate);
+      window.removeEventListener('balance-updated', handleWagerUpdate);
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [supabase, user]); // Added user dependency to re-subscribe when user changes
+  }, [user, fetchWagers, debouncedRefetch]);
 
   const handleTabChange = (tab: TabType) => {
     const params = new URLSearchParams(searchParams?.toString() || '');

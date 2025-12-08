@@ -1,8 +1,10 @@
 /**
  * Session management utilities
+ * 
+ * @deprecated This file is deprecated. Session management is now handled by JWT tokens via NestJS backend.
+ * These functions are kept for backward compatibility but most are no longer used.
  */
 
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
@@ -28,6 +30,8 @@ export async function generateSessionToken(): Promise<string> {
 
 /**
  * Create a new session for a user
+ * 
+ * @deprecated Sessions are now managed by JWT tokens from NestJS backend
  */
 export async function createSession(
   userId: string, 
@@ -35,82 +39,46 @@ export async function createSession(
   userAgent?: string, 
   rememberMe: boolean = false
 ): Promise<string> {
-  const supabase = await createClient();
+  // Sessions are now handled by JWT tokens from NestJS
+  // This function is kept for backward compatibility
   const token = await generateSessionToken();
-  const duration = rememberMe ? REMEMBER_ME_DURATION : REGULAR_SESSION_DURATION;
-  const expiresAt = new Date(Date.now() + duration);
-
-  const { error } = await supabase
-    .from('sessions')
-    .insert({
-      user_id: userId,
-      token,
-      expires_at: expiresAt.toISOString(),
-      ip_address: ipAddress || null,
-      user_agent: userAgent || null,
-    });
-
-  if (error) {
-    throw new Error(`Failed to create session: ${error.message}`);
-  }
-
   return token;
 }
 
 /**
  * Get user ID from session token
+ * 
+ * @deprecated Session tokens are now JWT tokens validated by NestJS backend
  */
 export async function getUserIdFromSession(token: string): Promise<string | null> {
   if (!token) {
     return null;
   }
 
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from('sessions')
-    .select('user_id, expires_at')
-    .eq('token', token)
-    .maybeSingle();
-
-  if (error || !data) {
-    return null;
-  }
-
-  // Check if session is expired
-  if (new Date(data.expires_at) < new Date()) {
-    // Delete expired session
-    await supabase.from('sessions').delete().eq('token', token);
-    return null;
-  }
-
-  // Update last_used_at
-  await supabase
-    .from('sessions')
-    .update({ last_used_at: new Date().toISOString() })
-    .eq('token', token);
-
-  return data.user_id;
+  // JWT tokens are validated by NestJS backend via verifyJWTToken
+  // This function is kept for backward compatibility but should not be used
+  // For middleware, use verifyJWTToken from nestjs-server instead
+  return null;
 }
 
 /**
  * Delete a session
+ * 
+ * @deprecated Sessions are now JWT tokens managed by NestJS backend
  */
 export async function deleteSession(token: string): Promise<void> {
-  if (!token) {
-    return;
-  }
-
-  const supabase = await createClient();
-  await supabase.from('sessions').delete().eq('token', token);
+  // Sessions are now JWT tokens - logout is handled by NestJS backend
+  // This function is kept for backward compatibility
 }
 
 /**
  * Delete all sessions for a user
+ * 
+ * @deprecated Sessions are now JWT tokens managed by NestJS backend
  */
 export async function deleteAllUserSessions(userId: string): Promise<void> {
-  const supabase = await createClient();
-  await supabase.from('sessions').delete().eq('user_id', userId);
+  // Sessions are now JWT tokens - logout is handled by NestJS backend
+  // This function is kept for backward compatibility
 }
 
 /**

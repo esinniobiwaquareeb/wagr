@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { nestjsServerFetch } from '@/lib/nestjs-server';
 import { requireAuth } from '@/lib/auth/server';
-import { AppError, logError } from '@/lib/error-handler';
-import { ErrorCode } from '@/lib/error-handler';
+import { logError } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
+import { cookies } from 'next/headers';
 
 /**
  * GET /api/preferences
@@ -11,29 +11,29 @@ import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
  */
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireAuth();
-    const supabase = await createClient();
+    await requireAuth();
+    
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
 
-    const { data: preferences, error } = await supabase
-      .from('user_preferences')
-      .select('*')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (error && error.code !== 'PGRST116') {
-      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch preferences');
+    if (!token) {
+      throw new Error('Authentication required');
     }
 
-    // Return defaults if no preferences exist
-    const defaultPreferences = {
-      preferred_categories: [],
-      notification_enabled: true,
-      notification_types: ['wager_resolved', 'wager_ending', 'balance_update'],
-      push_notifications_enabled: false,
-    };
+    // Call NestJS backend to get preferences
+    const response = await nestjsServerFetch<{ preferences: any }>('/preferences', {
+      method: 'GET',
+      token,
+      requireAuth: true,
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'Failed to fetch preferences');
+    }
 
     return successResponseNext({
-      preferences: preferences || defaultPreferences,
+      preferences: response.data.preferences,
     });
   } catch (error) {
     logError(error as Error);
@@ -47,53 +47,30 @@ export async function GET(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const user = await requireAuth();
+    await requireAuth();
     const body = await request.json();
-    const supabase = await createClient();
+    
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
 
-    const {
-      preferred_categories,
-      notification_enabled,
-      notification_types,
-      push_notifications_enabled,
-    } = body;
-
-    const updates: any = {};
-
-    if (preferred_categories !== undefined) {
-      updates.preferred_categories = preferred_categories;
-    }
-    if (notification_enabled !== undefined) {
-      updates.notification_enabled = notification_enabled;
-    }
-    if (notification_types !== undefined) {
-      updates.notification_types = notification_types;
-    }
-    if (push_notifications_enabled !== undefined) {
-      updates.push_notifications_enabled = push_notifications_enabled;
+    if (!token) {
+      throw new Error('Authentication required');
     }
 
-    if (Object.keys(updates).length === 0) {
-      throw new AppError(ErrorCode.INVALID_INPUT, 'No fields to update');
+    // Call NestJS backend to update preferences
+    const response = await nestjsServerFetch<{ preferences: any }>('/preferences', {
+      method: 'PATCH',
+      token,
+      requireAuth: true,
+      body: JSON.stringify(body),
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'Failed to update preferences');
     }
 
-    // Upsert preferences
-    const { data: preferences, error } = await supabase
-      .from('user_preferences')
-      .upsert({
-        user_id: user.id,
-        ...updates,
-      }, {
-        onConflict: 'user_id',
-      })
-      .select()
-      .maybeSingle();
-
-    if (error) {
-      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to update preferences');
-    }
-
-    return successResponseNext({ preferences });
+    return successResponseNext({ preferences: response.data.preferences });
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);

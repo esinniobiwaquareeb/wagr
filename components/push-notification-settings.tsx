@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Bell, BellOff, Loader2 } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
 import { 
   isPushNotificationSupported, 
   requestPushPermission, 
@@ -11,9 +10,9 @@ import {
   getPushSubscription 
 } from '@/lib/push-notifications';
 import { useAuth } from '@/hooks/use-auth';
+import { preferencesApi } from '@/lib/api-client';
 
 export function PushNotificationSettings() {
-  const supabase = useMemo(() => createClient(), []);
   const [isSupported, setIsSupported] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -30,24 +29,9 @@ export function PushNotificationSettings() {
       setIsSupported(isPushNotificationSupported());
       
       try {
-        // Check user preference first
-        const { data: preferences, error: prefError } = await supabase
-          .from('user_preferences')
-          .select('push_notifications_enabled')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        // If no preferences exist, create one with default false
-        if (prefError && prefError.code === 'PGRST116') {
-          await supabase
-            .from('user_preferences')
-            .insert({
-              user_id: user.id,
-              push_notifications_enabled: false,
-            });
-        }
-
-        const preferenceEnabled = preferences?.push_notifications_enabled ?? false;
+        // Get user preferences from NestJS API
+        const response = await preferencesApi.get();
+        const preferenceEnabled = response.preferences?.push_notifications_enabled ?? false;
         
         if (isPushNotificationSupported()) {
           // Check actual browser subscription status
@@ -68,7 +52,7 @@ export function PushNotificationSettings() {
     };
 
     checkSubscription();
-  }, [user, supabase]);
+  }, [user]);
 
   const handleToggle = async () => {
     if (!isSupported || !user || isToggling) return;
@@ -84,64 +68,42 @@ export function PushNotificationSettings() {
         if (permission === 'granted') {
           const subscription = await subscribeToPushNotifications();
           if (subscription) {
-            // Save preference to database
-            const { error: dbError } = await supabase
-              .from('user_preferences')
-              .upsert({
-                user_id: user.id,
-                push_notifications_enabled: true,
-              }, {
-                onConflict: 'user_id',
-              });
-            
-            if (!dbError) {
+            // Save preference to database via NestJS API
+            try {
+              await preferencesApi.update({ push_notifications_enabled: true });
               setIsSubscribed(true);
-            } else {
-              console.error('Error saving preference:', dbError);
+            } catch (error) {
+              console.error('Error saving preference:', error);
               setIsSubscribed(previousState);
             }
           } else {
             // Subscription failed
             setIsSubscribed(previousState);
-            await supabase
-              .from('user_preferences')
-              .upsert({
-                user_id: user.id,
-                push_notifications_enabled: false,
-              }, {
-                onConflict: 'user_id',
-              });
+            try {
+              await preferencesApi.update({ push_notifications_enabled: false });
+            } catch (error) {
+              console.error('Error updating preference:', error);
+            }
           }
         } else {
           // Permission denied
           setIsSubscribed(previousState);
-          await supabase
-            .from('user_preferences')
-            .upsert({
-              user_id: user.id,
-              push_notifications_enabled: false,
-            }, {
-              onConflict: 'user_id',
-            });
+          try {
+            await preferencesApi.update({ push_notifications_enabled: false });
+          } catch (error) {
+            console.error('Error updating preference:', error);
+          }
         }
       } else {
         // Disabling push notifications
         const success = await unsubscribeFromPushNotifications();
         
         // Update preference in database regardless of unsubscribe result
-        const { error: dbError } = await supabase
-          .from('user_preferences')
-          .upsert({
-            user_id: user.id,
-            push_notifications_enabled: false,
-          }, {
-            onConflict: 'user_id',
-          });
-        
-        if (!dbError) {
+        try {
+          await preferencesApi.update({ push_notifications_enabled: false });
           setIsSubscribed(false);
-        } else {
-          console.error('Error updating preference:', dbError);
+        } catch (error) {
+          console.error('Error updating preference:', error);
           // If unsubscribe succeeded but DB update failed, still update UI
           if (success) {
             setIsSubscribed(false);

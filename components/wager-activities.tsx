@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useEffect, useCallback } from "react";
 import { formatDistanceToNow } from "date-fns";
 import {
   UserPlus,
@@ -34,58 +33,52 @@ interface WagerActivitiesProps {
 }
 
 export function WagerActivities({ wagerId, sideA, sideB }: WagerActivitiesProps) {
-  const supabase = useMemo(() => createClient(), []);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchActivities = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from("wager_activities")
-        .select(`
-          *,
-          profiles:user_id (
-            username,
-            avatar_url
-          )
-        `)
-        .eq("wager_id", wagerId)
-        .order("created_at", { ascending: false })
-        .limit(100);
+      // TODO: Create API route /api/wagers/[id]/activities that proxies to NestJS backend
+      // For now, fetch from API route (which will need to be created)
+      const response = await fetch(`/api/wagers/${wagerId}/activities`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch activities');
+      }
 
-      if (error) throw error;
-      setActivities(data || []);
+      const data = await response.json();
+      // Handle both response formats: { success: true, data: { activities: [...] } } or { activities: [...] }
+      const activitiesData = data.success && data.data?.activities 
+        ? data.data.activities 
+        : data.activities || data.data?.activities || [];
+      
+      setActivities(activitiesData);
     } catch (error) {
       console.error("Error fetching activities:", error);
     } finally {
       setLoading(false);
     }
-  }, [wagerId, supabase]);
+  }, [wagerId]);
 
   useEffect(() => {
     fetchActivities();
 
-    // Subscribe to real-time updates
-    const channel = supabase
-      .channel(`wager-activities:${wagerId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "wager_activities",
-          filter: `wager_id=eq.${wagerId}`,
-        },
-        () => {
-          fetchActivities();
-        }
-      )
-      .subscribe();
+    // Poll for updates every 30 seconds (replaces real-time subscriptions)
+    const pollInterval = setInterval(() => {
+      fetchActivities();
+    }, 30000);
+
+    // Listen for custom activity update events
+    const handleActivityUpdate = () => {
+      fetchActivities();
+    };
+    window.addEventListener('wager-activity-updated', handleActivityUpdate);
 
     return () => {
-      channel.unsubscribe();
+      clearInterval(pollInterval);
+      window.removeEventListener('wager-activity-updated', handleActivityUpdate);
     };
-  }, [wagerId, supabase, fetchActivities]);
+  }, [wagerId, fetchActivities]);
 
   const getActivityIcon = (type: string) => {
     switch (type) {

@@ -6,17 +6,17 @@ import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 import { cookies } from 'next/headers';
 
 /**
- * POST /api/wagers/[id]/join
- * Join a wager on a specific side
+ * POST /api/wagers/[id]/change-side
+ * Change entry side for a wager
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAuth(); // Ensure user is authenticated
+    await requireAuth();
     const body = await request.json();
-    const { side } = body; // 'a' or 'b'
+    const { side } = body;
     const { id } = await params;
 
     if (!side || (side !== 'a' && side !== 'b')) {
@@ -31,22 +31,22 @@ export async function POST(
       throw new Error('Authentication required');
     }
 
-    // Call NestJS backend to join wager
-    const response = await nestjsServerFetch<{ wager: any; message: string }>(`/wagers/${id}/join`, {
+    // Call NestJS backend to change side
+    const response = await nestjsServerFetch<any>(`/wagers/${id}/change-side`, {
       method: 'POST',
       token,
       requireAuth: true,
       body: JSON.stringify({ side }),
     });
 
-    if (!response.success || !response.data) {
-      throw new Error(response.error?.message || 'Failed to join wager');
+    if (!response.success) {
+      throw new Error(response.error?.message || 'Failed to change side');
     }
 
     // NestJS returns { success: true, data: { wager }, message: '...' }
     const nestjsResponse = response as any;
     const wager = nestjsResponse.data?.wager || nestjsResponse.wager;
-    const message = nestjsResponse.message || nestjsResponse.data?.message || 'Successfully joined wager';
+    const message = nestjsResponse.message || nestjsResponse.data?.message || 'Successfully changed side';
 
     return successResponseNext({
       wager,

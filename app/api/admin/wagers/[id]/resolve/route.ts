@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server';
-import { createServiceRoleClient } from '@/lib/supabase/server';
+import { nestjsServerFetch } from '@/lib/nestjs-server';
 import { requireAdmin } from '@/lib/auth/server';
-import { AppError, logError } from '@/lib/error-handler';
-import { ErrorCode } from '@/lib/error-handler';
+import { logError } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
+import { cookies } from 'next/headers';
 
 /**
  * POST /api/admin/wagers/[id]/resolve
@@ -15,45 +15,31 @@ export async function POST(
 ) {
   try {
     await requireAdmin();
-    const supabase = createServiceRoleClient();
     const { id } = await params;
-    
-    // Sanitize and validate ID input
-    const { validateIDParam } = await import('@/lib/security/validator');
-    const wagerId = validateIDParam(id, 'wager ID');
     const body = await request.json();
-    const { winningSide } = body;
+    
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
 
-    if (!winningSide || (winningSide !== 'a' && winningSide !== 'b')) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Invalid winning side. Must be "a" or "b"');
+    if (!token) {
+      throw new Error('Authentication required');
     }
 
-    // Get wager
-    const { data: wager, error: wagerError } = await supabase
-      .from('wagers')
-      .select('id, status')
-      .or(`id.eq.${wagerId},short_id.eq.${wagerId}`)
-      .maybeSingle();
+    // Call NestJS backend to resolve wager
+    const response = await nestjsServerFetch<{ message: string }>(`/admin/wagers/${id}/resolve`, {
+      method: 'POST',
+      token,
+      requireAuth: true,
+      body: JSON.stringify(body),
+    });
 
-    if (wagerError || !wager) {
-      throw new AppError(ErrorCode.WAGER_NOT_FOUND, 'Wager not found');
-    }
-
-    // Update wager with winning side (keep status as OPEN so settlement function can process it)
-    const { error: updateError } = await supabase
-      .from('wagers')
-      .update({ 
-        winning_side: winningSide,
-        status: 'OPEN' // Keep as OPEN so settlement function can process it
-      })
-      .eq('id', wager.id);
-
-    if (updateError) {
-      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to update wager');
+    if (!response.success) {
+      throw new Error(response.error?.message || 'Failed to resolve wager');
     }
 
     return successResponseNext({
-      message: 'Winning side set. The wager will be automatically settled by the system when the deadline passes.',
+      message: response.data?.message || 'Winning side set. The wager will be automatically settled by the system when the deadline passes.',
     });
   } catch (error) {
     logError(error as Error);

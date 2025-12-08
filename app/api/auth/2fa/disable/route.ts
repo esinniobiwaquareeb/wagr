@@ -1,61 +1,44 @@
 import { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { getCurrentUserId } from '@/lib/auth/session';
-import { verifyPassword } from '@/lib/auth/password';
-import { AppError, logError } from '@/lib/error-handler';
-import { ErrorCode } from '@/lib/error-handler';
+import { nestjsServerFetch } from '@/lib/nestjs-server';
+import { requireAuth } from '@/lib/auth/server';
+import { logError } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
+import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
+    await requireAuth();
+    
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
+
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
     const body = await request.json();
-    const { password } = body; // Require password confirmation
+    const { password } = body;
 
     if (!password) {
-      throw new AppError(ErrorCode.INVALID_INPUT, 'Password is required to disable 2FA');
+      throw new Error('Password is required to disable 2FA');
     }
 
-    const userId = await getCurrentUserId();
-    if (!userId) {
-      throw new AppError(ErrorCode.UNAUTHORIZED, 'You must be logged in');
-    }
-
-    const supabase = await createClient();
-
-    // Get user profile with password hash
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('password_hash')
-      .eq('id', userId)
-      .maybeSingle();
-
-    if (profileError || !profile) {
-      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch profile');
-    }
-
-    // Verify password
-    const passwordMatch = await verifyPassword(password, profile.password_hash);
-    if (!passwordMatch) {
-      throw new AppError(ErrorCode.INVALID_CREDENTIALS, 'Invalid password');
-    }
-
-    // Disable 2FA
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({
-        two_factor_enabled: false,
-        two_factor_secret: null,
-        two_factor_backup_codes: null,
-      })
-      .eq('id', userId);
-
-    if (updateError) {
-      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to disable 2FA');
-    }
-
-    return successResponseNext({
-      message: '2FA has been disabled',
+    // Call NestJS backend
+    const response = await nestjsServerFetch('/auth/2fa/disable', {
+      method: 'POST',
+      token,
+      requireAuth: true,
+      body: {
+        password,
+      },
     });
+
+    if (!response.success) {
+      throw new Error(response.error?.message || 'Failed to disable 2FA');
+    }
+
+    return successResponseNext(response.data);
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);

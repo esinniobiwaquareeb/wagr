@@ -1,42 +1,41 @@
 import { NextRequest } from 'next/server';
 import { nestjsServerFetch } from '@/lib/nestjs-server';
-import { requireAdmin } from '@/lib/auth/server';
 import { logError } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 import { cookies } from 'next/headers';
 
 /**
- * DELETE /api/admin/users/[id]
- * Soft delete a user account (only if no activities)
+ * GET /api/wagers/[id]/activities
+ * Get wager activities
  */
-export async function DELETE(
+export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAdmin();
     const { id } = await params;
     
-    // Get token from cookies
+    // Get auth token from cookies for server-side request (optional - activities may be public)
     const cookieStore = await cookies();
     const token = cookieStore.get('auth_token')?.value || null;
-
-    if (!token) {
-      throw new Error('Authentication required');
-    }
-
-    // Call NestJS backend
-    const response = await nestjsServerFetch(`/admin/users/${id}`, {
-      method: 'DELETE',
+    
+    // Call NestJS backend to get activities
+    const response = await nestjsServerFetch<any>(`/wagers/${id}/activities`, {
+      method: 'GET',
       token,
-      requireAuth: true,
+      requireAuth: false, // Public endpoint
     });
 
     if (!response.success) {
-      throw new Error(response.error?.message || 'Failed to delete user');
+      return successResponseNext({ activities: [] });
     }
 
-    return successResponseNext(response.data || { message: 'User account deleted successfully' });
+    // NestJS returns { success: true, data: { activities } }
+    const activities = response.data?.activities || (response.data as any)?.activities || [];
+
+    return successResponseNext({
+      activities,
+    });
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);

@@ -2,7 +2,7 @@
  * Client-side authentication utilities
  */
 
-import { createClient } from '@/lib/supabase/client';
+import { nestjsGet } from '@/lib/nestjs-client';
 import { requestDeduplication } from '@/lib/request-deduplication';
 
 export interface AuthUser {

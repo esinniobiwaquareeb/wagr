@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server';
-import { createServiceRoleClient } from '@/lib/supabase/server';
+import { nestjsServerFetch } from '@/lib/nestjs-server';
 import { requireAuth } from '@/lib/auth/server';
-import { AppError, logError } from '@/lib/error-handler';
-import { ErrorCode } from '@/lib/error-handler';
+import { logError } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
+import { cookies } from 'next/headers';
 
 /**
  * GET /api/wallet/search-users
@@ -11,9 +11,15 @@ import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
  */
 export async function GET(request: NextRequest) {
   try {
-    await requireAuth(); // User must be authenticated to search
-    // Use service role client to bypass RLS for search (user is already authenticated)
-    const supabase = createServiceRoleClient();
+    await requireAuth();
+    
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
+
+    if (!token) {
+      throw new Error('Authentication required');
+    }
 
     const url = new URL(request.url);
     const query = url.searchParams.get('q') || '';
@@ -22,70 +28,20 @@ export async function GET(request: NextRequest) {
       return successResponseNext({ users: [] });
     }
 
-    // Sanitize search input to prevent injection
-    const { sanitizeSearchInput } = await import('@/lib/security/input-sanitizer');
-    const sanitizedQuery = sanitizeSearchInput(query);
-    
-    if (!sanitizedQuery || sanitizedQuery.length < 2) {
-      return successResponseNext({ users: [] });
+    // Call NestJS backend to search users
+    const response = await nestjsServerFetch<{
+      users: any[];
+    }>(`/wallet/search-users?q=${encodeURIComponent(query)}`, {
+      method: 'GET',
+      token,
+      requireAuth: true,
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'Failed to search users');
     }
 
-    // Remove @ if present
-    const searchQuery = sanitizedQuery.trim().replace(/^@+/, '').toLowerCase();
-
-    if (!searchQuery || searchQuery.length < 2) {
-      return successResponseNext({ users: [] });
-    }
-
-    // Always use separate queries for username and email (more reliable than OR)
-    // Exclude deleted users
-    const [usernameResults, emailResults] = await Promise.all([
-      supabase
-        .from('profiles')
-        .select('id, username, email, avatar_url')
-        .ilike('username', `%${searchQuery}%`)
-        .not('username', 'is', null)
-        .is('deleted_at', null)
-        .limit(10),
-      supabase
-        .from('profiles')
-        .select('id, username, email, avatar_url')
-        .ilike('email', `%${searchQuery}%`)
-        .not('username', 'is', null)
-        .is('deleted_at', null)
-        .limit(10),
-    ]);
-
-    // Check for errors
-    if (usernameResults.error) {
-      console.error('Username search error:', usernameResults.error);
-      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to search users by username: ${usernameResults.error.message}`);
-    }
-
-    if (emailResults.error) {
-      console.error('Email search error:', emailResults.error);
-      // Don't throw if email search fails, just log it
-    }
-
-    // Combine results and remove duplicates
-    const combined = [
-      ...(usernameResults.data || []),
-      ...(emailResults.data || []),
-    ];
-
-    const uniqueProfiles = Array.from(
-      new Map(combined.map(p => [p.id, p])).values()
-    ).slice(0, 10);
-
-    // Format response - include email for display
-    const users = uniqueProfiles.map(profile => ({
-      id: profile.id,
-      username: profile.username,
-      email: profile.email || undefined,
-      avatar_url: profile.avatar_url || undefined,
-    }));
-
-    return successResponseNext({ users });
+    return successResponseNext({ users: response.data.users || [] });
   } catch (error) {
     console.error('Search users API error:', error);
     logError(error as Error);

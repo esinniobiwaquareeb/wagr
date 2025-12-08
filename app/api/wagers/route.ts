@@ -1,10 +1,10 @@
 import { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { nestjsServerFetch } from '@/lib/nestjs-server';
+import { getCurrentUser } from '@/lib/auth/server';
 import { requireAuth } from '@/lib/auth/server';
-import { AppError, logError } from '@/lib/error-handler';
-import { ErrorCode } from '@/lib/error-handler';
-import { successResponseNext, appErrorToResponse, getPaginationParams, getPaginationMeta } from '@/lib/api-response';
-import { getOrFetchWagerList, invalidateWagerLists } from '@/lib/redis/wagers';
+import { logError } from '@/lib/error-handler';
+import { successResponseNext, appErrorToResponse, getPaginationParams } from '@/lib/api-response';
+import { cookies } from 'next/headers';
 
 /**
  * GET /api/wagers
@@ -12,119 +12,55 @@ import { getOrFetchWagerList, invalidateWagerLists } from '@/lib/redis/wagers';
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
     const { page, limit } = getPaginationParams(request);
-    const offset = (page - 1) * limit;
-
     const url = new URL(request.url);
-    const status = url.searchParams.get('status'); // OPEN, RESOLVED, REFUNDED
+    
+    // Build query parameters
+    const queryParams = new URLSearchParams();
+    queryParams.set('page', page.toString());
+    queryParams.set('limit', limit.toString());
+    
+    const status = url.searchParams.get('status');
     const category = url.searchParams.get('category');
     const search = url.searchParams.get('search');
     const currency = url.searchParams.get('currency');
+    
+    if (status) queryParams.set('status', status);
+    if (category) queryParams.set('category', category);
+    if (search) queryParams.set('search', search);
+    if (currency) queryParams.set('currency', currency);
 
-    // Get current user to filter private wagers
-    const { getCurrentUser } = await import('@/lib/auth/server');
-    const currentUser = await getCurrentUser();
-    const userId = currentUser?.id || null;
+    // Get auth token from cookies for server-side request
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
+    
+    // Call NestJS backend using server-side fetch
+    // NestJS returns: { success: true, data: [...], meta: {...} }
+    const response = await nestjsServerFetch<any>(`/wagers?${queryParams.toString()}`, {
+      method: 'GET',
+      token,
+      requireAuth: false, // Public endpoint
+    });
 
-    // Use Redis caching with cache-aside pattern
-    const result = await getOrFetchWagerList(
-      { page, limit, status, category, search, currency, userId },
-      async () => {
-        // Build query
-        let query = supabase
-          .from('wagers')
-          .select('*, profiles:creator_id(username, avatar_url)', { count: 'exact' })
-          .order('created_at', { ascending: false });
+    if (!response.success) {
+      console.error('NestJS API error:', response.error);
+      return successResponseNext({ wagers: [] });
+    }
 
-        // Apply filters
-        if (status) {
-          query = query.eq('status', status);
-        }
-        if (category) {
-          query = query.eq('category', category);
-        }
-        if (currency) {
-          query = query.eq('currency', currency);
-        }
-        if (search) {
-          // Sanitize search input to prevent injection
-          const { sanitizeSearchInput } = await import('@/lib/security/input-sanitizer');
-          const sanitizedSearch = sanitizeSearchInput(search);
-          if (sanitizedSearch) {
-            // Use parameterized query - Supabase handles escaping
-            query = query.or(`title.ilike.%${sanitizedSearch}%,description.ilike.%${sanitizedSearch}%`);
-          }
-        }
-
-        // Fetch all matching wagers (we'll filter by visibility after)
-        const { data: allWagers, error, count } = await query;
-
-        if (error) {
-          logError(new Error(`Failed to fetch wagers: ${error.message}`), {
-            error,
-            code: error.code,
-            details: error.details,
-            hint: error.hint,
-          });
-          throw new AppError(
-            ErrorCode.DATABASE_ERROR, 
-            `Failed to fetch wagers: ${error.message}`,
-            { databaseError: error }
-          );
-        }
-
-        // Filter by visibility: Only show public wagers OR wagers where user is the creator
-        let wagers = allWagers || [];
-        if (userId) {
-          // User is logged in: show public wagers OR their own private wagers
-          wagers = wagers.filter(w => w.is_public === true || w.creator_id === userId);
-        } else {
-          // User is not logged in: only show public wagers
-          wagers = wagers.filter(w => w.is_public === true);
-        }
-
-        // Apply pagination after filtering
-        const totalFiltered = wagers.length;
-        wagers = wagers.slice(offset, offset + limit);
-
-        // Get entry counts for each wager
-        const wagerIds = wagers?.map(w => w.id) || [];
-        if (wagerIds.length > 0) {
-          const { data: entries } = await supabase
-            .from('wager_entries')
-            .select('wager_id, side, amount')
-            .in('wager_id', wagerIds);
-
-          const entryCounts = entries?.reduce((acc, entry) => {
-            if (!acc[entry.wager_id]) {
-              acc[entry.wager_id] = { sideA: 0, sideB: 0, total: 0 };
-            }
-            if (entry.side === 'a') {
-              acc[entry.wager_id].sideA += parseFloat(entry.amount);
-            } else {
-              acc[entry.wager_id].sideB += parseFloat(entry.amount);
-            }
-            acc[entry.wager_id].total += parseFloat(entry.amount);
-            return acc;
-          }, {} as Record<string, { sideA: number; sideB: number; total: number }>) || {};
-
-          // Add entry counts to wagers
-          wagers?.forEach(wager => {
-            (wager as any).entryCounts = entryCounts[wager.id] || { sideA: 0, sideB: 0, total: 0 };
-          });
-        }
-
-        return {
-          wagers: wagers || [],
-          pagination: getPaginationMeta(page, limit, totalFiltered),
-        };
-      }
-    );
+    // nestjsServerFetch returns the raw NestJS response: { success: true, data: [...], meta: {...} }
+    // So response.data is the array, and we need to check for meta at the top level
+    const nestjsResponse = response as any;
+    const wagers = Array.isArray(nestjsResponse.data) ? nestjsResponse.data : [];
+    const meta = nestjsResponse.meta || {
+      page,
+      limit,
+      total: wagers.length,
+      totalPages: 1,
+    };
 
     return successResponseNext(
-      { wagers: result.wagers },
-      result.pagination
+      { wagers },
+      meta
     );
   } catch (error) {
     logError(error as Error);
@@ -138,9 +74,8 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireAuth();
+    await requireAuth(); // Ensure user is authenticated
     const body = await request.json();
-    const supabase = await createClient();
 
     const {
       title,
@@ -155,230 +90,39 @@ export async function POST(request: NextRequest) {
       creatorSide = 'a',
     } = body;
 
-    // Validation
-    if (!title || typeof title !== 'string' || title.trim().length < 5) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Title must be at least 5 characters');
+    // Get auth token from cookies for server-side request
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
+
+    if (!token) {
+      throw new Error('Authentication required');
     }
 
-    if (!sideA || !sideB || typeof sideA !== 'string' || typeof sideB !== 'string') {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Both sides are required');
-    }
-
-    if (!amount || typeof amount !== 'number' || amount <= 0) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Amount must be a positive number');
-    }
-
-    // Get wager limits from settings
-    const { getWagerLimits } = await import('@/lib/settings');
-    const { minAmount, maxAmount, minDeadline, maxDeadline } = await getWagerLimits();
-    
-    if (amount < minAmount) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, `Minimum wager amount is ₦${minAmount}`);
-    }
-    
-    if (amount > maxAmount) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, `Maximum wager amount is ₦${maxAmount}`);
-    }
-
-    if (!deadline || !new Date(deadline)) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Deadline is required');
-    }
-
-    // Validate deadline range
-    const deadlineDate = new Date(deadline);
-    const now = new Date();
-    const daysUntilDeadline = Math.ceil((deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    
-    if (daysUntilDeadline < minDeadline) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, `Deadline must be at least ${minDeadline} day(s) from now`);
-    }
-    
-    if (daysUntilDeadline > maxDeadline) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, `Deadline cannot be more than ${maxDeadline} days from now`);
-    }
-
-    // Check user balance
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('balance')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (!profile || (profile.balance || 0) < amount) {
-      throw new AppError(ErrorCode.INSUFFICIENT_BALANCE, 'Insufficient balance');
-    }
-
-    // Check for similar/duplicate wager titles
-    const { areTitlesSimilar } = await import('@/lib/wager-title-matcher');
-    const trimmedTitle = title.trim();
-    const { data: existingWagers } = await supabase
-      .from('wagers')
-      .select('id, title, side_a, side_b, amount, short_id, status')
-      .eq('status', 'OPEN')
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    if (existingWagers && existingWagers.length > 0) {
-      const similarWagers = existingWagers.filter(wager => 
-        areTitlesSimilar(trimmedTitle, wager.title)
-      );
-
-      if (similarWagers.length > 0) {
-        // Refund balance before throwing error
-        await supabase.rpc('increment_balance', {
-          user_id: user.id,
-          amt: amount,
-        });
-
-        throw new AppError(
-          ErrorCode.VALIDATION_ERROR,
-          'A similar wager already exists. Please use a different title or join the existing wager.',
-          {
-            similarWagers: similarWagers.map(w => ({
-              id: w.id,
-              shortId: w.short_id,
-              title: w.title,
-              sideA: w.side_a,
-              sideB: w.side_b,
-              amount: w.amount,
-            })),
-          }
-        );
-      }
-    }
-
-    // Deduct balance for wager creation
-    const { error: balanceError } = await supabase.rpc('increment_balance', {
-      user_id: user.id,
-      amt: -amount,
-    });
-
-    if (balanceError) {
-      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to deduct balance');
-    }
-
-    // Record transaction
-    const { error: txError } = await supabase.from('transactions').insert({
-      user_id: user.id,
-      type: 'wager_create',
-      amount: -amount,
-      description: `Created wager: "${title.trim()}"`,
-    });
-
-    if (txError) {
-      // Log the actual error for debugging
-      logError(new Error(`Failed to record transaction: ${txError.message}`), {
-        txError,
-        userId: user.id,
-      });
-      
-      // Refund balance if transaction record fails
-      await supabase.rpc('increment_balance', {
-        user_id: user.id,
-        amt: amount,
-      });
-      throw new AppError(
-        ErrorCode.DATABASE_ERROR, 
-        `Failed to record transaction: ${txError.message}`,
-        { databaseError: txError }
-      );
-    }
-
-    // Create wager
-    const { data: wager, error: wagerError } = await supabase
-      .from('wagers')
-      .insert({
-        creator_id: user.id,
-        title: title.trim(),
-        description: description?.trim() || null,
+    // Call NestJS backend to create wager
+    const response = await nestjsServerFetch<{ data: any }>('/wagers', {
+      method: 'POST',
+      token,
+      requireAuth: true,
+      body: JSON.stringify({
+        title,
+        description,
         amount,
-        side_a: sideA.trim(),
-        side_b: sideB.trim(),
-        deadline: new Date(deadline).toISOString(),
-        category: category || null,
+        sideA,
+        sideB,
+        deadline,
+        category,
         currency,
-        is_public: isPublic,
-        status: 'OPEN',
-        fee_percentage: await (await import('@/lib/settings')).getWagerPlatformFee(),
-      })
-      .select()
-      .maybeSingle();
+        isPublic,
+        creatorSide,
+      }),
+    });
 
-    if (wagerError || !wager) {
-      // Log the actual error for debugging
-      logError(new Error(`Failed to create wager: ${wagerError?.message || 'Unknown error'}`), {
-        wagerError,
-        userId: user.id,
-        wagerData: {
-          creator_id: user.id,
-          title: title.trim(),
-          amount,
-        }
-      });
-      
-      // Refund balance if wager creation fails
-      await supabase.rpc('increment_balance', {
-        user_id: user.id,
-        amt: amount,
-      });
-      throw new AppError(
-        ErrorCode.DATABASE_ERROR, 
-        `Failed to create wager: ${wagerError?.message || 'Unknown error'}`,
-        { databaseError: wagerError }
-      );
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'Failed to create wager');
     }
 
-    // Update transaction reference
-    await supabase
-      .from('transactions')
-      .update({ reference: wager.id })
-      .eq('user_id', user.id)
-      .eq('type', 'wager_create')
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    // Automatically join creator to their chosen side
-    const { error: entryError } = await supabase.from('wager_entries').insert({
-      wager_id: wager.id,
-      user_id: user.id,
-      side: creatorSide,
-      amount,
-    });
-
-    if (entryError) {
-      // Log the actual error for debugging
-      logError(new Error(`Failed to create wager entry: ${entryError.message}`), {
-        entryError,
-        userId: user.id,
-        wagerId: wager.id,
-      });
-      
-      // Refund if entry creation fails
-      await supabase.rpc('increment_balance', {
-        user_id: user.id,
-        amt: amount,
-      });
-      throw new AppError(
-        ErrorCode.DATABASE_ERROR, 
-        `Failed to join wager: ${entryError.message}`,
-        { databaseError: entryError }
-      );
-    }
-
-    // Record entry transaction
-    await supabase.from('transactions').insert({
-      user_id: user.id,
-      type: 'wager_join',
-      amount: -amount,
-      reference: wager.id,
-      description: `Wager Entry: "${title.trim()}" - Joined ${creatorSide === 'a' ? sideA : sideB}`,
-    });
-
-    // Invalidate wager caches after creation
-    await invalidateWagerLists().catch((err) => {
-      console.error('Failed to invalidate wager caches:', err);
-      // Don't fail the request if cache invalidation fails
-    });
+    // NestJS returns { success: true, data: {...} } format
+    const wager = response.data;
 
     return successResponseNext({ wager }, undefined, 201);
   } catch (error) {

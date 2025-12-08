@@ -1,9 +1,47 @@
 import { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { nestjsServerFetch } from '@/lib/nestjs-server';
 import { requireAuth } from '@/lib/auth/server';
-import { AppError, logError } from '@/lib/error-handler';
-import { ErrorCode } from '@/lib/error-handler';
+import { logError } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
+import { cookies } from 'next/headers';
+
+/**
+ * GET /api/teams/[id]
+ * Get a team by ID
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await requireAuth();
+    const { id } = await params;
+    
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
+
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
+    // Call NestJS backend
+    const response = await nestjsServerFetch<{ team: any }>(`/teams/${id}`, {
+      method: 'GET',
+      token,
+      requireAuth: true,
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'Failed to fetch team');
+    }
+
+    return successResponseNext(response.data);
+  } catch (error) {
+    logError(error as Error);
+    return appErrorToResponse(error);
+  }
+}
 
 /**
  * PATCH /api/teams/[id]
@@ -14,94 +52,32 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await requireAuth();
-    const supabase = await createClient();
+    await requireAuth();
     const { id } = await params;
     
-    // Sanitize and validate ID input
-    const { validateUUIDParam } = await import('@/lib/security/validator');
-    const teamId = validateUUIDParam(id, 'team ID');
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
+
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
     const body = await request.json();
-    const { name, description, memberIds } = body;
 
-    // Verify ownership
-    const { data: team, error: teamError } = await supabase
-      .from('teams')
-      .select('id, creator_id')
-      .eq('id', teamId)
-      .maybeSingle();
+    // Call NestJS backend
+    const response = await nestjsServerFetch<{ team: any }>(`/teams/${id}`, {
+      method: 'PATCH',
+      token,
+      requireAuth: true,
+      body,
+    });
 
-    if (teamError || !team) {
-      throw new AppError(ErrorCode.NOT_FOUND, 'Team not found');
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'Failed to update team');
     }
 
-    if (team.creator_id !== user.id) {
-      throw new AppError(ErrorCode.FORBIDDEN, 'Only the team creator can update the team');
-    }
-
-    // Update team
-    const updateData: any = {};
-    if (name !== undefined) {
-      if (typeof name !== 'string' || name.trim().length < 2) {
-        throw new AppError(ErrorCode.VALIDATION_ERROR, 'Team name must be at least 2 characters');
-      }
-      updateData.name = name.trim();
-    }
-    if (description !== undefined) {
-      updateData.description = description?.trim() || null;
-    }
-
-    if (Object.keys(updateData).length > 0) {
-      const { error: updateError } = await supabase
-        .from('teams')
-        .update(updateData)
-        .eq('id', teamId);
-
-      if (updateError) {
-        throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to update team');
-      }
-    }
-
-    // Update members if provided
-    if (memberIds && Array.isArray(memberIds)) {
-      // Remove all existing members
-      await supabase.from('team_members').delete().eq('team_id', teamId);
-
-      // Add new members
-      const members = memberIds
-        .filter((id: string) => id !== user.id)
-        .map((memberId: string) => ({
-          team_id: teamId,
-          user_id: memberId,
-        }));
-
-      if (members.length > 0) {
-        await supabase.from('team_members').insert(members);
-      }
-    }
-
-    // Fetch updated team
-    const { data: updatedTeam } = await supabase
-      .from('teams')
-      .select(`
-        id,
-        name,
-        description,
-        created_at,
-        team_members (
-          user_id,
-          profiles:user_id (
-            id,
-            username,
-            email,
-            avatar_url
-          )
-        )
-      `)
-      .eq('id', teamId)
-      .maybeSingle();
-
-    return successResponseNext({ team: updatedTeam });
+    return successResponseNext(response.data);
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);
@@ -117,40 +93,29 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await requireAuth();
-    const supabase = await createClient();
+    await requireAuth();
     const { id } = await params;
     
-    // Sanitize and validate ID input
-    const { validateUUIDParam } = await import('@/lib/security/validator');
-    const teamId = validateUUIDParam(id, 'team ID');
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
 
-    // Verify ownership
-    const { data: team, error: teamError } = await supabase
-      .from('teams')
-      .select('id, creator_id')
-      .eq('id', teamId)
-      .maybeSingle();
-
-    if (teamError || !team) {
-      throw new AppError(ErrorCode.NOT_FOUND, 'Team not found');
+    if (!token) {
+      throw new Error('Authentication required');
     }
 
-    if (team.creator_id !== user.id) {
-      throw new AppError(ErrorCode.FORBIDDEN, 'Only the team creator can delete the team');
+    // Call NestJS backend
+    const response = await nestjsServerFetch(`/teams/${id}`, {
+      method: 'DELETE',
+      token,
+      requireAuth: true,
+    });
+
+    if (!response.success) {
+      throw new Error(response.error?.message || 'Failed to delete team');
     }
 
-    // Delete team (cascade will delete members)
-    const { error: deleteError } = await supabase
-      .from('teams')
-      .delete()
-      .eq('id', teamId);
-
-    if (deleteError) {
-      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to delete team');
-    }
-
-    return successResponseNext({ message: 'Team deleted successfully' });
+    return successResponseNext(response.data || { message: 'Team deleted successfully' });
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);

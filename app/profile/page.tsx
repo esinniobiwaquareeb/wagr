@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback, useRef } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -36,7 +35,6 @@ interface Profile {
 }
 
 export default function Profile() {
-  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const { user, loading: authLoading, logout } = useAuth({
     requireAuth: true,
@@ -91,7 +89,7 @@ export default function Profile() {
       setLoading(false);
       fetchingRef.current = false;
     }
-  }, [user, supabase]);
+  }, [user]);
 
   const fetchKycSummary = useCallback(async () => {
     if (!user) return;
@@ -130,34 +128,24 @@ export default function Profile() {
     
     setLoadingWagers(true);
     try {
-      const { data: wagers, error: wagersError } = await supabase
-        .from("wagers")
-        .select("*")
-        .eq("creator_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
+      // Fetch wagers created by the user from NestJS API
+      const response = await fetch(`/api/wagers?creatorId=${user.id}&limit=50`, {
+        credentials: 'include',
+        cache: 'no-store',
+      });
 
-      if (wagersError) {
+      if (!response.ok) {
+        setMyWagers([]);
         return;
       }
 
-      if (wagers && wagers.length > 0) {
-        // Fetch all entry counts in a single query
-        const wagerIds = wagers.map(w => w.id);
-        const { data: entries } = await supabase
-          .from("wager_entries")
-          .select("wager_id")
-          .in("wager_id", wagerIds);
-
-        // Count entries per wager
-        const entryCounts = entries?.reduce((acc, entry) => {
-          acc[entry.wager_id] = (acc[entry.wager_id] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>) || {};
-
-        const wagersWithCounts = wagers.map(wager => ({
+      const data = await response.json();
+      if (data.success && data.data?.wagers) {
+        // Transform wagers to include entry counts
+        const wagersWithCounts = data.data.wagers.map((wager: any) => ({
           ...wager,
-          entries_count: entryCounts[wager.id] || 0,
+          entries_count: wager.entryCounts?.total || 0,
+          amount: parseFloat(wager.amount || 0),
         }));
 
         setMyWagers(wagersWithCounts);
@@ -165,11 +153,12 @@ export default function Profile() {
         setMyWagers([]);
       }
     } catch (error) {
+      console.error('Error fetching my wagers:', error);
       setMyWagers([]);
     } finally {
       setLoadingWagers(false);
     }
-  }, [user, supabase]);
+  }, [user]);
 
   const handleKycSubmit = useCallback(
     async (targetLevel: 2 | 3, payload: Record<string, any>) => {
@@ -212,33 +201,33 @@ export default function Profile() {
     }
   }, [user, fetchProfile, fetchMyWagers]);
 
-  // Real-time subscription for profile updates
+  // Poll for profile updates and listen for custom events
   useEffect(() => {
     if (!user) return;
 
-    const channel = supabase
-      .channel(`profile:${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "profiles",
-          filter: `id=eq.${user.id}`,
-        },
-        () => {
-          debouncedRefetchProfile();
-        }
-      )
-      .subscribe();
+    // Poll for updates every 30 seconds
+    const pollInterval = setInterval(() => {
+      if (!fetchingRef.current) {
+        debouncedRefetchProfile();
+      }
+    }, 30000); // 30 seconds
+
+    // Listen for custom profile update events
+    const handleProfileUpdate = () => {
+      debouncedRefetchProfile();
+    };
+    window.addEventListener('profile-updated', handleProfileUpdate);
+    window.addEventListener('balance-updated', handleProfileUpdate);
 
     return () => {
-      channel.unsubscribe();
+      clearInterval(pollInterval);
+      window.removeEventListener('profile-updated', handleProfileUpdate);
+      window.removeEventListener('balance-updated', handleProfileUpdate);
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [user, supabase]); // Removed fetchProfile and debouncedRefetchProfile from dependencies
+  }, [user, debouncedRefetchProfile]);
 
   const handleSave = async () => {
     if (!user) {
@@ -354,78 +343,74 @@ export default function Profile() {
 
     setUploadingAvatar(true);
     try {
-      // Check if avatars bucket exists, if not, show helpful error
-      const { data: buckets, error: bucketError } = await supabase.storage.listBuckets();
+      // Convert file to base64 for upload
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
       
-      if (bucketError) {
-        throw new Error('Unable to access storage. Please contact support.');
-      }
+      reader.onload = async () => {
+        try {
+          const base64Data = reader.result as string;
+          
+          // Upload avatar via API (this will need to be implemented in NestJS backend)
+          const response = await fetch('/api/profile/avatar', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              image: base64Data,
+              filename: file.name,
+            }),
+          });
 
-      const avatarsBucket = buckets?.find(b => b.name === 'avatars');
-      if (!avatarsBucket) {
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error?.message || 'Failed to upload avatar');
+          }
+
+          const data = await response.json();
+          const avatarUrl = data.avatar_url;
+
+          // Update profile via API
+          const { profileApi } = await import('@/lib/api-client');
+          await profileApi.update({ avatar_url: avatarUrl });
+
+          // Refresh profile
+          await fetchProfile(true);
+
+          // Trigger profile update event for sidebar
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('profile-updated'));
+          }
+
+          toast({
+            title: "Avatar updated!",
+            description: "Your profile picture has been updated",
+          });
+        } catch (error) {
+          console.error('Error uploading avatar:', error);
+          toast({
+            title: "Upload failed",
+            description: error instanceof Error ? error.message : "Couldn't upload your avatar. Please try again",
+            variant: "destructive",
+          });
+        } finally {
+          setUploadingAvatar(false);
+          // Reset input
+          e.target.value = '';
+        }
+      };
+
+      reader.onerror = () => {
         toast({
-          title: "Storage not configured",
-          description: "Avatar storage bucket is not set up. Please contact support.",
+          title: "Upload failed",
+          description: "Couldn't read the image file. Please try again",
           variant: "destructive",
         });
         setUploadingAvatar(false);
         e.target.value = '';
-        return;
-      }
-
-      // Create a unique filename
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-      const filePath = fileName; // Store directly in bucket root, not in subfolder
-
-      // Upload to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: true,
-        });
-
-      if (uploadError) {
-        // Check if it's a permission/RLS error
-        if (uploadError.message.includes('new row violates row-level security') || 
-            uploadError.message.includes('permission denied') ||
-            uploadError.message.includes('row-level security')) {
-          toast({
-            title: "Storage permission error",
-            description: "The storage bucket RLS policies are blocking uploads. Please disable RLS on the 'avatars' bucket in Supabase Dashboard, or make it fully public.",
-            variant: "destructive",
-          });
-          setUploadingAvatar(false);
-          e.target.value = '';
-          return;
-        }
-        throw uploadError;
-      }
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      const avatarUrl = urlData.publicUrl;
-
-      // Update profile via API
-      const { profileApi } = await import('@/lib/api-client');
-      await profileApi.update({ avatar_url: avatarUrl });
-
-      // Refresh profile
-      await fetchProfile(true);
-
-      // Trigger profile update event for sidebar
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('profile-updated'));
-      }
-
-      toast({
-        title: "Avatar updated!",
-        description: "Your profile picture has been updated",
-      });
+      };
     } catch (error) {
       console.error('Error uploading avatar:', error);
       toast({
@@ -433,9 +418,7 @@ export default function Profile() {
         description: "Couldn't upload your avatar. Please try again",
         variant: "destructive",
       });
-    } finally {
       setUploadingAvatar(false);
-      // Reset input
       e.target.value = '';
     }
   };

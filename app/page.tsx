@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback, useRef, Suspense } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { WagerCard } from "@/components/wager-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Home as HomeIcon, Loader2, Sparkles, User, Clock, CheckCircle } from "lucide-react";
@@ -53,7 +52,6 @@ function WagersPageContent() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [userEntries, setUserEntries] = useState<Map<string, { amount: number; side: string }>>(new Map());
   const { user } = useAuth();
-  const supabase = createClient();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -185,42 +183,36 @@ function WagersPageContent() {
     try {
       setLoading(true);
       
-      // Fetch wagers and user entries in parallel for faster initial load
-      const [wagersResponse, userEntriesResult] = await Promise.all([
-        wagersApi.list({ limit: 200 }),
-        user ? (async () => {
-          try {
-            const { data } = await supabase
-              .from("wager_entries")
-              .select("wager_id, amount, side")
-              .eq("user_id", user.id);
-            return data || [];
-          } catch (error) {
-            console.error("Error fetching user entries:", error);
-            return [];
-          }
-        })() : Promise.resolve([])
-      ]);
+      // Fetch wagers - user entry info is included in wager data
+      const wagersResponse = await wagersApi.list({ limit: 200 });
 
-      const userEntriesResponse = userEntriesResult as Array<{ wager_id: string; amount: number; side: string }>;
-
-      // Process user entries
-      if (user && userEntriesResponse) {
+      // Extract user entries from wagers data if user is logged in
+      if (user) {
         const userEntriesMap = new Map<string, { amount: number; side: string }>();
-        userEntriesResponse.forEach((entry: { wager_id: string; amount: number; side: string }) => {
-          const existing = userEntriesMap.get(entry.wager_id);
-          if (existing) {
-            userEntriesMap.set(entry.wager_id, {
-              amount: existing.amount + Number(entry.amount),
-              side: existing.side,
-            });
-          } else {
-            userEntriesMap.set(entry.wager_id, {
-              amount: Number(entry.amount),
-              side: entry.side,
-            });
+        const wagersData = wagersResponse?.wagers || (Array.isArray(wagersResponse) ? wagersResponse : []);
+        
+        // Check each wager's entries for user participation
+        wagersData.forEach((wager: any) => {
+          if (wager.entries?.sideA || wager.entries?.sideB) {
+            const sideAEntries = wager.entries.sideA || [];
+            const sideBEntries = wager.entries.sideB || [];
+            const userEntryA = sideAEntries.find((e: any) => e.user_id === user.id);
+            const userEntryB = sideBEntries.find((e: any) => e.user_id === user.id);
+            
+            if (userEntryA) {
+              userEntriesMap.set(wager.id, {
+                amount: Number(userEntryA.amount),
+                side: 'a',
+              });
+            } else if (userEntryB) {
+              userEntriesMap.set(wager.id, {
+                amount: Number(userEntryB.amount),
+                side: 'b',
+              });
+            }
           }
         });
+        
         setUserEntries(userEntriesMap);
       }
 
@@ -229,8 +221,22 @@ function WagersPageContent() {
 
       const wagersWithCounts: WagerWithEntries[] = wagersData.map((wager: any) => {
         const entryCounts = wager.entryCounts || { sideA: 0, sideB: 0, total: 0 };
+        
+        // Extract category slug if category is an object
+        let categorySlug: string | undefined;
+        if (wager.category) {
+          if (typeof wager.category === 'string') {
+            categorySlug = wager.category;
+          } else if (wager.category.slug) {
+            categorySlug = wager.category.slug;
+          } else if (wager.category.label) {
+            categorySlug = wager.category.label.toLowerCase().replace(/\s+/g, '-');
+          }
+        }
+        
         return {
           ...wager,
+          category: categorySlug, // Replace category object with slug string
           entries_count: entryCounts.total > 0 ? Math.ceil(entryCounts.total / wager.amount) : 0,
           side_a_count: Math.ceil(entryCounts.sideA / wager.amount),
           side_b_count: Math.ceil(entryCounts.sideB / wager.amount),
@@ -263,7 +269,7 @@ function WagersPageContent() {
     } finally {
       fetchingRef.current = false;
     }
-  }, [supabase, user, toast]);
+  }, [user, toast]);
 
   const debouncedRefetch = useCallback(() => {
     if (debounceTimeoutRef.current) {
@@ -293,44 +299,6 @@ function WagersPageContent() {
     // Fetch wagers immediately on mount
     fetchWagers();
 
-    // Set up real-time subscriptions
-    const wagersChannel = supabase
-      .channel("wagers-list")
-      .on(
-        "postgres_changes",
-        { 
-          event: "*", 
-          schema: "public", 
-          table: "wagers",
-          filter: "is_public=eq.true"
-        },
-        (payload) => {
-          // Only refetch on INSERT or UPDATE, not DELETE (to reduce reloads)
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            debouncedRefetchRef.current();
-          }
-        }
-      )
-      .subscribe();
-
-    // Only listen to INSERT events (new entries) to reduce unnecessary reloads
-    // UPDATE/DELETE events are less critical and can be handled by user actions
-    const entriesChannel = supabase
-      .channel("wager-entries-list")
-      .on(
-        "postgres_changes",
-        { 
-          event: "INSERT", 
-          schema: "public", 
-          table: "wager_entries"
-        },
-        () => {
-          // Only refetch on new entries
-          debouncedRefetchRef.current();
-        }
-      )
-      .subscribe();
-
     // Listen for wager update events from card components
     const handleWagerUpdate = () => {
       debouncedRefetchRef.current();
@@ -344,16 +312,20 @@ function WagersPageContent() {
     };
     window.addEventListener('wager-created', handleWagerCreated);
 
+    // Poll for updates every 30 seconds (replaces real-time subscriptions)
+    const pollInterval = setInterval(() => {
+      debouncedRefetchRef.current();
+    }, 30000);
+
     return () => {
-      wagersChannel.unsubscribe();
-      entriesChannel.unsubscribe();
       window.removeEventListener('wager-updated', handleWagerUpdate);
       window.removeEventListener('wager-created', handleWagerCreated);
+      clearInterval(pollInterval);
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [supabase, fetchWagers]); // Include fetchWagers but it's memoized so won't cause re-subscriptions
+  }, [fetchWagers]); // Include fetchWagers but it's memoized so won't cause re-subscriptions
 
   const handleTabChange = (tab: TabType) => {
     const params = new URLSearchParams(searchParams?.toString() || '');

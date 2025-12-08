@@ -1,27 +1,40 @@
 import { NextRequest } from 'next/server';
-import { getCurrentUser } from '@/lib/auth/server';
+import { nestjsServerFetch } from '@/lib/nestjs-server';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 import { logError } from '@/lib/error-handler';
+import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
 
-    if (!user) {
-      // User might be suspended or deleted - clear session cookie
-      const { clearSessionCookie } = await import('@/lib/auth/session');
-      await clearSessionCookie();
+    if (!token) {
+      return successResponseNext({ user: null });
+    }
+
+    // Call NestJS backend to get current user
+    const response = await nestjsServerFetch<{
+      user: {
+        id: string;
+        email: string;
+        username: string | null;
+        email_verified: boolean;
+        is_admin: boolean;
+      };
+    }>('/auth/me', {
+      method: 'GET',
+      token,
+      requireAuth: true,
+    });
+
+    if (!response.success || !response.data) {
       return successResponseNext({ user: null });
     }
 
     return successResponseNext({
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        email_verified: user.email_verified,
-        is_admin: user.is_admin,
-      },
+      user: response.data.user,
     });
   } catch (error) {
     logError(error as Error);

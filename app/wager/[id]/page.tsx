@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useParams } from 'next/navigation';
-import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthModal } from "@/components/auth-modal";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +21,7 @@ import { WagerComments } from "@/components/wager-comments";
 import { useSettings } from "@/hooks/use-settings";
 import { WagerActivities } from "@/components/wager-activities";
 import { WagerParticipants } from "@/components/wager-participants";
+import { wagersApi, walletApi } from "@/lib/api-client";
 
 interface Wager {
   id: string;
@@ -54,7 +54,6 @@ export default function WagerDetail() {
   const params = useParams();
   const wagerId = params.id as string;
   const router = useRouter();
-  const supabase = useMemo(() => createClient(), []);
   const { user } = useAuth();
   const { getSetting } = useSettings();
   const defaultPlatformFee = getSetting('fees.wager_platform_fee_percentage', PLATFORM_FEE_PERCENTAGE) as number;
@@ -94,137 +93,110 @@ export default function WagerDetail() {
 
   const fetchingRef = useRef(false);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const fetchWagerRef = useRef<((force?: boolean) => Promise<void>) | null>(null);
 
   const fetchWager = useCallback(async (force = false) => {
     // Prevent concurrent fetches
     if (fetchingRef.current && !force) return;
     fetchingRef.current = true;
 
-    // No cache or forced refresh - fetch from API
-    // Support both UUID and short_id
-    const isUUID = wagerId.length === 36 && wagerId.includes('-');
-    const query = isUUID 
-      ? supabase.from("wagers").select("*").eq("id", wagerId)
-      : supabase.from("wagers").select("*").eq("short_id", wagerId);
-    
-    const { data: wagerData, error } = await query
-      .maybeSingle();
+    try {
+      // Fetch wager from NestJS API (supports both UUID and short_id)
+      const response = await wagersApi.get(wagerId);
+      
+      if (!response || !response.wager) {
+        setLoading(false);
+        fetchingRef.current = false;
+        return;
+      }
 
-    if (error || !wagerData) {
+      const wagerData = response.wager;
+      
+      // Extract category slug if category is an object
+      if (wagerData.category && typeof wagerData.category === 'object') {
+        wagerData.category = wagerData.category.slug || wagerData.category.label?.toLowerCase().replace(/\s+/g, '-') || null;
+      }
+
+      // Check if wager is private and user is not the creator
+      if (!wagerData.is_public && wagerData.creator_id) {
+        if (user && user.id) {
+          const creatorId = String(wagerData.creator_id).trim().toLowerCase();
+          const userId = String(user.id).trim().toLowerCase();
+          
+          if (creatorId && userId && creatorId !== userId) {
+            console.log('Blocking access in fetchWager - user is not the creator');
+            setLoading(false);
+            fetchingRef.current = false;
+            toast({
+              title: "Private Wager",
+              description: "This wager is private and only visible to its creator.",
+              variant: "destructive",
+            });
+            router.push('/wagers');
+            return;
+          }
+        }
+      }
+
+      setWager(wagerData);
+
+      // Extract entries from wager response (backend returns entries.sideA and entries.sideB)
+      const allEntries: Entry[] = [
+        ...(wagerData.entries?.sideA || []),
+        ...(wagerData.entries?.sideB || [])
+      ];
+
+      if (allEntries.length > 0) {
+        setEntries(allEntries);
+        
+        // Use entryCounts from backend response
+        const entryCounts = wagerData.entryCounts || { sideA: 0, sideB: 0, total: 0 };
+        setSideCount({ a: entryCounts.sideA, b: entryCounts.sideB });
+        
+        // Calculate actual amounts wagered on each side
+        const sideATotal = allEntries
+          .filter((e: Entry) => e.side === "a")
+          .reduce((sum: number, e: Entry) => sum + Number(e.amount), 0);
+        const sideBTotal = allEntries
+          .filter((e: Entry) => e.side === "b")
+          .reduce((sum: number, e: Entry) => sum + Number(e.amount), 0);
+        
+        // Store totals for calculations
+        (wagerData as any).sideATotal = sideATotal;
+        (wagerData as any).sideBTotal = sideBTotal;
+
+        // Extract usernames from entries (backend includes user relation)
+        const userNameMap: Record<string, string> = {};
+        allEntries.forEach((entry: any) => {
+          if (entry.user) {
+            userNameMap[entry.user_id] = entry.user.username || entry.user.email?.split('@')[0] || `User ${entry.user_id.slice(0, 8)}`;
+          } else {
+            userNameMap[entry.user_id] = `User ${entry.user_id.slice(0, 8)}`;
+          }
+        });
+        setUserNames(userNameMap);
+      } else {
+        setEntries([]);
+        setSideCount({ a: 0, b: 0 });
+        setUserNames({});
+      }
+    } catch (error) {
+      console.error('Error fetching wager:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load wager. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setLoading(false);
       fetchingRef.current = false;
-      return;
     }
-    
-    // If wager is already loaded and user is the creator, skip the privacy check
-    // This prevents re-checking when fetchWager is called again after user loads
-    if (wager && wager.id === wagerData.id && user && user.id && !wagerData.is_public) {
-      const existingCreatorId = String(wager.creator_id || '').trim().toLowerCase();
-      const existingUserId = String(user.id).trim().toLowerCase();
-      if (existingCreatorId === existingUserId) {
-        console.log('Wager already loaded and user is creator, skipping privacy check in fetchWager');
-        // Continue to update the wager data without re-checking privacy
-      }
-    }
+  }, [wagerId, user, toast, router]); // Removed 'wager' from dependencies to prevent infinite loop
 
-    // Check if wager is private and user is not the creator
-    // IMPORTANT: Only block if user is loaded AND they're definitely not the creator
-    // If user is not loaded yet, allow access (will be checked again when user loads via useEffect)
-    // This prevents blocking the creator if user loads after wager is fetched
-    if (!wagerData.is_public && wagerData.creator_id) {
-      // Only check if user is fully loaded with an ID
-      if (user && user.id) {
-        // Convert both to strings, trim whitespace, and lowercase for comparison
-        const creatorId = String(wagerData.creator_id).trim().toLowerCase();
-        const userId = String(user.id).trim().toLowerCase();
-        
-        // Debug logging
-        console.log('Initial private wager check in fetchWager:', {
-          creatorId,
-          userId,
-          match: creatorId === userId,
-          wagerId: wagerData.id,
-          wagerTitle: wagerData.title,
-          rawCreatorId: wagerData.creator_id,
-          rawUserId: user.id
-        });
-        
-        // Only block if IDs definitely don't match
-        // If they match, continue loading the wager
-        if (creatorId && userId && creatorId !== userId) {
-          console.log('Blocking access in fetchWager - user is not the creator');
-          setLoading(false);
-          fetchingRef.current = false;
-          toast({
-            title: "Private Wager",
-            description: "This wager is private and only visible to its creator.",
-            variant: "destructive",
-          });
-          router.push('/wagers');
-          return;
-        } else {
-          console.log('Allowing access in fetchWager - user is the creator or IDs match');
-        }
-      } else {
-        console.log('User not loaded yet in fetchWager, allowing access temporarily - will re-check in useEffect');
-      }
-    }
-
-    // Use the actual UUID for cache key and entry queries (not short_id)
-    const actualWagerId = wagerData.id;
-
-    setWager(wagerData);
-
-    // Use actual UUID (not short_id) to fetch entries
-    const { data: entriesData } = await supabase
-      .from("wager_entries")
-      .select("*")
-      .eq("wager_id", actualWagerId);
-
-    if (entriesData) {
-      setEntries(entriesData);
-      const aCounts = entriesData.filter(
-        (e: Entry) => e.side === "a"
-      ).length;
-      const bCounts = entriesData.filter(
-        (e: Entry) => e.side === "b"
-      ).length;
-      const sideCount = { a: aCounts, b: bCounts };
-      setSideCount(sideCount);
-      
-      // Calculate actual amounts wagered on each side (for accurate return calculations)
-      const sideATotal = entriesData
-        .filter((e: Entry) => e.side === "a")
-        .reduce((sum: number, e: Entry) => sum + Number(e.amount), 0);
-      const sideBTotal = entriesData
-        .filter((e: Entry) => e.side === "b")
-        .reduce((sum: number, e: Entry) => sum + Number(e.amount), 0);
-      
-      // Store totals for calculations
-      (wagerData as any).sideATotal = sideATotal;
-      (wagerData as any).sideBTotal = sideBTotal;
-
-      // Fetch usernames for all participants
-      const uniqueUserIds = [...new Set(entriesData.map((e: Entry) => e.user_id))];
-      if (uniqueUserIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, username")
-          .in("id", uniqueUserIds);
-        
-        if (profiles) {
-          const userNameMap: Record<string, string> = {};
-          profiles.forEach((profile: { id: string; username: string }) => {
-            userNameMap[profile.id] = profile.username || `User ${profile.id.slice(0, 8)}`;
-          });
-          setUserNames(userNameMap);
-        }
-      }
-
-    }
-    setLoading(false);
-    fetchingRef.current = false;
-  }, [wagerId, supabase, user]);
+  // Update ref whenever fetchWager changes
+  useEffect(() => {
+    fetchWagerRef.current = fetchWager;
+  }, [fetchWager]);
 
   // Debounced refetch function for subscriptions
   const debouncedRefetch = useCallback(() => {
@@ -232,9 +204,11 @@ export default function WagerDetail() {
       clearTimeout(debounceTimeoutRef.current);
     }
     debounceTimeoutRef.current = setTimeout(() => {
-      fetchWager(true);
+      if (fetchWagerRef.current) {
+        fetchWagerRef.current(true);
+      }
     }, 1000); // Debounce by 1 second
-  }, [fetchWager]);
+  }, []);
 
   // Use deadline countdown hook
   const deadlineCountdown = useDeadlineCountdown(wager?.deadline);
@@ -286,40 +260,40 @@ export default function WagerDetail() {
   }, [wager, entries]);
 
   useEffect(() => {
+    // Initial fetch
     fetchWager();
 
-    // Subscribe to real-time updates for wager entries
-    const entriesChannel = supabase
-      .channel(`wager-entries:${wagerId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "wager_entries", filter: `wager_id=eq.${wagerId}` },
-        () => {
-          debouncedRefetch();
-        }
-      )
-      .subscribe();
+    // Poll for updates every 30 seconds (replaces real-time subscriptions)
+    // Use a longer interval to reduce API calls
+    const pollInterval = setInterval(() => {
+      if (fetchWagerRef.current && !fetchingRef.current) {
+        fetchWagerRef.current(true);
+      }
+    }, 30000); // 30 seconds
 
-    // Subscribe to real-time updates for wager status changes
-    const wagerChannel = supabase
-      .channel(`wager-status:${wagerId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "wagers", filter: `id=eq.${wagerId}` },
-        () => {
-          debouncedRefetch();
+    // Listen for custom wager update events
+    const handleWagerUpdate = () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+      debounceTimeoutRef.current = setTimeout(() => {
+        if (fetchWagerRef.current && !fetchingRef.current) {
+          fetchWagerRef.current(true);
         }
-      )
-      .subscribe();
+      }, 1000); // Debounce by 1 second
+    };
+    window.addEventListener('wager-updated', handleWagerUpdate);
+    window.addEventListener('balance-updated', handleWagerUpdate);
 
     return () => {
-      entriesChannel.unsubscribe();
-      wagerChannel.unsubscribe();
+      clearInterval(pollInterval);
+      window.removeEventListener('wager-updated', handleWagerUpdate);
+      window.removeEventListener('balance-updated', handleWagerUpdate);
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [wagerId, supabase]); // Removed fetchWager and debouncedRefetch from dependencies
+  }, [wagerId]); // Only depend on wagerId to prevent unnecessary re-runs
 
   // Re-validate access when user loads (in case wager was fetched before user was available)
   // Use a ref to track if we've already checked to prevent multiple redirects
@@ -469,118 +443,17 @@ export default function WagerDetail() {
         return;
       }
 
-      if (!wager) {
-        setJoining(false);
-        setShowJoinDialog(false);
-        return;
-      }
-
-      // Check user balance
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("balance")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!profile || profile.balance < wager!.amount) {
-        toast({
-          title: "Not enough funds",
-          description: "You need more money in your wallet to place this wager.",
-          variant: "destructive",
-        });
-        setJoining(false);
-        return;
-      }
-
-      // Deduct balance
-      if (!wager) {
-        setJoining(false);
-        return;
-      }
-      
-      await supabase.rpc("increment_balance", {
-        user_id: user.id,
-        amt: -wager.amount,
+      // Join wager via API route (proxies to NestJS backend)
+      const response = await fetch(`/api/wagers/${wager.id}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ side: selectedSide }),
       });
 
-      // Add entry (use actual UUID, not short_id)
-      const { error } = await supabase.from("wager_entries").insert({
-        wager_id: wager.id,
-        user_id: user.id,
-        side: selectedSide,
-        amount: wager.amount,
-      });
-
-      if (error) {
-        // Check if it's a duplicate entry error
-        if (error.code === '23505') { // Unique constraint violation
-          toast({
-            title: "Already joined",
-            description: "You have already placed a wager on this wager.",
-            variant: "destructive",
-          });
-          setJoining(false);
-          return;
-        }
-        throw error;
-      }
-
-      // Add transaction with description
-      if (!wager) {
-        setJoining(false);
-        return;
-      }
-      
-      await supabase.from("transactions").insert({
-        user_id: user.id,
-        type: "wager_join",
-        amount: -wager.amount,
-        reference: wager.id,
-        description: `Wager Entry: "${wager.title}" - Joined ${selectedSide === "a" ? wager.side_a : wager.side_b}`,
-      });
-
-      // Refresh wager data (use actual UUID, not short_id)
-      const { data: wagerData } = await supabase
-        .from("wagers")
-        .select("*")
-        .eq("id", wager.id)
-        .maybeSingle();
-
-      if (wagerData) {
-        setWager(wagerData);
-
-        const { data: entriesData } = await supabase
-          .from("wager_entries")
-          .select("*")
-          .eq("wager_id", wager.id);
-
-        if (entriesData) {
-          setEntries(entriesData);
-          const aCounts = entriesData.filter(
-            (e: Entry) => e.side === "a"
-          ).length;
-          const bCounts = entriesData.filter(
-            (e: Entry) => e.side === "b"
-          ).length;
-          setSideCount({ a: aCounts, b: bCounts });
-          
-          // Fetch usernames for all participants
-          const uniqueUserIds = [...new Set(entriesData.map((e: Entry) => e.user_id))];
-          if (uniqueUserIds.length > 0) {
-            const { data: profiles } = await supabase
-              .from("profiles")
-              .select("id, username")
-              .in("id", uniqueUserIds);
-            
-            if (profiles) {
-              const userNameMap: Record<string, string> = {};
-              profiles.forEach((profile: { id: string; username: string }) => {
-                userNameMap[profile.id] = profile.username || `User ${profile.id.slice(0, 8)}`;
-              });
-              setUserNames(userNameMap);
-            }
-          }
-        }
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error?.message || data.message || 'Failed to join wager');
       }
 
       trackABTestEvent(AB_TESTS.BUTTON_STYLE, buttonVariant, 'wager_joined', {
@@ -593,15 +466,18 @@ export default function WagerDetail() {
         description: "You've successfully joined the wager.",
       });
       
-      // Dispatch event to update balance in top nav
+      // Dispatch events to update UI
       window.dispatchEvent(new CustomEvent('balance-updated'));
+      window.dispatchEvent(new CustomEvent('wager-updated'));
+      
+      // Refresh wager data
+      await fetchWager(true);
       
       setShowJoinDialog(false);
       setSelectedSide(null);
     } catch (error) {
       console.error("Error joining wager:", error);
-      const { extractErrorMessage } = await import('@/lib/error-extractor');
-      const errorMessage = extractErrorMessage(error, "Couldn't join the wager. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : "Couldn't join the wager. Please try again.";
       
       toast({
         title: "Couldn't join wager",
@@ -618,36 +494,11 @@ export default function WagerDetail() {
 
     setUnjoining(true);
     try {
-      // Fetch fresh entries from database to ensure we have the latest data
-      const { data: freshEntries, error: entriesError } = await supabase
-        .from("wager_entries")
-        .select("*")
-        .eq("wager_id", wager.id);
-
-      if (entriesError) {
-        throw entriesError;
-      }
-
       // Creators cannot unjoin at all - they can only switch sides
-      const isCreatorCheck = wager.creator_id === user.id;
-      
-      if (isCreatorCheck) {
+      if (wager.creator_id === user.id) {
         toast({
           title: "Cannot unjoin",
           description: "As the creator, you cannot unjoin this wager. You can switch sides instead.",
-          variant: "destructive",
-        });
-        setUnjoining(false);
-        setShowUnjoinDialog(false);
-        return;
-      }
-
-      // Verify the entry still exists and belongs to the user
-      const currentEntry = (freshEntries || []).find(entry => entry.id === userEntry.id && entry.user_id === user.id);
-      if (!currentEntry) {
-        toast({
-          title: "Entry not found",
-          description: "This entry no longer exists or doesn't belong to you.",
           variant: "destructive",
         });
         setUnjoining(false);
@@ -680,63 +531,34 @@ export default function WagerDetail() {
         return;
       }
 
-      // Delete the entry (use currentEntry to ensure we have the latest data)
-      const { error: deleteError } = await supabase
-        .from("wager_entries")
-        .delete()
-        .eq("id", currentEntry.id)
-        .eq("user_id", user.id);
-
-      if (deleteError) {
-        // If deletion fails, check if it's because entry doesn't exist
-        if (deleteError.code === 'PGRST116' || deleteError.message?.includes('No rows')) {
-          toast({
-            title: "Entry not found",
-            description: "This entry no longer exists.",
-            variant: "destructive",
-          });
-          setUnjoining(false);
-          setShowUnjoinDialog(false);
-          await fetchWager(true);
-          return;
-        }
-        throw deleteError;
-      }
-
-      // Refund the user (use currentEntry amount)
-      const refundAmount = Number(currentEntry.amount);
-      const { error: balanceError } = await supabase.rpc("increment_balance", {
-        user_id: user.id,
-        amt: refundAmount,
+      // TODO: Backend endpoint needed - POST /wagers/:id/unjoin
+      // For now, call API route that will need backend implementation
+      const response = await fetch(`/api/wagers/${wager.id}/unjoin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
       });
 
-      if (balanceError) {
-        // If refund fails, try to restore the entry (though this is unlikely to succeed)
-        console.error("Failed to refund balance, entry already deleted:", balanceError);
-        throw new Error("Failed to refund balance. Please contact support.");
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error?.message || data.message || 'Failed to unjoin wager');
       }
-
-      // Record transaction (use currentEntry amount)
-      await supabase.from("transactions").insert({
-        user_id: user.id,
-        type: "wager_refund",
-        amount: refundAmount,
-        reference: wager.id,
-        description: `Unjoined Wager: "${wager.title}" - Entry refunded`,
-      });
 
       toast({
         title: "Unjoined successfully",
         description: "You have been removed from this wager and your entry has been refunded.",
       });
 
+      // Dispatch event to update balance
+      window.dispatchEvent(new CustomEvent('balance-updated'));
+      window.dispatchEvent(new CustomEvent('wager-updated'));
+
       // Refresh wager data
       await fetchWager(true);
       setShowUnjoinDialog(false);
     } catch (error) {
       console.error("Error unjoining wager:", error);
-      const { extractErrorMessage } = await import('@/lib/error-extractor');
-      const errorMessage = extractErrorMessage(error, "Couldn't unjoin the wager. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : "Couldn't unjoin the wager. Please try again.";
       
       toast({
         title: "Couldn't unjoin wager",
@@ -791,28 +613,8 @@ export default function WagerDetail() {
         return;
       }
 
-      // Fetch fresh entry to ensure it still exists
-      const { data: freshEntry, error: fetchError } = await supabase
-        .from("wager_entries")
-        .select("*")
-        .eq("id", userEntry.id)
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (fetchError || !freshEntry) {
-        toast({
-          title: "Entry not found",
-          description: "This entry no longer exists or doesn't belong to you.",
-          variant: "destructive",
-        });
-        setChangingSide(false);
-        setShowChangeSideDialog(false);
-        await fetchWager(true);
-        return;
-      }
-
       // Check if already on the requested side
-      if (freshEntry.side === normalizedSide) {
+      if (userEntry.side === normalizedSide) {
         toast({
           title: "Already on this side",
           description: `You are already on ${normalizedSide === "a" ? wager.side_a : wager.side_b}.`,
@@ -823,27 +625,18 @@ export default function WagerDetail() {
         return;
       }
 
-      // Update the entry side (use freshEntry.id to ensure we have the correct ID)
-      const { data: updatedEntries, error: updateError } = await supabase
-        .from("wager_entries")
-        .update({ side: normalizedSide })
-        .eq("id", freshEntry.id)
-        .eq("user_id", user.id)
-        .select();
+      // TODO: Backend endpoint needed - PATCH /wagers/:id/entry or POST /wagers/:id/change-side
+      // For now, call API route that will need backend implementation
+      const response = await fetch(`/api/wagers/${wager.id}/change-side`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ side: normalizedSide }),
+      });
 
-      if (updateError) {
-        console.error("Update error:", updateError);
-        throw updateError;
-      }
-
-      // Verify the update succeeded - check if any rows were updated
-      if (!updatedEntries || updatedEntries.length === 0) {
-        throw new Error("No entry was updated. The entry may not exist or may have been deleted.");
-      }
-
-      const updatedEntry = updatedEntries[0];
-      if (updatedEntry.side !== normalizedSide) {
-        throw new Error("Failed to update side. Please try again.");
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error?.message || data.message || 'Failed to change side');
       }
 
       toast({
@@ -851,14 +644,16 @@ export default function WagerDetail() {
         description: `You've switched to ${normalizedSide === "a" ? wager.side_a : wager.side_b}.`,
       });
 
+      // Dispatch event to update wager
+      window.dispatchEvent(new CustomEvent('wager-updated'));
+
       // Refresh wager data to get updated entries
       await fetchWager(true);
       setShowChangeSideDialog(false);
       setNewSide(null);
     } catch (error) {
       console.error("Error changing side:", error);
-      const { extractErrorMessage } = await import('@/lib/error-extractor');
-      const errorMessage = extractErrorMessage(error, "Couldn't change your side. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : "Couldn't change your side. Please try again.";
       
       toast({
         title: "Couldn't change side",
@@ -924,46 +719,23 @@ export default function WagerDetail() {
     setDeleting(true);
 
     try {
-      // Check if creator has an entry and refund them
-      const creatorEntry = entries.find(entry => entry.user_id === user.id);
-      if (creatorEntry) {
-        // Refund creator's entry
-        await supabase.rpc("increment_balance", {
-          user_id: user.id,
-          amt: creatorEntry.amount,
-        });
-
-        // Record transaction
-        await supabase.from("transactions").insert({
-          user_id: user.id,
-          type: "wager_refund",
-          amount: creatorEntry.amount,
-          reference: wager.id,
-          description: `Wager Deleted: "${wager.title}" - Creator deleted wager, entry refunded`,
-        });
-      }
-
-      // Delete the wager (cascade will delete all entries) - use actual UUID, not short_id
-      const { error } = await supabase
-        .from("wagers")
-        .delete()
-        .eq("id", wager.id)
-        .eq("creator_id", user.id);
-
-      if (error) throw error;
+      // Delete wager via NestJS API (handles refunds automatically)
+      await wagersApi.delete(wager.id);
 
       toast({
         title: "Wager deleted",
         description: "Your wager has been deleted successfully.",
       });
 
+      // Dispatch event to update balance
+      window.dispatchEvent(new CustomEvent('balance-updated'));
+
       // Redirect to home page
       router.push("/wagers");
       router.refresh();
     } catch (error) {
       console.error("Error deleting wager:", error);
-      const { extractErrorMessage } = await import('@/lib/error-extractor');
-      const errorMessage = extractErrorMessage(error, "Couldn't delete the wager. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : "Couldn't delete the wager. Please try again.";
       
       toast({
         title: "Couldn't delete wager",
@@ -1064,78 +836,27 @@ export default function WagerDetail() {
         return;
       }
 
-      // Handle balance adjustment if entry fee changed
-      const oldAmount = wager.amount;
-      const amountDifference = newAmount - oldAmount;
-
-      if (amountDifference !== 0) {
-        // Check user balance if increasing
-        if (amountDifference > 0) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("balance")
-            .eq("id", user.id)
-            .maybeSingle();
-
-          if (!profile || profile.balance < amountDifference) {
-            toast({
-              title: "Insufficient balance",
-              description: `You need ${formatCurrency(amountDifference, (wager.currency || DEFAULT_CURRENCY) as Currency)} to increase the entry fee. Your current balance is ${formatCurrency(profile?.balance || 0, (wager.currency || DEFAULT_CURRENCY) as Currency)}.`,
-              variant: "destructive",
-            });
-            setEditing(false);
-            return;
-          }
-
-          // Deduct the difference
-          await supabase.rpc("increment_balance", {
-            user_id: user.id,
-            amt: -amountDifference,
-          });
-
-          // Record transaction
-          await supabase.from("transactions").insert({
-            user_id: user.id,
-            type: "wager_edit",
-            amount: -amountDifference,
-            reference: wager.id,
-            description: `Wager Entry Fee Increased: "${wager.title}" - Entry fee increased from ${formatCurrency(oldAmount, (wager.currency || DEFAULT_CURRENCY) as Currency)} to ${formatCurrency(newAmount, (wager.currency || DEFAULT_CURRENCY) as Currency)}`,
-          });
-        } else {
-          // Refund the difference (amount decreased)
-          await supabase.rpc("increment_balance", {
-            user_id: user.id,
-            amt: Math.abs(amountDifference),
-          });
-
-          // Record transaction
-          await supabase.from("transactions").insert({
-            user_id: user.id,
-            type: "wager_edit",
-            amount: Math.abs(amountDifference),
-            reference: wager.id,
-            description: `Wager Entry Fee Decreased: "${wager.title}" - Entry fee decreased from ${formatCurrency(oldAmount, (wager.currency || DEFAULT_CURRENCY) as Currency)} to ${formatCurrency(newAmount, (wager.currency || DEFAULT_CURRENCY) as Currency)}`,
-          });
-        }
-      }
-
-      // Update the wager (use actual UUID, not short_id)
-      const { error } = await supabase
-        .from("wagers")
-        .update({
+      // TODO: Backend endpoint needed - PATCH /wagers/:id
+      // For now, call API route that will need backend implementation
+      const response = await fetch(`/api/wagers/${wager.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
           title: trimmedTitle,
           description: editFormData.description.trim() || null,
-          side_a: trimmedSideA,
-          side_b: trimmedSideB,
+          sideA: trimmedSideA,
+          sideB: trimmedSideB,
           amount: newAmount,
-          // Convert local datetime to UTC for storage
           deadline: localToUTC(editFormData.deadline),
           category: editFormData.category || null,
-        })
-        .eq("id", wager.id)
-        .eq("creator_id", user.id);
+        }),
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error?.message || data.message || 'Failed to update wager');
+      }
 
       toast({
         title: "Wager updated",

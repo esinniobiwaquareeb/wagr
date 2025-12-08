@@ -3,7 +3,6 @@
  * Provides helper functions to access platform settings throughout the application
  */
 
-import { createServiceRoleClient } from '@/lib/supabase/server';
 import type { KycLimitsConfig } from '@/lib/kyc/types';
 
 export interface PlatformSetting {
@@ -25,17 +24,9 @@ export interface PlatformSetting {
  */
 export async function getSetting<T = any>(key: string, defaultValue?: T): Promise<T> {
   try {
-    const supabase = createServiceRoleClient();
-    const { data } = await supabase
-      .from('platform_settings')
-      .select('value')
-      .eq('key', key)
-      .maybeSingle();
-
-    if (data?.value !== undefined && data?.value !== null) {
-      return data.value as T;
-    }
-    return defaultValue as T;
+    const { platformSettingsApi } = await import('@/lib/api-client');
+    const data = await platformSettingsApi.get(key);
+    return data.setting.value as T;
   } catch (error) {
     console.error(`Error fetching setting ${key}:`, error);
     return defaultValue as T;
@@ -49,18 +40,9 @@ export async function getSetting<T = any>(key: string, defaultValue?: T): Promis
  */
 export async function getSettings(keys: string[]): Promise<Record<string, any>> {
   try {
-    const supabase = createServiceRoleClient();
-    const { data } = await supabase
-      .from('platform_settings')
-      .select('key, value')
-      .in('key', keys);
-
-    const settings: Record<string, any> = {};
-    data?.forEach(setting => {
-      settings[setting.key] = setting.value;
-    });
-
-    return settings;
+    const { platformSettingsApi } = await import('@/lib/api-client');
+    const data = await platformSettingsApi.getMany(keys);
+    return data.settings;
   } catch (error) {
     console.error('Error fetching settings:', error);
     return {};
@@ -74,14 +56,9 @@ export async function getSettings(keys: string[]): Promise<Record<string, any>> 
  */
 export async function getSettingsByCategory(category: string): Promise<PlatformSetting[]> {
   try {
-    const supabase = createServiceRoleClient();
-    const { data } = await supabase
-      .from('platform_settings')
-      .select('*')
-      .eq('category', category)
-      .order('key', { ascending: true });
-
-    return (data || []) as PlatformSetting[];
+    const { platformSettingsApi } = await import('@/lib/api-client');
+    const data = await platformSettingsApi.getManyByCategory(category);
+    return data.settings as PlatformSetting[];
   } catch (error) {
     console.error(`Error fetching settings for category ${category}:`, error);
     return [];

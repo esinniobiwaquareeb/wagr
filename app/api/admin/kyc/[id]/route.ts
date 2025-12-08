@@ -1,188 +1,80 @@
 import { NextRequest } from 'next/server';
+import { nestjsServerFetch } from '@/lib/nestjs-server';
 import { requireAdmin } from '@/lib/auth/server';
-import { createServiceRoleClient } from '@/lib/supabase/server';
+import { logError } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
-import { AppError, ErrorCode, logError } from '@/lib/error-handler';
-import { getKycLevelConfig } from '@/lib/kyc/levels';
-import { sendKycApprovalEmail, sendKycRejectionEmail } from '@/lib/email-service';
+import { cookies } from 'next/headers';
 
-function normalizeSubmission(entry: any) {
-  const user = entry.profiles || null;
-  const { profiles, ...rest } = entry;
-  return {
-    ...rest,
-    user,
-  };
-}
-
-async function fetchSubmissionWithUser(supabaseAdmin: ReturnType<typeof createServiceRoleClient>, id: string) {
-  const { data, error } = await supabaseAdmin
-    .from('kyc_submissions')
-    .select(
-      `
-      id,
-      user_id,
-      level_requested,
-      status,
-      reviewer_id,
-      reviewed_at,
-      rejection_reason,
-      payload,
-      created_at,
-      updated_at,
-      profiles:profiles(
-        id,
-        username,
-        email,
-        avatar_url,
-        kyc_level,
-        kyc_level_label,
-        bvn_verified,
-        nin_verified,
-        face_verified,
-        document_verified
-      )
-    `,
-    )
-    .eq('id', id)
-    .maybeSingle();
-
-  if (error) {
-    logError(new Error(`Database error fetching KYC submission: ${error.message}`));
-    throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch KYC submission');
-  }
-
-  if (!data) {
-    throw new AppError(ErrorCode.NOT_FOUND, 'KYC submission not found');
-  }
-
-  // Ensure profiles is always an object (not array) for consistency
-  // TypeScript: handle the case where Supabase might return an array
-  const normalizedData = {
-    ...data,
-    profiles: Array.isArray(data.profiles) 
-      ? (data.profiles[0] || null)
-      : data.profiles
-  };
-
-  return normalizedData;
-}
-
-export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+/**
+ * PATCH /api/admin/kyc/[id]
+ * Approve or reject a KYC submission
+ */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const admin = await requireAdmin();
-    const supabaseAdmin = createServiceRoleClient();
-    const { id } = await context.params;
+    await requireAdmin();
+    const { id } = await params;
     
-    // Sanitize and validate ID input
-    const { validateUUIDParam } = await import('@/lib/security/validator');
-    const submissionId = validateUUIDParam(id, 'submission ID');
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
+
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
     const body = await request.json();
     const { status, reason } = body;
 
-    if (!['verified', 'rejected'].includes(status)) {
-      throw new AppError(ErrorCode.INVALID_INPUT, 'Unsupported status update.');
-    }
-
-    if (status === 'rejected' && (!reason || typeof reason !== 'string' || !reason.trim())) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Rejection reason is required.');
-    }
-
-    const submission = await fetchSubmissionWithUser(supabaseAdmin, submissionId);
-
-    if (submission.status === status) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, `Submission already marked as ${status}.`);
-    }
-
-    const now = new Date().toISOString();
-    const { error: updateError } = await supabaseAdmin
-      .from('kyc_submissions')
-      .update({
-        status,
-        reviewer_id: admin.id,
-        reviewed_at: now,
-        rejection_reason: status === 'rejected' ? reason : null,
-      })
-      .eq('id', submissionId);
-
-    if (updateError) {
-      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to update submission status.');
-    }
-
+    // Map frontend status to NestJS endpoints
     if (status === 'verified') {
-      const level = submission.level_requested;
-      const config = getKycLevelConfig(level);
-      const payload = submission.payload || {};
-
-      const profileUpdates: Record<string, any> = {
-        kyc_level: level,
-        kyc_level_label: config.label,
-        kyc_last_reviewed_at: now,
-      };
-
-      if (level >= 2) {
-        const idType = String(payload.idType || payload.identityType || '').toLowerCase();
-        if (idType === 'bvn') {
-          profileUpdates.bvn_verified = true;
+      // Approve submission
+      const response = await nestjsServerFetch<{ submission: any }>(
+        `/admin/kyc/submissions/${id}/approve`,
+        {
+          method: 'POST',
+          token,
+          requireAuth: true,
         }
-        if (idType === 'nin') {
-          profileUpdates.nin_verified = true;
-        }
+      );
+
+      if (!response.success || !response.data) {
+        throw new Error(response.error?.message || 'Failed to approve KYC submission');
       }
 
-      if (level >= 3) {
-        profileUpdates.face_verified = true;
-        profileUpdates.document_verified = true;
-      }
-
-      const { error: profileError } = await supabaseAdmin
-        .from('profiles')
-        .update(profileUpdates)
-        .eq('id', submission.user_id);
-
-      if (profileError) {
-        throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to update user profile.');
-      }
-
-      // Send approval email notification
-      // Handle both array and single object responses from Supabase
-      const profile = Array.isArray(submission.profiles) 
-        ? submission.profiles[0] 
-        : submission.profiles;
-      const userEmail = profile?.email;
-      const userName = profile?.username || null;
-      if (userEmail) {
-        try {
-          sendKycApprovalEmail(userEmail, userName, level, config.label);
-        } catch (emailError) {
-          // Log but don't fail the request if email fails
-          logError(new Error(`Failed to send KYC approval email: ${emailError instanceof Error ? emailError.message : String(emailError)}`));
-        }
-      }
+      return successResponseNext({
+        message: 'Submission marked as verified.',
+        submission: response.data.submission,
+      });
     } else if (status === 'rejected') {
-      // Send rejection email notification
-      // Handle both array and single object responses from Supabase
-      const profile = Array.isArray(submission.profiles) 
-        ? submission.profiles[0] 
-        : submission.profiles;
-      const userEmail = profile?.email;
-      const userName = profile?.username || null;
-      if (userEmail) {
-        try {
-          sendKycRejectionEmail(userEmail, userName, reason || 'Your submission did not meet our verification requirements.');
-        } catch (emailError) {
-          // Log but don't fail the request if email fails
-          logError(new Error(`Failed to send KYC rejection email: ${emailError instanceof Error ? emailError.message : String(emailError)}`));
-        }
+      // Reject submission
+      if (!reason || typeof reason !== 'string' || !reason.trim()) {
+        throw new Error('Rejection reason is required.');
       }
+
+      const response = await nestjsServerFetch<{ submission: any }>(
+        `/admin/kyc/submissions/${id}/reject`,
+        {
+          method: 'POST',
+          token,
+          requireAuth: true,
+          body: { reason },
+        }
+      );
+
+      if (!response.success || !response.data) {
+        throw new Error(response.error?.message || 'Failed to reject KYC submission');
+      }
+
+      return successResponseNext({
+        message: 'Submission marked as rejected.',
+        submission: response.data.submission,
+      });
+    } else {
+      throw new Error('Unsupported status update. Use "verified" or "rejected".');
     }
-
-    const refreshed = await fetchSubmissionWithUser(supabaseAdmin, submissionId);
-
-    return successResponseNext({
-      message: `Submission marked as ${status}.`,
-      submission: normalizeSubmission(refreshed),
-    });
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);

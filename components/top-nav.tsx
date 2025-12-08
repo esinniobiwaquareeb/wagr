@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from 'next/navigation';
-import { createClient } from "@/lib/supabase/client";
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { Home, Plus, Wallet, Trophy, User, Settings, Bell, History, LogOut, Menu, X, Search, ChevronDown, CirclePlus, Activity, BookOpen } from "lucide-react";
@@ -48,7 +47,6 @@ function TopNavContent() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
-  const supabase = createClient();
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
 
@@ -97,40 +95,16 @@ function TopNavContent() {
 
     fetchCategoryCounts();
 
-    // Set up real-time subscription for wager changes
-    const wagersChannel = supabase
-      .channel("topnav-wagers-counts")
-      .on(
-        "postgres_changes",
-        { 
-          event: "*", 
-          schema: "public", 
-          table: "wagers",
-          filter: "is_public=eq.true"
-        },
-        () => {
-          // Debounce refetch to avoid too many calls
-          if (categoryCountsDebounceRef.current) {
-            clearTimeout(categoryCountsDebounceRef.current);
-          }
-          categoryCountsDebounceRef.current = setTimeout(() => {
-            fetchCategoryCounts();
-          }, 2000); // Increased debounce to 2 seconds
-        }
-      )
-      .subscribe();
-
-    // Refresh counts periodically as fallback - increased to 2 minutes
+    // Refresh counts periodically
     const interval = setInterval(fetchCategoryCounts, 120000); // Every 2 minutes
 
     return () => {
-      wagersChannel.unsubscribe();
       clearInterval(interval);
       if (categoryCountsDebounceRef.current) {
         clearTimeout(categoryCountsDebounceRef.current);
       }
     };
-  }, [supabase]);
+  }, []);
 
   const walletBalanceFetchingRef = useRef(false);
   const walletBalanceDebounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -165,29 +139,6 @@ function TopNavContent() {
       // Refresh balance periodically - increased to 2 minutes
       const interval = setInterval(fetchWalletBalance, 120000); // Every 2 minutes
       
-      // Listen for wallet updates
-      const walletChannel = supabase
-        .channel("topnav-wallet-balance")
-        .on(
-          "postgres_changes",
-          { 
-            event: "*", 
-            schema: "public", 
-            table: "profiles",
-            filter: `id=eq.${user.id}`
-          },
-          () => {
-            // Debounce wallet balance updates
-            if (walletBalanceDebounceRef.current) {
-              clearTimeout(walletBalanceDebounceRef.current);
-            }
-            walletBalanceDebounceRef.current = setTimeout(() => {
-              fetchWalletBalance();
-            }, 500); // Reduced debounce to 500ms for faster updates
-          }
-        )
-        .subscribe();
-
       // Listen for custom balance update events (triggered after wager creation/join)
       const handleBalanceUpdate = async () => {
         // Force refresh by bypassing the guard for event-triggered updates
@@ -198,7 +149,7 @@ function TopNavContent() {
             const response = await walletApi.getBalance();
             setWalletBalance(response.balance);
           } catch (error) {
-            // Silent fail - balance will update via real-time subscription
+            // Silent fail - balance will update via polling
             console.error('Error fetching wallet balance from event:', error);
           }
         }, 300); // Small delay to ensure transaction is committed
@@ -207,14 +158,13 @@ function TopNavContent() {
 
       return () => {
         clearInterval(interval);
-        walletChannel.unsubscribe();
         window.removeEventListener('balance-updated', handleBalanceUpdate);
         if (walletBalanceDebounceRef.current) {
           clearTimeout(walletBalanceDebounceRef.current);
         }
       };
     }
-  }, [user, supabase]);
+  }, [user]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -270,13 +220,11 @@ function TopNavContent() {
     fetchingProfileRef.current = true;
 
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("username, avatar_url")
-        .eq("id", user.id)
-        .maybeSingle();
+      const { profileApi } = await import('@/lib/api-client');
+      const profileData = await profileApi.get();
+      const data = profileData?.profile || null;
 
-      if (error && error.code !== 'PGRST116') {
+      if (!data) {
         return;
       }
 
@@ -286,7 +234,7 @@ function TopNavContent() {
     } finally {
       fetchingProfileRef.current = false;
     }
-  }, [user, supabase]);
+  }, [user]);
 
   const debouncedRefetchProfile = useCallback(() => {
     if (debounceProfileTimeoutRef.current) {
@@ -300,31 +248,20 @@ function TopNavContent() {
   useEffect(() => {
     fetchProfile();
 
-    if (user) {
-      const channel = supabase
-        .channel(`topnav-profile:${user.id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "profiles",
-            filter: `id=eq.${user.id}`,
-          },
-          () => {
-            debouncedRefetchProfile();
-          }
-        )
-        .subscribe();
+    // Poll for profile updates every 2 minutes
+    const interval = setInterval(() => {
+      if (user) {
+        debouncedRefetchProfile();
+      }
+    }, 120000);
 
-      return () => {
-        channel.unsubscribe();
-        if (debounceProfileTimeoutRef.current) {
-          clearTimeout(debounceProfileTimeoutRef.current);
-        }
-      };
-    }
-  }, [user, supabase]);
+    return () => {
+      clearInterval(interval);
+      if (debounceProfileTimeoutRef.current) {
+        clearTimeout(debounceProfileTimeoutRef.current);
+      }
+    };
+  }, [user, debouncedRefetchProfile]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -362,20 +299,15 @@ function TopNavContent() {
     fetchingNotificationsRef.current = true;
 
     try {
-      const { count, error } = await supabase
-        .from("notifications")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("read", false);
-
-      if (error) throw error;
-      setUnreadCount(count || 0);
+      const { notificationsApi } = await import('@/lib/api-client');
+      const response = await notificationsApi.list({ limit: 1, read: 'false' });
+      setUnreadCount(response.unreadCount || 0);
     } catch (error) {
       // Silent fail
     } finally {
       fetchingNotificationsRef.current = false;
     }
-  }, [user, supabase]);
+  }, [user]);
 
   const debouncedRefetchNotifications = useCallback(() => {
     if (debounceNotificationsTimeoutRef.current) {
@@ -389,31 +321,20 @@ function TopNavContent() {
   useEffect(() => {
     fetchUnreadCount();
 
-    if (user) {
-      const channel = supabase
-        .channel(`topnav-notifications:${user.id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "notifications",
-            filter: `user_id=eq.${user.id}`,
-          },
-          () => {
-            debouncedRefetchNotifications();
-          }
-        )
-        .subscribe();
+    // Poll for notification updates every 30 seconds
+    const interval = setInterval(() => {
+      if (user) {
+        debouncedRefetchNotifications();
+      }
+    }, 30000);
 
-      return () => {
-        channel.unsubscribe();
-        if (debounceNotificationsTimeoutRef.current) {
-          clearTimeout(debounceNotificationsTimeoutRef.current);
-        }
-      };
-    }
-  }, [user, supabase]);
+    return () => {
+      clearInterval(interval);
+      if (debounceNotificationsTimeoutRef.current) {
+        clearTimeout(debounceNotificationsTimeoutRef.current);
+      }
+    };
+  }, [user, debouncedRefetchNotifications]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

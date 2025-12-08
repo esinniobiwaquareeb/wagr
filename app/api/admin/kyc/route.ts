@@ -1,124 +1,65 @@
 import { NextRequest } from 'next/server';
+import { nestjsServerFetch } from '@/lib/nestjs-server';
 import { requireAdmin } from '@/lib/auth/server';
-import { createServiceRoleClient } from '@/lib/supabase/server';
+import { logError } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
-import { AppError, ErrorCode, logError } from '@/lib/error-handler';
+import { cookies } from 'next/headers';
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 
-function normalizeSubmission(entry: any) {
-  const user = entry.profiles || null;
-  const { profiles, ...rest } = entry;
-  return {
-    ...rest,
-    user,
-  };
-}
-
-function isMissingKycSchema(error: any): boolean {
-  const errorCode = error?.code;
-  const message = (error?.message || '').toLowerCase();
-  return (
-    errorCode === '42P01' ||
-    errorCode === '42703' ||
-    (message.includes('kyc_submissions') && message.includes('does not exist')) ||
-    (message.includes('kyc_level') && message.includes('does not exist'))
-  );
-}
-
-async function fetchStatusCount(supabase: ReturnType<typeof createServiceRoleClient>, status: string) {
-  const { count, error } = await supabase
-    .from('kyc_submissions')
-    .select('id', { count: 'exact', head: true })
-    .eq('status', status);
-
-  if (error) {
-    if (isMissingKycSchema(error)) {
-      return 0;
-    }
-    logError(new Error(`Failed to get ${status} count: ${error.message}`));
-    return 0;
-  }
-
-  return count ?? 0;
-}
-
 export async function GET(request: NextRequest) {
   try {
     await requireAdmin();
-    const supabaseAdmin = createServiceRoleClient();
+    
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
+
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
     const { searchParams } = new URL(request.url);
     const statusFilter = searchParams.get('status') || 'pending';
     const limitParam = Number(searchParams.get('limit')) || DEFAULT_LIMIT;
     const limit = Math.min(Math.max(limitParam, 1), MAX_LIMIT);
 
-    let query = supabaseAdmin
-      .from('kyc_submissions')
-      .select(
-        `
-        id,
-        user_id,
-        level_requested,
-        status,
-        reviewer_id,
-        reviewed_at,
-        rejection_reason,
-        payload,
-        created_at,
-        updated_at,
-        profiles:profiles!kyc_submissions_user_id_fkey(
-          id,
-          username,
-          email,
-          avatar_url,
-          kyc_level,
-          kyc_level_label,
-          bvn_verified,
-          nin_verified,
-          face_verified,
-          document_verified
-        )
-      `,
-      )
-      .order('created_at', { ascending: false })
-      .limit(limit);
-
+    // Build query string
+    const queryParams = new URLSearchParams({
+      limit: limit.toString(),
+    });
+    
     if (statusFilter !== 'all') {
-      query = query.eq('status', statusFilter);
+      queryParams.set('status', statusFilter);
     }
 
-    const { data, error } = await query;
+    // Call NestJS backend
+    const response = await nestjsServerFetch<{
+      submissions: any[];
+      summary?: {
+        pending: number;
+        verified: number;
+        rejected: number;
+      };
+    }>(`/admin/kyc/submissions?${queryParams.toString()}`, {
+      method: 'GET',
+      token,
+      requireAuth: true,
+    });
 
-    if (error) {
-      if (isMissingKycSchema(error)) {
-        return successResponseNext({
-          submissions: [],
-          summary: {
-            pending: 0,
-            verified: 0,
-            rejected: 0,
-          },
-          warning: 'KYC schema not found. Please run the latest migrations.',
-        });
-      }
-      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch KYC submissions');
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'Failed to fetch KYC submissions');
     }
 
-    const submissions = (data ?? []).map(normalizeSubmission);
-
-    const [pending, verified, rejected] = await Promise.all([
-      fetchStatusCount(supabaseAdmin, 'pending'),
-      fetchStatusCount(supabaseAdmin, 'verified'),
-      fetchStatusCount(supabaseAdmin, 'rejected'),
-    ]);
-
+    // The backend returns { submissions }, but we need to add summary if not present
+    // For now, we'll return what the backend gives us
     return successResponseNext({
-      submissions,
-      summary: {
-        pending,
-        verified,
-        rejected,
+      submissions: response.data.submissions || [],
+      summary: response.data.summary || {
+        pending: 0,
+        verified: 0,
+        rejected: 0,
       },
     });
   } catch (error) {

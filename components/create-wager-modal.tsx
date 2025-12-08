@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from 'next/navigation';
 import { useAuth } from "@/hooks/use-auth";
-import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { DEFAULT_CURRENCY, type Currency, CURRENCY_SYMBOLS, formatCurrency } from "@/lib/currency";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
@@ -26,7 +25,6 @@ interface CreateWagerModalProps {
 export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerModalProps) {
   const router = useRouter();
   const { user } = useAuth();
-  const supabase = createClient();
   const [submitting, setSubmitting] = useState(false);
   const [userBalance, setUserBalance] = useState<number | null>(null);
   const [checkingBalance, setCheckingBalance] = useState(false);
@@ -96,18 +94,18 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
   const fetchUserBalance = useCallback(async () => {
     if (!user) return;
     
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("balance")
-      .eq("id", user.id)
-      .maybeSingle();
-    
-    if (profile) {
-      setUserBalance(profile.balance || 0);
-    } else {
+    try {
+      const balanceData = await walletApi.getBalance();
+      if (balanceData) {
+        setUserBalance(balanceData.balance || 0);
+      } else {
+        setUserBalance(0);
+      }
+    } catch (error) {
+      console.error('Error fetching balance:', error);
       setUserBalance(0);
     }
-  }, [user, supabase]);
+  }, [user]);
 
   // Check for duplicate titles as user types (debounced)
   const checkTitleDuplicate = useCallback(async (title: string) => {
@@ -171,11 +169,8 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
 
     setCheckingBalance(true);
     try {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("balance")
-        .eq("id", user.id)
-        .maybeSingle();
+      const balanceData = await walletApi.getBalance();
+      const profile = balanceData ? { balance: balanceData.balance } : null;
       
       if (profile) {
         setUserBalance(profile.balance || 0);
@@ -185,7 +180,7 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
     } finally {
       setCheckingBalance(false);
     }
-  }, [user, formData.amount, supabase]);
+  }, [user, formData.amount]);
 
   useEffect(() => {
     if (user && formData.amount) {
@@ -490,7 +485,7 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
     } finally {
       setSubmitting(false);
     }
-  }, [formData, user, supabase, toast, router, formVariant, onOpenChange]);
+  }, [formData, user, toast, router, formVariant, onOpenChange]);
 
   if (!user) {
     return null;

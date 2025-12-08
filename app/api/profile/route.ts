@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { nestjsServerFetch } from '@/lib/nestjs-server';
 import { requireAuth } from '@/lib/auth/server';
-import { AppError, logError } from '@/lib/error-handler';
-import { ErrorCode } from '@/lib/error-handler';
+import { logError } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
+import { cookies } from 'next/headers';
 
 /**
  * GET /api/profile
@@ -11,20 +11,28 @@ import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
  */
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireAuth();
-    const supabase = await createClient();
+    await requireAuth();
+    
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
 
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('id, username, email, avatar_url, balance, email_verified, email_verified_at, two_factor_enabled, created_at, kyc_level, kyc_level_label, bvn_verified, nin_verified, face_verified, document_verified')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (error || !profile) {
-      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to fetch profile');
+    if (!token) {
+      throw new Error('Authentication required');
     }
 
-    return successResponseNext({ profile });
+    // Call NestJS backend to get profile
+    const response = await nestjsServerFetch<any>('/users/profile', {
+      method: 'GET',
+      token,
+      requireAuth: true,
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'Failed to fetch profile');
+    }
+
+    return successResponseNext({ profile: response.data });
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);
@@ -37,61 +45,71 @@ export async function GET(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const user = await requireAuth();
+    await requireAuth();
     const body = await request.json();
-    const supabase = await createClient();
+    
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
+
+    if (!token) {
+      throw new Error('Authentication required');
+    }
 
     const { username, avatar_url } = body;
-    const updates: any = {};
+    let profileData: any = null;
 
+    // If username is being updated, use the username endpoint
     if (username !== undefined) {
-      const trimmedUsername = username?.trim();
+      const trimmedUsername = username.trim();
       if (!trimmedUsername || trimmedUsername.length < 3) {
-        throw new AppError(ErrorCode.VALIDATION_ERROR, 'Username must be at least 3 characters');
+        throw new Error('Username must be at least 3 characters');
       }
       if (trimmedUsername.length > 30) {
-        throw new AppError(ErrorCode.VALIDATION_ERROR, 'Username must be less than 30 characters');
+        throw new Error('Username must be less than 30 characters');
       }
       const usernameRegex = /^[a-zA-Z0-9_-]+$/;
       if (!usernameRegex.test(trimmedUsername)) {
-        throw new AppError(ErrorCode.VALIDATION_ERROR, 'Username can only contain letters, numbers, underscores, and hyphens');
+        throw new Error('Username can only contain letters, numbers, underscores, and hyphens');
       }
 
-      // Check if username is taken
-      const { data: existing } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('username', trimmedUsername)
-        .neq('id', user.id)
-        .maybeSingle();
+      // Update username via dedicated endpoint
+      const usernameResponse = await nestjsServerFetch<any>('/users/username', {
+        method: 'PATCH',
+        token,
+        requireAuth: true,
+        body: JSON.stringify({ username: trimmedUsername }),
+      });
 
-      if (existing) {
-        throw new AppError(ErrorCode.VALIDATION_ERROR, 'Username is already taken');
+      if (!usernameResponse.success || !usernameResponse.data) {
+        throw new Error(usernameResponse.error?.message || 'Failed to update username');
       }
 
-      updates.username = trimmedUsername;
+      profileData = usernameResponse.data;
     }
 
+    // If avatar_url is being updated, use the profile endpoint
     if (avatar_url !== undefined) {
-      updates.avatar_url = avatar_url;
+      const profileResponse = await nestjsServerFetch<any>('/users/profile', {
+        method: 'PATCH',
+        token,
+        requireAuth: true,
+        body: JSON.stringify({ avatar_url }),
+      });
+
+      if (!profileResponse.success || !profileResponse.data) {
+        throw new Error(profileResponse.error?.message || 'Failed to update profile');
+      }
+
+      // If we already have profileData from username update, merge it
+      profileData = profileData ? { ...profileData, ...profileResponse.data } : profileResponse.data;
     }
 
-    if (Object.keys(updates).length === 0) {
-      throw new AppError(ErrorCode.INVALID_INPUT, 'No fields to update');
+    if (!profileData) {
+      throw new Error('No fields to update');
     }
 
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('id', user.id)
-      .select('id, username, email, avatar_url, balance, email_verified, email_verified_at, two_factor_enabled, created_at, kyc_level, kyc_level_label, bvn_verified, nin_verified, face_verified, document_verified')
-      .maybeSingle();
-
-    if (error || !profile) {
-      throw new AppError(ErrorCode.DATABASE_ERROR, 'Failed to update profile');
-    }
-
-    return successResponseNext({ profile });
+    return successResponseNext({ profile: profileData });
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);

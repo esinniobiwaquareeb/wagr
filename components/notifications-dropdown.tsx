@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { Bell, CheckCheck, ExternalLink, Loader2 } from "lucide-react";
@@ -41,7 +40,6 @@ export function NotificationsDropdown({
   onUnreadCountChange 
 }: NotificationsDropdownProps) {
   const router = useRouter();
-  const supabase = useMemo(() => createClient(), []);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [markingRead, setMarkingRead] = useState(false);
@@ -84,25 +82,9 @@ export function NotificationsDropdown({
     }
   }, [open, userId, fetchNotifications]);
 
-  // Subscribe to real-time updates
+  // Poll for updates and listen for manual updates
   useEffect(() => {
     if (!userId) return;
-
-    const channel = supabase
-      .channel(`notifications-dropdown:${userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${userId}`,
-        },
-        () => {
-          debouncedRefetch();
-        }
-      )
-      .subscribe();
 
     // Listen for manual updates
     const handleNotificationUpdate = () => {
@@ -110,14 +92,19 @@ export function NotificationsDropdown({
     };
     window.addEventListener('notifications-updated', handleNotificationUpdate);
 
+    // Poll for updates every 30 seconds
+    const pollInterval = setInterval(() => {
+      debouncedRefetch();
+    }, 30000);
+
     return () => {
-      channel.unsubscribe();
       window.removeEventListener('notifications-updated', handleNotificationUpdate);
+      clearInterval(pollInterval);
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [userId, supabase, debouncedRefetch]);
+  }, [userId, debouncedRefetch]);
 
   const markAsRead = async (notificationId: string) => {
     try {

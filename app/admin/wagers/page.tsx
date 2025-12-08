@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
@@ -34,7 +33,6 @@ interface Wager {
 }
 
 export default function AdminWagersPage() {
-  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
@@ -72,13 +70,39 @@ export default function AdminWagersPage() {
     if (!isAdmin) return;
 
     try {
-      const { data, error } = await supabase
-        .from("wagers")
-        .select("id, title, description, status, amount, created_at, deadline, creator_id, is_system_generated, winning_side, category, side_a, side_b, currency, is_public")
-        .order("created_at", { ascending: false });
+      const response = await fetch('/api/admin/wagers', {
+        credentials: 'include',
+        cache: 'no-store',
+      });
 
-      if (error) throw error;
-      setWagers(data || []);
+      if (!response.ok) {
+        throw new Error('Failed to fetch wagers');
+      }
+
+      const data = await response.json();
+      if (data.success && data.data?.wagers) {
+        // Transform wagers to match expected format
+        const transformedWagers = data.data.wagers.map((w: any) => ({
+          id: w.id,
+          title: w.title,
+          description: w.description,
+          status: w.status,
+          amount: parseFloat(w.amount || 0),
+          created_at: w.created_at,
+          deadline: w.deadline,
+          creator_id: w.creator_id,
+          is_system_generated: w.is_system_generated,
+          winning_side: w.winning_side,
+          category: w.category?.slug || w.category?.label || w.category_id || null,
+          side_a: w.side_a,
+          side_b: w.side_b,
+          currency: w.currency || 'NGN',
+          is_public: w.is_public,
+        }));
+        setWagers(transformedWagers);
+      } else {
+        setWagers([]);
+      }
     } catch (error) {
       console.error("Error fetching wagers:", error);
       toast({
@@ -87,7 +111,7 @@ export default function AdminWagersPage() {
         variant: "destructive",
       });
     }
-  }, [supabase, isAdmin, toast]);
+  }, [isAdmin, toast]);
 
   const handleResolveClick = (wager: Wager, side: "a" | "b") => {
     setSelectedWager({
@@ -105,117 +129,32 @@ export default function AdminWagersPage() {
 
     const wagerId = selectedWager.id;
     const winningSide = selectedWager.side;
-    const wagerTitle = selectedWager.title;
-    const wagerSideA = selectedWager.sideA;
-    const wagerSideB = selectedWager.sideB;
     
     // Close dialog immediately
     setShowResolveDialog(false);
     setResolving(wagerId);
     try {
-      // First, fetch the wager to check the deadline
-      const { data: wagerData, error: fetchError } = await supabase
-        .from("wagers")
-        .select("deadline")
-        .eq("id", wagerId)
-        .maybeSingle();
+      // Call NestJS backend to resolve wager
+      const response = await fetch(`/api/admin/wagers/${wagerId}/resolve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ winningSide }),
+      });
 
-      if (fetchError) throw fetchError;
-      if (!wagerData) throw new Error("Wager not found");
-
-      // Check if deadline has passed
-      if (wagerData.deadline) {
-        const deadline = new Date(wagerData.deadline);
-        const now = new Date();
-        
-        if (deadline > now) {
-          toast({
-            title: "Cannot settle wager",
-            description: `The deadline for this wager has not passed yet. Deadline: ${format(deadline, "MMM d, yyyy 'at' HH:mm")}. You can only settle wagers after their deadline.`,
-            variant: "destructive",
-          });
-          setResolving(null);
-          return;
-        }
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || errorData.message || 'Failed to resolve wager');
       }
 
-      // First, set the winning side
-      const { error: updateError } = await supabase
-        .from("wagers")
-        .update({ 
-          winning_side: winningSide
-        })
-        .eq("id", wagerId);
-
-      if (updateError) throw updateError;
-
-      // Immediately settle the wager using the database function
-      // Note: settle_wager returns void, so we check for errors
-      try {
-        const { data: settleData, error: settleError } = await supabase.rpc("settle_wager", {
-          wager_id_param: wagerId
-        });
-
-        // Wait a moment for the settlement to complete
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // Verify the wager status was updated
-        const { data: updatedWager, error: checkError } = await supabase
-          .from("wagers")
-          .select("status, winning_side")
-          .eq("id", wagerId)
-          .maybeSingle();
-
-        if (settleError) {
-          // If RPC call returned an error
-          const errorMessage = settleError.message || JSON.stringify(settleError) || 'Unknown error';
-          console.error("Error settling wager (RPC error):", {
-            error: settleError,
-            message: settleError.message,
-            details: settleError.details,
-            hint: settleError.hint,
-            code: settleError.code,
-            wagerId,
-            fullError: JSON.stringify(settleError, Object.getOwnPropertyNames(settleError))
-          });
-          
-          toast({
-            title: "Winning side set",
-            description: `Winning side has been set. Settlement will be processed automatically. Error: ${errorMessage}`,
-            variant: "default",
-          });
-        } else if (updatedWager?.status === "SETTLED" || updatedWager?.status === "RESOLVED") {
-          // Success - wager was settled
-          toast({
-            title: "Wager resolved",
-            description: "Wager has been resolved and settled. Winnings have been distributed to participants.",
-          });
-        } else if (updatedWager?.winning_side === winningSide) {
-          // Winning side was set but settlement didn't complete yet
-          // This might happen if the function returns early or has issues
-          toast({
-            title: "Winning side set",
-            description: "Winning side has been set. Settlement will be processed automatically on the next cron run.",
-            variant: "default",
-          });
-        } else {
-          // Unexpected state
-          console.warn("Unexpected wager state after settlement attempt:", updatedWager);
-          toast({
-            title: "Winning side set",
-            description: "Winning side has been set. Please verify the wager status.",
-            variant: "default",
-          });
-        }
-      } catch (rpcError: any) {
-        // Catch any errors from the RPC call
-        console.error("Exception during settlement:", rpcError);
-        toast({
-          title: "Winning side set",
-          description: `Winning side has been set. Settlement encountered an error: ${rpcError?.message || 'Unknown error'}. It will be processed automatically.`,
-          variant: "default",
-        });
-      }
+      const data = await response.json();
+      
+      toast({
+        title: "Wager resolved",
+        description: data.message || "Winning side has been set. The wager will be automatically settled by the system when the deadline passes.",
+      });
 
       // Refresh wagers list
       fetchWagers();

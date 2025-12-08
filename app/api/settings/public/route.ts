@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { createServiceRoleClient } from '@/lib/supabase/server';
+import { nestjsServerFetch } from '@/lib/nestjs-server';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 import { logError } from '@/lib/error-handler';
 
@@ -9,26 +9,17 @@ import { logError } from '@/lib/error-handler';
  */
 export async function GET(request: NextRequest) {
   try {
-    const serviceSupabase = createServiceRoleClient();
-
-    // Get only public settings
-    const { data: settings, error } = await serviceSupabase
-      .from('platform_settings')
-      .select('key, value')
-      .eq('is_public', true);
-
-    if (error) {
-      logError(new Error(`Failed to fetch public settings: ${error.message}`), { error });
-      throw new Error('Failed to fetch settings');
-    }
-
-    // Convert to key-value map
-    const settingsMap: Record<string, any> = {};
-    (settings || []).forEach((setting: any) => {
-      settingsMap[setting.key] = setting.value;
+    // Call NestJS backend to get public settings (no auth required)
+    const response = await nestjsServerFetch<{ settings: Record<string, any> }>('/admin/settings/public', {
+      method: 'GET',
+      requireAuth: false, // Public endpoint, no authentication required
     });
 
-    return successResponseNext({ settings: settingsMap });
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'Failed to fetch public settings');
+    }
+
+    return successResponseNext({ settings: response.data.settings || {} });
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);

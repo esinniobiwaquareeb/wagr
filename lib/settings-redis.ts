@@ -70,19 +70,32 @@ export async function getAllPublicSettings(): Promise<Record<string, any>> {
   return getOrFetch(
     cacheKey,
     async () => {
-      const { createServiceRoleClient } = await import('@/lib/supabase/server');
-      const supabase = createServiceRoleClient();
-      const { data } = await supabase
-        .from('platform_settings')
-        .select('key, value')
-        .eq('is_public', true);
-
-      const settings: Record<string, any> = {};
-      data?.forEach((setting) => {
-        settings[setting.key] = setting.value;
-      });
-
-      return settings;
+      // Use the settings API which calls NestJS backend
+      // For now, we'll use getSettingsByCategory from settings.ts
+      // TODO: Add a dedicated public settings endpoint in NestJS if needed
+      const { getSettingsByCategory } = await import('./settings');
+      
+      try {
+        // Get settings from all categories and filter for public ones
+        // This is a workaround until a dedicated public settings endpoint is available
+        const allCategories = ['general', 'features', 'payments', 'fees', 'security', 'email', 'bills'];
+        const allSettingsPromises = allCategories.map(cat => getSettingsByCategory(cat));
+        const allSettingsArrays = await Promise.all(allSettingsPromises);
+        const allSettings = allSettingsArrays.flat();
+        
+        const settings: Record<string, any> = {};
+        allSettings.forEach((setting) => {
+          if (setting.is_public) {
+            settings[setting.key] = setting.value;
+          }
+        });
+        
+        return settings;
+      } catch (error) {
+        // Fallback to empty object if API call fails
+        console.warn('Failed to fetch public settings:', error);
+        return {};
+      }
     },
     CACHE_TTL.PLATFORM_SETTINGS_ALL
   );
