@@ -38,8 +38,7 @@ export async function GET(request: NextRequest) {
     }
 
     const apiResponse = successResponseNext(
-      { transactions: response.data.transactions || [] },
-      response.meta
+      { transactions: response.data.transactions || [] }
     );
     
     // Add no-cache headers to prevent caching of transaction data

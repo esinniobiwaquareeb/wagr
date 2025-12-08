@@ -24,9 +24,9 @@ export interface PlatformSetting {
  */
 export async function getSetting<T = any>(key: string, defaultValue?: T): Promise<T> {
   try {
-    const { platformSettingsApi } = await import('@/lib/api-client');
-    const data = await platformSettingsApi.get(key);
-    return data.setting.value as T;
+    const { apiGet } = await import('@/lib/api-client');
+    const data = await apiGet<{ setting: { value: any } }>(`/settings/${encodeURIComponent(key)}`);
+    return (data as any)?.setting?.value as T ?? defaultValue as T;
   } catch (error) {
     console.error(`Error fetching setting ${key}:`, error);
     return defaultValue as T;
@@ -40,9 +40,10 @@ export async function getSetting<T = any>(key: string, defaultValue?: T): Promis
  */
 export async function getSettings(keys: string[]): Promise<Record<string, any>> {
   try {
-    const { platformSettingsApi } = await import('@/lib/api-client');
-    const data = await platformSettingsApi.getMany(keys);
-    return data.settings;
+    const { apiGet } = await import('@/lib/api-client');
+    const queryString = keys.map(k => `keys=${encodeURIComponent(k)}`).join('&');
+    const data = await apiGet<{ settings: Record<string, any> }>(`/settings?${queryString}`);
+    return (data as any)?.settings ?? {};
   } catch (error) {
     console.error('Error fetching settings:', error);
     return {};
@@ -56,9 +57,9 @@ export async function getSettings(keys: string[]): Promise<Record<string, any>> 
  */
 export async function getSettingsByCategory(category: string): Promise<PlatformSetting[]> {
   try {
-    const { platformSettingsApi } = await import('@/lib/api-client');
-    const data = await platformSettingsApi.getManyByCategory(category);
-    return data.settings as PlatformSetting[];
+    const { apiGet } = await import('@/lib/api-client');
+    const data = await apiGet<{ settings: PlatformSetting[] }>(`/settings?category=${encodeURIComponent(category)}`);
+    return (data as any)?.settings ?? [];
   } catch (error) {
     console.error(`Error fetching settings for category ${category}:`, error);
     return [];

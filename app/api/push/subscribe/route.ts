@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       token,
       requireAuth: true,
-      body: subscriptionData,
+      body: JSON.stringify(subscriptionData),
     });
 
     if (!response.success) {
