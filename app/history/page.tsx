@@ -92,83 +92,81 @@ function HistoryPageContent() {
     if (force) setRefreshing(true);
 
     try {
-      // Call a dedicated endpoint to get user's wager entries
-      // For now, we'll use the wagers API and filter client-side
-      // TODO: Create a dedicated /wagers/my-entries endpoint in NestJS
-      const response = await fetch(`/api/wagers?limit=500`, {
+      // Call the dedicated endpoint to get user's wagers (created or participated)
+      const response = await fetch(`/api/wagers/my-wagers?limit=500`, {
         credentials: 'include',
         cache: 'no-store',
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch wagers');
+        throw new Error('Failed to fetch wager history');
       }
 
       const data = await response.json();
       
       if (data.success && data.data?.wagers) {
-        // Fetch entry details for wagers where user might have entries
-        // We'll need to check each wager to see if user has an entry
-        const entriesPromises = data.data.wagers.map(async (wager: any) => {
-          try {
-            // Fetch full wager details to get entries
-            const wagerResponse = await fetch(`/api/wagers/${wager.id}`, {
-              credentials: 'include',
-              cache: 'no-store',
-            });
-            
-            if (!wagerResponse.ok) return null;
-            
-            const wagerData = await wagerResponse.json();
-            if (!wagerData.success || !wagerData.data?.wager) return null;
-            
-            const fullWager = wagerData.data.wager;
-            const allEntries = [
-              ...(fullWager.entries?.sideA || []),
-              ...(fullWager.entries?.sideB || []),
-            ];
-            
-            const userEntry = allEntries.find((e: any) => e.user_id === user.id);
-            
-            if (userEntry) {
+        // Transform the response to match the expected format
+        // Include wagers where user has an entry OR is the creator
+        const transformedEntries: WagerEntry[] = data.data.wagers
+          .map((wager: any) => {
+            // If user has an entry, use that
+            if (wager.userEntry) {
               return {
-                id: userEntry.id,
+                id: wager.userEntry.id,
                 wager_id: wager.id,
-                side: userEntry.side,
-                amount: parseFloat(userEntry.amount || 0),
-                created_at: userEntry.created_at,
+                side: wager.userEntry.side,
+                amount: wager.userEntry.amount,
+                created_at: wager.userEntry.created_at,
                 wager: {
-                  id: fullWager.id,
-                  title: fullWager.title,
-                  description: fullWager.description,
-                  side_a: fullWager.side_a,
-                  side_b: fullWager.side_b,
-                  amount: parseFloat(fullWager.amount || 0),
-                  status: fullWager.status,
-                  deadline: fullWager.deadline,
-                  winning_side: fullWager.winning_side,
-                  currency: fullWager.currency || 'NGN',
-                  category: fullWager.category?.slug || fullWager.category?.label || fullWager.category_id || null,
-                  created_at: fullWager.created_at,
+                  id: wager.id,
+                  title: wager.title,
+                  description: wager.description || '',
+                  side_a: wager.side_a,
+                  side_b: wager.side_b,
+                  amount: parseFloat(wager.amount || 0),
+                  status: wager.status,
+                  deadline: wager.deadline,
+                  winning_side: wager.winning_side,
+                  currency: wager.currency || 'NGN',
+                  category: wager.category?.slug || wager.category?.label || wager.category_id || null,
+                  created_at: wager.created_at,
                 },
               } as WagerEntry;
             }
-            
+            // If user is creator but has no entry, create a placeholder entry
+            if (wager.isCreator) {
+              return {
+                id: `creator-${wager.id}`, // Placeholder ID
+                wager_id: wager.id,
+                side: 'a', // Default side for creator
+                amount: 0, // No entry amount
+                created_at: wager.created_at, // Use wager creation date
+                wager: {
+                  id: wager.id,
+                  title: wager.title,
+                  description: wager.description || '',
+                  side_a: wager.side_a,
+                  side_b: wager.side_b,
+                  amount: parseFloat(wager.amount || 0),
+                  status: wager.status,
+                  deadline: wager.deadline,
+                  winning_side: wager.winning_side,
+                  currency: wager.currency || 'NGN',
+                  category: wager.category?.slug || wager.category?.label || wager.category_id || null,
+                  created_at: wager.created_at,
+                },
+              } as WagerEntry;
+            }
             return null;
-          } catch (error) {
-            return null;
-          }
-        });
+          })
+          .filter((e: WagerEntry | null): e is WagerEntry => e !== null);
 
-        const entriesResults = await Promise.all(entriesPromises);
-        const validEntries = entriesResults.filter((e): e is WagerEntry => e !== null);
-        
         // Sort by created_at descending
-        validEntries.sort((a, b) => 
+        transformedEntries.sort((a, b) => 
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
 
-        setEntries(validEntries);
+        setEntries(transformedEntries);
       } else {
         setEntries([]);
       }
@@ -469,7 +467,11 @@ function HistoryPageContent() {
                       <div className="flex items-center justify-between text-[9px] md:text-[10px] text-muted-foreground">
                         <div className="flex items-center gap-1.5">
                           <Clock className="h-3 w-3" />
-                          <span>Joined {format(new Date(entry.created_at), 'MMM d, yyyy')}</span>
+                          <span>
+                            {entry.amount > 0 
+                              ? `Joined ${format(new Date(entry.created_at), 'MMM d, yyyy')}`
+                              : `Created ${format(new Date(wager.created_at), 'MMM d, yyyy')}`}
+                          </span>
                         </div>
                         {wager.deadline && wager.status === 'OPEN' && (
                           <DeadlineDisplay 

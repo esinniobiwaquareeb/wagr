@@ -787,8 +787,6 @@ function WalletContent() {
         credentials: 'include', // Include cookies for session
         body: JSON.stringify({
           amount: amount * 100, // Convert to kobo (Paystack uses smallest currency unit)
-          email: user.email,
-          userId: user.id,
         }),
       });
 
