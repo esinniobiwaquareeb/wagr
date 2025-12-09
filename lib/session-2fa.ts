@@ -70,8 +70,8 @@ export function clear2FAVerification(): void {
  */
 export async function requires2FAForLogin(
   userId: string,
-  supabaseUrl: string,
-  supabaseAnonKey: string
+  _apiUrl?: string,
+  _apiKey?: string
 ): Promise<boolean> {
   // If session is already verified, no need for 2FA again
   if (isSession2FAVerified(userId)) {

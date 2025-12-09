@@ -67,6 +67,16 @@ export async function logout(): Promise<void> {
     }
   } catch (error) {
     console.error('Error logging out:', error);
+  } finally {
+    // Always remove token from client, even if API call failed
+    // Import here to avoid circular dependency
+    const { removeAuthToken } = await import('@/lib/nestjs-client');
+    removeAuthToken();
+    
+    // Dispatch auth state change event
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('auth-state-changed'));
+    }
   }
 }
 
