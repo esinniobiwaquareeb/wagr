@@ -12,7 +12,7 @@ import './globals.css'
 const geist = Geist({ subsets: ["latin"] });
 const geistMono = Geist_Mono({ subsets: ["latin"] });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://wagered.app';
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://wagered.app';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

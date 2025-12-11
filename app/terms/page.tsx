@@ -1,7 +1,7 @@
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import type { Metadata } from 'next';
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://wagered.app';
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://wagered.app';
 
 export const metadata: Metadata = {
   title: 'Terms & Conditions',

@@ -14,7 +14,7 @@ Add the following to your `.env.local` file:
 
 ```bash
 PAYSTACK_SECRET_KEY=sk_test_xxxxxxxxxxxxx  # Use sk_live_ for production
-NEXT_PUBLIC_SITE_URL=https://your-domain.com  # Your production URL
+NEXT_PUBLIC_APP_URL=https://your-domain.com  # Your production URL
 ```
 
 ## 3. Configure Webhook URL

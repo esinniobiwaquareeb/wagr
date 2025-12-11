@@ -35,7 +35,7 @@ Create an Open Graph image for social media sharing:
 
 Add to your `.env.local`:
 ```env
-NEXT_PUBLIC_SITE_URL=https://wagr.app
+NEXT_PUBLIC_APP_URL=https://wagr.app
 ```
 
 ## Testing PWA
@@ -59,7 +59,7 @@ NEXT_PUBLIC_SITE_URL=https://wagr.app
 
 - [ ] All icons generated and placed in `public/icons/`
 - [ ] `og-image.png` created (1200x630px)
-- [ ] `NEXT_PUBLIC_SITE_URL` set in environment
+- [ ] `NEXT_PUBLIC_APP_URL` set in environment
 - [ ] Service worker registered
 - [ ] Manifest.json validated
 - [ ] Tested on mobile devices

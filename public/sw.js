@@ -67,7 +67,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Skip Supabase realtime connections
+  // Skip realtime connections
   if (url.pathname.includes('/realtime') || url.pathname.includes('/rest/v1/')) {
     return;
   }

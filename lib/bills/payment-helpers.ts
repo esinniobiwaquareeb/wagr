@@ -6,18 +6,14 @@
 
 import { AppError, ErrorCode, logError } from '@/lib/error-handler';
 
-export type SupabaseServiceClient = any; // Deprecated type
-
 /**
  * @deprecated Use NestJS bills service instead
  */
 export async function markPaymentAsFailed({
-  supabaseAdmin,
   paymentId,
   reason,
   details,
 }: {
-  supabaseAdmin: SupabaseServiceClient;
   paymentId: string;
   reason: string;
   details?: Record<string, any>;
@@ -31,13 +27,11 @@ export async function markPaymentAsFailed({
  * @deprecated Use NestJS bills service instead
  */
 export async function refundBillPayment({
-  supabaseAdmin,
   userId,
   amount,
   paymentId,
   reference,
 }: {
-  supabaseAdmin: SupabaseServiceClient;
   userId: string;
   amount: number;
   paymentId: string;

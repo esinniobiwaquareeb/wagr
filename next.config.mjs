@@ -1,7 +1,4 @@
 /** @type {import('next').NextConfig} */
-// Extract Supabase hostname from environment variable if available
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseHostname = supabaseUrl ? new URL(supabaseUrl).hostname : null;
 
 const nextConfig = {
   typescript: {
@@ -12,26 +9,7 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    remotePatterns: [
-      // Match any Supabase subdomain
-      {
-        protocol: 'https',
-        hostname: '*.supabase.co',
-        pathname: '/storage/v1/object/public/**',
-      },
-      // Add exact hostname if available (as fallback)
-      ...(supabaseHostname ? [{
-        protocol: 'https',
-        hostname: supabaseHostname,
-        pathname: '/storage/v1/object/public/**',
-      }] : []),
-      // Explicitly add the hostname from the error
-      {
-        protocol: 'https',
-        hostname: 'hzetuhykxjhkivpjkejo.supabase.co',
-        pathname: '/storage/v1/object/public/**',
-      },
-    ],
+    remotePatterns: [],
   },
   compress: true,
   poweredByHeader: false,
@@ -113,7 +91,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.paystack.co https://www.nellobytesystems.com; frame-src 'none';",
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://api.paystack.co https://www.nellobytesystems.com; frame-src 'none';",
           },
         ],
       },

@@ -425,7 +425,7 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
 # Paystack
 PAYSTACK_SECRET_KEY=sk_test_xxxxx
-NEXT_PUBLIC_SITE_URL=https://your-domain.com
+NEXT_PUBLIC_APP_URL=https://your-domain.com
 
 # Cron Jobs
 CRON_SECRET=your-cron-secret
