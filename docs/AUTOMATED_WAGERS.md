@@ -7,6 +7,7 @@ The wagr platform includes an automated system that creates wagers based on real
 
 ### Components
 
+
 1. **Wager Generators** (`lib/wager-generators/`)
    - `crypto.ts` - Generates wagers based on cryptocurrency prices
    - `finance.ts` - Generates wagers based on stock indices and forex rates
