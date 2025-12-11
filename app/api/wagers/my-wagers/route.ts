@@ -25,9 +25,8 @@ export async function GET(request: NextRequest) {
     const searchParams = url.searchParams.toString();
 
     // Call NestJS backend to get user's wagers
-    const response = await nestjsServerFetch<{
-      wagers: any[];
-    }>(`/wagers/my-wagers?${searchParams}`, {
+    // Backend returns: { success: true, data: [...wagers], meta: {...} }
+    const response = await nestjsServerFetch<any>(`/wagers/my-wagers?${searchParams}`, {
       method: 'GET',
       token,
       requireAuth: true,
@@ -37,9 +36,14 @@ export async function GET(request: NextRequest) {
       throw new Error(response.error?.message || 'Failed to fetch user wagers');
     }
 
-    return successResponseNext({
-      wagers: response.data.wagers || [],
-    });
+    // Backend returns data as an array of wagers directly
+    const wagers = Array.isArray(response.data) ? response.data : [];
+    const meta = (response as any).meta;
+
+    return successResponseNext(
+      { wagers },
+      meta
+    );
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);

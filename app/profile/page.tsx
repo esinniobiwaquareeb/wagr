@@ -128,8 +128,10 @@ export default function Profile() {
     
     setLoadingWagers(true);
     try {
-      // Fetch wagers created by the user from NestJS API
-      const response = await fetch(`/api/wagers?creatorId=${user.id}&limit=50`, {
+      // Fetch wagers created by the user
+      // my-wagers endpoint returns wagers where user is creator OR has entry
+      // Filter to only show wagers where user is the creator
+      const response = await fetch(`/api/wagers/my-wagers?limit=50`, {
         credentials: 'include',
         cache: 'no-store',
       });
@@ -141,8 +143,11 @@ export default function Profile() {
 
       const data = await response.json();
       if (data.success && data.data?.wagers) {
+        // Filter to only show wagers where the user is the creator
+        const creatorWagers = data.data.wagers.filter((wager: any) => wager.isCreator === true);
+        
         // Transform wagers to include entry counts
-        const wagersWithCounts = data.data.wagers.map((wager: any) => ({
+        const wagersWithCounts = creatorWagers.map((wager: any) => ({
           ...wager,
           entries_count: wager.entryCounts?.total || 0,
           amount: parseFloat(wager.amount || 0),
