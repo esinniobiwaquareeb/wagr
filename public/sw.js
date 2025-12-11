@@ -8,8 +8,7 @@ const API_CACHE = 'wagr-api-v3';
 const PRECACHE_ASSETS = [
   '/',
   '/manifest.json',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png',
+  '/favicon.png',
 ];
 
 // Cache duration constants (in milliseconds)
@@ -153,8 +152,8 @@ self.addEventListener('push', (event) => {
   let notificationData = {
     title: 'wagr',
     body: 'You have a new notification',
-    icon: '/icons/icon-192x192.png',
-    badge: '/icons/icon-96x96.png',
+    icon: '/favicon.png',
+    badge: '/favicon.png',
     data: {},
   };
 

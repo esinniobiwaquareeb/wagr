@@ -140,8 +140,8 @@ export async function sendPushNotification(payload: PushNotificationPayload): Pr
     
     const notificationOptions: any = {
       body: payload.body,
-      icon: payload.icon || '/icons/icon-192x192.png',
-      badge: payload.badge || '/icons/icon-96x96.png',
+      icon: payload.icon || '/favicon.png',
+      badge: payload.badge || '/favicon.png',
       data: payload.data,
       tag: payload.tag,
       requireInteraction: payload.requireInteraction || false,

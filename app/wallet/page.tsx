@@ -146,13 +146,13 @@ function WalletContent() {
     
     setLoadingBanks(true);
     try {
+      // Fetch banks from Next.js API route (which proxies to backend)
       const response = await fetch('/api/payments/banks');
       const data = await response.json();
       if (data.success && data.banks) {
         // Remove duplicates by bank code (in case Paystack returns duplicates)
         const bankMap = new Map<string, { code: string; name: string }>();
         data.banks.forEach((bank: { code: string; name: string }) => {
-          // Use code as key, but also check if we should keep the first or last occurrence
           if (!bankMap.has(bank.code)) {
             bankMap.set(bank.code, bank);
           }
@@ -160,7 +160,6 @@ function WalletContent() {
         const uniqueBanks = Array.from(bankMap.values());
         // Sort alphabetically by name
         uniqueBanks.sort((a, b) => a.name.localeCompare(b.name));
-        // Deduplication is handled by the Map above
         setBanks(uniqueBanks);
         banksFetchedRef.current = true;
       }

@@ -1,57 +1,42 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { nestjsServerFetch } from '@/lib/nestjs-server';
+import { logError } from '@/lib/error-handler';
 
-export async function GET() {
+/**
+ * GET /api/payments/banks
+ * Proxy to NestJS backend banks endpoint
+ */
+export async function GET(request: NextRequest) {
   try {
-    // Get Paystack secret key
-    const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
-    if (!paystackSecretKey) {
-      return NextResponse.json(
-        { error: 'Payment service not configured' },
-        { status: 500 }
-      );
-    }
-
-    // Fetch banks from Paystack
-    const response = await fetch('https://api.paystack.co/bank?country=nigeria', {
-      headers: {
-        'Authorization': `Bearer ${paystackSecretKey}`,
-      },
-    });
-
-    const data = await response.json();
-
-    if (!response.ok || !data.status) {
-      return NextResponse.json(
-        { error: data.message || 'Failed to fetch banks' },
-        { status: response.status || 500 }
-      );
-    }
-
-    // Remove duplicates by bank code (Paystack sometimes returns duplicates)
-    const bankMap = new Map<string, { code: string; name: string }>();
-    data.data.forEach((bank: any) => {
-      if (bank.code && bank.name && !bankMap.has(bank.code)) {
-        bankMap.set(bank.code, {
-          code: bank.code,
-          name: bank.name,
-        });
+    const url = new URL(request.url);
+    const country = url.searchParams.get('country') || 'nigeria';
+    
+    // Call NestJS backend banks endpoint (public, no auth required)
+    const response = await nestjsServerFetch<Array<{ code: string; name: string }>>(
+      `/payments/banks?country=${country}`,
+      {
+        method: 'GET',
+        requireAuth: false, // Public endpoint
       }
-    });
+    );
 
-    const uniqueBanks = Array.from(bankMap.values());
-    // Sort alphabetically by name
-    uniqueBanks.sort((a, b) => a.name.localeCompare(b.name));
+    if (!response.success) {
+      return NextResponse.json(
+        { error: response.error?.message || 'Failed to fetch banks' },
+        { status: 400 }
+      );
+    }
 
+    // Return in the format expected by frontend
     return NextResponse.json({
       success: true,
-      banks: uniqueBanks,
+      banks: response.data || [],
     });
   } catch (error) {
-    console.error('Error fetching banks:', error);
+    logError(error as Error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     );
   }
 }
-
