@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Shield, Lock, Mail, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
-import { TwoFactorVerify } from "@/components/two-factor-verify";
 import { getCurrentUser } from "@/lib/auth/client";
 
 export default function AdminLogin() {
@@ -15,7 +14,6 @@ export default function AdminLogin() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [requires2FA, setRequires2FA] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -80,12 +78,13 @@ export default function AdminLogin() {
         return;
       }
 
-      // Use the login API that supports 2FA
-      const response = await fetch('/api/auth/login', {
+      // Use the admin login API endpoint
+      const response = await fetch('/api/admin/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           email: email.trim(),
           password,
@@ -99,31 +98,10 @@ export default function AdminLogin() {
         throw new Error(errorMessage);
       }
 
-      // Parse uniform API response format
-      const userData = apiResponse.data?.user;
-      const requires2FA = apiResponse.data?.requires2FA;
+      // Parse admin login response
+      const adminData = apiResponse.data?.admin;
 
-      // Check if 2FA is required
-      if (requires2FA) {
-        setRequires2FA(true);
-        setLoading(false);
-        return;
-      }
-
-      if (userData) {
-        // Check if user is admin
-        if (!userData.is_admin) {
-          // Logout by clearing session
-          await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-          toast({
-            title: "Access Denied",
-            description: "You don't have admin privileges.",
-            variant: "destructive",
-          });
-          setLoading(false);
-          return;
-        }
-
+      if (adminData) {
         // Clear form
         setEmail("");
         setPassword("");
@@ -154,89 +132,6 @@ export default function AdminLogin() {
     }
   };
 
-  const handle2FAVerify = async (code: string, isBackupCode: boolean) => {
-    setLoading(true);
-
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-          twoFactorCode: code,
-          isBackupCode,
-        }),
-      });
-
-      const apiResponse = await response.json();
-
-      if (!response.ok) {
-        const errorMessage = apiResponse.error?.message || 'Verification failed';
-        throw new Error(errorMessage);
-      }
-
-      // Parse uniform API response format
-      const userData = apiResponse.data?.user;
-
-      if (userData) {
-        // Check if user is admin
-        if (!userData.is_admin) {
-          // Logout by clearing session
-          await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-          toast({
-            title: "Access Denied",
-            description: "You don't have admin privileges.",
-            variant: "destructive",
-          });
-          setLoading(false);
-          return;
-        }
-
-        setRequires2FA(false);
-        
-        // Clear form
-        setEmail("");
-        setPassword("");
-        
-        // Trigger auth state update
-        window.dispatchEvent(new Event('auth-state-changed'));
-        
-        // Force router refresh to update server components with new session
-        router.refresh();
-        
-        // Small delay to ensure session cookie is set, then redirect
-        setTimeout(() => {
-          router.replace("/admin");
-        }, 100);
-      }
-    } catch (error) {
-      console.error("2FA verification error:", error);
-      const { extractErrorMessage } = await import('@/lib/error-extractor');
-      const errorMessage = extractErrorMessage(error, "Failed to verify code. Please try again.");
-      
-      toast({
-        title: "Verification failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
-      throw error; // Re-throw so TwoFactorVerify can handle it
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Show 2FA verification dialog if required
-  if (requires2FA) {
-    return (
-      <TwoFactorVerify
-        isOpen={requires2FA}
-        onVerify={handle2FAVerify}
-      />
-    );
-  }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">

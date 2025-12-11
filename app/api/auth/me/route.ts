@@ -14,8 +14,8 @@ export async function GET(request: NextRequest) {
       return successResponseNext({ user: null });
     }
 
-    // Call NestJS backend to get current user
-    const response = await nestjsServerFetch<{
+    // Try user endpoint first
+    const userResponse = await nestjsServerFetch<{
       user: {
         id: string;
         email: string;
@@ -29,13 +29,50 @@ export async function GET(request: NextRequest) {
       requireAuth: true,
     });
 
-    if (!response.success || !response.data) {
-      return successResponseNext({ user: null });
+    // Check if user endpoint succeeded
+    // On success: nestjsServerFetch returns data directly { user: {...} }
+    // On failure: nestjsServerFetch returns { success: false, error: {...} }
+    if (userResponse.success !== false && (userResponse as any).user) {
+      // User endpoint succeeded, return user data
+      return successResponseNext({
+        user: (userResponse as any).user,
+      });
     }
 
-    return successResponseNext({
-      user: response.data.user,
+    // User endpoint failed or no user data, try admin endpoint (for admin tokens)
+    const adminResponse = await nestjsServerFetch<{
+      admin: {
+        id: string;
+        email: string;
+        username: string | null;
+        full_name: string | null;
+        role: string;
+        is_active: boolean;
+        is_admin: boolean;
+        type: string;
+      };
+    }>('/admin/me', {
+      method: 'GET',
+      token,
+      requireAuth: true,
     });
+
+    // Check if admin endpoint succeeded
+    if (adminResponse.success !== false && (adminResponse as any).admin) {
+      const admin = (adminResponse as any).admin;
+      return successResponseNext({
+        user: {
+          id: admin.id,
+          email: admin.email,
+          username: admin.username,
+          email_verified: true, // Admins don't have email verification
+          is_admin: true,
+        },
+      });
+    }
+
+    // Both endpoints failed
+    return successResponseNext({ user: null });
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);
