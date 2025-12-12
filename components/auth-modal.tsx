@@ -188,8 +188,14 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           return;
         }
 
+        // Verify we have the required data
+        if (!data.data?.user || !data.data?.token) {
+          console.error('Login response missing required data:', data);
+          throw new Error('Invalid login response: Missing user or token');
+        }
+
         // Store token in localStorage for client-side requests
-        if (data.data?.token && typeof window !== 'undefined') {
+        if (data.data.token && typeof window !== 'undefined') {
           const { setAuthToken } = await import('@/lib/nestjs-client');
           setAuthToken(data.data.token);
         }
@@ -199,18 +205,35 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           markSessionAs2FAVerified(data.data.user.id);
         }
         
-        // Trigger auth state change event to update UI immediately
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new Event('auth-state-changed'));
-        }
+        // Clear form
+        setEmail("");
+        setPassword("");
         
-        // Force router refresh to update server components
+        // Show success message
+        toast({
+          title: "Login successful",
+          description: `Welcome back, ${data.data?.user?.username || data.data?.user?.email || 'User'}!`,
+        });
+        
+        // Close modal first
+        onClose();
+        
+        // Force router refresh to update server components with new session
+        // This ensures the cookie is available for server-side reads
         router.refresh();
         
-        // Close modal after a brief delay to allow UI to update
+        // Trigger auth state change event AFTER router refresh to ensure cookie is set
+        // The delay ensures the cookie is available when getCurrentUser() is called
         setTimeout(() => {
-          onClose();
-        }, 100);
+          if (typeof window !== 'undefined') {
+            // Dispatch event to trigger useAuth hook to refresh
+            window.dispatchEvent(new Event('auth-state-changed'));
+            
+            // Also manually trigger a page reload if needed (fallback)
+            // This ensures all server components get the new auth state
+            // router.push(router.asPath); // Alternative: soft refresh
+          }
+        }, 300);
       }
     } catch (error: unknown) {
       const { extractErrorMessage } = await import('@/lib/error-extractor');
@@ -248,8 +271,14 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         throw new Error(errorMessage);
       }
 
+      // Verify we have the required data
+      if (!data.data?.user || !data.data?.token) {
+        console.error('2FA verification response missing required data:', data);
+        throw new Error('Invalid verification response: Missing user or token');
+      }
+
       // Store token in localStorage for client-side requests
-      if (data.data?.token && typeof window !== 'undefined') {
+      if (data.data.token && typeof window !== 'undefined') {
         const { setAuthToken } = await import('@/lib/nestjs-client');
         setAuthToken(data.data.token);
       }

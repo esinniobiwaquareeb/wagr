@@ -38,6 +38,15 @@ export async function nestjsServerFetch<T>(
   // Build URL
   const urlString = `${NESTJS_API_BASE}${endpoint}`;
   
+  // Debug logging (only in development)
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[nestjsServerFetch] ${method} ${urlString}`, {
+      hasToken: !!options?.token,
+      requireAuth,
+      bodyLength: options?.body ? String(options.body).length : 0,
+    });
+  }
+  
   // Build headers
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -56,26 +65,71 @@ export async function nestjsServerFetch<T>(
       cache: 'no-store', // Always fetch fresh on server
     });
 
-    const data = await response.json();
+    // Check if response is JSON before parsing
+    const contentType = response.headers.get('content-type');
+    let data: any;
+    
+    if (contentType && contentType.includes('application/json')) {
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.error(`Failed to parse JSON response from ${urlString}:`, jsonError);
+        const text = await response.text();
+        console.error('Response text:', text.substring(0, 500));
+        return {
+          success: false,
+          error: {
+            code: 'INVALID_RESPONSE',
+            message: 'Backend returned invalid JSON response',
+          },
+        };
+      }
+    } else {
+      // Non-JSON response (likely HTML error page or empty)
+      const text = await response.text();
+      console.error(`Non-JSON response from ${urlString} (status ${response.status}):`, text.substring(0, 500));
+      return {
+        success: false,
+        error: {
+          code: 'INVALID_RESPONSE',
+          message: response.status === 0 || !response.status 
+            ? `Cannot connect to backend at ${urlString}. Is the backend running?`
+            : `Backend returned non-JSON response (status ${response.status})`,
+        },
+      };
+    }
 
     if (!response.ok) {
       return {
         success: false,
         error: data.error || {
           code: 'UNKNOWN_ERROR',
-          message: data.message || 'API request failed',
+          message: data.message || `API request failed with status ${response.status}`,
         },
       };
     }
 
     return data;
   } catch (error) {
-    console.error('NestJS API request failed:', error);
+    console.error(`NestJS API request failed for ${urlString}:`, error);
+    const errorMessage = error instanceof Error ? error.message : 'Network request failed';
+    
+    // Check if it's a connection error
+    if (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('fetch failed')) {
+      return {
+        success: false,
+        error: {
+          code: 'CONNECTION_REFUSED',
+          message: `Cannot connect to backend at ${urlString}. Please ensure the backend is running.`,
+        },
+      };
+    }
+    
     return {
       success: false,
       error: {
         code: 'NETWORK_ERROR',
-        message: error instanceof Error ? error.message : 'Network request failed',
+        message: errorMessage,
       },
     };
   }

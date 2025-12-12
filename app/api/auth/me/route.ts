@@ -69,8 +69,9 @@ export async function GET(request: NextRequest) {
         return successResponseNext({ user: null });
       }
 
-      // Check if we have admin data (response is the data object directly on success)
-      const admin = (adminResponse as any).admin;
+      // Backend returns { admin: {...} }, TransformInterceptor wraps it as { success: true, data: { admin: {...} } }
+      // nestjsServerFetch returns the entire response, so we need to access response.data.admin
+      const admin = (adminResponse as any).data?.admin || (adminResponse as any).admin;
       if (admin) {
         return successResponseNext({
           user: {
@@ -102,14 +103,15 @@ export async function GET(request: NextRequest) {
       });
 
       // nestjsServerFetch returns { success: false, error: ... } on failure
-      // or the data directly on success (which is { user: {...} } from backend)
+      // or { success: true, data: {...} } on success (wrapped by TransformInterceptor)
       if (userResponse.success === false) {
         // User endpoint failed
         return successResponseNext({ user: null });
       }
 
-      // Check if we have user data
-      const user = (userResponse as any).user;
+      // Backend returns { user: {...} }, TransformInterceptor wraps it as { success: true, data: { user: {...} } }
+      // nestjsServerFetch returns the entire response, so we need to access response.data.user
+      const user = (userResponse as any).data?.user || (userResponse as any).user;
       if (user) {
         return successResponseNext({
           user,

@@ -10,12 +10,12 @@ export async function POST(request: NextRequest) {
     const { email, password, twoFactorCode, isBackupCode, rememberMe } = body;
 
     // Call NestJS backend login endpoint
+    // Note: User responses no longer include is_admin since admins are separate entities
     const response = await nestjsServerFetch<{
       user: {
         id: string;
         email: string;
         username: string | null;
-        is_admin: boolean;
         email_verified?: boolean;
       };
       access_token: string;
@@ -35,20 +35,19 @@ export async function POST(request: NextRequest) {
     });
 
     if (!response.success || !response.data) {
-      throw new Error(response.error?.message || 'Login failed');
+      const errorMessage = response.error?.message || 'Login failed';
+      const errorCode = response.error?.code || 'UNKNOWN_ERROR';
+      console.error(`Login failed: [${errorCode}] ${errorMessage}`, {
+        error: response.error,
+        backendUrl: process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://localhost:3001/api/v1',
+      });
+      throw new Error(errorMessage);
     }
 
     const loginData = response.data;
 
-    // Create response
-    const nextResponse = successResponseNext({
-      user: loginData.user,
-      requires2FA: loginData.requires2FA,
-      twoFactorVerified: loginData.twoFactorVerified,
-      token: loginData.access_token, // Include token in response for client-side storage
-    });
-
-    // Store JWT token in cookie (for SSR)
+    // Store JWT token in cookie FIRST (for SSR) before creating response
+    // This ensures the cookie is available when the response is sent
     if (loginData.access_token) {
       const cookieStore = await cookies();
       cookieStore.set('auth_token', loginData.access_token, {
@@ -59,6 +58,14 @@ export async function POST(request: NextRequest) {
         path: '/',
       });
     }
+
+    // Create response with token included for client-side storage
+    const nextResponse = successResponseNext({
+      user: loginData.user,
+      requires2FA: loginData.requires2FA,
+      twoFactorVerified: loginData.twoFactorVerified,
+      token: loginData.access_token, // Include token in response for client-side storage
+    });
 
     return nextResponse;
   } catch (error) {
