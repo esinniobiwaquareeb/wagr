@@ -7,7 +7,7 @@ import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency"
 import { format } from "date-fns";
 import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
-import { getCurrentUser } from "@/lib/auth/client";
+import { getCurrentAdmin } from "@/lib/auth/client";
 
 interface Withdrawal {
   id: string;
@@ -35,13 +35,13 @@ export default function AdminWithdrawals() {
   const currency = DEFAULT_CURRENCY as Currency;
 
   const checkAdmin = useCallback(async () => {
-    const currentUser = await getCurrentUser();
-    if (!currentUser || !currentUser.is_admin) {
+    const currentAdmin = await getCurrentAdmin();
+    if (!currentAdmin?.id) {
       router.push("/admin/login");
       return;
     }
 
-    setUser(currentUser);
+    setUser(currentAdmin);
     setIsAdmin(true);
   }, [router]);
 

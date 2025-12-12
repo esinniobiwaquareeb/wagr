@@ -19,7 +19,7 @@ import {
   Activity,
   Coins,
 } from "lucide-react";
-import { getCurrentUser } from "@/lib/auth/client";
+import { getCurrentAdmin } from "@/lib/auth/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { Badge } from "@/components/ui/badge";
@@ -102,8 +102,8 @@ export default function AdminTransactionDetailPage({ params }: AdminTransactionD
     (async () => {
       const { id } = await params;
       try {
-        const currentUser = await getCurrentUser(true);
-        if (!currentUser || !currentUser.is_admin) {
+        const currentAdmin = await getCurrentAdmin(true);
+        if (!currentAdmin?.id) {
           router.replace("/admin/login");
           return;
         }

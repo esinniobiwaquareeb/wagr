@@ -143,7 +143,6 @@ export async function verifyJWTToken(token: string): Promise<{
   email: string;
   username: string | null;
   email_verified: boolean;
-  is_admin: boolean;
 } | null> {
   const response = await nestjsServerFetch<{
     user: {
@@ -151,7 +150,6 @@ export async function verifyJWTToken(token: string): Promise<{
       email: string;
       username: string | null;
       email_verified: boolean;
-      is_admin: boolean;
     };
   }>('/auth/me', {
     method: 'GET',
@@ -165,4 +163,35 @@ export async function verifyJWTToken(token: string): Promise<{
 
   return response.data.user;
 }
+
+export async function verifyAdminJWTToken(token: string): Promise<{
+  id: string;
+  email: string;
+  username: string | null;
+  full_name: string | null;
+  role: string;
+  is_active: boolean;
+} | null> {
+  const response = await nestjsServerFetch<{
+    admin: {
+      id: string;
+      email: string;
+      username: string | null;
+      full_name: string | null;
+      role: string;
+      is_active: boolean;
+    };
+  }>('/admin/me', {
+    method: 'GET',
+    token,
+    requireAuth: true,
+  });
+
+  if (!response.success || !response.data?.admin) {
+    return null;
+  }
+
+  return response.data.admin;
+}
+
 

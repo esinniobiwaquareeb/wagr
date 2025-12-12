@@ -24,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getCurrentUser } from "@/lib/auth/client";
+import { getCurrentAdmin } from "@/lib/auth/client";
 import { apiGet } from "@/lib/api-client";
 
 interface Stats {
@@ -69,23 +69,16 @@ export default function AdminPage() {
 
   const checkAdmin = useCallback(async () => {
     try {
-      const currentUser = await getCurrentUser(true); // Force refresh to get latest admin status
-      if (!currentUser) {
+      const currentAdmin = await getCurrentAdmin(true); // Force refresh to get latest admin status
+      if (!currentAdmin?.id) {
         router.replace("/admin/login");
         return;
       }
 
-      if (!currentUser.is_admin) {
-        toast({
-          title: "Access Denied",
-          description: "You don't have admin privileges.",
-          variant: "destructive",
-        });
-        router.replace("/admin/login");
-        return;
-      }
+      // Backend AdminGuard already validates admin tokens (type: 'admin')
+      // If we get here with a valid admin object, they have admin access
 
-      setUser(currentUser);
+      setUser(currentAdmin);
       setIsAdmin(true);
     } catch (error) {
       console.error("Error checking admin status:", error);
@@ -94,7 +87,7 @@ export default function AdminPage() {
   }, [router, toast]);
 
   const fetchStats = useCallback(async () => {
-    if (!isAdmin) return;
+    if (!user?.id) return;
 
     try {
       const response = await apiGet<{ stats: Stats }>('/admin/stats');
@@ -107,10 +100,10 @@ export default function AdminPage() {
         variant: "destructive",
       });
     }
-  }, [isAdmin, toast]);
+  }, [user?.id, toast]);
 
   const fetchRecentWagers = useCallback(async () => {
-    if (!isAdmin) return;
+    if (!user?.id) return;
 
     try {
       const response = await apiGet<{ wagers: Wager[] }>('/wagers?limit=10');
@@ -118,10 +111,10 @@ export default function AdminPage() {
     } catch (error) {
       console.error("Error fetching recent wagers:", error);
     }
-  }, [isAdmin]);
+  }, [user?.id]);
 
   const fetchRecentTransactions = useCallback(async () => {
-    if (!isAdmin) return;
+    if (!user?.id) return;
 
     try {
       const response = await apiGet<{ transactions: Transaction[] }>('/admin/transactions?limit=20');
@@ -134,10 +127,10 @@ export default function AdminPage() {
         variant: "destructive",
       });
     }
-  }, [isAdmin, toast]);
+  }, [user?.id, toast]);
 
   const handleResolveWager = async (wagerId: string, winningSide: "a" | "b") => {
-    if (!isAdmin) return;
+    if (!user?.id) return;
 
     setResolving(wagerId);
     try {
@@ -196,7 +189,7 @@ export default function AdminPage() {
   }, [checkAdmin, isAdmin]);
 
   useEffect(() => {
-    if (isAdmin) {
+    if (user?.id) {
       // Fetch data in parallel for better performance
       Promise.all([
         fetchStats(),
@@ -206,7 +199,7 @@ export default function AdminPage() {
         console.error("Error fetching admin data:", error);
       });
     }
-  }, [isAdmin]); // Removed function dependencies to prevent infinite loops
+  }, [user?.id]); // Removed function dependencies to prevent infinite loops
 
   if (loading) {
     return (

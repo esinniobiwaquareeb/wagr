@@ -7,7 +7,7 @@ import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency"
 import { format } from "date-fns";
 import { ArrowUp, ArrowDown, ExternalLink, Link as LinkIcon, Copy, Check, Eye } from "lucide-react";
 import { DataTable } from "@/components/data-table";
-import { getCurrentUser } from "@/lib/auth/client";
+import { getCurrentAdmin } from "@/lib/auth/client";
 import Link from "next/link";
 
 interface Transaction {
@@ -39,13 +39,13 @@ export default function AdminTransactionsPage() {
 
   const checkAdmin = useCallback(async () => {
     try {
-      const currentUser = await getCurrentUser(true); // Force refresh
-      if (!currentUser || !currentUser.is_admin) {
+      const currentAdmin = await getCurrentAdmin(true); // Force refresh
+      if (!currentAdmin?.id) {
         router.replace("/admin/login");
         return;
       }
 
-      setUser(currentUser);
+      setUser(currentAdmin);
       setIsAdmin(true);
     } catch (error) {
       console.error("Error checking admin status:", error);

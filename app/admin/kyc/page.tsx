@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { format, formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import { getCurrentUser } from "@/lib/auth/client";
+import { getCurrentAdmin } from "@/lib/auth/client";
 import { apiGet, apiPatch } from "@/lib/api-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -60,8 +60,8 @@ export default function AdminKycPage() {
 
   const checkAdmin = useCallback(async () => {
     try {
-      const currentUser = await getCurrentUser(true);
-      if (!currentUser || !currentUser.is_admin) {
+      const currentAdmin = await getCurrentAdmin(true);
+      if (!currentAdmin?.id) {
         router.replace("/admin/login");
         return false;
       }

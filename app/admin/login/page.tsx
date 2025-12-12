@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Shield, Lock, Mail, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/auth/client";
+import { getCurrentAdmin } from "@/lib/auth/client";
 
 export default function AdminLogin() {
   const router = useRouter();
@@ -21,12 +21,12 @@ export default function AdminLogin() {
     
     const checkAdmin = async () => {
       try {
-        const currentUser = await getCurrentUser(true); // Force refresh
-        if (mounted && currentUser?.is_admin) {
+        const currentAdmin = await getCurrentAdmin(true); // Force refresh
+        if (mounted && currentAdmin?.id) {
           router.replace("/admin");
         }
       } catch (error) {
-        // Silently fail - user just needs to login
+        // Silently fail - admin just needs to login
         console.error("Error checking admin status:", error);
       }
     };

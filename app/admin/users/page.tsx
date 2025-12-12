@@ -11,7 +11,7 @@ import { DataTable } from "@/components/data-table";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import Image from "next/image";
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/auth/client";
+import { getCurrentAdmin } from "@/lib/auth/client";
 import { apiGet, apiPatch, apiDelete } from "@/lib/api-client";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -63,13 +63,13 @@ export default function AdminUsersPage() {
 
   const checkAdmin = useCallback(async () => {
     try {
-      const currentUser = await getCurrentUser(true); // Force refresh
-      if (!currentUser || !currentUser.is_admin) {
+      const currentAdmin = await getCurrentAdmin(true); // Force refresh
+      if (!currentAdmin?.id) {
         router.replace("/admin/login");
         return;
       }
 
-      setUser(currentUser);
+      setUser(currentAdmin);
       setIsAdmin(true);
     } catch (error) {
       console.error("Error checking admin status:", error);

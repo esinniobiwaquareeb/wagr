@@ -9,7 +9,7 @@ import { CheckCircle, XCircle, Clock, Eye, AlertTriangle, Plus, Edit, Trash2 } f
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataTable } from "@/components/data-table";
-import { getCurrentUser } from "@/lib/auth/client";
+import { getCurrentAdmin } from "@/lib/auth/client";
 import { apiPost, apiPatch, apiDelete } from "@/lib/api-client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { WAGER_CATEGORIES } from "@/lib/constants";
@@ -52,13 +52,13 @@ export default function AdminWagersPage() {
 
   const checkAdmin = useCallback(async () => {
     try {
-      const currentUser = await getCurrentUser(true); // Force refresh
-      if (!currentUser || !currentUser.is_admin) {
+      const currentAdmin = await getCurrentAdmin(true); // Force refresh
+      if (!currentAdmin?.id) {
         router.replace("/admin/login");
         return;
       }
 
-      setUser(currentUser);
+      setUser(currentAdmin);
       setIsAdmin(true);
     } catch (error) {
       console.error("Error checking admin status:", error);

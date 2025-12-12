@@ -9,7 +9,7 @@ import { Eye, Award, Trash2, Loader2, BookOpen, Users, Trophy, Calendar } from "
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataTable } from "@/components/data-table";
-import { getCurrentUser } from "@/lib/auth/client";
+import { getCurrentAdmin } from "@/lib/auth/client";
 import { apiDelete } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 
@@ -54,13 +54,13 @@ export default function AdminQuizzesPage() {
 
   const checkAdmin = useCallback(async () => {
     try {
-      const currentUser = await getCurrentUser(true);
-      if (!currentUser || !currentUser.is_admin) {
+      const currentAdmin = await getCurrentAdmin(true);
+      if (!currentAdmin?.id) {
         router.replace("/admin/login");
         return;
       }
 
-      setUser(currentUser);
+      setUser(currentAdmin);
       setIsAdmin(true);
     } catch (error) {
       console.error("Error checking admin status:", error);

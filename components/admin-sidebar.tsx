@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { BarChart3, Home, Users, CreditCard, Settings, Shield, ShieldCheck, LogOut, Wallet, FileText, BookOpen } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from "react";
-import { getCurrentUser, logout } from "@/lib/auth/client";
+import { getCurrentAdmin, logout } from "@/lib/auth/client";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 
 export function AdminSidebar() {
@@ -15,15 +15,15 @@ export function AdminSidebar() {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
   useEffect(() => {
-    const getUser = async () => {
-      const currentUser = await getCurrentUser();
-      setUser(currentUser);
+    const getAdmin = async () => {
+      const currentAdmin = await getCurrentAdmin();
+      setUser(currentAdmin);
     };
-    getUser();
+    getAdmin();
     
     // Listen for auth state changes
     const handleAuthChange = () => {
-      getUser();
+      getAdmin();
     };
     window.addEventListener('auth-state-changed', handleAuthChange);
     return () => window.removeEventListener('auth-state-changed', handleAuthChange);

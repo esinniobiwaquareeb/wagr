@@ -2,7 +2,6 @@
  * Client-side authentication utilities
  */
 
-import { nestjsGet } from '@/lib/nestjs-client';
 import { requestDeduplication } from '@/lib/request-deduplication';
 
 export interface AuthUser {
@@ -18,6 +17,14 @@ export interface AuthUser {
   is_admin?: boolean;
 }
 
+export interface AdminAuthUser {
+  id: string;
+  email: string;
+  username: string | null;
+  full_name: string | null;
+  role: string;
+  is_active: boolean;
+}
 /**
  * Get current user from API with deduplication (no caching)
  */
@@ -85,3 +92,40 @@ export async function logout(): Promise<void> {
   }
 }
 
+/**
+ * Get current admin from API with deduplication (no caching)
+ */
+export const getCurrentAdmin = async (forceRefresh = false): Promise<AdminAuthUser | null> => {
+  // Use request deduplication to prevent multiple simultaneous calls
+  const requestKey = 'admin/me';
+  
+  try {
+    const admin = await requestDeduplication.deduplicate(
+      requestKey,
+      async () => {
+        const response = await fetch('/api/admin/me', {
+          credentials: 'include',
+          cache: 'no-store', // Always fetch fresh from server
+        });
+
+        if (!response.ok) {
+          return null;
+        }
+
+        const data = await response.json();
+        // API response format: { success: true, data: { admin: ... } }
+        if (data.success && data.data?.admin) {
+          const adminData = data.data.admin;
+          return adminData;
+        }
+        
+        return null;
+      }
+    );
+
+    return admin as AdminAuthUser | null;
+  } catch (error) {
+    console.error('Error fetching current admin:', error);
+    return null;
+  }
+};

@@ -8,7 +8,7 @@ import { format, startOfDay, endOfDay, subDays, subMonths, startOfMonth, endOfMo
 import { ArrowUp, ArrowDown, TrendingUp, TrendingDown, DollarSign, Users, Calendar, Filter } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
-import { getCurrentUser } from "@/lib/auth/client";
+import { getCurrentAdmin } from "@/lib/auth/client";
 
 interface Transaction {
   id: string;
@@ -53,13 +53,13 @@ export default function AdminReportsPage() {
   const [customDateRange, setCustomDateRange] = useState(false);
 
   const checkAdmin = useCallback(async () => {
-    const currentUser = await getCurrentUser();
-    if (!currentUser || !currentUser.is_admin) {
+    const currentAdmin = await getCurrentAdmin();
+    if (!currentAdmin?.id) {
       router.push("/admin/login");
       return;
     }
 
-    setUser(currentUser);
+    setUser(currentAdmin);
     setIsAdmin(true);
   }, [router]);
 

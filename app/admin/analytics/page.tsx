@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { format, startOfDay, endOfDay, subDays, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, parseISO } from "date-fns";
 import { BarChart3, TrendingUp, DollarSign, Users, Calendar, Filter } from "lucide-react";
-import { getCurrentUser } from "@/lib/auth/client";
+import { getCurrentAdmin } from "@/lib/auth/client";
 import {
   LineChart,
   Line,
@@ -87,13 +87,13 @@ export default function AdminAnalyticsPage() {
   const [customDateRange, setCustomDateRange] = useState(false);
 
   const checkAdmin = useCallback(async () => {
-    const currentUser = await getCurrentUser();
-    if (!currentUser || !currentUser.is_admin) {
+    const currentAdmin = await getCurrentAdmin();
+    if (!currentAdmin?.id) {
       router.push("/admin/login");
       return;
     }
 
-    setUser(currentUser);
+    setUser(currentAdmin);
     setIsAdmin(true);
   }, [router]);
 
