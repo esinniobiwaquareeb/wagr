@@ -94,29 +94,43 @@ export default function AdminLogin() {
       const apiResponse = await response.json();
 
       if (!response.ok) {
-        const errorMessage = apiResponse.error?.message || 'Login failed';
+        const errorMessage = apiResponse.error?.message || apiResponse.message || 'Login failed';
         throw new Error(errorMessage);
       }
 
       // Parse admin login response
+      // Response format: { success: true, data: { admin: {...}, token: "..." } }
+      if (!apiResponse.success) {
+        throw new Error(apiResponse.error?.message || 'Login failed');
+      }
+
       const adminData = apiResponse.data?.admin;
 
-      if (adminData) {
-        // Clear form
-        setEmail("");
-        setPassword("");
-        
-        // Trigger auth state update
-        window.dispatchEvent(new Event('auth-state-changed'));
-        
-        // Force router refresh to update server components with new session
-        router.refresh();
-        
-        // Small delay to ensure session cookie is set, then redirect
-        setTimeout(() => {
-          router.replace("/admin");
-        }, 100);
+      if (!adminData) {
+        console.error('Admin login response:', apiResponse);
+        throw new Error('Invalid response: Admin data not found');
       }
+
+      // Clear form
+      setEmail("");
+      setPassword("");
+      
+      // Show success message
+      toast({
+        title: "Login successful",
+        description: `Welcome back, ${adminData.full_name || adminData.email}!`,
+      });
+      
+      // Trigger auth state update
+      window.dispatchEvent(new Event('auth-state-changed'));
+      
+      // Force router refresh to update server components with new session
+      router.refresh();
+      
+      // Small delay to ensure session cookie is set, then redirect
+      setTimeout(() => {
+        router.replace("/admin");
+      }, 100);
     } catch (error) {
       console.error("Login error:", error);
       const { extractErrorMessage } = await import('@/lib/error-extractor');

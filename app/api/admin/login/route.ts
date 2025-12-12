@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Call NestJS backend admin login endpoint
+    // Backend returns: { success: true, data: { admin: {...}, access_token: "..." } }
     const response = await nestjsServerFetch<{
       admin: {
         id: string;
@@ -36,11 +37,19 @@ export async function POST(request: NextRequest) {
       }),
     });
 
+    // nestjsServerFetch returns the backend response directly on success
+    // So response will be: { success: true, data: { admin: {...}, access_token: "..." } }
     if (!response.success || !response.data) {
-      throw new Error(response.error?.message || 'Login failed');
+      const errorMessage = response.error?.message || response.error?.code || 'Login failed';
+      throw new Error(errorMessage);
     }
 
     const loginData = response.data;
+
+    // Validate that we have the required admin data
+    if (!loginData.admin || !loginData.access_token) {
+      throw new Error('Invalid response: Missing admin data or access token');
+    }
 
     // Create response
     const nextResponse = successResponseNext({

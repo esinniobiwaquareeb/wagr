@@ -10,7 +10,12 @@ export interface AuthUser {
   email: string;
   username: string | null;
   email_verified: boolean;
-  is_admin: boolean;
+  /**
+   * is_admin is only present for admin tokens (type: 'admin')
+   * User tokens should NOT have this field since admins are completely separate
+   * Check with: user?.is_admin === true
+   */
+  is_admin?: boolean;
 }
 
 /**
