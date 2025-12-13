@@ -40,6 +40,7 @@ export default function AdminReportsPage() {
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [fetching, setFetching] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [wagers, setWagers] = useState<any[]>([]);
@@ -87,8 +88,9 @@ export default function AdminReportsPage() {
   };
 
   const fetchTransactions = useCallback(async () => {
-    if (!isAdmin) return;
+    if (!isAdmin || fetching) return;
 
+    setFetching(true);
     try {
       const { apiGet } = await import('@/lib/api-client');
       
@@ -192,8 +194,10 @@ export default function AdminReportsPage() {
         description: "Failed to fetch transactions.",
         variant: "destructive",
       });
+    } finally {
+      setFetching(false);
     }
-  }, [isAdmin, toast, dateRange, transactionType, startDate, endDate, customDateRange, getDateFilter]);
+  }, [isAdmin, fetching, toast, dateRange, transactionType, startDate, endDate, customDateRange]);
 
   useEffect(() => {
     checkAdmin().then(() => {
