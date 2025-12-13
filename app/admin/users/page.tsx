@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { format } from "date-fns";
@@ -11,7 +10,7 @@ import { DataTable } from "@/components/data-table";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import Image from "next/image";
 import Link from "next/link";
-import { getCurrentAdmin } from "@/lib/auth/client";
+import { useAdmin } from "@/contexts/admin-context";
 import { apiGet, apiPatch, apiDelete } from "@/lib/api-client";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -49,33 +48,14 @@ interface User {
 }
 
 export default function AdminUsersPage() {
-  const router = useRouter();
   const { toast } = useToast();
-  const [user, setUser] = useState<any>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const { admin, isAdmin } = useAdmin();
   const [users, setUsers] = useState<User[]>([]);
   const [showSuspendDialog, setShowSuspendDialog] = useState(false);
   const [showUnsuspendDialog, setShowUnsuspendDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [suspensionReason, setSuspensionReason] = useState("");
-
-  const checkAdmin = useCallback(async () => {
-    try {
-      const currentAdmin = await getCurrentAdmin(true); // Force refresh
-      if (!currentAdmin?.id) {
-        router.replace("/admin/login");
-        return;
-      }
-
-      setUser(currentAdmin);
-      setIsAdmin(true);
-    } catch (error) {
-      console.error("Error checking admin status:", error);
-      router.replace("/admin/login");
-    }
-  }, [router]);
 
   const fetchUsers = useCallback(async () => {
     if (!isAdmin) return;
@@ -188,24 +168,6 @@ export default function AdminUsersPage() {
   };
 
   useEffect(() => {
-    let mounted = true;
-    
-    checkAdmin().then(() => {
-      if (mounted) {
-        setLoading(false);
-      }
-    }).catch(() => {
-      if (mounted) {
-        setLoading(false);
-      }
-    });
-
-    return () => {
-      mounted = false;
-    };
-  }, [checkAdmin]);
-
-  useEffect(() => {
     if (isAdmin) {
       fetchUsers();
     }
@@ -228,21 +190,6 @@ export default function AdminUsersPage() {
       { label: 'Suspended', value: suspended, icon: ShieldAlert },
     ];
   }, [users]);
-
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </main>
-    );
-  }
-
-  if (!isAdmin) {
-    return null;
-  }
 
   return (
     <main className="min-h-screen bg-background p-4 md:p-6">

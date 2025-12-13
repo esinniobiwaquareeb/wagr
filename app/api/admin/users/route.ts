@@ -62,7 +62,7 @@ export async function PATCH(request: NextRequest) {
       method: 'PATCH',
       token,
       requireAuth: true,
-      body,
+      body: JSON.stringify(body),
     });
 
     if (!response.success) {

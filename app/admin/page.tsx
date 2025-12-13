@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { format } from "date-fns";
@@ -11,9 +10,7 @@ import {
   DollarSign, 
   Activity, 
   CheckCircle, 
-  XCircle,
-  Clock,
-  Eye
+  Clock
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -24,8 +21,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getCurrentAdmin } from "@/lib/auth/client";
+import { useAdmin } from "@/contexts/admin-context";
 import { apiGet } from "@/lib/api-client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface Stats {
   totalUsers: number;
@@ -57,37 +55,15 @@ interface Transaction {
 }
 
 export default function AdminPage() {
-  const router = useRouter();
   const { toast } = useToast();
-  const [user, setUser] = useState<any>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const { admin } = useAdmin();
   const [stats, setStats] = useState<Stats | null>(null);
   const [recentWagers, setRecentWagers] = useState<Wager[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [resolving, setResolving] = useState<string | null>(null);
 
-  const checkAdmin = useCallback(async () => {
-    try {
-      const currentAdmin = await getCurrentAdmin(true); // Force refresh to get latest admin status
-      if (!currentAdmin?.id) {
-        router.replace("/admin/login");
-        return;
-      }
-
-      // Backend AdminGuard already validates admin tokens (type: 'admin')
-      // If we get here with a valid admin object, they have admin access
-
-      setUser(currentAdmin);
-      setIsAdmin(true);
-    } catch (error) {
-      console.error("Error checking admin status:", error);
-      router.replace("/admin/login");
-    }
-  }, [router, toast]);
-
   const fetchStats = useCallback(async () => {
-    if (!user?.id) return;
+    if (!admin?.id) return;
 
     try {
       const response = await apiGet<{ stats: Stats }>('/admin/stats');
@@ -100,10 +76,10 @@ export default function AdminPage() {
         variant: "destructive",
       });
     }
-  }, [user?.id, toast]);
+  }, [admin?.id, toast]);
 
   const fetchRecentWagers = useCallback(async () => {
-    if (!user?.id) return;
+    if (!admin?.id) return;
 
     try {
       const response = await apiGet<{ wagers: Wager[] }>('/wagers?limit=10');
@@ -111,10 +87,10 @@ export default function AdminPage() {
     } catch (error) {
       console.error("Error fetching recent wagers:", error);
     }
-  }, [user?.id]);
+  }, [admin?.id]);
 
   const fetchRecentTransactions = useCallback(async () => {
-    if (!user?.id) return;
+    if (!admin?.id) return;
 
     try {
       const response = await apiGet<{ transactions: Transaction[] }>('/admin/transactions?limit=20');
@@ -127,10 +103,10 @@ export default function AdminPage() {
         variant: "destructive",
       });
     }
-  }, [user?.id, toast]);
+  }, [admin?.id, toast]);
 
   const handleResolveWager = async (wagerId: string, winningSide: "a" | "b") => {
-    if (!user?.id) return;
+    if (!admin?.id) return;
 
     setResolving(wagerId);
     try {
@@ -161,35 +137,7 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    let mounted = true;
-    
-    checkAdmin().then(() => {
-      if (mounted) {
-        setLoading(false);
-      }
-    }).catch(() => {
-      if (mounted) {
-        setLoading(false);
-      }
-    });
-
-    // Listen for auth state changes (e.g., after login)
-    const handleAuthStateChange = () => {
-      if (mounted && !isAdmin) {
-        checkAdmin();
-      }
-    };
-
-    window.addEventListener('auth-state-changed', handleAuthStateChange);
-
-    return () => {
-      mounted = false;
-      window.removeEventListener('auth-state-changed', handleAuthStateChange);
-    };
-  }, [checkAdmin, isAdmin]);
-
-  useEffect(() => {
-    if (user?.id) {
+    if (admin?.id) {
       // Fetch data in parallel for better performance
       Promise.all([
         fetchStats(),
@@ -199,34 +147,7 @@ export default function AdminPage() {
         console.error("Error fetching admin data:", error);
       });
     }
-  }, [user?.id]); // Removed function dependencies to prevent infinite loops
-
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
-          <p className="text-muted-foreground">Loading admin panel...</p>
-        </div>
-      </main>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <main className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground mb-4">Redirecting to admin login...</p>
-          <Link
-            href="/admin/login"
-            className="text-primary hover:underline"
-          >
-            Go to Admin Login
-          </Link>
-        </div>
-      </main>
-    );
-  }
+  }, [admin?.id, fetchStats, fetchRecentWagers, fetchRecentTransactions]);
 
   return (
     <main className="min-h-screen bg-background">
@@ -246,57 +167,69 @@ export default function AdminPage() {
 
         {/* Stats Grid */}
         {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-6">
-            <div className="bg-card border border-border rounded-lg p-3 md:p-4">
-              <div className="flex items-center gap-2 mb-1">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 mb-4 md:mb-6">
+            <Card className="border border-border/80 hover:border-border transition-colors">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Users</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
-                <p className="text-[10px] md:text-xs text-muted-foreground">Total Users</p>
-              </div>
-              <p className="text-lg md:text-2xl font-bold">{stats.totalUsers}</p>
-            </div>
-            <div className="bg-card border border-border rounded-lg p-3 md:p-4">
-              <div className="flex items-center gap-2 mb-1">
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-semibold">{stats.totalUsers.toLocaleString()}</div>
+              </CardContent>
+            </Card>
+            <Card className="border border-border/80 hover:border-border transition-colors">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Wagers</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                <p className="text-[10px] md:text-xs text-muted-foreground">Total Wagers</p>
-              </div>
-              <p className="text-lg md:text-2xl font-bold">{stats.totalWagers}</p>
-            </div>
-            <div className="bg-card border border-border rounded-lg p-3 md:p-4">
-              <div className="flex items-center gap-2 mb-1">
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-semibold">{stats.totalWagers.toLocaleString()}</div>
+              </CardContent>
+            </Card>
+            <Card className="border border-border/80 hover:border-border transition-colors">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Open Wagers</CardTitle>
                 <Activity className="h-4 w-4 text-muted-foreground" />
-                <p className="text-[10px] md:text-xs text-muted-foreground">Open Wagers</p>
-              </div>
-              <p className="text-lg md:text-2xl font-bold">{stats.openWagers}</p>
-            </div>
-            <div className="bg-card border border-border rounded-lg p-3 md:p-4">
-              <div className="flex items-center gap-2 mb-1">
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-semibold">{stats.openWagers.toLocaleString()}</div>
+              </CardContent>
+            </Card>
+            <Card className="border border-border/80 hover:border-border transition-colors">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Resolved</CardTitle>
                 <CheckCircle className="h-4 w-4 text-muted-foreground" />
-                <p className="text-[10px] md:text-xs text-muted-foreground">Resolved</p>
-              </div>
-              <p className="text-lg md:text-2xl font-bold">{stats.resolvedWagers}</p>
-            </div>
-            <div className="bg-card border border-border rounded-lg p-3 md:p-4">
-              <div className="flex items-center gap-2 mb-1">
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-semibold">{stats.resolvedWagers.toLocaleString()}</div>
+              </CardContent>
+            </Card>
+            <Card className="border border-border/80 hover:border-border transition-colors">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Volume</CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <p className="text-[10px] md:text-xs text-muted-foreground">Total Volume</p>
-              </div>
-              <p className="text-lg md:text-2xl font-bold">
-                {formatCurrency(stats.totalVolume, DEFAULT_CURRENCY as Currency)}
-              </p>
-            </div>
-            <div className="bg-card border border-border rounded-lg p-3 md:p-4">
-              <div className="flex items-center gap-2 mb-1">
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-semibold">
+                  {formatCurrency(stats.totalVolume, DEFAULT_CURRENCY as Currency)}
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border border-border/80 hover:border-border transition-colors">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Transactions</CardTitle>
                 <Activity className="h-4 w-4 text-muted-foreground" />
-                <p className="text-[10px] md:text-xs text-muted-foreground">Transactions</p>
-              </div>
-              <p className="text-lg md:text-2xl font-bold">{stats.totalTransactions}</p>
-            </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-semibold">{stats.totalTransactions.toLocaleString()}</div>
+              </CardContent>
+            </Card>
           </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
           {/* Recent Wagers */}
-          <div className="bg-card border border-border rounded-lg p-3 md:p-4">
+          <Card className="border border-border/80">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm md:text-base font-semibold">Recent Wagers</h2>
               <Link
@@ -376,10 +309,10 @@ export default function AdminPage() {
                 </TableBody>
               </Table>
             </div>
-          </div>
+          </Card>
 
           {/* Recent Transactions */}
-          <div className="bg-card border border-border rounded-lg p-3 md:p-4">
+          <Card className="border border-border/80">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm md:text-base font-semibold">Recent Transactions</h2>
               <Link
@@ -432,7 +365,7 @@ export default function AdminPage() {
                 </TableBody>
               </Table>
             </div>
-          </div>
+          </Card>
         </div>
       </div>
     </main>
