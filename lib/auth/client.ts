@@ -94,6 +94,7 @@ export async function logout(): Promise<void> {
 
 /**
  * Get current admin from API with deduplication (no caching)
+ * Uses Next.js API route /api/admin/me (not direct backend call)
  */
 export const getCurrentAdmin = async (forceRefresh = false): Promise<AdminAuthUser | null> => {
   // Use request deduplication to prevent multiple simultaneous calls
@@ -103,6 +104,7 @@ export const getCurrentAdmin = async (forceRefresh = false): Promise<AdminAuthUs
     const admin = await requestDeduplication.deduplicate(
       requestKey,
       async () => {
+        // Use Next.js API route, NOT direct backend call
         const response = await fetch('/api/admin/me', {
           credentials: 'include',
           cache: 'no-store', // Always fetch fresh from server
@@ -113,8 +115,14 @@ export const getCurrentAdmin = async (forceRefresh = false): Promise<AdminAuthUs
         }
 
         const data = await response.json();
+        
+        // Safely check response structure
+        if (!data || !data.success || !data.data) {
+          return null;
+        }
+        
         // API response format: { success: true, data: { admin: ... } }
-        if (data.success && data.data?.admin) {
+        if (data.data.admin) {
           const adminData = data.data.admin;
           return adminData;
         }

@@ -63,9 +63,10 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
         const wagerData = response.wager;
         setWager(wagerData);
 
-        // Extract entries from wager data
-        const entriesData = wagerData.entries || [];
-        const entriesWithFallback = entriesData.map((entry: any) => ({
+        // Extract entries from wager data - ensure it's always an array
+        const entriesData = wagerData.entries;
+        const entriesArray = Array.isArray(entriesData) ? entriesData : [];
+        const entriesWithFallback = entriesArray.map((entry: any) => ({
           ...entry,
           user: entry.user || null,
         }));
@@ -446,7 +447,10 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <p>
-                <span className="text-muted-foreground">Category:</span> {wager.category || "—"}
+                <span className="text-muted-foreground">Category:</span>{" "}
+                {typeof wager.category === 'object' && wager.category !== null
+                  ? wager.category.label || wager.category.slug || "—"
+                  : wager.category || "—"}
               </p>
               <p className="flex gap-2">
                 <span className="text-muted-foreground">Sides:</span>

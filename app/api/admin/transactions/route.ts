@@ -28,6 +28,8 @@ export async function GET(request: NextRequest) {
     if (searchParams.get('offset')) queryParams.set('offset', searchParams.get('offset')!);
     if (searchParams.get('type')) queryParams.set('type', searchParams.get('type')!);
     if (searchParams.get('userId')) queryParams.set('userId', searchParams.get('userId')!);
+    if (searchParams.get('startDate')) queryParams.set('startDate', searchParams.get('startDate')!);
+    if (searchParams.get('endDate')) queryParams.set('endDate', searchParams.get('endDate')!);
 
     const query = queryParams.toString();
 
