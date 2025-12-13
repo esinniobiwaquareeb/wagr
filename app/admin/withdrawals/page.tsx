@@ -8,6 +8,7 @@ import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAdmin } from "@/contexts/admin-context";
+import { DollarSign, Clock, CheckCircle } from "lucide-react";
 
 interface Withdrawal {
   id: string;
@@ -70,12 +71,74 @@ export default function AdminWithdrawals() {
   };
 
 
+  // Calculate stats
+  const stats = {
+    total: withdrawals.length,
+    completed: withdrawals.filter(w => w.status === 'completed').length,
+    pending: withdrawals.filter(w => w.status === 'pending').length,
+    processing: withdrawals.filter(w => w.status === 'processing').length,
+    failed: withdrawals.filter(w => w.status === 'failed').length,
+    totalAmount: withdrawals.reduce((sum, w) => sum + w.amount, 0),
+    pendingAmount: withdrawals.filter(w => w.status === 'pending' || w.status === 'processing').reduce((sum, w) => sum + w.amount, 0),
+  };
+
   return (
-    <main className="flex-1 pb-24 md:pb-0">
-      <div className="max-w-7xl mx-auto p-4 md:p-6">
-        <div className="mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">Withdrawals</h1>
-          <p className="text-muted-foreground">Manage user withdrawal requests</p>
+    <main className="min-h-screen bg-background p-4 md:p-6 lg:p-8 pb-24 md:pb-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="space-y-2">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Withdrawals</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
+            Review and process user withdrawal requests
+          </p>
+        </div>
+
+        {/* Stats */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Withdrawals</CardTitle>
+              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                <DollarSign className="h-4 w-4 text-primary" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.total.toLocaleString()}</div>
+            </CardContent>
+          </Card>
+          <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
+              <div className="h-9 w-9 rounded-lg bg-yellow-500/10 flex items-center justify-center group-hover:bg-yellow-500/20 transition-colors">
+                <Clock className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.pending.toLocaleString()}</div>
+            </CardContent>
+          </Card>
+          <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle>
+              <div className="h-9 w-9 rounded-lg bg-green-500/10 flex items-center justify-center group-hover:bg-green-500/20 transition-colors">
+                <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.completed.toLocaleString()}</div>
+            </CardContent>
+          </Card>
+          <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Pending Amount</CardTitle>
+              <div className="h-9 w-9 rounded-lg bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
+                <DollarSign className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(stats.pendingAmount, currency)}</div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Withdrawals Table */}
@@ -168,12 +231,12 @@ export default function AdminWithdrawals() {
               ),
             },
           ]}
-          searchable
-          searchPlaceholder="Search by user ID, reference, or status..."
-          searchKeys={["user_id", "reference", "status"]}
-          pagination
-          pageSize={20}
-          sortable
+              searchable
+              searchPlaceholder="Search by user ID, reference, or status..."
+              searchKeys={["user_id", "reference", "status"]}
+              pagination
+              pageSize={20}
+              sortable
               defaultSort={{ key: "created_at", direction: "desc" }}
               emptyMessage="No withdrawals found"
             />

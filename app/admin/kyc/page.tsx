@@ -5,7 +5,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useAdmin } from "@/contexts/admin-context";
 import { apiGet, apiPatch } from "@/lib/api-client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -54,12 +54,12 @@ export default function AdminKycPage() {
   const [reviewReason, setReviewReason] = useState('');
   const [activeSubmission, setActiveSubmission] = useState<KycSubmission | null>(null);
   const [processingDecision, setProcessingDecision] = useState(false);
-      console.error("Error checking admin status:", error);
-      router.replace("/admin/login");
+  const [loading, setLoading] = useState(false);
 
   const fetchSubmissions = useCallback(
     async (status = activeFilter) => {
       if (!isAdmin) return;
+      setLoading(true);
       try {
         const response = await apiGet<{ submissions: KycSubmission[]; summary: KycSummaryCounts }>(
           `/admin/kyc?status=${status}`,
@@ -73,6 +73,8 @@ export default function AdminKycPage() {
           description: "Failed to fetch KYC submissions.",
           variant: "destructive",
         });
+      } finally {
+        setLoading(false);
       }
     },
     [activeFilter, isAdmin, toast],
@@ -284,12 +286,13 @@ export default function AdminKycPage() {
 
 
   return (
-    <main className="min-h-screen bg-background p-4 md:p-6">
+    <main className="min-h-screen bg-background p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="space-y-1">
-          <h1 className="text-2xl md:text-3xl font-bold">KYC Reviews</h1>
-          <p className="text-sm text-muted-foreground">
-            Oversee all identity submissions, approve verified accounts, and keep the platform compliant.
+        {/* Header */}
+        <div className="space-y-2">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">KYC Reviews</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
+            Review and verify user identity verification submissions
           </p>
         </div>
 
@@ -327,13 +330,26 @@ export default function AdminKycPage() {
           </TabsList>
         </Tabs>
 
+        {/* KYC Submissions Table */}
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
+          <Card className="border border-border/80">
+            <CardContent className="py-12">
+              <div className="flex items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            </CardContent>
+          </Card>
         ) : (
           <Card className="border border-border/80">
-            <CardContent className="p-0">
+            <CardHeader>
+              <CardTitle>KYC Submissions</CardTitle>
+              <CardDescription>
+                {activeFilter === 'all' 
+                  ? 'All KYC submissions across all statuses'
+                  : `KYC submissions with ${activeFilter} status`}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
               <DataTable
                 data={submissions.map(sub => ({
                   ...sub,
