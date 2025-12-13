@@ -101,7 +101,12 @@ function WagersPageContent() {
         wager.description?.toLowerCase().includes(query) ||
         wager.side_a.toLowerCase().includes(query) ||
         wager.side_b.toLowerCase().includes(query) ||
-        wager.category?.toLowerCase().includes(query) ||
+        (() => {
+          const category = wager.category;
+          if (!category) return false;
+          return category.slug?.toLowerCase().includes(query) || 
+                 category.label?.toLowerCase().includes(query) || false;
+        })() ||
         wager.tags?.some(tag => tag.toLowerCase().includes(query))
       );
       
@@ -134,7 +139,10 @@ function WagersPageContent() {
     
     // Filter by category from URL params (applies to both search results and normal tab results)
     if (selectedCategory) {
-      tabWagers = tabWagers.filter(wager => wager.category === selectedCategory);
+      tabWagers = tabWagers.filter(wager => {
+        const categorySlug = wager.category?.slug || null;
+        return categorySlug === selectedCategory;
+      });
     }
     
     // Filter by user preferences (only if user has selected specific categories and not all)
@@ -146,7 +154,13 @@ function WagersPageContent() {
       // Only filter if user has selected some but not all categories
       if (!hasAllCategories) {
         tabWagers = tabWagers.filter(wager => 
-          !wager.category || preferredCategories.includes(wager.category)
+          (() => {
+            if (!wager.category) return true;
+            const categorySlug = typeof wager.category === 'string' 
+              ? wager.category 
+              : wager.category?.slug || null;
+            return !categorySlug || preferredCategories.includes(categorySlug);
+          })()
         );
       }
     }
@@ -568,9 +582,9 @@ function WagersPageContent() {
               amount={wager.amount}
               status={wager.status}
               entriesCount={wager.entries_count}
-              deadline={wager.deadline}
+              deadline={wager.deadline || ""}
               currency={wager.currency}
-              category={wager.category}
+              category={wager.category?.slug || wager.category?.label || undefined}
               sideACount={wager.side_a_count || 0}
               sideBCount={wager.side_b_count || 0}
               sideATotal={wager.side_a_total || 0}

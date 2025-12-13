@@ -13,7 +13,7 @@ import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useSettings } from "@/hooks/use-settings";
 import { wagersApi } from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
-import { Wager } from "@/lib/types/api";
+import { Wager, Category } from "@/lib/types/api";
 
 interface WagerWithEntries extends Wager {
   entries_count: number;
@@ -105,7 +105,12 @@ function WagersPageContent() {
         wager.description?.toLowerCase().includes(query) ||
         wager.side_a.toLowerCase().includes(query) ||
         wager.side_b.toLowerCase().includes(query) ||
-        wager.category?.toLowerCase().includes(query) ||
+        (() => {
+          const category = wager.category;
+          if (!category) return false;
+          return category.slug?.toLowerCase().includes(query) || 
+                 category.label?.toLowerCase().includes(query) || false;
+        })() ||
         wager.tags?.some(tag => tag.toLowerCase().includes(query))
       );
       
@@ -138,7 +143,12 @@ function WagersPageContent() {
     
     // Filter by category (applies to both search results and normal tab results)
     if (selectedCategory) {
-      tabWagers = tabWagers.filter(wager => wager.category === selectedCategory);
+      tabWagers = tabWagers.filter(wager => {
+        const categorySlug = typeof wager.category === 'string' 
+          ? wager.category 
+          : wager.category?.slug || null;
+        return categorySlug === selectedCategory;
+      });
     }
     
     return tabWagers;
@@ -203,9 +213,7 @@ function WagersPageContent() {
         // Extract category slug if category is an object
         let categorySlug: string | undefined;
         if (wager.category) {
-          if (typeof wager.category === 'string') {
-            categorySlug = wager.category;
-          } else if (wager.category.slug) {
+          if (wager.category.slug) {
             categorySlug = wager.category.slug;
           } else if (wager.category.label) {
             categorySlug = wager.category.label.toLowerCase().replace(/\s+/g, '-');
@@ -558,9 +566,9 @@ function WagersPageContent() {
               amount={wager.amount}
               status={wager.status}
               entriesCount={wager.entries_count}
-              deadline={wager.deadline}
+              deadline={wager.deadline || ""}
               currency={wager.currency}
-              category={wager.category}
+              category={wager.category?.slug || wager.category?.label || undefined}
               sideACount={wager.side_a_count || 0}
               sideBCount={wager.side_b_count || 0}
               sideATotal={wager.side_a_total || 0}

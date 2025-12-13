@@ -420,7 +420,9 @@ export default function AdminWagersPage() {
               accessorKey: "category",
               cell: (row) => (
                 <span className="text-xs text-muted-foreground capitalize">
-                  {row.category || "N/A"}
+                  {typeof row.category === 'object' && row.category !== null
+                    ? row.category.slug || row.category.label || "N/A"
+                    : row.category_id || "N/A"}
                 </span>
               ),
             },
@@ -612,7 +614,9 @@ function AdminWagerModal({
         sideA: wager.side_a || "",
         sideB: wager.side_b || "",
         deadline: wager.deadline ? new Date(wager.deadline).toISOString().slice(0, 16) : "",
-        category: wager.category || "",
+        category: typeof wager.category === 'object' && wager.category !== null
+          ? wager.category.slug || wager.category.id || ""
+          : wager.category_id || "",
         currency: wager.currency || "NGN",
         isPublic: wager.is_public ?? true,
         isSystemGenerated: wager.is_system_generated || false,

@@ -772,7 +772,9 @@ export default function WagerDetail() {
       sideB: wager.side_b,
       amount: wager.amount.toString(),
       deadline: utcToLocal(wager.deadline),
-      category: wager.category || "",
+      category: (wager.category && typeof wager.category === 'object' 
+        ? wager.category.slug || wager.category.id || ""
+        : wager.category_id || ""),
     });
     setShowEditDialog(true);
   };
@@ -1619,7 +1621,7 @@ export default function WagerDetail() {
                 entries={entries}
                 userNames={userNames}
                 wager={{
-                  creator_id: wager.creator_id,
+                  creator_id: wager.creator_id || undefined,
                   status: wager.status,
                   winning_side: wager.winning_side,
                   side_a: wager.side_a,
