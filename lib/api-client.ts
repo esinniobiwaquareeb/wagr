@@ -270,3 +270,22 @@ export const commentsApi = {
     apiDelete<{ message: string }>(`/wagers/${wagerId}/comments/${commentId}`),
 };
 
+/**
+ * Categories API
+ */
+export const categoriesApi = {
+  list: (includeInactive = false) => {
+    const query = includeInactive ? '?includeInactive=true' : '';
+    return apiGet<{ categories: Array<{
+      id: string;
+      slug: string;
+      label: string;
+      icon: string | null;
+      description: string | null;
+      is_active: boolean;
+      is_system: boolean;
+      usage_count: number;
+    }> }>(`/categories${query}`);
+  },
+};
+

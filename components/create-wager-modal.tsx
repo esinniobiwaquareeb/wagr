@@ -7,9 +7,9 @@ import { useToast } from "@/hooks/use-toast";
 import { DEFAULT_CURRENCY, type Currency, CURRENCY_SYMBOLS, formatCurrency } from "@/lib/currency";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
 import { Globe, Lock, Tag } from "lucide-react";
-import { wagersApi, walletApi } from "@/lib/api-client";
+import { wagersApi, walletApi, categoriesApi } from "@/lib/api-client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { WAGER_CATEGORIES, COMMON_SIDES, DEFAULT_WAGER_AMOUNT, PLATFORM_FEE_PERCENTAGE, UI } from "@/lib/constants";
+import { COMMON_SIDES, PLATFORM_FEE_PERCENTAGE, UI } from "@/lib/constants";
 import Link from 'next/link';
 import { useSettings } from "@/hooks/use-settings";
 
@@ -39,6 +39,13 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
     deadline: string;
   }>>([]);
   const [titleSuggestions, setTitleSuggestions] = useState<string[]>([]);
+  const [categories, setCategories] = useState<Array<{
+    id: string;
+    slug: string;
+    label: string;
+    icon: string | null;
+  }>>([]);
+  const [loadingCategories, setLoadingCategories] = useState(false);
   const { toast } = useToast();
   const { getSetting, getWagerLimits } = useSettings();
   
@@ -191,12 +198,41 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
     }
   }, [user, formData.amount, checkBalance]);
 
-  // Fetch balance when user is available and modal opens
-  useEffect(() => {
-    if (open && user) {
-      fetchUserBalance();
+  // Fetch categories when modal opens
+  const fetchCategories = useCallback(async () => {
+    setLoadingCategories(true);
+    try {
+      const response = await categoriesApi.list(false);
+      if (response && response.categories) {
+        // Map backend categories to frontend format
+        const mappedCategories = response.categories
+          .filter(cat => cat.is_active)
+          .map(cat => ({
+            id: cat.id, // Use UUID as id
+            slug: cat.slug,
+            label: cat.label,
+            icon: cat.icon || null,
+          }));
+        setCategories(mappedCategories);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      // Fallback to empty array on error
+      setCategories([]);
+    } finally {
+      setLoadingCategories(false);
     }
-  }, [open, user, fetchUserBalance]);
+  }, []);
+
+  // Fetch balance and categories when user is available and modal opens
+  useEffect(() => {
+    if (open) {
+      if (user) {
+        fetchUserBalance();
+      }
+      fetchCategories();
+    }
+  }, [open, user, fetchUserBalance, fetchCategories]);
 
   const handleSideTemplateSelect = (template: { sideA: string; sideB: string } | null) => {
     if (template) {
@@ -737,11 +773,12 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 className="w-full px-2.5 py-1.5 text-sm border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                disabled={loadingCategories}
               >
                 <option value="">None</option>
-                {WAGER_CATEGORIES.map((category) => (
+                {categories.map((category) => (
                   <option key={category.id} value={category.id}>
-                    {category.icon} {category.label}
+                    {category.icon ? `${category.icon} ` : ''}{category.label}
                   </option>
                 ))}
               </select>

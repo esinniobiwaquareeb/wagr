@@ -12,34 +12,12 @@ import { PLATFORM_FEE_PERCENTAGE, WAGER_CATEGORIES } from "@/lib/constants";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { wagersApi, preferencesApi } from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
-
-interface Wager {
-  id: string;
-  title: string;
-  description: string;
-  side_a: string;
-  side_b: string;
-  amount: number;
-  status: string;
-  deadline: string;
-  created_at?: string;
-  currency?: string;
-  category?: string;
-  tags?: string[];
-  is_system_generated?: boolean;
-  is_public?: boolean;
-  fee_percentage?: number;
-  winning_side?: string | null;
-  short_id?: string | null;
-}
+import { Wager } from "@/lib/types/api";
 
 interface WagerWithEntries extends Wager {
   entries_count: number;
-  side_a_count?: number;
-  side_b_count?: number;
   side_a_total?: number;
   side_b_total?: number;
-  winning_side?: string | null;
 }
 
 type TabType = 'all' | 'system' | 'user' | 'expired' | 'settled';

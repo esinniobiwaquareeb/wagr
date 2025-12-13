@@ -22,25 +22,7 @@ import { useSettings } from "@/hooks/use-settings";
 import { WagerActivities } from "@/components/wager-activities";
 import { WagerParticipants } from "@/components/wager-participants";
 import { wagersApi, walletApi } from "@/lib/api-client";
-
-interface Wager {
-  id: string;
-  title: string;
-  description: string;
-  side_a: string;
-  side_b: string;
-  amount: number;
-  status: string;
-  deadline: string;
-  winning_side: string | null;
-  fee_percentage: number;
-  currency?: string;
-  category?: string | null;
-  is_system_generated?: boolean;
-  is_public?: boolean;
-  creator_id?: string;
-  short_id?: string | null;
-}
+import { Wager } from "@/lib/types/api";
 
 interface Entry {
   id: string;

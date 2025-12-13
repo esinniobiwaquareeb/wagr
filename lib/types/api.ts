@@ -59,10 +59,25 @@ export interface UserProfile {
 }
 
 /**
- * Wager types
+ * Category type (returned as relation object from backend)
+ */
+export interface Category {
+  id: string;
+  slug: string;
+  label: string;
+  icon: string | null;
+  description: string | null;
+  is_active: boolean;
+  is_system: boolean;
+  usage_count: number;
+}
+
+/**
+ * Wager types - matches database structure
  */
 export interface Wager {
   id: string;
+  short_id: string | null;
   creator_id: string | null;
   title: string;
   description: string | null;
@@ -70,21 +85,34 @@ export interface Wager {
   side_a: string;
   side_b: string;
   deadline: string | null;
-  status: 'OPEN' | 'CLOSED' | 'RESOLVED' | 'REFUNDED';
+  status: 'OPEN' | 'RESOLVED' | 'SETTLED' | 'REFUNDED';
   winning_side: string | null;
   fee_percentage: number;
-  category: string | null;
+  currency: string;
+  tags: string[];
+  is_system_generated: boolean;
+  source_data: Record<string, any> | null;
   is_public: boolean;
   created_at: string;
+  updated_at: string;
+  category_id: string | null;
+  // Relations (populated by backend)
+  category?: Category | null;
   creator?: {
     id: string;
     username: string | null;
     avatar_url: string | null;
   };
+  // Computed fields (added by backend)
   participants_count?: number;
   side_a_count?: number;
   side_b_count?: number;
   total_pool?: number;
+  entryCounts?: {
+    sideA: number;
+    sideB: number;
+    total: number;
+  };
 }
 
 /**

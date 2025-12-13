@@ -29,6 +29,7 @@ import { apiGet } from "@/lib/api-client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Wager } from "@/lib/types/api";
 
 interface Stats {
   totalUsers: number;
@@ -37,17 +38,6 @@ interface Stats {
   resolvedWagers: number;
   totalTransactions: number;
   totalVolume: number;
-}
-
-interface Wager {
-  id: string;
-  title: string;
-  status: string;
-  amount: number;
-  created_at: string;
-  deadline: string | null;
-  creator_id: string | null;
-  is_system_generated: boolean;
 }
 
 interface Transaction {

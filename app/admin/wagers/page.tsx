@@ -14,24 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { WAGER_CATEGORIES } from "@/lib/constants";
-
-interface Wager {
-  id: string;
-  title: string;
-  description?: string | null;
-  status: string;
-  amount: number;
-  created_at: string;
-  deadline: string | null;
-  creator_id: string | null;
-  is_system_generated: boolean;
-  winning_side: string | null;
-  category: string | null;
-  currency?: string;
-  side_a: string;
-  side_b: string;
-  is_public?: boolean;
-}
+import { Wager } from "@/lib/types/api";
 
 export default function AdminWagersPage() {
   const { toast } = useToast();
