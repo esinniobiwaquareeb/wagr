@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { BarChart3, Home, Users, CreditCard, Settings, Shield, ShieldCheck, LogOut, Wallet, FileText, BookOpen, ChevronRight } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useState } from "react";
-import { logout } from "@/lib/auth/client";
+import { adminLogout } from "@/lib/auth/client";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useAdmin } from "@/contexts/admin-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -23,8 +23,8 @@ export function AdminSidebar() {
 
   const handleLogout = async () => {
     try {
-      // Call logout API
-      await logout();
+      // Call admin logout API
+      await adminLogout();
       
       // Dispatch auth state change event
       window.dispatchEvent(new Event('auth-state-changed'));
@@ -33,7 +33,7 @@ export function AdminSidebar() {
       // Use window.location.href for a hard redirect
       window.location.href = '/admin/login';
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('Admin logout error:', error);
       // Even if logout fails, redirect to login page
       window.location.href = '/admin/login';
     }

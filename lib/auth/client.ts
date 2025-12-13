@@ -93,6 +93,35 @@ export async function logout(): Promise<void> {
 }
 
 /**
+ * Logout admin
+ */
+export async function adminLogout(): Promise<void> {
+  try {
+    const response = await fetch('/api/admin/logout', {
+      method: 'POST',
+      credentials: 'include',
+      cache: 'no-store',
+    });
+    
+    if (!response.ok) {
+      console.warn('Admin logout API returned non-OK status:', response.status);
+    }
+  } catch (error) {
+    console.error('Error logging out admin:', error);
+  } finally {
+    // Always remove token from client, even if API call failed
+    // Import here to avoid circular dependency
+    const { removeAuthToken } = await import('@/lib/nestjs-client');
+    removeAuthToken();
+    
+    // Dispatch auth state change event
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('auth-state-changed'));
+    }
+  }
+}
+
+/**
  * Get current admin from API with deduplication (no caching)
  * Uses Next.js API route /api/admin/me (not direct backend call)
  */
