@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY } from "@/lib/currency";
 import { format } from "date-fns";
@@ -9,7 +8,7 @@ import { Eye, Award, Trash2, Loader2, BookOpen, Users, Trophy, Calendar } from "
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataTable } from "@/components/data-table";
-import { getCurrentAdmin } from "@/lib/auth/client";
+import { useAdmin } from "@/contexts/admin-context";
 import { apiDelete } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 
@@ -41,36 +40,14 @@ interface Quiz {
 }
 
 export default function AdminQuizzesPage() {
-  const router = useRouter();
   const { toast } = useToast();
-  const [user, setUser] = useState<any>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const { isAdmin } = useAdmin();
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [filterStatus, setFilterStatus] = useState<"all" | "draft" | "open" | "completed" | "settled">("all");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deletingQuiz, setDeletingQuiz] = useState<Quiz | null>(null);
   const [deleting, setDeleting] = useState(false);
-
-  const checkAdmin = useCallback(async () => {
-    try {
-      const currentAdmin = await getCurrentAdmin(true);
-      if (!currentAdmin?.id) {
-        router.replace("/admin/login");
-        return;
-      }
-
-      setUser(currentAdmin);
-      setIsAdmin(true);
-    } catch (error) {
-      console.error("Error checking admin status:", error);
-      router.replace("/admin/login");
-    }
-  }, [router]);
-
-  useEffect(() => {
-    checkAdmin();
-  }, [checkAdmin]);
+  const [loading, setLoading] = useState(false);
 
   const fetchQuizzes = useCallback(async () => {
     if (!isAdmin) return;

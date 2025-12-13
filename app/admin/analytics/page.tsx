@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { format, startOfDay, endOfDay, subDays, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, parseISO } from "date-fns";
 import { BarChart3, TrendingUp, DollarSign, Users, Calendar, Filter } from "lucide-react";
-import { getCurrentAdmin } from "@/lib/auth/client";
+import { useAdmin } from "@/contexts/admin-context";
 import {
   LineChart,
   Line,
@@ -67,11 +66,8 @@ interface FinancialMetrics {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 export default function AdminAnalyticsPage() {
-  const router = useRouter();
   const { toast } = useToast();
-  const [user, setUser] = useState<any>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const { isAdmin } = useAdmin();
   
   // Data
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -86,16 +82,6 @@ export default function AdminAnalyticsPage() {
   const [endDate, setEndDate] = useState<string>("");
   const [customDateRange, setCustomDateRange] = useState(false);
 
-  const checkAdmin = useCallback(async () => {
-    const currentAdmin = await getCurrentAdmin();
-    if (!currentAdmin?.id) {
-      router.push("/admin/login");
-      return;
-    }
-
-    setUser(currentAdmin);
-    setIsAdmin(true);
-  }, [router]);
 
   const getDateFilter = useCallback(() => {
     const now = new Date();
@@ -254,31 +240,10 @@ export default function AdminAnalyticsPage() {
   }, [isAdmin, toast, dateRange, startDate, endDate, customDateRange, getDateFilter]);
 
   useEffect(() => {
-    checkAdmin().then(() => {
-      setLoading(false);
-    });
-  }, [checkAdmin]);
-
-  useEffect(() => {
     if (isAdmin) {
       fetchData();
     }
   }, [isAdmin, fetchData]);
-
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </main>
-    );
-  }
-
-  if (!isAdmin) {
-    return null;
-  }
 
   // Prepare chart data
   const transactionTypeData = [

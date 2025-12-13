@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import { format, formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import { getCurrentAdmin } from "@/lib/auth/client";
+import { useAdmin } from "@/contexts/admin-context";
 import { apiGet, apiPatch } from "@/lib/api-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -45,10 +44,8 @@ const STATUS_TABS = [
 ];
 
 export default function AdminKycPage() {
-  const router = useRouter();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { isAdmin } = useAdmin();
   const [submissions, setSubmissions] = useState<KycSubmission[]>([]);
   const [summary, setSummary] = useState<KycSummaryCounts>({ pending: 0, verified: 0, rejected: 0 });
   const [activeFilter, setActiveFilter] = useState('pending');
@@ -57,27 +54,12 @@ export default function AdminKycPage() {
   const [reviewReason, setReviewReason] = useState('');
   const [activeSubmission, setActiveSubmission] = useState<KycSubmission | null>(null);
   const [processingDecision, setProcessingDecision] = useState(false);
-
-  const checkAdmin = useCallback(async () => {
-    try {
-      const currentAdmin = await getCurrentAdmin(true);
-      if (!currentAdmin?.id) {
-        router.replace("/admin/login");
-        return false;
-      }
-      setIsAdmin(true);
-      return true;
-    } catch (error) {
       console.error("Error checking admin status:", error);
       router.replace("/admin/login");
-      return false;
-    }
-  }, [router]);
 
   const fetchSubmissions = useCallback(
     async (status = activeFilter) => {
       if (!isAdmin) return;
-      setLoading(true);
       try {
         const response = await apiGet<{ submissions: KycSubmission[]; summary: KycSummaryCounts }>(
           `/admin/kyc?status=${status}`,
@@ -91,20 +73,16 @@ export default function AdminKycPage() {
           description: "Failed to fetch KYC submissions.",
           variant: "destructive",
         });
-      } finally {
-        setLoading(false);
       }
     },
     [activeFilter, isAdmin, toast],
   );
 
   useEffect(() => {
-    checkAdmin().then((allowed) => {
-      if (allowed) {
-        fetchSubmissions();
-      }
-    });
-  }, [checkAdmin, fetchSubmissions]);
+    if (isAdmin) {
+      fetchSubmissions();
+    }
+  }, [isAdmin, fetchSubmissions]);
 
   const handleFilterChange = (filter: string) => {
     setActiveFilter(filter);
@@ -304,9 +282,6 @@ export default function AdminKycPage() {
     [],
   );
 
-  if (!isAdmin) {
-    return null;
-  }
 
   return (
     <main className="min-h-screen bg-background p-4 md:p-6">

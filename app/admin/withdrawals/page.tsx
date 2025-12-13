@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { format } from "date-fns";
 import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
-import { getCurrentAdmin } from "@/lib/auth/client";
+import { useAdmin } from "@/contexts/admin-context";
 
 interface Withdrawal {
   id: string;
@@ -26,24 +25,10 @@ interface Withdrawal {
 }
 
 export default function AdminWithdrawals() {
-  const router = useRouter();
   const { toast } = useToast();
-  const [user, setUser] = useState<any>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const { isAdmin } = useAdmin();
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const currency = DEFAULT_CURRENCY as Currency;
-
-  const checkAdmin = useCallback(async () => {
-    const currentAdmin = await getCurrentAdmin();
-    if (!currentAdmin?.id) {
-      router.push("/admin/login");
-      return;
-    }
-
-    setUser(currentAdmin);
-    setIsAdmin(true);
-  }, [router]);
 
   const fetchWithdrawals = useCallback(async () => {
     if (!isAdmin) return;
@@ -61,12 +46,6 @@ export default function AdminWithdrawals() {
       });
     }
   }, [isAdmin, toast]);
-
-  useEffect(() => {
-    checkAdmin().then(() => {
-      setLoading(false);
-    });
-  }, [checkAdmin]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -89,20 +68,6 @@ export default function AdminWithdrawals() {
     }
   };
 
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </main>
-    );
-  }
-
-  if (!isAdmin) {
-    return null;
-  }
 
   return (
     <main className="flex-1 pb-24 md:pb-0">

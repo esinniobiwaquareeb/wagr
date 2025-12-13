@@ -19,7 +19,7 @@ import {
   Activity,
   Coins,
 } from "lucide-react";
-import { getCurrentAdmin } from "@/lib/auth/client";
+import { useAdmin } from "@/contexts/admin-context";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { Badge } from "@/components/ui/badge";
@@ -51,7 +51,7 @@ interface Transaction {
 export default function AdminTransactionDetailPage({ params }: AdminTransactionDetailPageProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { isAdmin } = useAdmin();
   const [loading, setLoading] = useState(true);
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [copiedRef, setCopiedRef] = useState(false);
@@ -99,21 +99,13 @@ export default function AdminTransactionDetailPage({ params }: AdminTransactionD
   );
 
   useEffect(() => {
-    (async () => {
-      const { id } = await params;
-      try {
-        const currentAdmin = await getCurrentAdmin(true);
-        if (!currentAdmin?.id) {
-          router.replace("/admin/login");
-          return;
-        }
-        setIsAdmin(true);
+    if (isAdmin) {
+      (async () => {
+        const { id } = await params;
         loadTransactionDetails(id);
-      } catch (error) {
-        router.replace("/admin/login");
-      }
-    })();
-  }, [params, router, loadTransactionDetails]);
+      })();
+    }
+  }, [isAdmin, params, loadTransactionDetails]);
 
   const copyReference = async (reference: string) => {
     try {
@@ -207,9 +199,6 @@ export default function AdminTransactionDetailPage({ params }: AdminTransactionD
     };
   };
 
-  if (!isAdmin) {
-    return null;
-  }
 
   if (loading || !transaction) {
     return (

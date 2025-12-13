@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { format } from "date-fns";
 import { ArrowUp, ArrowDown, ExternalLink, Link as LinkIcon, Copy, Check, Eye } from "lucide-react";
 import { DataTable } from "@/components/data-table";
-import { getCurrentAdmin } from "@/lib/auth/client";
+import { useAdmin } from "@/contexts/admin-context";
 import Link from "next/link";
 
 interface Transaction {
@@ -29,29 +28,10 @@ interface Transaction {
 }
 
 export default function AdminTransactionsPage() {
-  const router = useRouter();
   const { toast } = useToast();
-  const [user, setUser] = useState<any>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const { admin, isAdmin } = useAdmin();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [copiedRef, setCopiedRef] = useState<string | null>(null);
-
-  const checkAdmin = useCallback(async () => {
-    try {
-      const currentAdmin = await getCurrentAdmin(true); // Force refresh
-      if (!currentAdmin?.id) {
-        router.replace("/admin/login");
-        return;
-      }
-
-      setUser(currentAdmin);
-      setIsAdmin(true);
-    } catch (error) {
-      console.error("Error checking admin status:", error);
-      router.replace("/admin/login");
-    }
-  }, [router]);
 
   const fetchTransactions = useCallback(async (force = false) => {
     if (!isAdmin) return;
@@ -82,24 +62,6 @@ export default function AdminTransactionsPage() {
       });
     }
   }, [isAdmin, toast]);
-
-  useEffect(() => {
-    let mounted = true;
-    
-    checkAdmin().then(() => {
-      if (mounted) {
-        setLoading(false);
-      }
-    }).catch(() => {
-      if (mounted) {
-        setLoading(false);
-      }
-    });
-
-    return () => {
-      mounted = false;
-    };
-  }, [checkAdmin]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -223,20 +185,6 @@ export default function AdminTransactionsPage() {
     }));
   }, [transactions]);
 
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </main>
-    );
-  }
-
-  if (!isAdmin) {
-    return null;
-  }
 
   return (
     <main className="min-h-screen bg-background p-4 md:p-6">

@@ -29,7 +29,7 @@ import {
   Ban,
   AlertCircle,
 } from "lucide-react";
-import { getCurrentAdmin } from "@/lib/auth/client";
+import { useAdmin } from "@/contexts/admin-context";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { Badge } from "@/components/ui/badge";
@@ -110,7 +110,7 @@ interface QuizParticipation {
 export default function AdminUserDetailPage({ params }: AdminUserDetailPageProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { isAdmin } = useAdmin();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -202,25 +202,13 @@ export default function AdminUserDetailPage({ params }: AdminUserDetailPageProps
   );
 
   useEffect(() => {
-    (async () => {
-      const { id } = await params;
-      try {
-        const currentAdmin = await getCurrentAdmin(true);
-        if (!currentAdmin?.id) {
-          router.replace("/admin/login");
-          return;
-        }
-        setIsAdmin(true);
+    if (isAdmin) {
+      (async () => {
+        const { id } = await params;
         loadUserDetails(id);
-      } catch (error) {
-        router.replace("/admin/login");
-      }
-    })();
-  }, [params, router, loadUserDetails]);
-
-  if (!isAdmin) {
-    return null;
-  }
+      })();
+    }
+  }, [isAdmin, params, loadUserDetails]);
 
   if (loading || !user) {
     return (

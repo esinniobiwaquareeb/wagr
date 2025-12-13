@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import { ArrowLeft, Clock, CheckCircle2, Users, AlertTriangle, ExternalLink, Trophy } from "lucide-react";
-import { getCurrentAdmin } from "@/lib/auth/client";
+import { useAdmin } from "@/contexts/admin-context";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { Badge } from "@/components/ui/badge";
@@ -35,7 +35,7 @@ interface WagerEntry {
 export default function AdminWagerDetailPage({ params }: AdminWagerDetailPageProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { isAdmin } = useAdmin();
   const [loading, setLoading] = useState(true);
   const [wager, setWager] = useState<any>(null);
   const [entries, setEntries] = useState<WagerEntry[]>([]);
@@ -188,25 +188,13 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
   };
 
   useEffect(() => {
-    (async () => {
-      const { id } = await params;
-      try {
-        const currentAdmin = await getCurrentAdmin(true);
-        if (!currentAdmin?.id) {
-          router.replace("/admin/login");
-          return;
-        }
-        setIsAdmin(true);
+    if (isAdmin) {
+      (async () => {
+        const { id } = await params;
         loadDetails(id);
-      } catch (error) {
-        router.replace("/admin/login");
-      }
-    })();
-  }, [params, router, loadDetails]);
-
-  if (!isAdmin) {
-    return null;
-  }
+      })();
+    }
+  }, [isAdmin, params, loadDetails]);
 
   if (loading || !wager) {
     return (
