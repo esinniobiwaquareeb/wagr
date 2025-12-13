@@ -13,13 +13,18 @@ import { apiPost, apiPatch, apiDelete } from "@/lib/api-client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { WAGER_CATEGORIES } from "@/lib/constants";
+import { categoriesApi } from "@/lib/api-client";
 import { Wager } from "@/lib/types/api";
 
 export default function AdminWagersPage() {
   const { toast } = useToast();
   const { admin, isAdmin } = useAdmin();
   const [wagers, setWagers] = useState<Wager[]>([]);
+  const [categories, setCategories] = useState<Array<{
+    id: string;
+    slug: string;
+    label: string;
+  }>>([]);
   const [resolving, setResolving] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<"all" | "user" | "system">("all");
   const [showResolveDialog, setShowResolveDialog] = useState(false);
@@ -77,6 +82,30 @@ export default function AdminWagersPage() {
       });
     }
   }, [isAdmin, toast]);
+
+  // Fetch categories on mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await categoriesApi.list(false);
+        if (response && response.categories) {
+          const mappedCategories = response.categories
+            .filter(cat => cat.is_active)
+            .map(cat => ({
+              id: cat.slug,
+              slug: cat.slug,
+              label: cat.label,
+            }));
+          setCategories(mappedCategories);
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+        setCategories([]);
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   const handleResolveClick = (wager: Wager, side: "a" | "b") => {
     setSelectedWager({
@@ -545,6 +574,7 @@ export default function AdminWagersPage() {
         onOpenChange={setShowCreateModal}
         onSubmit={handleCreateWager}
         submitting={submitting}
+        categories={categories}
       />
 
       {/* Edit Wager Modal */}
@@ -558,6 +588,7 @@ export default function AdminWagersPage() {
           onSubmit={handleEditWager}
           submitting={submitting}
           wager={editingWager}
+          categories={categories}
         />
       )}
 
@@ -585,12 +616,18 @@ function AdminWagerModal({
   onSubmit,
   submitting,
   wager,
+  categories,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: any) => void;
   submitting: boolean;
   wager?: Wager | null;
+  categories: Array<{
+    id: string;
+    slug: string;
+    label: string;
+  }>;
 }) {
   const [formData, setFormData] = useState({
     title: "",
@@ -741,8 +778,8 @@ function AdminWagerModal({
                 className="w-full px-4 py-2 border border-input rounded-lg bg-background"
               >
                 <option value="">Select category</option>
-                {WAGER_CATEGORIES.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.slug}>
                     {cat.label}
                   </option>
                 ))}

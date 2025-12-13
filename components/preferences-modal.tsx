@@ -12,18 +12,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { preferencesApi } from "@/lib/api-client";
-
-const CATEGORIES = [
-  { id: "crypto", label: "Cryptocurrency", icon: "₿" },
-  { id: "finance", label: "Finance & Stocks", icon: "📈" },
-  { id: "politics", label: "Politics", icon: "🏛️" },
-  { id: "sports", label: "Sports", icon: "⚽" },
-  { id: "entertainment", label: "Entertainment", icon: "🎬" },
-  { id: "technology", label: "Technology", icon: "💻" },
-  { id: "religion", label: "Religion", icon: "🙏" },
-  { id: "weather", label: "Weather", icon: "🌤️" },
-];
+import { preferencesApi, categoriesApi } from "@/lib/api-client";
 
 const NOTIFICATION_TYPES = [
   { id: "new_wagers", label: "New Wagers", description: "Get notified when new wagers are created" },
@@ -43,6 +32,13 @@ export function PreferencesModal({ isOpen, onClose }: PreferencesModalProps) {
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [categories, setCategories] = useState<Array<{
+    id: string;
+    slug: string;
+    label: string;
+    icon: string | null;
+  }>>([]);
+  const [loadingCategories, setLoadingCategories] = useState(false);
   const [preferences, setPreferences] = useState<{
     preferred_categories: string[];
     notification_enabled: boolean;
@@ -52,6 +48,30 @@ export function PreferencesModal({ isOpen, onClose }: PreferencesModalProps) {
     notification_enabled: true,
     notification_types: [],
   });
+
+  const fetchCategories = useCallback(async () => {
+    setLoadingCategories(true);
+    try {
+      const response = await categoriesApi.list(false);
+      if (response && response.categories) {
+        const mappedCategories = response.categories
+          .filter(cat => cat.is_active)
+          .map(cat => ({
+            id: cat.slug, // Use slug as ID for preferences (matches backend expectations)
+            slug: cat.slug,
+            label: cat.label,
+            icon: cat.icon || null,
+          }));
+        setCategories(mappedCategories);
+      }
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      // Fallback to empty array on error
+      setCategories([]);
+    } finally {
+      setLoadingCategories(false);
+    }
+  }, []);
 
   const fetchPreferences = useCallback(async () => {
     if (!user) return;
@@ -81,10 +101,13 @@ export function PreferencesModal({ isOpen, onClose }: PreferencesModalProps) {
   }, [user, toast]);
 
   useEffect(() => {
-    if (isOpen && user) {
-      fetchPreferences();
+    if (isOpen) {
+      fetchCategories();
+      if (user) {
+        fetchPreferences();
+      }
     }
-  }, [isOpen, user, fetchPreferences]);
+  }, [isOpen, user, fetchPreferences, fetchCategories]);
 
   const handleCategoryToggle = (categoryId: string) => {
     setPreferences((prev) => {
@@ -166,25 +189,35 @@ export function PreferencesModal({ isOpen, onClose }: PreferencesModalProps) {
               <p className="text-sm text-muted-foreground mb-4">
                 Select the types of events you want to see in your feed
               </p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-3">
-                {CATEGORIES.map((category) => {
-                  const isSelected = preferences.preferred_categories.includes(category.id);
-                  return (
-                    <button
-                      key={category.id}
-                      onClick={() => handleCategoryToggle(category.id)}
-                      className={`p-3 md:p-4 rounded-lg border-2 transition active:scale-[0.98] touch-manipulation min-h-[44px] ${
-                        isSelected
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:border-primary/50"
-                      }`}
-                    >
-                      <div className="text-xl md:text-2xl mb-1">{category.icon}</div>
-                      <div className="text-xs md:text-sm font-medium">{category.label}</div>
-                    </button>
-                  );
-                })}
-              </div>
+              {loadingCategories ? (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-3">
+                  {[...Array(8)].map((_, i) => (
+                    <Skeleton key={i} className="h-20 w-full" />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-3">
+                  {categories.map((category) => {
+                    const isSelected = preferences.preferred_categories.includes(category.id);
+                    return (
+                      <button
+                        key={category.id}
+                        onClick={() => handleCategoryToggle(category.id)}
+                        className={`p-3 md:p-4 rounded-lg border-2 transition active:scale-[0.98] touch-manipulation min-h-[44px] ${
+                          isSelected
+                            ? "border-primary bg-primary/10"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        {category.icon && (
+                          <div className="text-xl md:text-2xl mb-1">{category.icon}</div>
+                        )}
+                        <div className="text-xs md:text-sm font-medium">{category.label}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               {preferences.preferred_categories.length === 0 && (
                 <p className="text-xs text-muted-foreground mt-2">
                   No categories selected - you'll see all wagers

@@ -16,7 +16,8 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { utcToLocal, localToUTC, isDeadlineElapsed, getTimeRemaining } from "@/lib/deadline-utils";
 import { useDeadlineCountdown } from "@/hooks/use-deadline-countdown";
 import { DeadlineDisplay } from "@/components/deadline-display";
-import { PLATFORM_FEE_PERCENTAGE, WAGER_CATEGORIES } from "@/lib/constants";
+import { PLATFORM_FEE_PERCENTAGE } from "@/lib/constants";
+import { categoriesApi } from "@/lib/api-client";
 import { WagerComments } from "@/components/wager-comments";
 import { useSettings } from "@/hooks/use-settings";
 import { WagerActivities } from "@/components/wager-activities";
@@ -59,6 +60,12 @@ export default function WagerDetail() {
   const [changingSide, setChangingSide] = useState(false);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<"comments" | "participants" | "activities">("comments");
+  const [categories, setCategories] = useState<Array<{
+    id: string;
+    slug: string;
+    label: string;
+    icon: string | null;
+  }>>([]);
   const [editFormData, setEditFormData] = useState({
     title: "",
     description: "",
@@ -179,6 +186,31 @@ export default function WagerDetail() {
   useEffect(() => {
     fetchWagerRef.current = fetchWager;
   }, [fetchWager]);
+
+  // Fetch categories on mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await categoriesApi.list(false);
+        if (response && response.categories) {
+          const mappedCategories = response.categories
+            .filter(cat => cat.is_active)
+            .map(cat => ({
+              id: cat.slug,
+              slug: cat.slug,
+              label: cat.label,
+              icon: cat.icon || null,
+            }));
+          setCategories(mappedCategories);
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+        setCategories([]);
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   // Debounced refetch function for subscriptions
   const debouncedRefetch = useCallback(() => {
@@ -1106,9 +1138,9 @@ export default function WagerDetail() {
                   className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 >
                   <option value="">No category</option>
-                  {WAGER_CATEGORIES.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.icon} {cat.label}
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.slug}>
+                      {cat.icon ? `${cat.icon} ` : ''}{cat.label}
                     </option>
                   ))}
                 </select>

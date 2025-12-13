@@ -13,8 +13,7 @@ import { NotificationsDropdown } from "@/components/notifications-dropdown";
 import { useToast } from "@/hooks/use-toast";
 import { clear2FAVerification } from "@/lib/session-2fa";
 import { getCurrentUser, type AuthUser } from "@/lib/auth/client";
-import { WAGER_CATEGORIES } from "@/lib/constants";
-import { wagersApi } from "@/lib/api-client";
+import { wagersApi, categoriesApi } from "@/lib/api-client";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { DepositModal } from "@/components/deposit-modal";
 import { CreateWagerModal } from "@/components/create-wager-modal";
@@ -46,6 +45,12 @@ function TopNavContent() {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+  const [categories, setCategories] = useState<Array<{
+    id: string;
+    slug: string;
+    label: string;
+    icon: string | null;
+  }>>([]);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
@@ -78,10 +83,14 @@ function TopNavContent() {
         
         // Calculate counts for each category (only OPEN wagers)
         const counts: Record<string, number> = {};
-        WAGER_CATEGORIES.forEach(category => {
-          counts[category.id] = wagersData.filter((wager: any) => 
-            wager.category === category.id && wager.status === "OPEN"
-          ).length;
+        categories.forEach(category => {
+          // Check both category object and category_id
+          counts[category.slug] = wagersData.filter((wager: any) => {
+            const wagerCategorySlug = typeof wager.category === 'object' && wager.category !== null
+              ? wager.category.slug
+              : wager.category_id || null;
+            return wagerCategorySlug === category.slug && wager.status === "OPEN";
+          }).length;
         });
         
         setCategoryCounts(counts);
@@ -93,10 +102,16 @@ function TopNavContent() {
       }
     };
 
-    fetchCategoryCounts();
+    if (categories.length > 0) {
+      fetchCategoryCounts();
+    }
 
     // Refresh counts periodically
-    const interval = setInterval(fetchCategoryCounts, 120000); // Every 2 minutes
+    const interval = setInterval(() => {
+      if (categories.length > 0) {
+        fetchCategoryCounts();
+      }
+    }, 120000); // Every 2 minutes
 
     return () => {
       clearInterval(interval);
@@ -104,6 +119,31 @@ function TopNavContent() {
         clearTimeout(categoryCountsDebounceRef.current);
       }
     };
+  }, [categories]);
+
+  // Fetch categories on mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await categoriesApi.list(false);
+        if (response && response.categories) {
+          const mappedCategories = response.categories
+            .filter(cat => cat.is_active)
+            .map(cat => ({
+              id: cat.slug,
+              slug: cat.slug,
+              label: cat.label,
+              icon: cat.icon || null,
+            }));
+          setCategories(mappedCategories);
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+        setCategories([]);
+      }
+    };
+
+    fetchCategories();
   }, []);
 
   const walletBalanceFetchingRef = useRef(false);
@@ -691,31 +731,31 @@ function TopNavContent() {
               <Home className="h-3.5 w-3.5 flex-shrink-0" />
               <span>All</span>
             </Link>
-            {WAGER_CATEGORIES.map((category) => {
-              const count = categoryCounts[category.id] || 0;
+            {categories.map((category) => {
+              const count = categoryCounts[category.slug] || 0;
               return (
                 <Link
                   key={category.id}
-                  href={`/wagers?category=${category.id}`}
+                  href={`/wagers?category=${category.slug}`}
                   onClick={(e) => {
                     e.preventDefault();
                     const params = new URLSearchParams();
-                    params.set('category', category.id);
+                    params.set('category', category.slug);
                     params.delete('search'); // Clear search when selecting a category
                     setSearchQuery(''); // Clear search input
                     router.push(`/wagers?${params.toString()}`);
                   }}
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-md whitespace-nowrap text-sm font-medium transition-all ${
-                    pathname === "/wagers" && searchParams?.get("category") === category.id
+                    pathname === "/wagers" && searchParams?.get("category") === category.slug
                       ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   }`}
                 >
-                  <span className="text-base flex-shrink-0">{category.icon}</span>
+                  {category.icon && <span className="text-base flex-shrink-0">{category.icon}</span>}
                   <span>{category.label}</span>
                   {count > 0 && (
                     <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-xs font-semibold ${
-                      pathname === "/wagers" && searchParams?.get("category") === category.id
+                      pathname === "/wagers" && searchParams?.get("category") === category.slug
                         ? "bg-primary/20 text-primary"
                         : "bg-muted text-muted-foreground"
                     }`}>
@@ -1040,10 +1080,13 @@ function TopNavContent() {
                   const response = await wagersApi.list({ limit: 200 });
                   const wagersData = response?.wagers || (Array.isArray(response) ? response : []);
                   const counts: Record<string, number> = {};
-                  WAGER_CATEGORIES.forEach(category => {
-                    counts[category.id] = wagersData.filter((wager: any) => 
-                      wager.category === category.id && wager.status === "OPEN"
-                    ).length;
+                  categories.forEach(category => {
+                    counts[category.slug] = wagersData.filter((wager: any) => {
+                      const wagerCategorySlug = typeof wager.category === 'object' && wager.category !== null
+                        ? wager.category.slug
+                        : wager.category_id || null;
+                      return wagerCategorySlug === category.slug && wager.status === "OPEN";
+                    }).length;
                   });
                   setCategoryCounts(counts);
                 } catch (error) {
