@@ -2,32 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from 'next/navigation';
-import { BarChart3, Home, Users, CreditCard, Settings, Shield, ShieldCheck, LogOut, Wallet, FileText, BookOpen } from "lucide-react";
+import { BarChart3, Home, Users, CreditCard, Settings, Shield, ShieldCheck, LogOut, Wallet, FileText, BookOpen, ChevronRight } from "lucide-react";
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from "react";
-import { getCurrentAdmin, logout } from "@/lib/auth/client";
+import { useState } from "react";
+import { logout } from "@/lib/auth/client";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { useAdmin } from "@/contexts/admin-context";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
 
 export function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+  const { admin } = useAdmin();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-
-  useEffect(() => {
-    const getAdmin = async () => {
-      const currentAdmin = await getCurrentAdmin();
-      setUser(currentAdmin);
-    };
-    getAdmin();
-    
-    // Listen for auth state changes
-    const handleAuthChange = () => {
-      getAdmin();
-    };
-    window.addEventListener('auth-state-changed', handleAuthChange);
-    return () => window.removeEventListener('auth-state-changed', handleAuthChange);
-  }, []);
 
   const handleLogoutClick = () => {
     setShowLogoutDialog(true);
@@ -51,285 +39,128 @@ export function AdminSidebar() {
     }
   };
 
-  const isActive = (path: string) => pathname === path;
+  const isActive = (path: string) => {
+    if (path === "/admin") {
+      return pathname === "/admin" || pathname === "/admin/";
+    }
+    return pathname.startsWith(path);
+  };
+
+  const navItems = [
+    { href: "/admin", icon: BarChart3, label: "Dashboard" },
+    { href: "/admin/users", icon: Users, label: "Users" },
+    { href: "/admin/wagers", icon: Home, label: "Wagers" },
+    { href: "/admin/quizzes", icon: BookOpen, label: "Quizzes" },
+    { href: "/admin/transactions", icon: CreditCard, label: "Transactions" },
+    { href: "/admin/withdrawals", icon: Wallet, label: "Withdrawals" },
+    { href: "/admin/kyc", icon: ShieldCheck, label: "KYC Reviews" },
+    { href: "/admin/reports", icon: FileText, label: "Reports" },
+    { href: "/admin/analytics", icon: BarChart3, label: "Analytics" },
+    { href: "/admin/settings", icon: Settings, label: "Settings" },
+  ];
 
   return (
     <>
       {/* Mobile Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-lg border-t border-border md:hidden z-50 safe-area-inset-bottom">
+      <nav className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-lg border-t border-border md:hidden z-50 safe-area-inset-bottom shadow-lg">
         <div className="flex justify-around items-center h-16 px-1">
-          <Link
-            href="/admin"
-            className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
-              isActive("/admin") && !isActive("/admin/login")
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            title="Dashboard"
-          >
-            <BarChart3 className={`h-6 w-6 transition-transform ${isActive("/admin") && !isActive("/admin/login") ? "scale-110" : ""}`} />
-            <span className="text-[10px] mt-0.5 font-medium">{isActive("/admin") && !isActive("/admin/login") ? "Dashboard" : ""}</span>
-          </Link>
-          <Link
-            href="/admin/users"
-            className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
-              isActive("/admin/users")
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            title="Users"
-          >
-            <Users className={`h-6 w-6 transition-transform ${isActive("/admin/users") ? "scale-110" : ""}`} />
-            <span className="text-[10px] mt-0.5 font-medium">{isActive("/admin/users") ? "Users" : ""}</span>
-          </Link>
-          <Link
-            href="/admin/wagers"
-            className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
-              isActive("/admin/wagers")
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            title="Wagers"
-          >
-            <Home className={`h-6 w-6 transition-transform ${isActive("/admin/wagers") ? "scale-110" : ""}`} />
-            <span className="text-[10px] mt-0.5 font-medium">{isActive("/admin/wagers") ? "Wagers" : ""}</span>
-          </Link>
-          <Link
-            href="/admin/quizzes"
-            className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
-              isActive("/admin/quizzes")
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            title="Quizzes"
-          >
-            <BookOpen className={`h-6 w-6 transition-transform ${isActive("/admin/quizzes") ? "scale-110" : ""}`} />
-            <span className="text-[10px] mt-0.5 font-medium">{isActive("/admin/quizzes") ? "Quizzes" : ""}</span>
-          </Link>
-          <Link
-            href="/admin/settings"
-            className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
-              isActive("/admin/settings")
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            title="Settings"
-          >
-            <Settings className={`h-6 w-6 transition-transform ${isActive("/admin/settings") ? "scale-110" : ""}`} />
-            <span className="text-[10px] mt-0.5 font-medium">{isActive("/admin/settings") ? "Settings" : ""}</span>
-          </Link>
-          <Link
-            href="/admin/kyc"
-            className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
-              isActive("/admin/kyc")
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            title="KYC"
-          >
-            <ShieldCheck className={`h-6 w-6 transition-transform ${isActive("/admin/kyc") ? "scale-110" : ""}`} />
-            <span className="text-[10px] mt-0.5 font-medium">{isActive("/admin/kyc") ? "KYC" : ""}</span>
-          </Link>
-          <Link
-            href="/admin/transactions"
-            className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
-              isActive("/admin/transactions")
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            title="Transactions"
-          >
-            <CreditCard className={`h-6 w-6 transition-transform ${isActive("/admin/transactions") ? "scale-110" : ""}`} />
-            <span className="text-[10px] mt-0.5 font-medium">{isActive("/admin/transactions") ? "Transactions" : ""}</span>
-          </Link>
-          <Link
-            href="/admin/withdrawals"
-            className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
-              isActive("/admin/withdrawals")
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            title="Withdrawals"
-          >
-            <Wallet className={`h-6 w-6 transition-transform ${isActive("/admin/withdrawals") ? "scale-110" : ""}`} />
-            <span className="text-[10px] mt-0.5 font-medium">{isActive("/admin/withdrawals") ? "Withdrawals" : ""}</span>
-          </Link>
-          <Link
-            href="/admin/reports"
-            className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
-              isActive("/admin/reports")
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            title="Reports"
-          >
-            <FileText className={`h-6 w-6 transition-transform ${isActive("/admin/reports") ? "scale-110" : ""}`} />
-            <span className="text-[10px] mt-0.5 font-medium">{isActive("/admin/reports") ? "Reports" : ""}</span>
-          </Link>
-          <Link
-            href="/admin/analytics"
-            className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 ${
-              isActive("/admin/analytics")
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            title="Analytics"
-          >
-            <BarChart3 className={`h-6 w-6 transition-transform ${isActive("/admin/analytics") ? "scale-110" : ""}`} />
-            <span className="text-[10px] mt-0.5 font-medium">{isActive("/admin/analytics") ? "Analytics" : ""}</span>
-          </Link>
-          {user && (
+          {navItems.slice(0, 5).map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-all duration-200 relative",
+                  active
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                title={item.label}
+              >
+                <Icon className={cn("h-5 w-5 transition-transform", active && "scale-110")} />
+                <span className={cn("text-[10px] mt-0.5 font-medium", !active && "hidden")}>
+                  {item.label.split(" ")[0]}
+                </span>
+                {active && (
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-full" />
+                )}
+              </Link>
+            );
+          })}
+          {admin && (
             <button
               onClick={handleLogoutClick}
-              className="flex flex-col items-center justify-center flex-1 py-2 rounded-lg text-muted-foreground hover:text-foreground transition-all duration-200"
+              className="flex flex-col items-center justify-center flex-1 py-2 rounded-lg text-muted-foreground hover:text-destructive transition-all duration-200"
               title="Logout"
             >
-              <LogOut className="h-6 w-6" />
-              <span className="text-[10px] mt-0.5 font-medium">Logout</span>
+              <LogOut className="h-5 w-5" />
+              <span className="text-[10px] mt-0.5 font-medium hidden">Logout</span>
             </button>
           )}
         </div>
       </nav>
 
       {/* Desktop Sidebar */}
-      <nav className="hidden md:flex md:flex-col md:w-64 md:border-r md:border-border md:bg-card md:p-4 md:gap-2 md:sticky md:top-0 md:h-screen md:overflow-y-auto">
-        <div className="flex items-center gap-2 mb-4 pb-4 border-b border-border">
-          <Shield className="h-5 w-5 text-primary" />
-          <span className="text-sm font-semibold">Admin Center</span>
+      <nav className="hidden md:flex md:flex-col md:w-64 md:border-r md:border-border md:bg-card/50 md:backdrop-blur-sm md:p-4 md:gap-1 md:sticky md:top-0 md:h-screen md:overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-border">
+          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Shield className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold truncate">Admin Center</p>
+            {admin && (
+              <p className="text-xs text-muted-foreground truncate">
+                {admin.username || admin.email || 'Admin'}
+              </p>
+            )}
+          </div>
         </div>
         
-        <Link
-          href="/admin"
-          className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
-            isActive("/admin") && !isActive("/admin/login")
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
-          }`}
-        >
-          <BarChart3 className="h-5 w-5" />
-          <span className="text-sm font-medium">Dashboard</span>
-        </Link>
-        
-        <Link
-          href="/admin/users"
-          className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
-            isActive("/admin/users")
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
-          }`}
-        >
-          <Users className="h-5 w-5" />
-          <span className="text-sm font-medium">Users</span>
-        </Link>
-        
-        <Link
-          href="/admin/wagers"
-          className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
-            isActive("/admin/wagers")
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
-          }`}
-        >
-          <Home className="h-5 w-5" />
-          <span className="text-sm font-medium">Wagers</span>
-        </Link>
-        
-        <Link
-          href="/admin/quizzes"
-          className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
-            isActive("/admin/quizzes")
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
-          }`}
-        >
-          <BookOpen className="h-5 w-5" />
-          <span className="text-sm font-medium">Quizzes</span>
-        </Link>
-        
-        <Link
-          href="/admin/settings"
-          className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
-            isActive("/admin/settings")
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
-          }`}
-        >
-          <Settings className="h-5 w-5" />
-          <span className="text-sm font-medium">Settings</span>
-        </Link>
+        {/* Navigation Items */}
+        <div className="flex-1 space-y-1">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 py-2.5 px-3 rounded-lg transition-all duration-200 group relative",
+                  active
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                )}
+              >
+                <Icon className={cn("h-5 w-5 flex-shrink-0", active && "scale-110")} />
+                <span className="text-sm font-medium flex-1">{item.label}</span>
+                {active && (
+                  <ChevronRight className="h-4 w-4 opacity-50" />
+                )}
+                {!active && (
+                  <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-30 transition-opacity" />
+                )}
+              </Link>
+            );
+          })}
+        </div>
 
-        <Link
-          href="/admin/kyc"
-          className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
-            isActive("/admin/kyc")
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
-          }`}
-        >
-          <ShieldCheck className="h-5 w-5" />
-          <span className="text-sm font-medium">KYC Reviews</span>
-        </Link>
-        
-        <Link
-          href="/admin/transactions"
-          className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
-            isActive("/admin/transactions")
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
-          }`}
-        >
-          <CreditCard className="h-5 w-5" />
-          <span className="text-sm font-medium">Transactions</span>
-        </Link>
-        
-        <Link
-          href="/admin/withdrawals"
-          className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
-            isActive("/admin/withdrawals")
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
-          }`}
-        >
-          <Wallet className="h-5 w-5" />
-          <span className="text-sm font-medium">Withdrawals</span>
-        </Link>
-        
-        <Link
-          href="/admin/reports"
-          className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
-            isActive("/admin/reports")
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
-          }`}
-        >
-          <FileText className="h-5 w-5" />
-          <span className="text-sm font-medium">Reports</span>
-        </Link>
-        
-        <Link
-          href="/admin/analytics"
-          className={`flex items-center gap-3 py-2 px-3 rounded-lg transition ${
-            isActive("/admin/analytics")
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
-          }`}
-        >
-          <BarChart3 className="h-5 w-5" />
-          <span className="text-sm font-medium">Analytics</span>
-        </Link>
-
-        <div className="mt-auto pt-4 border-t border-border">
+        {/* Footer */}
+        <div className="mt-auto pt-4 border-t border-border space-y-1">
           <Link
             href="/"
-            className="flex items-center gap-3 py-2 px-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition mb-2"
+            className="flex items-center gap-3 py-2.5 px-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
           >
             <Home className="h-5 w-5" />
             <span className="text-sm font-medium">Back to App</span>
           </Link>
-          {user && (
+          {admin && (
             <button
               onClick={handleLogoutClick}
-              className="flex items-center gap-3 py-2 px-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition w-full text-left"
+              className="flex items-center gap-3 py-2.5 px-3 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors w-full text-left"
             >
               <LogOut className="h-5 w-5" />
               <span className="text-sm font-medium">Logout</span>

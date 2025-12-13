@@ -6,6 +6,7 @@ import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency"
 import { format } from "date-fns";
 import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAdmin } from "@/contexts/admin-context";
 
 interface Withdrawal {
@@ -77,9 +78,16 @@ export default function AdminWithdrawals() {
           <p className="text-muted-foreground">Manage user withdrawal requests</p>
         </div>
 
-        <DataTable
-          data={withdrawals}
-          columns={[
+        {/* Withdrawals Table */}
+        <Card className="border border-border/80">
+          <CardHeader>
+            <CardTitle>All Withdrawals</CardTitle>
+            <CardDescription>Review and manage withdrawal requests</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DataTable
+              data={withdrawals}
+              columns={[
             {
               id: "user_id",
               header: "User ID",
@@ -166,9 +174,11 @@ export default function AdminWithdrawals() {
           pagination
           pageSize={20}
           sortable
-          defaultSort={{ key: "created_at", direction: "desc" }}
-          emptyMessage="No withdrawals found"
-        />
+              defaultSort={{ key: "created_at", direction: "desc" }}
+              emptyMessage="No withdrawals found"
+            />
+          </CardContent>
+        </Card>
       </div>
     </main>
   );

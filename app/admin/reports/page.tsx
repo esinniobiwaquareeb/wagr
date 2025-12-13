@@ -7,6 +7,7 @@ import { format, startOfDay, endOfDay, subDays, subMonths, startOfMonth, endOfMo
 import { ArrowUp, ArrowDown, TrendingUp, TrendingDown, DollarSign, Users, Calendar, Filter } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAdmin } from "@/contexts/admin-context";
 
 interface Transaction {
@@ -208,99 +209,49 @@ export default function AdminReportsPage() {
   ];
 
   return (
-    <main className="min-h-screen bg-background p-4 md:p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <div className="mb-2">
-            <h1 className="text-2xl md:text-3xl font-bold">Reports & Analytics</h1>
-          </div>
-          <p className="text-sm text-muted-foreground">Comprehensive transaction analytics and reports</p>
+    <main className="min-h-screen bg-background p-4 md:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="space-y-2">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Reports & Analytics</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
+            Comprehensive transaction analytics and financial reports
+          </p>
         </div>
 
         {/* Analytics Cards */}
         {analytics && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div className="bg-card border border-border rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Transactions</p>
-                  <p className="text-2xl font-bold mt-1">{analytics.totalTransactions.toLocaleString()}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Transactions</CardTitle>
+                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                  <DollarSign className="h-4 w-4 text-primary" />
                 </div>
-                <DollarSign className="h-8 w-8 text-primary" />
-              </div>
-            </div>
-            <div className="bg-card border border-border rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Net Flow</p>
-                  <p className={`text-2xl font-bold mt-1 ${analytics.netFlow >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                    {analytics.netFlow >= 0 ? '+' : ''}{formatCurrency(analytics.netFlow, DEFAULT_CURRENCY as Currency)}
-                  </p>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{analytics.totalTransactions.toLocaleString()}</div>
+              </CardContent>
+            </Card>
+            <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Net Flow</CardTitle>
+                <div className={`h-9 w-9 rounded-lg flex items-center justify-center group-hover:opacity-80 transition-colors ${
+                  analytics.netFlow >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'
+                }`}>
+                  {analytics.netFlow >= 0 ? (
+                    <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  ) : (
+                    <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
+                  )}
                 </div>
-                {analytics.netFlow >= 0 ? (
-                  <TrendingUp className="h-8 w-8 text-green-600 dark:text-green-400" />
-                ) : (
-                  <TrendingDown className="h-8 w-8 text-red-600 dark:text-red-400" />
-                )}
-              </div>
-            </div>
-            <div className="bg-card border border-border rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Unique Users</p>
-                  <p className="text-2xl font-bold mt-1">{analytics.uniqueUsers.toLocaleString()}</p>
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${analytics.netFlow >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                  {analytics.netFlow >= 0 ? '+' : ''}{formatCurrency(analytics.netFlow, DEFAULT_CURRENCY as Currency)}
                 </div>
-                <Users className="h-8 w-8 text-primary" />
-              </div>
-            </div>
-            <div className="bg-card border border-border rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Deposits</p>
-                  <p className="text-2xl font-bold mt-1 text-green-600 dark:text-green-400">
-                    {formatCurrency(analytics.totalDeposits, DEFAULT_CURRENCY as Currency)}
-                  </p>
-                </div>
-                <ArrowUp className="h-8 w-8 text-green-600 dark:text-green-400" />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Financial Breakdown */}
-        {analytics && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div className="bg-card border border-border rounded-lg p-4">
-              <p className="text-sm text-muted-foreground mb-2">Platform Commissions</p>
-              <p className="text-xl font-semibold text-primary">
-                {formatCurrency(analytics.totalCommissions, DEFAULT_CURRENCY as Currency)}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {analytics.totalWagerVolume > 0 
-                  ? `${((analytics.totalCommissions / analytics.totalWagerVolume) * 100).toFixed(2)}% of volume`
-                  : '0% of volume'}
-              </p>
-            </div>
-            <div className="bg-card border border-border rounded-lg p-4">
-              <p className="text-sm text-muted-foreground mb-2">Total Wager Volume</p>
-              <p className="text-xl font-semibold text-blue-600 dark:text-blue-400">
-                {formatCurrency(analytics.totalWagerVolume, DEFAULT_CURRENCY as Currency)}
-              </p>
-            </div>
-            <div className="bg-card border border-border rounded-lg p-4">
-              <p className="text-sm text-muted-foreground mb-2">Wager Wins (Payouts)</p>
-              <p className="text-xl font-semibold text-green-600 dark:text-green-400">
-                {formatCurrency(analytics.totalWagerWins, DEFAULT_CURRENCY as Currency)}
-              </p>
-            </div>
-            <div className="bg-card border border-border rounded-lg p-4">
-              <p className="text-sm text-muted-foreground mb-2">Wager Refunds</p>
-              <p className="text-xl font-semibold text-yellow-600 dark:text-yellow-400">
-                {formatCurrency(analytics.totalWagerRefunds, DEFAULT_CURRENCY as Currency)}
-              </p>
-            </div>
-          </div>
-        )}
+              </CardContent>
+            </Card>
 
         {/* Commission Analysis */}
         {analytics && analytics.totalCommissions > 0 && (
@@ -337,11 +288,15 @@ export default function AdminReportsPage() {
         )}
 
         {/* Filters */}
-        <div className="bg-card border border-border rounded-lg p-4 mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Filter className="h-5 w-5 text-muted-foreground" />
-            <h2 className="text-lg font-semibold">Filters</h2>
-          </div>
+        <Card className="border border-border/80">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Filter className="h-5 w-5 text-muted-foreground" />
+              <CardTitle>Filters</CardTitle>
+            </div>
+            <CardDescription>Filter transactions by date range and type</CardDescription>
+          </CardHeader>
+          <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Date Range */}
             <div>
@@ -422,12 +377,20 @@ export default function AdminReportsPage() {
               Clear Filters
             </Button>
           </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Transactions Table */}
-        <DataTable
-          data={transactions}
-          columns={[
+        {/* Transactions Table */}
+        <Card className="border border-border/80">
+          <CardHeader>
+            <CardTitle>Transaction History</CardTitle>
+            <CardDescription>Filtered transaction records based on selected criteria</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DataTable
+              data={transactions}
+              columns={[
             {
               id: "type",
               header: "Type",
@@ -499,9 +462,11 @@ export default function AdminReportsPage() {
           pagination
           pageSize={25}
           sortable
-          defaultSort={{ key: "created_at", direction: "desc" }}
-          emptyMessage="No transactions found"
-        />
+              defaultSort={{ key: "created_at", direction: "desc" }}
+              emptyMessage="No transactions found"
+            />
+          </CardContent>
+        </Card>
       </div>
     </main>
   );

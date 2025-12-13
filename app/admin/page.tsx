@@ -10,7 +10,10 @@ import {
   DollarSign, 
   Activity, 
   CheckCircle, 
-  Clock
+  Clock,
+  ArrowUpRight,
+  ArrowDownRight,
+  Loader2
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -23,7 +26,9 @@ import {
 } from "@/components/ui/table";
 import { useAdmin } from "@/contexts/admin-context";
 import { apiGet } from "@/lib/api-client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 interface Stats {
   totalUsers: number;
@@ -61,6 +66,7 @@ export default function AdminPage() {
   const [recentWagers, setRecentWagers] = useState<Wager[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [resolving, setResolving] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const fetchStats = useCallback(async () => {
     if (!admin?.id) return;
@@ -75,6 +81,8 @@ export default function AdminPage() {
         description: "Failed to load statistics.",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   }, [admin?.id, toast]);
 
@@ -138,6 +146,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (admin?.id) {
+      setLoading(true);
       // Fetch data in parallel for better performance
       Promise.all([
         fetchStats(),
@@ -145,226 +154,336 @@ export default function AdminPage() {
         fetchRecentTransactions(),
       ]).catch((error) => {
         console.error("Error fetching admin data:", error);
+      }).finally(() => {
+        setLoading(false);
       });
     }
   }, [admin?.id, fetchStats, fetchRecentWagers, fetchRecentTransactions]);
 
   return (
     <main className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto p-4 md:p-6 w-full">
+      <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 w-full">
+        {/* Header */}
         <div className="mb-6 md:mb-8">
           <div className="flex items-center justify-between mb-2">
-            <h1 className="text-2xl md:text-4xl font-bold">Admin Center</h1>
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Dashboard</h1>
+              <p className="text-sm md:text-base text-muted-foreground mt-1">
+                Welcome back, {admin?.username || admin?.email || 'Admin'}
+              </p>
+            </div>
             <Link
               href="/"
-              className="text-sm text-muted-foreground hover:text-foreground transition"
+              className="hidden md:flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-lg hover:bg-muted/50"
             >
-              ← Back to App
+              <span>←</span>
+              <span>Back to App</span>
             </Link>
           </div>
-          <p className="text-sm md:text-base text-muted-foreground">Manage wagers, users, and system</p>
         </div>
 
         {/* Stats Grid */}
-        {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 mb-4 md:mb-6">
-            <Card className="border border-border/80 hover:border-border transition-colors">
+        {loading ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+            {[...Array(6)].map((_, i) => (
+              <Card key={i} className="border border-border/80">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                  <div className="h-4 w-4 bg-muted animate-pulse rounded" />
+                </CardHeader>
+                <CardContent>
+                  <div className="h-8 w-16 bg-muted animate-pulse rounded" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : stats ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+            <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Total Users</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+                <div className="h-9 w-9 rounded-lg bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
+                  <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-semibold">{stats.totalUsers.toLocaleString()}</div>
+                <div className="text-2xl font-bold">{stats.totalUsers.toLocaleString()}</div>
+                <Link href="/admin/users" className="text-xs text-muted-foreground hover:text-primary transition-colors mt-1 flex items-center gap-1 group/link">
+                  View all <ArrowUpRight className="h-3 w-3 opacity-0 group-hover/link:opacity-100 transition-opacity" />
+                </Link>
               </CardContent>
             </Card>
-            <Card className="border border-border/80 hover:border-border transition-colors">
+            <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Total Wagers</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <div className="h-9 w-9 rounded-lg bg-green-500/10 flex items-center justify-center group-hover:bg-green-500/20 transition-colors">
+                  <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-semibold">{stats.totalWagers.toLocaleString()}</div>
+                <div className="text-2xl font-bold">{stats.totalWagers.toLocaleString()}</div>
+                <Link href="/admin/wagers" className="text-xs text-muted-foreground hover:text-primary transition-colors mt-1 flex items-center gap-1 group/link">
+                  View all <ArrowUpRight className="h-3 w-3 opacity-0 group-hover/link:opacity-100 transition-opacity" />
+                </Link>
               </CardContent>
             </Card>
-            <Card className="border border-border/80 hover:border-border transition-colors">
+            <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Open Wagers</CardTitle>
-                <Activity className="h-4 w-4 text-muted-foreground" />
+                <div className="h-9 w-9 rounded-lg bg-orange-500/10 flex items-center justify-center group-hover:bg-orange-500/20 transition-colors">
+                  <Activity className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-semibold">{stats.openWagers.toLocaleString()}</div>
+                <div className="text-2xl font-bold">{stats.openWagers.toLocaleString()}</div>
+                <p className="text-xs text-muted-foreground mt-1">Active now</p>
               </CardContent>
             </Card>
-            <Card className="border border-border/80 hover:border-border transition-colors">
+            <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Resolved</CardTitle>
-                <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                <div className="h-9 w-9 rounded-lg bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors">
+                  <CheckCircle className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-semibold">{stats.resolvedWagers.toLocaleString()}</div>
+                <div className="text-2xl font-bold">{stats.resolvedWagers.toLocaleString()}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {stats.totalWagers > 0 
+                    ? `${Math.round((stats.resolvedWagers / stats.totalWagers) * 100)}% completion`
+                    : '0% completion'}
+                </p>
               </CardContent>
             </Card>
-            <Card className="border border-border/80 hover:border-border transition-colors">
+            <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Total Volume</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <div className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center group-hover:bg-emerald-500/20 transition-colors">
+                  <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-semibold">
+                <div className="text-2xl font-bold">
                   {formatCurrency(stats.totalVolume, DEFAULT_CURRENCY as Currency)}
                 </div>
+                <p className="text-xs text-muted-foreground mt-1">All-time volume</p>
               </CardContent>
             </Card>
-            <Card className="border border-border/80 hover:border-border transition-colors">
+            <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Transactions</CardTitle>
-                <Activity className="h-4 w-4 text-muted-foreground" />
+                <div className="h-9 w-9 rounded-lg bg-cyan-500/10 flex items-center justify-center group-hover:bg-cyan-500/20 transition-colors">
+                  <Activity className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-semibold">{stats.totalTransactions.toLocaleString()}</div>
+                <div className="text-2xl font-bold">{stats.totalTransactions.toLocaleString()}</div>
+                <Link href="/admin/transactions" className="text-xs text-muted-foreground hover:text-primary transition-colors mt-1 flex items-center gap-1 group/link">
+                  View all <ArrowUpRight className="h-3 w-3 opacity-0 group-hover/link:opacity-100 transition-opacity" />
+                </Link>
               </CardContent>
             </Card>
           </div>
-        )}
+        ) : null}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Recent Wagers */}
           <Card className="border border-border/80">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm md:text-base font-semibold">Recent Wagers</h2>
-              <Link
-                href="/admin/wagers"
-                className="text-xs text-primary hover:underline"
-              >
-                View All →
-              </Link>
-            </div>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentWagers.length === 0 ? (
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg font-semibold">Recent Wagers</CardTitle>
+                  <CardDescription className="text-xs mt-1">Latest wager activity</CardDescription>
+                </div>
+                <Link
+                  href="/admin/wagers"
+                  className="text-xs text-primary hover:underline flex items-center gap-1 group"
+                >
+                  View All <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground py-4">
-                        No wagers found
-                      </TableCell>
+                      <TableHead className="text-xs">Title</TableHead>
+                      <TableHead className="text-xs">Status</TableHead>
+                      <TableHead className="text-xs">Amount</TableHead>
+                      <TableHead className="text-xs">Actions</TableHead>
                     </TableRow>
-                  ) : (
-                    recentWagers.map((wager) => (
-                      <TableRow key={wager.id}>
-                        <TableCell className="font-medium max-w-xs">
-                          <Link
-                            href={`/wager/${wager.id}`}
-                            className="hover:text-primary transition line-clamp-1 text-xs"
-                          >
-                            {wager.title}
-                          </Link>
-                        </TableCell>
-                        <TableCell>
-                          <span
-                            className={`text-[9px] px-1.5 py-0.5 rounded ${
-                              wager.status === "OPEN"
-                                ? "bg-green-500/20 text-green-700 dark:text-green-400"
-                                : "bg-blue-500/20 text-blue-700 dark:text-blue-400"
-                            }`}
-                          >
-                            {wager.status}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-xs">
-                          {formatCurrency(wager.amount, DEFAULT_CURRENCY as Currency)}
-                        </TableCell>
-                        <TableCell>
-                          {wager.status === "OPEN" && wager.deadline && new Date(wager.deadline) <= new Date() && (
-                            <div className="flex gap-1">
-                              <button
-                                onClick={() => handleResolveWager(wager.id, "a")}
-                                disabled={resolving === wager.id}
-                                className="px-2 py-1 text-[10px] bg-primary/10 text-primary rounded hover:bg-primary/20 transition disabled:opacity-50"
-                                title="Resolve Side A"
-                              >
-                                {resolving === wager.id ? "..." : "A"}
-                              </button>
-                              <button
-                                onClick={() => handleResolveWager(wager.id, "b")}
-                                disabled={resolving === wager.id}
-                                className="px-2 py-1 text-[10px] bg-primary/10 text-primary rounded hover:bg-primary/20 transition disabled:opacity-50"
-                                title="Resolve Side B"
-                              >
-                                {resolving === wager.id ? "..." : "B"}
-                              </button>
-                            </div>
-                          )}
+                  </TableHeader>
+                  <TableBody>
+                    {loading && recentWagers.length === 0 ? (
+                      [...Array(3)].map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell><div className="h-4 w-32 bg-muted animate-pulse rounded" /></TableCell>
+                          <TableCell><div className="h-5 w-16 bg-muted animate-pulse rounded" /></TableCell>
+                          <TableCell><div className="h-4 w-20 bg-muted animate-pulse rounded" /></TableCell>
+                          <TableCell><div className="h-6 w-12 bg-muted animate-pulse rounded" /></TableCell>
+                        </TableRow>
+                      ))
+                    ) : recentWagers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                          <div className="flex flex-col items-center gap-2">
+                            <Activity className="h-8 w-8 opacity-50" />
+                            <p className="text-sm">No wagers found</p>
+                          </div>
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                    ) : (
+                      recentWagers.map((wager) => (
+                        <TableRow key={wager.id} className="hover:bg-muted/50 transition-colors">
+                          <TableCell className="font-medium">
+                            <Link
+                              href={`/admin/wagers/${wager.id}`}
+                              className="hover:text-primary transition-colors text-sm line-clamp-1 flex items-center gap-1 group"
+                            >
+                              {wager.title}
+                              <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </Link>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={wager.status === "OPEN" ? "default" : "secondary"}
+                              className={`text-xs ${
+                                wager.status === "OPEN"
+                                  ? "bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/30"
+                                  : "bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-500/30"
+                              }`}
+                            >
+                              {wager.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm font-medium">
+                            {formatCurrency(wager.amount, DEFAULT_CURRENCY as Currency)}
+                          </TableCell>
+                          <TableCell>
+                            {wager.status === "OPEN" && wager.deadline && new Date(wager.deadline) <= new Date() && (
+                              <div className="flex gap-1.5">
+                                <Button
+                                  onClick={() => handleResolveWager(wager.id, "a")}
+                                  disabled={resolving === wager.id}
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-xs"
+                                  title="Resolve Side A"
+                                >
+                                  {resolving === wager.id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    "A"
+                                  )}
+                                </Button>
+                                <Button
+                                  onClick={() => handleResolveWager(wager.id, "b")}
+                                  disabled={resolving === wager.id}
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-xs"
+                                  title="Resolve Side B"
+                                >
+                                  {resolving === wager.id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    "B"
+                                  )}
+                                </Button>
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
           </Card>
 
           {/* Recent Transactions */}
           <Card className="border border-border/80">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm md:text-base font-semibold">Recent Transactions</h2>
-              <Link
-                href="/admin/transactions"
-                className="text-xs text-primary hover:underline"
-              >
-                View All →
-              </Link>
-            </div>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentTransactions.length === 0 ? (
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg font-semibold">Recent Transactions</CardTitle>
+                  <CardDescription className="text-xs mt-1">Latest transaction activity</CardDescription>
+                </div>
+                <Link
+                  href="/admin/transactions"
+                  className="text-xs text-primary hover:underline flex items-center gap-1 group"
+                >
+                  View All <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center text-muted-foreground py-4">
-                        No transactions found
-                      </TableCell>
+                      <TableHead className="text-xs">Type</TableHead>
+                      <TableHead className="text-xs">Amount</TableHead>
+                      <TableHead className="text-xs">Date</TableHead>
                     </TableRow>
-                  ) : (
-                    recentTransactions.map((trans) => (
-                      <TableRow key={trans.id}>
-                        <TableCell className="text-xs font-medium capitalize">
-                          {trans.type.replace("_", " ")}
-                        </TableCell>
-                        <TableCell>
-                          <p
-                            className={`text-xs font-semibold ${
-                              trans.amount > 0
-                                ? "text-green-600 dark:text-green-400"
-                                : "text-red-600 dark:text-red-400"
-                            }`}
-                          >
-                            {trans.amount > 0 ? "+" : ""}
-                            {formatCurrency(Math.abs(trans.amount), DEFAULT_CURRENCY as Currency)}
-                          </p>
-                        </TableCell>
-                        <TableCell className="text-[10px] text-muted-foreground">
-                          {format(new Date(trans.created_at), "MMM d, HH:mm")}
+                  </TableHeader>
+                  <TableBody>
+                    {loading && recentTransactions.length === 0 ? (
+                      [...Array(3)].map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell><div className="h-4 w-24 bg-muted animate-pulse rounded" /></TableCell>
+                          <TableCell><div className="h-4 w-20 bg-muted animate-pulse rounded" /></TableCell>
+                          <TableCell><div className="h-4 w-16 bg-muted animate-pulse rounded" /></TableCell>
+                        </TableRow>
+                      ))
+                    ) : recentTransactions.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                          <div className="flex flex-col items-center gap-2">
+                            <Activity className="h-8 w-8 opacity-50" />
+                            <p className="text-sm">No transactions found</p>
+                          </div>
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                    ) : (
+                      recentTransactions.map((trans) => (
+                        <TableRow key={trans.id} className="hover:bg-muted/50 transition-colors">
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {trans.amount > 0 ? (
+                                <ArrowUpRight className="h-3 w-3 text-green-600 dark:text-green-400" />
+                              ) : (
+                                <ArrowDownRight className="h-3 w-3 text-red-600 dark:text-red-400" />
+                              )}
+                              <span className="text-sm font-medium capitalize">
+                                {trans.type.replace(/_/g, " ")}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span
+                              className={`text-sm font-semibold ${
+                                trans.amount > 0
+                                  ? "text-green-600 dark:text-green-400"
+                                  : "text-red-600 dark:text-red-400"
+                              }`}
+                            >
+                              {trans.amount > 0 ? "+" : ""}
+                              {formatCurrency(Math.abs(trans.amount), DEFAULT_CURRENCY as Currency)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {format(new Date(trans.created_at), "MMM d, HH:mm")}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
           </Card>
         </div>
       </div>

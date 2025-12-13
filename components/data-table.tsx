@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, ArrowUpDown, ArrowUp, ArrowDown, Inbox } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface Column<T> {
   id: string;
@@ -227,7 +228,7 @@ export function DataTable<T extends Record<string, any>>({
     <div className={`space-y-4 ${className}`}>
       {/* Search */}
       {searchable && (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -237,34 +238,47 @@ export function DataTable<T extends Record<string, any>>({
                 setSearch(e.target.value);
                 setCurrentPage(1); // Reset to first page on search
               }}
-              className="pl-9"
+              className="pl-9 h-9"
             />
           </div>
           {search && (
-            <span className="text-sm text-muted-foreground">
-              {filteredData.length} result{filteredData.length !== 1 ? "s" : ""}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                {filteredData.length} result{filteredData.length !== 1 ? "s" : ""}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSearch("")}
+                className="h-7 px-2 text-xs"
+              >
+                Clear
+              </Button>
+            </div>
           )}
         </div>
       )}
 
       {/* Table */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="bg-card border border-border/80 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="hover:bg-transparent">
                 {columns.map((column) => (
                   <TableHead
                     key={column.id}
-                    className={column.sortable !== false && sortable ? "cursor-pointer hover:bg-muted/50" : ""}
+                    className={cn(
+                      "font-semibold",
+                      column.sortable !== false && sortable && column.accessorKey ? "cursor-pointer hover:bg-muted/50 transition-colors" : ""
+                    )}
                     onClick={() => {
                       if ((column.sortable !== false && sortable) && column.accessorKey) {
                         handleSort(column.accessorKey);
                       }
                     }}
                   >
-                    <div className="flex items-center">
+                    <div className="flex items-center gap-1.5">
                       {column.header}
                       {getSortIcon(column)}
                     </div>
@@ -275,15 +289,27 @@ export function DataTable<T extends Record<string, any>>({
             <TableBody>
               {paginatedData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={columns.length} className="text-center text-muted-foreground py-8">
-                    {emptyMessage}
+                  <TableCell colSpan={columns.length} className="text-center py-12">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                        <Inbox className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{emptyMessage}</p>
+                        {search && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Try adjusting your search terms
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : (
                 paginatedData.map((row, index) => (
-                  <TableRow key={index}>
+                  <TableRow key={index} className="hover:bg-muted/50 transition-colors">
                     {columns.map((column) => (
-                      <TableCell key={column.id}>
+                      <TableCell key={column.id} className="py-3">
                         {column.cell ? column.cell(row) : column.accessorKey ? String(row[column.accessorKey] ?? "") : ""}
                       </TableCell>
                     ))}

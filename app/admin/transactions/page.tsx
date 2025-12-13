@@ -8,6 +8,7 @@ import { ArrowUp, ArrowDown, ExternalLink, Link as LinkIcon, Copy, Check, Eye } 
 import { DataTable } from "@/components/data-table";
 import { useAdmin } from "@/contexts/admin-context";
 import Link from "next/link";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 interface Transaction {
   id: string;
@@ -187,14 +188,24 @@ export default function AdminTransactionsPage() {
 
 
   return (
-    <main className="min-h-screen bg-background p-4 md:p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">Transactions</h1>
-          <p className="text-sm text-muted-foreground">View all transactions in the system</p>
+    <main className="min-h-screen bg-background p-4 md:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="space-y-2">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Transactions</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
+            Monitor all financial transactions across the platform
+          </p>
         </div>
 
-        <DataTable
+        {/* Transactions Table */}
+        <Card className="border border-border/80">
+          <CardHeader>
+            <CardTitle>All Transactions</CardTitle>
+            <CardDescription>View and search through all transaction records</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DataTable
           data={filteredTransactions}
           columns={[
             {
@@ -357,9 +368,11 @@ export default function AdminTransactionsPage() {
           pagination
           pageSize={25}
           sortable
-          defaultSort={{ key: "created_at", direction: "desc" }}
-          emptyMessage="No transactions found"
-        />
+              defaultSort={{ key: "created_at", direction: "desc" }}
+              emptyMessage="No transactions found"
+            />
+          </CardContent>
+        </Card>
       </div>
     </main>
   );

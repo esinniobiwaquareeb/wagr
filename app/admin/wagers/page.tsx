@@ -11,6 +11,8 @@ import { DataTable } from "@/components/data-table";
 import { useAdmin } from "@/contexts/admin-context";
 import { apiPost, apiPatch, apiDelete } from "@/lib/api-client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { WAGER_CATEGORIES } from "@/lib/constants";
 
 interface Wager {
@@ -273,7 +275,19 @@ export default function AdminWagersPage() {
   };
 
   return (
-    <main className="min-h-screen bg-background p-4 md:p-6">
+    <main className="min-h-screen bg-background p-4 md:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Wagers</h1>
+              <p className="text-sm md:text-base text-muted-foreground mt-1">
+                Manage and monitor all wagers on the platform
+              </p>
+            </div>
+          </div>
+        </div>
       <ConfirmDialog
         open={showResolveDialog && selectedWager !== null}
         onOpenChange={(open) => {
@@ -319,22 +333,9 @@ export default function AdminWagersPage() {
         variant="default"
         onConfirm={handleResolveWager}
       />
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold">Wagers</h1>
-              <p className="text-sm text-muted-foreground mt-1">Manage all wagers in the system</p>
-            </div>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition"
-            >
-              <Plus className="h-4 w-4" />
-              Create Wager
-            </button>
-          </div>
-          
+        
+        {/* Actions Bar */}
+        <div className="flex items-center justify-between">
           {/* Filter Tabs */}
           <div className="flex gap-2">
             <button
@@ -370,13 +371,20 @@ export default function AdminWagersPage() {
           </div>
         </div>
 
-        <DataTable
-          data={wagers.filter(w => {
-            if (filterType === "user") return !w.is_system_generated;
-            if (filterType === "system") return w.is_system_generated;
-            return true;
-          })}
-          columns={[
+        {/* Wagers Table */}
+        <Card className="border border-border/80">
+          <CardHeader>
+            <CardTitle>All Wagers</CardTitle>
+            <CardDescription>View and manage wagers across the platform</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DataTable
+              data={wagers.filter(w => {
+                if (filterType === "user") return !w.is_system_generated;
+                if (filterType === "system") return w.is_system_generated;
+                return true;
+              })}
+              columns={[
             {
               id: "title",
               header: "Title",
@@ -533,15 +541,17 @@ export default function AdminWagersPage() {
               ),
             },
           ]}
-          searchable
-          searchPlaceholder="Search by title, category, or sides..."
-          searchKeys={["title", "category", "side_a", "side_b"]}
-          pagination
-          pageSize={20}
-          sortable
-          defaultSort={{ key: "created_at", direction: "desc" }}
-          emptyMessage="No wagers found"
-        />
+              searchable
+              searchPlaceholder="Search by title, category, or sides..."
+              searchKeys={["title", "category", "side_a", "side_b"]}
+              pagination
+              pageSize={20}
+              sortable
+              defaultSort={{ key: "created_at", direction: "desc" }}
+              emptyMessage="No wagers found"
+            />
+          </CardContent>
+        </Card>
       </div>
 
       {/* Create Wager Modal */}

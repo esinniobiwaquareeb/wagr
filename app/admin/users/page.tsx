@@ -12,7 +12,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useAdmin } from "@/contexts/admin-context";
 import { apiGet, apiPatch, apiDelete } from "@/lib/api-client";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 interface User {
@@ -192,32 +192,50 @@ export default function AdminUsersPage() {
   }, [users]);
 
   return (
-    <main className="min-h-screen bg-background p-4 md:p-6">
+    <main className="min-h-screen bg-background p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="space-y-1">
-          <h1 className="text-2xl md:text-3xl font-bold">Users</h1>
-          <p className="text-sm text-muted-foreground">
-            Review user activity, balances, and verification levels across the platform.
-          </p>
+        {/* Header */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Users</h1>
+              <p className="text-sm md:text-base text-muted-foreground mt-1">
+                Manage user accounts, verification, and activity
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          {stats.map((stat) => (
-            <Card key={stat.label} className="border border-border/80">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">{stat.label}</CardTitle>
-                <stat.icon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">{stat.value.toLocaleString()}</div>
-              </CardContent>
-            </Card>
-          ))}
+        {/* Stats Grid */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          {stats.map((stat) => {
+            const Icon = stat.icon;
+            return (
+              <Card key={stat.label} className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">{stat.label}</CardTitle>
+                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                    <Icon className="h-4 w-4 text-primary" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stat.value.toLocaleString()}</div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
-        <DataTable
-          data={users}
-          columns={[
+        {/* Users Table */}
+        <Card className="border border-border/80">
+          <CardHeader>
+            <CardTitle>All Users</CardTitle>
+            <CardDescription>Browse and manage user accounts</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DataTable
+              data={users}
+              columns={[
             {
               id: "user",
               header: "User",
@@ -508,11 +526,13 @@ export default function AdminUsersPage() {
               ),
             },
           ]}
-          searchKeys={["username", "email"] as (keyof User)[]}
-          searchPlaceholder="Search by username or email"
-          emptyMessage="No users found."
-          defaultSort={{ key: "created_at", direction: "desc" }}
-        />
+              searchKeys={["username", "email"] as (keyof User)[]}
+              searchPlaceholder="Search by username or email"
+              emptyMessage="No users found."
+              defaultSort={{ key: "created_at", direction: "desc" }}
+            />
+          </CardContent>
+        </Card>
       </div>
 
       {/* Suspend Confirmation Dialog */}
