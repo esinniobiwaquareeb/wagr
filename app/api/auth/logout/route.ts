@@ -1,22 +1,38 @@
 import { NextRequest } from 'next/server';
-import { nestjsPost } from '@/lib/nestjs-client';
-import { logError } from '@/lib/error-handler';
+import { nestjsServerFetch } from '@/lib/nestjs-server';
 import { successResponseNext } from '@/lib/api-response';
+import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
+    // Get auth token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value;
+
     // Call NestJS backend logout endpoint
-    // Backend now handles logout gracefully even if token is invalid/expired
-    try {
-      // Send token if available (for session cleanup), but don't fail if it's invalid
-      await nestjsPost('/auth/logout', {}, { requireAuth: true });
-    } catch (error) {
-      // Backend should not fail, but catch any unexpected errors
-      // Log only if it's a real error (not just invalid token)
-      if (error instanceof Error && !error.message.includes('Unauthorized')) {
-        logError(error as Error);
+    // Backend handles logout gracefully even if token is invalid/expired
+    if (token) {
+      const response = await nestjsServerFetch('/auth/logout', {
+        method: 'POST',
+        token,
+        requireAuth: true,
+      });
+      
+      // Log only if it's a real error (not just invalid token or connection issue)
+      if (!response.success && response.error) {
+        const errorCode = response.error.code;
+        // Don't log connection errors or unauthorized errors - these are expected
+        if (errorCode !== 'CONNECTION_REFUSED' && 
+            errorCode !== 'NETWORK_ERROR' && 
+            !response.error.message?.includes('Unauthorized')) {
+          const { logError } = await import('@/lib/error-handler');
+          logError(new Error(response.error.message || 'Logout failed'));
+        }
       }
     }
+
+    // Clear the auth token cookie
+    cookieStore.delete('auth_token');
 
     // Token removal is handled client-side in lib/auth/client.ts
     return successResponseNext({
@@ -24,6 +40,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     // Token removal is handled client-side even if logout fails
+    const cookieStore = await cookies();
+    cookieStore.delete('auth_token');
+    
     return successResponseNext({
       message: 'Logged out successfully',
     });

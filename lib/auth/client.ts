@@ -41,7 +41,12 @@ export async function getCurrentUser(forceRefresh = false): Promise<AuthUser | n
           cache: 'no-store', // Always fetch fresh from server
         });
 
+        // 401/403 are expected when user is not authenticated - don't treat as errors
         if (!response.ok) {
+          // Only log unexpected errors (not 401/403)
+          if (response.status !== 401 && response.status !== 403) {
+            console.warn('Unexpected status when fetching user:', response.status);
+          }
           return null;
         }
 
@@ -58,7 +63,11 @@ export async function getCurrentUser(forceRefresh = false): Promise<AuthUser | n
 
     return user;
   } catch (error) {
-    console.error('Error fetching current user:', error);
+    // Only log unexpected errors, not network errors or expected auth failures
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (!errorMessage.includes('fetch') && !errorMessage.includes('network')) {
+      console.error('Error fetching current user:', error);
+    }
     return null;
   }
 }

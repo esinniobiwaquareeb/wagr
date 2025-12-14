@@ -220,7 +220,11 @@ function TopNavContent() {
           setUnreadCount(0);
         }
       } catch (error) {
-        console.error('Error getting user:', error);
+        // Only log unexpected errors, not 401/403 which are expected after logout
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (!errorMessage.includes('Unauthorized') && !errorMessage.includes('Forbidden')) {
+          console.error('Error getting user:', error);
+        }
         setUser(null);
         setProfile(null);
         setWalletBalance(null);
@@ -231,21 +235,34 @@ function TopNavContent() {
     getUser();
 
     const handleAuthStateChanged = async () => {
-      // Force refresh to bypass cache after logout
-      await getUser(true);
+      // Only fetch user if we don't already know user is null
+      // This prevents unnecessary API calls after logout
+      if (user !== null) {
+        await getUser(true);
+      } else {
+        // If user is already null, just ensure state is cleared
+        setProfile(null);
+        setWalletBalance(null);
+        setUnreadCount(0);
+      }
     };
     window.addEventListener('auth-state-changed', handleAuthStateChanged);
 
     // Reduced polling frequency - check every 5 minutes instead of 1 minute
+    // Only poll if user exists (don't poll after logout)
     const interval = setInterval(() => {
-      getUser();
+      // Only fetch if we have a user or if we haven't checked yet
+      // This prevents continuous errors after logout
+      if (user !== null || user === undefined) {
+        getUser();
+      }
     }, 300000); // Every 5 minutes
 
     return () => {
       window.removeEventListener('auth-state-changed', handleAuthStateChanged);
       clearInterval(interval);
     };
-  }, [router]);
+  }, [router, user]);
 
   const fetchingProfileRef = useRef(false);
   const debounceProfileTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -394,19 +411,17 @@ function TopNavContent() {
     try {
       clear2FAVerification();
       
-      // Import logout function that properly clears cache
-      const { logout: clientLogout } = await import('@/lib/auth/client');
-      await clientLogout();
-
-      // Immediately clear all local state
+      // Immediately clear all local state before logout API call
       setUser(null);
       setProfile(null);
       setWalletBalance(null);
       setUnreadCount(0);
       
-      // Dispatch auth state change event immediately
-      window.dispatchEvent(new Event('auth-state-changed'));
-      
+      // Import logout function that properly clears cache
+      // Note: clientLogout already dispatches auth-state-changed, so we don't need to do it again
+      const { logout: clientLogout } = await import('@/lib/auth/client');
+      await clientLogout();
+
       // Force refresh router to clear server-side state
       router.refresh();
       
@@ -420,14 +435,17 @@ function TopNavContent() {
         router.push("/wagers?login=true");
       }, 100);
     } catch (error) {
-      console.error("Error logging out:", error);
-      
-      // Even on error, clear local state
+      // Even on error, ensure local state is cleared
       setUser(null);
       setProfile(null);
       setWalletBalance(null);
       setUnreadCount(0);
-      window.dispatchEvent(new Event('auth-state-changed'));
+      
+      // Only dispatch if clientLogout didn't already do it
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('auth-state-changed'));
+      }
+      
       router.refresh();
       
       toast({

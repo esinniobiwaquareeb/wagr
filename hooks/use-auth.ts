@@ -50,7 +50,11 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthResult {
         router.push(redirectTo);
       }
     } catch (error) {
-      console.error('Error checking auth:', error);
+      // Only log unexpected errors, not 401/403 which are expected after logout
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (!errorMessage.includes('Unauthorized') && !errorMessage.includes('Forbidden')) {
+        console.error('Error checking auth:', error);
+      }
       setUser(null);
       setLoading(false);
       
@@ -79,17 +83,25 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthResult {
 
   // Store fetchUser in ref to avoid dependency issues
   const fetchUserRef = useRef(fetchUser);
+  const userRef = useRef(user);
   useEffect(() => {
     fetchUserRef.current = fetchUser;
-  }, [fetchUser]);
+    userRef.current = user;
+  }, [fetchUser, user]);
 
   useEffect(() => {
     fetchUserRef.current();
 
     // Listen for auth state changes
     const handleAuthStateChanged = () => {
-      // Force refresh to bypass cache after logout
-      fetchUserRef.current(true);
+      // Only fetch if we have a user or haven't checked yet
+      // This prevents unnecessary API calls after logout
+      if (userRef.current !== null) {
+        fetchUserRef.current(true);
+      } else {
+        // If user is already null, just ensure loading is false
+        setLoading(false);
+      }
     };
 
     if (typeof window !== 'undefined') {
@@ -97,8 +109,13 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthResult {
     }
 
     // Poll for auth changes (fallback) - increased to 5 minutes to reduce calls
+    // Only poll if user exists (don't poll after logout)
     const interval = setInterval(() => {
-      fetchUserRef.current();
+      // Only fetch if we have a user (don't poll after logout)
+      // This prevents continuous errors after logout
+      if (userRef.current !== null) {
+        fetchUserRef.current();
+      }
     }, 300000); // Check every 5 minutes instead of 1 minute
 
     return () => {
@@ -107,7 +124,7 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthResult {
       }
       clearInterval(interval);
     };
-  }, []); // Empty deps - only set up once
+  }, []); // Empty deps - use refs to access current values
 
   return { user, loading, logout: handleLogout, refresh };
 }
