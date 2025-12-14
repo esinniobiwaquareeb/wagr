@@ -3,6 +3,7 @@
 // Configured to run every 2 minutes for testing (adjust in Vercel dashboard)
 
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from '@/lib/logger';
 
 const NESTJS_API_BASE = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://localhost:3001/api/v1';
 
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
       results: data.data || data,
     });
   } catch (error) {
-    console.error("Error in generate-wagers agent:", error);
+    logger.error("Error in generate-wagers agent", error);
     return NextResponse.json(
       { 
         error: "Internal server error",

@@ -14,6 +14,7 @@ import {
   Loader2,
   TrendingUp,
 } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 interface Activity {
   id: string;
@@ -70,7 +71,7 @@ export function PlatformActivities() {
       const currentTotal = append ? activities.length + activitiesData.length : activitiesData.length;
       setHasMore(currentTotal < total);
     } catch (error) {
-      console.error("Error fetching activities:", error);
+      logger.error("Error fetching activities", error);
     } finally {
       setLoading(false);
       setLoadingMore(false);

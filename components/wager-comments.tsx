@@ -7,6 +7,7 @@ import { commentsApi } from "@/lib/api-client";
 import { MessageSquare, Send, Reply, MoreVertical, Edit2, Trash2, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { formatDistanceToNow } from "date-fns";
+import { logger } from "@/lib/logger";
 
 interface Comment {
   id: string;
@@ -50,7 +51,7 @@ export function WagerComments({ wagerId }: WagerCommentsProps) {
 
       setComments(commentsData);
     } catch (error) {
-      console.error("Error fetching comments:", error);
+      logger.error("Error fetching comments", error);
       setComments([]);
     } finally {
       setLoading(false);

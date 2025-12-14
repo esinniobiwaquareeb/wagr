@@ -1,5 +1,6 @@
 import { authenticator } from 'otplib';
 import QRCode from 'qrcode';
+import { logger } from './logger';
 
 export interface TwoFactorSetup {
   secret: string;
@@ -43,7 +44,7 @@ export function verify2FACode(secret: string, code: string): boolean {
     // Verify with window of ±1 period (30 seconds) for clock skew
     return authenticator.check(code, secret);
   } catch (error) {
-    console.error('2FA verification error:', error);
+    logger.error('2FA verification error', error);
     return false;
   }
 }

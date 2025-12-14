@@ -2,6 +2,7 @@
 // This can be called by cron jobs or external services to automatically create wagers
 
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from '@/lib/logger';
 
 const NESTJS_API_BASE = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://localhost:3001/api/v1';
 
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Error in create-system-wager:", error);
+    logger.error("Error in create-system-wager", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

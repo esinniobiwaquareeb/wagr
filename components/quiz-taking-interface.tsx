@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { format } from "date-fns";
+import { logger } from "@/lib/logger";
 
 interface Question {
   id: string;
@@ -81,7 +82,7 @@ export function QuizTakingInterface({
           setTimeRemaining(durationMinutes * 60);
         }
       } catch (error) {
-        console.error('Error starting quiz:', error);
+        logger.error('Error starting quiz', error);
         toast({
           title: "Error",
           description: error instanceof Error ? error.message : "Failed to start quiz",
@@ -174,7 +175,7 @@ export function QuizTakingInterface({
 
       onComplete(data.data?.responses || []);
     } catch (error) {
-      console.error('Error submitting quiz:', error);
+      logger.error('Error submitting quiz', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to submit quiz",

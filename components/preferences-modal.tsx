@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { preferencesApi, categoriesApi } from "@/lib/api-client";
+import { logger } from "@/lib/logger";
 
 const NOTIFICATION_TYPES = [
   { id: "new_wagers", label: "New Wagers", description: "Get notified when new wagers are created" },
@@ -65,7 +66,7 @@ export function PreferencesModal({ isOpen, onClose }: PreferencesModalProps) {
         setCategories(mappedCategories);
       }
     } catch (error) {
-      console.error("Error fetching categories:", error);
+      logger.error("Error fetching categories", error);
       // Fallback to empty array on error
       setCategories([]);
     } finally {
@@ -89,7 +90,7 @@ export function PreferencesModal({ isOpen, onClose }: PreferencesModalProps) {
         });
       }
     } catch (error) {
-      console.error("Error fetching preferences:", error);
+      logger.error("Error fetching preferences", error);
       toast({
         title: "Error",
         description: "Failed to load preferences.",
@@ -148,7 +149,7 @@ export function PreferencesModal({ isOpen, onClose }: PreferencesModalProps) {
       });
       onClose();
     } catch (error) {
-      console.error("Error saving preferences:", error);
+      logger.error("Error saving preferences", error);
       toast({
         title: "Error",
         description: "Failed to save preferences.",

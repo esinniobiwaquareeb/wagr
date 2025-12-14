@@ -3,6 +3,7 @@ import { nestjsServerFetch } from '@/lib/nestjs-server';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 import { logError } from '@/lib/error-handler';
 import { cookies } from 'next/headers';
+import { logger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
     if (!response.success || !response.data) {
       const errorMessage = response.error?.message || 'Login failed';
       const errorCode = response.error?.code || 'UNKNOWN_ERROR';
-      console.error(`Login failed: [${errorCode}] ${errorMessage}`, {
+      logger.error(`Login failed: [${errorCode}] ${errorMessage}`, {
         error: response.error,
         backendUrl: process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://localhost:3001/api/v1',
       });

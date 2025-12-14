@@ -1,5 +1,7 @@
 // CoinGecko API integration for cryptocurrency prices
 
+import { logger } from '../logger';
+
 const COINGECKO_API_URL = 'https://api.coingecko.com/api/v3';
 
 export interface CoinGeckoPrice {
@@ -49,7 +51,7 @@ export async function fetchCryptoPrices(coinIds: string[] = ['bitcoin', 'ethereu
 
     return prices;
   } catch (error) {
-    console.error('Error fetching crypto prices:', error);
+    logger.error('Error fetching crypto prices', error);
     // Return fallback prices if API fails
     return {
       BTC: 45000,

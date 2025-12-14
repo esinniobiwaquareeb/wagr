@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { TwoFactorVerify } from "@/components/two-factor-verify";
 import { markSessionAs2FAVerified } from "@/lib/session-2fa";
 import { Eye, EyeOff } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -190,7 +191,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
         // Verify we have the required data
         if (!data.data?.user || !data.data?.token) {
-          console.error('Login response missing required data:', data);
+          logger.error('Login response missing required data', { data });
           throw new Error('Invalid login response: Missing user or token');
         }
 
@@ -273,7 +274,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
       // Verify we have the required data
       if (!data.data?.user || !data.data?.token) {
-        console.error('2FA verification response missing required data:', data);
+        logger.error('2FA verification response missing required data', { data });
         throw new Error('Invalid verification response: Missing user or token');
       }
 

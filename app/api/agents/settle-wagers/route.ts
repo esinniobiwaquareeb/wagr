@@ -3,6 +3,7 @@
 // Configured to run periodically (adjust schedule in Vercel dashboard)
 
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from '@/lib/logger';
 
 const NESTJS_API_BASE = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://localhost:3001/api/v1';
 
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
       settlementResult: data.data || data,
     });
   } catch (error) {
-    console.error("Error in settle-wagers agent:", error);
+    logger.error("Error in settle-wagers agent", error);
     return NextResponse.json(
       { 
         error: "Internal server error",

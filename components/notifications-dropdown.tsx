@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Link from "next/link";
+import { logger } from "@/lib/logger";
 
 interface Notification {
   id: string;
@@ -115,7 +116,7 @@ export function NotificationsDropdown({
       onUnreadCountChange(Math.max(0, unreadCount - 1));
       window.dispatchEvent(new Event('notifications-updated'));
     } catch (error) {
-      console.error("Error marking notification as read:", error);
+      logger.error("Error marking notification as read", error);
     }
   };
 
@@ -129,7 +130,7 @@ export function NotificationsDropdown({
       onUnreadCountChange(0);
       window.dispatchEvent(new Event('notifications-updated'));
     } catch (error) {
-      console.error("Error marking all as read:", error);
+      logger.error("Error marking all as read", error);
     } finally {
       setMarkingRead(false);
     }

@@ -4,6 +4,7 @@
  */
 
 import { getRedisClient } from './client';
+import { logger } from '../logger';
 
 // Cache TTLs (in seconds)
 // Note: Wager and quiz TTLs are defined in their respective modules (lib/redis/wagers.ts)
@@ -30,7 +31,7 @@ export async function getCached<T>(key: string): Promise<T | null> {
 
     return JSON.parse(value) as T;
   } catch (error) {
-    console.error(`Redis: Error getting cache for key ${key}:`, error);
+    logger.error(`Redis: Error getting cache for key ${key}`, error);
     return null;
   }
 }
@@ -50,7 +51,7 @@ export async function setCached<T>(
     await client.setEx(key, ttl, JSON.stringify(value));
     return true;
   } catch (error) {
-    console.error(`Redis: Error setting cache for key ${key}:`, error);
+    logger.error(`Redis: Error setting cache for key ${key}`, error);
     return false;
   }
 }
@@ -69,7 +70,7 @@ export async function deleteCached(key: string | string[]): Promise<boolean> {
     await client.del(keys);
     return true;
   } catch (error) {
-    console.error(`Redis: Error deleting cache for key(s):`, error);
+    logger.error('Redis: Error deleting cache for key(s)', error);
     return false;
   }
 }
@@ -95,7 +96,7 @@ export async function invalidatePattern(pattern: string): Promise<number> {
     await client.del(keys);
     return keys.length;
   } catch (error) {
-    console.error(`Redis: Error invalidating pattern ${pattern}:`, error);
+    logger.error(`Redis: Error invalidating pattern ${pattern}`, error);
     return 0;
   }
 }
@@ -136,7 +137,7 @@ export async function getOrFetch<T>(
 
   // Cache the result (fire and forget)
   setCached(cacheKey, data, ttl).catch((err) => {
-    console.error(`Redis: Failed to cache ${cacheKey}:`, err);
+    logger.error(`Redis: Failed to cache ${cacheKey}`, err);
   });
 
   return data;

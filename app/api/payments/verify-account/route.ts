@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
       accountName: data.data.account_name,
     });
   } catch (error) {
-    console.error('Error verifying account:', error);
+    logger.error('Error verifying account', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

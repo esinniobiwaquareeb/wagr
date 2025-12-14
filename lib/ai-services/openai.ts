@@ -1,5 +1,7 @@
 // OpenAI integration for news analysis and wager generation
 
+import { logger } from '../logger';
+
 interface NewsArticle {
   title: string;
   description: string;
@@ -165,7 +167,7 @@ Return JSON array with this structure:
       };
     }).slice(0, 5);
   } catch (error) {
-    console.error('OpenAI analysis error:', error);
+    logger.error('OpenAI analysis error', error);
     throw error;
   }
 }
@@ -238,7 +240,7 @@ Return JSON:
       confidence: Math.min(100, Math.max(0, parsed.confidence || 0)),
     };
   } catch (error) {
-    console.error('OpenAI settlement analysis error:', error);
+    logger.error('OpenAI settlement analysis error', error);
     return { winningSide: null, reasoning: 'Analysis failed', confidence: 0 };
   }
 }

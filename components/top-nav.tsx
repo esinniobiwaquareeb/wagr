@@ -1088,7 +1088,7 @@ function TopNavContent() {
                     setWalletBalance(response.balance);
                   } catch (error) {
                     // Silent fail - balance will update via real-time subscription
-                    console.error('Error refreshing balance:', error);
+                    // Silent fail - balance will update via polling
                   }
                 }, 500); // 500ms delay to ensure transaction is committed
               }

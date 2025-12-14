@@ -1,6 +1,8 @@
 // News API integration for political and current events
 // Using NewsAPI.org (free tier available)
 
+import { logger } from '../logger';
+
 const NEWS_API_URL = 'https://newsapi.org/v2';
 
 export interface NewsArticle {
@@ -41,7 +43,7 @@ export async function fetchPoliticalNews(apiKey: string, country: string = 'us')
     if (!response.ok) {
       // Special-case unauthorized so we don't spam logs and can fail gracefully
       if (response.status === 401) {
-        console.warn('News API unauthorized. Check NEWS_API_KEY configuration.');
+        logger.warn('News API unauthorized. Check NEWS_API_KEY configuration.');
         return [];
       }
       throw new Error(`News API error: ${response.statusText}`);
@@ -88,7 +90,7 @@ export async function fetchGeneralNews(apiKey: string, query: string = 'election
     if (!response.ok) {
       // Special-case unauthorized so we don't spam logs and can fail gracefully
       if (response.status === 401) {
-        console.warn('News API unauthorized. Check NEWS_API_KEY configuration.');
+        logger.warn('News API unauthorized. Check NEWS_API_KEY configuration.');
         return [];
       }
       throw new Error(`News API error: ${response.statusText}`);

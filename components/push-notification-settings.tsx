@@ -11,6 +11,7 @@ import {
 } from '@/lib/push-notifications';
 import { useAuth } from '@/hooks/use-auth';
 import { preferencesApi } from '@/lib/api-client';
+import { logger } from '@/lib/logger';
 
 export function PushNotificationSettings() {
   const [isSupported, setIsSupported] = useState(false);
@@ -73,7 +74,7 @@ export function PushNotificationSettings() {
               await preferencesApi.update({ push_notifications_enabled: true });
               setIsSubscribed(true);
             } catch (error) {
-              console.error('Error saving preference:', error);
+              logger.error('Error saving preference', error);
               setIsSubscribed(previousState);
             }
           } else {
@@ -113,7 +114,7 @@ export function PushNotificationSettings() {
         }
       }
     } catch (error) {
-      console.error('Error toggling push notifications:', error);
+      logger.error('Error toggling push notifications', error);
       // Revert to previous state on error
       setIsSubscribed(previousState);
     } finally {

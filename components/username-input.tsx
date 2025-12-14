@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Search, User, X } from "lucide-react";
 import { useDebounce } from "@/hooks/use-debounce";
+import { logger } from "@/lib/logger";
 
 interface User {
   id: string;
@@ -61,7 +62,7 @@ export function UsernameInput({
           setShowSuggestions(false);
         }
       } catch (error) {
-        console.error("Error searching users:", error);
+        logger.error("Error searching users", error);
         setSuggestions([]);
         setShowSuggestions(false);
       } finally {

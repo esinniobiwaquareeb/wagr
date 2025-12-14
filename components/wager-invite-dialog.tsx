@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/use-debounce";
+import { logger } from "@/lib/logger";
 
 interface Team {
   id: string;
@@ -87,7 +88,7 @@ export function WagerInviteDialog({
         setTeams(data.teams || []);
       }
     } catch (error) {
-      console.error('Failed to load teams:', error);
+      logger.error('Failed to load teams', error);
     } finally {
       setLoadingTeams(false);
     }
@@ -103,7 +104,7 @@ export function WagerInviteDialog({
         setInvitedUsers(data.invites || data.data?.invites || []);
       }
     } catch (error) {
-      console.error('Failed to load invited users:', error);
+      logger.error('Failed to load invited users', error);
     } finally {
       setLoadingInvites(false);
     }
@@ -143,19 +144,19 @@ export function WagerInviteDialog({
               ? data.data.users 
               : data.users || data.data?.users || [];
             
-            console.log('Search results for:', debouncedSearch, 'Found:', users.length, 'users');
+            logger.debug('Search results', { query: debouncedSearch, count: users.length });
             setSearchResults(users);
           }
         } else {
           if (!cancelled) {
             const errorData = await response.json().catch(() => ({}));
-            console.error('Search API error:', response.status, errorData);
+            logger.error('Search API error', { status: response.status, error: errorData });
             setSearchResults([]);
           }
         }
       } catch (error) {
         if (!cancelled) {
-          console.error('Failed to search users:', error);
+          logger.error('Failed to search users', error);
           setSearchResults([]);
         }
       } finally {
@@ -305,7 +306,7 @@ export function WagerInviteDialog({
       const data = await response.json();
 
       if (response.ok) {
-        console.log('Invite response:', data);
+        logger.debug('Invite response', { data });
         setInviteResults(data.results || data.data?.results);
         const invitedCount = data.results?.invited?.length || data.data?.results?.invited?.length || 0;
         toast({

@@ -22,7 +22,20 @@ export async function GET(request: NextRequest) {
     }
 
     // Call NestJS backend
-    const response = await nestjsServerFetch<{ users: any[] }>('/admin/users', {
+    interface AdminUsersResponse {
+      users: Array<{
+        id: string;
+        email: string;
+        username: string | null;
+        balance: number;
+        is_suspended: boolean;
+        email_verified: boolean;
+        created_at: string;
+        [key: string]: unknown;
+      }>;
+    }
+
+    const response = await nestjsServerFetch<AdminUsersResponse>('/admin/users', {
       method: 'GET',
       token,
       requireAuth: true,
@@ -32,7 +45,9 @@ export async function GET(request: NextRequest) {
       throw new Error(response.error?.message || 'Failed to fetch users');
     }
 
-    return successResponseNext(response.data);
+    // nestjsServerFetch returns: { success: true, data: { users: [...] } }
+    const nestjsData = response.data as AdminUsersResponse;
+    return successResponseNext({ users: nestjsData.users || [] });
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);

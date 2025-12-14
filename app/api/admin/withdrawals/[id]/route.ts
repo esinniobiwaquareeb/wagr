@@ -28,7 +28,22 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
 
     // Call NestJS backend to get withdrawal
-    const response = await nestjsServerFetch<{ withdrawal: any }>(`/admin/withdrawals/${id}`, {
+    interface WithdrawalResponse {
+      withdrawal: {
+        id: string;
+        user_id: string;
+        amount: number;
+        status: string;
+        bank_account: {
+          account_number: string;
+          bank_code: string;
+          account_name: string;
+        };
+        [key: string]: unknown;
+      };
+    }
+
+    const response = await nestjsServerFetch<WithdrawalResponse>(`/admin/withdrawals/${id}`, {
       method: 'GET',
       token,
       requireAuth: true,
@@ -38,8 +53,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       throw new Error(response.error?.message || 'Failed to fetch withdrawal');
     }
 
+    // nestjsServerFetch returns: { success: true, data: { withdrawal } }
+    const nestjsData = response.data as WithdrawalResponse;
     return successResponseNext({
-      withdrawal: response.data.withdrawal,
+      withdrawal: nestjsData.withdrawal,
     });
   } catch (error) {
     logError(error as Error);
@@ -66,20 +83,38 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params;
 
+    // Reuse WithdrawalResponse interface from GET handler
+    interface WithdrawalResponse {
+      withdrawal: {
+        id: string;
+        user_id: string;
+        amount: number;
+        status: string;
+        bank_account: {
+          account_number: string;
+          bank_code: string;
+          account_name: string;
+        };
+        [key: string]: unknown;
+      };
+    }
+
     // Call NestJS backend to update withdrawal
-    const response = await nestjsServerFetch<{ withdrawal: any }>(`/admin/withdrawals/${id}`, {
+    const updateResponse = await nestjsServerFetch<WithdrawalResponse>(`/admin/withdrawals/${id}`, {
       method: 'PATCH',
       token,
       requireAuth: true,
       body: JSON.stringify(body),
     });
 
-    if (!response.success || !response.data) {
-      throw new Error(response.error?.message || 'Failed to update withdrawal');
+    if (!updateResponse.success || !updateResponse.data) {
+      throw new Error(updateResponse.error?.message || 'Failed to update withdrawal');
     }
 
+    // nestjsServerFetch returns: { success: true, data: { withdrawal } }
+    const nestjsData = updateResponse.data as WithdrawalResponse;
     return successResponseNext({
-      withdrawal: response.data.withdrawal,
+      withdrawal: nestjsData.withdrawal,
     });
   } catch (error) {
     logError(error as Error);

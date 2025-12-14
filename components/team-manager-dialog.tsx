@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/use-debounce";
+import { logger } from "@/lib/logger";
 
 interface TeamMember {
   user_id: string;
@@ -91,7 +92,7 @@ export function TeamManagerDialog({
         setSearchResults(data.users || []);
       }
     } catch (error) {
-      console.error('Failed to search users:', error);
+          logger.error('Failed to search users', error);
     }
   };
 

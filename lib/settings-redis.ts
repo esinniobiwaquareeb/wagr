@@ -5,6 +5,7 @@
 
 import { getSetting as getSettingDb, getSettings as getSettingsDb } from './settings';
 import { getCached, setCached, getOrFetch, CacheKeys, CACHE_TTL, invalidateSettingsCache } from './redis/cache';
+import { logger } from './logger';
 
 /**
  * Get a setting value by key with Redis caching
@@ -93,7 +94,7 @@ export async function getAllPublicSettings(): Promise<Record<string, any>> {
         return settings;
       } catch (error) {
         // Fallback to empty object if API call fails
-        console.warn('Failed to fetch public settings:', error);
+        logger.warn('Failed to fetch public settings', error);
         return {};
       }
     },

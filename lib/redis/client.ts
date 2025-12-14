@@ -3,6 +3,8 @@
  * Provides a centralized Redis connection for caching and performance optimization
  */
 
+import { logger } from '../logger';
+
 // Redis types - will be available after installing redis package
 type RedisClientType = any;
 
@@ -40,7 +42,7 @@ export async function getRedisClient(): Promise<RedisClientType | null> {
         const redisModule = await import('redis');
         createClient = redisModule.createClient;
       } catch (importError) {
-        console.warn('Redis package not installed. Install with: npm install redis');
+        logger.warn('Redis package not installed. Install with: npm install redis');
         isConnecting = false;
         connectionPromise = null;
         return null;
@@ -51,12 +53,9 @@ export async function getRedisClient(): Promise<RedisClientType | null> {
       
       // Detect and reject REST URLs (Upstash provides both REST and Redis URLs)
       if (redisUrl?.startsWith('https://')) {
-        console.error('Redis: ERROR - You are using the REST URL instead of the Redis URL!');
-        console.error('Redis: Upstash provides two URLs:');
-        console.error('Redis: 1. REST URL (https://...) - For REST API calls (NOT for Redis client)');
-        console.error('Redis: 2. Redis URL (rediss://...) - For Redis client connections (USE THIS ONE)');
-        console.error('Redis: Please use the Redis URL which starts with "rediss://"');
-        console.error('Redis: Format: rediss://default:password@host:port');
+        logger.error('Redis: ERROR - You are using the REST URL instead of the Redis URL!', {
+          message: 'Upstash provides two URLs: 1. REST URL (https://...) - For REST API calls (NOT for Redis client), 2. Redis URL (rediss://...) - For Redis client connections (USE THIS ONE). Please use the Redis URL which starts with "rediss://". Format: rediss://default:password@host:port'
+        });
         isConnecting = false;
         connectionPromise = null;
         return null;
@@ -85,7 +84,7 @@ export async function getRedisClient(): Promise<RedisClientType | null> {
         socket: {
           reconnectStrategy: (retries: number) => {
             if (retries > 10) {
-              console.error('Redis: Max reconnection attempts reached');
+              logger.error('Redis: Max reconnection attempts reached');
               return new Error('Max reconnection attempts reached');
             }
             return Math.min(retries * 100, 3000);
@@ -104,25 +103,25 @@ export async function getRedisClient(): Promise<RedisClientType | null> {
       const client = createClient(clientConfig);
 
       client.on('error', (err: Error) => {
-        console.error('Redis Client Error:', err);
+        logger.error('Redis Client Error', err);
         // Log helpful error messages for common issues
         if (err.message.includes('TLS') || err.message.includes('SSL')) {
-          console.error('Redis: TLS/SSL error. For Upstash, ensure URL uses rediss:// protocol');
+          logger.error('Redis: TLS/SSL error. For Upstash, ensure URL uses rediss:// protocol');
         }
         if (err.message.includes('NOAUTH') || err.message.includes('Authentication')) {
-          console.error('Redis: Authentication failed. Check REDIS_PASSWORD environment variable');
+          logger.error('Redis: Authentication failed. Check REDIS_PASSWORD environment variable');
         }
       });
 
       client.on('connect', () => {
-        console.log('Redis: Connected');
+        logger.info('Redis: Connected');
         if (redisUrl.includes('upstash.io')) {
-          console.log('Redis: Connected to Upstash');
+          logger.info('Redis: Connected to Upstash');
         }
       });
 
       client.on('ready', () => {
-        console.log('Redis: Ready');
+        logger.info('Redis: Ready');
         isConnecting = false;
       });
 
@@ -131,10 +130,12 @@ export async function getRedisClient(): Promise<RedisClientType | null> {
         redisClient = client as RedisClientType;
         return redisClient;
       } catch (connectError) {
-        console.error('Redis: Connection failed:', connectError);
+        logger.error('Redis: Connection failed', connectError);
         if (connectError instanceof Error) {
-          console.error('Redis: Error message:', connectError.message);
-          console.error('Redis: Error stack:', connectError.stack);
+          logger.error('Redis: Connection error details', {
+            message: connectError.message,
+            stack: connectError.stack,
+          });
         }
         // Close the client if it was created
         try {
@@ -145,9 +146,9 @@ export async function getRedisClient(): Promise<RedisClientType | null> {
         throw connectError; // Re-throw to be caught by outer catch
       }
     } catch (error) {
-      console.error('Redis: Failed to initialize connection:', error);
+      logger.error('Redis: Failed to initialize connection', error);
       if (error instanceof Error) {
-        console.error('Redis: Error details:', {
+        logger.error('Redis: Error details', {
           message: error.message,
           name: error.name,
           stack: error.stack?.substring(0, 500),

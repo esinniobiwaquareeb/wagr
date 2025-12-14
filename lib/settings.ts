@@ -4,6 +4,7 @@
  */
 
 import type { KycLimitsConfig } from '@/lib/kyc/types';
+import { logger } from './logger';
 
 export interface PlatformSetting {
   key: string;
@@ -28,7 +29,7 @@ export async function getSetting<T = any>(key: string, defaultValue?: T): Promis
     const data = await apiGet<{ setting: { value: any } }>(`/settings/${encodeURIComponent(key)}`);
     return (data as any)?.setting?.value as T ?? defaultValue as T;
   } catch (error) {
-    console.error(`Error fetching setting ${key}:`, error);
+    logger.error(`Error fetching setting ${key}`, error);
     return defaultValue as T;
   }
 }
@@ -45,7 +46,7 @@ export async function getSettings(keys: string[]): Promise<Record<string, any>> 
     const data = await apiGet<{ settings: Record<string, any> }>(`/settings?${queryString}`);
     return (data as any)?.settings ?? {};
   } catch (error) {
-    console.error('Error fetching settings:', error);
+    logger.error('Error fetching settings', error);
     return {};
   }
 }

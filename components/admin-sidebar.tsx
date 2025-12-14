@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useAdmin } from "@/contexts/admin-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 
 export function AdminSidebar() {
   const pathname = usePathname();
@@ -33,7 +34,7 @@ export function AdminSidebar() {
       // Use window.location.href for a hard redirect
       window.location.href = '/admin/login';
     } catch (error) {
-      console.error('Admin logout error:', error);
+      logger.error('Admin logout error', error);
       // Even if logout fails, redirect to login page
       window.location.href = '/admin/login';
     }

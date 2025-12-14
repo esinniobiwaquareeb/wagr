@@ -5,6 +5,8 @@
  * Ensures UTC storage and proper local timezone display
  */
 
+import { logger } from './logger';
+
 /**
  * Convert local datetime string (from datetime-local input) to UTC ISO string
  * @param localDateTime - String from datetime-local input (e.g., "2025-11-18T10:00")
@@ -28,7 +30,7 @@ export function localToUTC(localDateTime: string | null | undefined): string | n
     // Convert to UTC ISO string
     return localDate.toISOString();
   } catch (error) {
-    console.error('Error converting local to UTC:', error);
+    logger.error('Error converting local to UTC', error);
     return null;
   }
 }
@@ -62,7 +64,7 @@ export function utcToLocal(utcDateTime: string | null | undefined): string {
     
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   } catch (error) {
-    console.error('Error converting UTC to local:', error);
+    logger.error('Error converting UTC to local', error);
     return '';
   }
 }
@@ -88,7 +90,7 @@ export function parseDeadline(deadline: string | null | undefined): Date | null 
     
     return date;
   } catch (error) {
-    console.error('Error parsing deadline:', error);
+    logger.error('Error parsing deadline', error);
     return null;
   }
 }

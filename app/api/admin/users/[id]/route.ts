@@ -28,19 +28,35 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
 
     // Call NestJS backend to get user details
-    const response = await nestjsServerFetch<{
-      user: any;
-      statistics: any;
-      activities: {
-        wagersCreated: any[];
-        wagerEntries: any[];
-        transactions: any[];
-        quizzesCreated: any[];
-        quizParticipations: any[];
-        withdrawals: any[];
-        billPayments: any[];
+    interface AdminUserDetailResponse {
+      user: {
+        id: string;
+        email: string;
+        username: string | null;
+        balance: number;
+        is_suspended: boolean;
+        email_verified: boolean;
+        created_at: string;
+        [key: string]: unknown;
       };
-    }>(`/admin/users/${id}`, {
+      statistics: {
+        total_wagers: number;
+        total_entries: number;
+        total_winnings: number;
+        [key: string]: unknown;
+      };
+      activities: {
+        wagersCreated: Array<{ id: string; title: string; [key: string]: unknown }>;
+        wagerEntries: Array<{ id: string; wager_id: string; [key: string]: unknown }>;
+        transactions: Array<{ id: string; type: string; amount: number; [key: string]: unknown }>;
+        quizzesCreated: Array<{ id: string; title: string; [key: string]: unknown }>;
+        quizParticipations: Array<{ id: string; quiz_id: string; [key: string]: unknown }>;
+        withdrawals: Array<{ id: string; amount: number; status: string; [key: string]: unknown }>;
+        billPayments: Array<{ id: string; amount: number; [key: string]: unknown }>;
+      };
+    }
+
+    const response = await nestjsServerFetch<AdminUserDetailResponse>(`/admin/users/${id}`, {
       method: 'GET',
       token,
       requireAuth: true,
@@ -50,7 +66,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       throw new Error(response.error?.message || 'Failed to fetch user details');
     }
 
-    return successResponseNext(response.data);
+    // nestjsServerFetch returns: { success: true, data: { user, statistics, activities } }
+    const nestjsData = response.data as AdminUserDetailResponse;
+    return successResponseNext(nestjsData);
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);

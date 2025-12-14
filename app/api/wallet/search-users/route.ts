@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth/server';
 import { logError } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 import { cookies } from 'next/headers';
+import { logger } from '@/lib/logger';
 
 /**
  * GET /api/wallet/search-users
@@ -29,9 +30,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Call NestJS backend to search users
-    const response = await nestjsServerFetch<{
-      users: any[];
-    }>(`/wallet/search-users?q=${encodeURIComponent(query)}`, {
+    interface SearchUsersResponse {
+      users: Array<{
+        id: string;
+        username: string | null;
+        email: string;
+        avatar_url: string | null;
+      }>;
+    }
+
+    const response = await nestjsServerFetch<SearchUsersResponse>(`/wallet/search-users?q=${encodeURIComponent(query)}`, {
       method: 'GET',
       token,
       requireAuth: true,
@@ -41,9 +49,11 @@ export async function GET(request: NextRequest) {
       throw new Error(response.error?.message || 'Failed to search users');
     }
 
-    return successResponseNext({ users: response.data.users || [] });
+    // nestjsServerFetch returns: { success: true, data: { users: [...] } }
+    const nestjsData = response.data as SearchUsersResponse;
+    return successResponseNext({ users: nestjsData.users || [] });
   } catch (error) {
-    console.error('Search users API error:', error);
+    logger.error('Search users API error', error);
     logError(error as Error);
     return appErrorToResponse(error);
   }

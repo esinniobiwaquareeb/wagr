@@ -2,6 +2,8 @@
 // Used to create notifications for various events
 // Note: This is primarily used server-side. For client-side, use the API directly.
 
+import { logger } from './logger';
+
 export interface NotificationData {
   user_id: string;
   type: string;
@@ -35,11 +37,11 @@ export async function createNotification(data: NotificationData): Promise<void> 
       },
       body: JSON.stringify(data),
     }).catch((error) => {
-      console.error('Failed to create notification:', error);
+      logger.error('Failed to create notification', error);
       // Don't throw - notifications are non-critical
     });
   } catch (error) {
-    console.error("Failed to create notification (exception):", {
+    logger.error("Failed to create notification (exception)", {
       error,
       notificationData: {
         user_id: data.user_id,

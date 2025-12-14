@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { COMMON_SIDES, PLATFORM_FEE_PERCENTAGE, UI } from "@/lib/constants";
 import Link from 'next/link';
 import { useSettings } from "@/hooks/use-settings";
+import { logger } from "@/lib/logger";
 
 // Common amount presets (will be filtered based on minimum wager amount)
 const BASE_AMOUNT_PRESETS = [10, 25, 50, 100, 250, 500, 1000];
@@ -109,7 +110,7 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
         setUserBalance(0);
       }
     } catch (error) {
-      console.error('Error fetching balance:', error);
+      logger.error('Error fetching balance', error);
       setUserBalance(0);
     }
   }, [user]);
@@ -140,7 +141,7 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
         setTitleSuggestions([]);
       }
     } catch (error) {
-      console.error('Error checking title:', error);
+      logger.error('Error checking title', error);
       setSimilarWagers([]);
       setTitleSuggestions([]);
     } finally {
@@ -183,7 +184,7 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
         setUserBalance(profile.balance || 0);
       }
     } catch (error) {
-      console.error("Error checking balance:", error);
+      logger.error("Error checking balance", error);
     } finally {
       setCheckingBalance(false);
     }
@@ -216,7 +217,7 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
         setCategories(mappedCategories);
       }
     } catch (error) {
-      console.error('Error fetching categories:', error);
+      logger.error('Error fetching categories', error);
       // Fallback to empty array on error
       setCategories([]);
     } finally {
@@ -499,7 +500,7 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
         onSuccess();
       }
     } catch (error: any) {
-      console.error("Error creating wager:", error);
+      logger.error("Error creating wager", error);
       const { extractErrorMessage } = await import('@/lib/error-extractor');
       
       // Check if error contains similar wagers (duplicate title)

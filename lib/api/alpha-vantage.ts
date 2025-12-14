@@ -1,5 +1,7 @@
 // Alpha Vantage API integration for stock market data
 
+import { logger } from '../logger';
+
 const ALPHA_VANTAGE_API_URL = 'https://www.alphavantage.co/query';
 
 export interface StockQuote {
@@ -28,7 +30,7 @@ export async function fetchStockQuotes(symbols: string[] = ['SPY', 'QQQ', 'DIA']
         );
 
         if (!response.ok) {
-          console.warn(`Failed to fetch ${symbol}: ${response.statusText}`);
+          logger.warn(`Failed to fetch ${symbol}`, { statusText: response.statusText });
           continue;
         }
 
@@ -38,14 +40,14 @@ export async function fetchStockQuotes(symbols: string[] = ['SPY', 'QQQ', 'DIA']
           prices[symbol] = parseFloat(data['Global Quote']['05. price']);
         }
       } catch (error) {
-        console.error(`Error fetching ${symbol}:`, error);
+        logger.error(`Error fetching ${symbol}`, error);
       }
 
       // Small delay to respect rate limits
       await new Promise(resolve => setTimeout(resolve, 200));
     }
   } catch (error) {
-    console.error('Error fetching stock quotes:', error);
+    logger.error('Error fetching stock quotes', error);
     throw error;
   }
 
@@ -85,13 +87,13 @@ export async function fetchForexRates(pairs: string[] = ['EURUSD', 'GBPUSD', 'JP
           rates[`${from}/${to}`] = rate;
         }
       } catch (error) {
-        console.error(`Error fetching ${pair}:`, error);
+        logger.error(`Error fetching ${pair}`, error);
       }
 
       await new Promise(resolve => setTimeout(resolve, 200));
     }
   } catch (error) {
-    console.error('Error fetching forex rates:', error);
+    logger.error('Error fetching forex rates', error);
     throw error;
   }
 

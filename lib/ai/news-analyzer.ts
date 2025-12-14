@@ -1,6 +1,8 @@
 // AI-powered news analyzer for generating intelligent wagers
 // Uses AI to analyze trending news and create understandable wagers
 
+import { logger } from '../logger';
+
 export interface NewsAnalysis {
   event: string;
   outcome: string;
@@ -37,7 +39,7 @@ export async function analyzeNewsForWagers(
     const aiService = await getAIService(apiKey);
     return await aiService.analyzeNews(articles);
   } catch (error) {
-    console.error('AI analysis error, falling back to simple extraction:', error);
+    logger.error('AI analysis error, falling back to simple extraction', error);
     return extractSimpleWagers(articles);
   }
 }
@@ -59,7 +61,7 @@ export async function analyzeNewsForSettlement(
     const aiService = await getAIService(apiKey);
     return await aiService.analyzeSettlement(wagerTitle, wagerDescription, deadline);
   } catch (error) {
-    console.error('AI settlement analysis error:', error);
+    logger.error('AI settlement analysis error', error);
     return { winningSide: null, reasoning: 'Analysis failed', confidence: 0 };
   }
 }

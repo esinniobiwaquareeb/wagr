@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { nestjsServerFetch } from '@/lib/nestjs-server';
+import { logger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,11 +62,11 @@ export async function POST(request: NextRequest) {
       });
 
       if (!response.success) {
-        console.error('Error storing contact message:', response.error);
+        logger.error('Error storing contact message', response.error);
         // Still return success to user, but log for admin review
       }
     } catch (error) {
-      console.error('Error calling contact API:', error);
+      logger.error('Error calling contact API', error);
       // Still return success to user, but log for admin review
     }
 
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
       message: 'Message received successfully',
     });
   } catch (error) {
-    console.error('Error processing contact form:', error);
+    logger.error('Error processing contact form', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

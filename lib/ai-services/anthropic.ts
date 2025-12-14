@@ -1,5 +1,7 @@
 // Anthropic Claude integration for news analysis and wager generation
 
+import { logger } from '../logger';
+
 interface NewsArticle {
   title: string;
   description: string;
@@ -138,7 +140,7 @@ Return JSON array:
       };
     }).slice(0, 5);
   } catch (error) {
-    console.error('Anthropic analysis error:', error);
+    logger.error('Anthropic analysis error', error);
     throw error;
   }
 }
@@ -198,7 +200,7 @@ Determine the outcome and return JSON:
       confidence: Math.min(100, Math.max(0, parsed.confidence || 0)),
     };
   } catch (error) {
-    console.error('Anthropic settlement analysis error:', error);
+    logger.error('Anthropic settlement analysis error', error);
     return { winningSide: null, reasoning: 'Analysis failed', confidence: 0 };
   }
 }

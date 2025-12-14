@@ -29,7 +29,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
 
     // Call NestJS backend to reject withdrawal
-    const response = await nestjsServerFetch<{ withdrawal: any; message: string }>(`/admin/withdrawals/${id}/reject`, {
+    interface RejectWithdrawalResponse {
+      withdrawal: {
+        id: string;
+        user_id: string;
+        amount: number;
+        status: string;
+        [key: string]: unknown;
+      };
+      message: string;
+    }
+
+    const response = await nestjsServerFetch<RejectWithdrawalResponse>(`/admin/withdrawals/${id}/reject`, {
       method: 'POST',
       token,
       requireAuth: true,
@@ -40,9 +51,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       throw new Error(response.error?.message || 'Failed to reject withdrawal');
     }
 
+    // nestjsServerFetch returns: { success: true, data: { withdrawal, message } }
+    const nestjsData = response.data as RejectWithdrawalResponse;
     return successResponseNext({
-      withdrawal: response.data.withdrawal,
-      message: response.data.message || 'Withdrawal rejected successfully',
+      withdrawal: nestjsData.withdrawal,
+      message: nestjsData.message || 'Withdrawal rejected successfully',
     });
   } catch (error) {
     logError(error as Error);

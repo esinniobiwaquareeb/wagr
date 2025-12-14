@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Loader2,
 } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 interface Activity {
   id: string;
@@ -54,7 +55,7 @@ export function WagerActivities({ wagerId, sideA, sideB }: WagerActivitiesProps)
       
       setActivities(activitiesData);
     } catch (error) {
-      console.error("Error fetching activities:", error);
+      logger.error("Error fetching activities", error);
     } finally {
       setLoading(false);
     }

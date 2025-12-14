@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { logger } from "@/lib/logger";
 
 interface Question {
   id: string;
@@ -584,7 +585,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
       onSuccess?.();
       onOpenChange(false);
     } catch (error) {
-      console.error("Error creating quiz:", error);
+      logger.error("Error creating quiz", error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to create quiz. Please try again.",

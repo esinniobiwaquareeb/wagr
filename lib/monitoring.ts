@@ -4,6 +4,7 @@
  */
 
 import { logError, AppError, ErrorCode } from './error-handler';
+import { logger } from './logger';
 
 export interface MonitoringContext {
   userId?: string;
@@ -25,9 +26,7 @@ export function initializeErrorTracking() {
   
   const sentryDsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
   if (!sentryDsn) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[Monitoring] Error tracking not configured (SENTRY_DSN not set)');
-    }
+    logger.debug('[Monitoring] Error tracking not configured (SENTRY_DSN not set)');
     errorTrackingInitialized = true;
     return;
   }
@@ -40,9 +39,7 @@ export function initializeErrorTracking() {
       const importSentry = new Function('return import("@sentry/nextjs")');
       const Sentry = await importSentry().catch(() => null);
       if (!Sentry) {
-        if (process.env.NODE_ENV === 'development') {
-          console.warn('[Monitoring] Sentry package not installed. Install @sentry/nextjs to enable error tracking.');
-        }
+        logger.warn('[Monitoring] Sentry package not installed. Install @sentry/nextjs to enable error tracking.');
         errorTrackingInitialized = true;
         return;
       }
@@ -70,13 +67,9 @@ export function initializeErrorTracking() {
         },
       });
       errorTrackingInitialized = true;
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[Monitoring] Error tracking initialized (Sentry)');
-      }
+      logger.info('[Monitoring] Error tracking initialized (Sentry)');
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('[Monitoring] Failed to initialize Sentry:', error);
-      }
+      logger.warn('[Monitoring] Failed to initialize Sentry', error);
       errorTrackingInitialized = true;
     }
   };
@@ -122,7 +115,13 @@ export function captureException(error: Error | AppError, context?: MonitoringCo
  * Capture message with context
  */
 export function captureMessage(message: string, level: 'info' | 'warning' | 'error' = 'info', context?: MonitoringContext) {
-  console.log(`[${level.toUpperCase()}] ${message}`, context || '');
+  if (level === 'error') {
+    logger.error(message, context);
+  } else if (level === 'warning') {
+    logger.warn(message, context);
+  } else {
+    logger.info(message, context);
+  }
 
   if (!errorTrackingInitialized) {
     initializeErrorTracking();
@@ -150,9 +149,7 @@ export function captureMessage(message: string, level: 'info' | 'warning' | 'err
  * Track performance metric
  */
 export function trackPerformance(metricName: string, duration: number, context?: MonitoringContext) {
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`[Performance] ${metricName}: ${duration}ms`, context || '');
-  }
+  logger.debug(`[Performance] ${metricName}: ${duration}ms`, context);
 
   // Could integrate with analytics service here
   // e.g., Google Analytics, Vercel Analytics, etc.
@@ -162,9 +159,7 @@ export function trackPerformance(metricName: string, duration: number, context?:
  * Track custom event
  */
 export function trackEvent(eventName: string, properties?: Record<string, any>) {
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`[Event] ${eventName}`, properties || '');
-  }
+  logger.debug(`[Event] ${eventName}`, properties);
 
   // Could integrate with analytics service here
   // e.g., Google Analytics, Mixpanel, etc.

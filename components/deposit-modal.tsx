@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { logger } from "@/lib/logger";
 
 interface DepositModalProps {
   open: boolean;
@@ -106,7 +107,7 @@ export function DepositModal({ open, onOpenChange, onSuccess }: DepositModalProp
       // Redirect to Paystack payment page
       window.location.href = authUrl;
     } catch (error: any) {
-      console.error("Deposit error:", error);
+      logger.error("Deposit error", error);
       const errorMessage = error?.message || "Failed to initiate deposit. Please try again.";
       toast({
         title: "Deposit failed",

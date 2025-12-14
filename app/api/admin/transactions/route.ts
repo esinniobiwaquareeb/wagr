@@ -34,7 +34,20 @@ export async function GET(request: NextRequest) {
     const query = queryParams.toString();
 
     // Call NestJS backend to get transactions
-    const response = await nestjsServerFetch<{ transactions: any[] }>(`/admin/transactions${query ? `?${query}` : ''}`, {
+    interface AdminTransactionsResponse {
+      transactions: Array<{
+        id: string;
+        user_id: string;
+        type: string;
+        amount: number;
+        reference: string | null;
+        description: string | null;
+        created_at: string;
+        [key: string]: unknown;
+      }>;
+    }
+
+    const response = await nestjsServerFetch<AdminTransactionsResponse>(`/admin/transactions${query ? `?${query}` : ''}`, {
       method: 'GET',
       token,
       requireAuth: true,
@@ -44,8 +57,10 @@ export async function GET(request: NextRequest) {
       throw new Error(response.error?.message || 'Failed to fetch transactions');
     }
 
+    // nestjsServerFetch returns: { success: true, data: { transactions: [...] } }
+    const nestjsData = response.data as AdminTransactionsResponse;
     return successResponseNext({
-      transactions: response.data.transactions || [],
+      transactions: nestjsData.transactions || [],
     });
   } catch (error) {
     logError(error as Error);

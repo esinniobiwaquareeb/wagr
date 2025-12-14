@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { logger } from "@/lib/logger";
 
 interface InviteResult {
   identifier: string;
@@ -68,7 +69,7 @@ export function QuizInviteDialog({
         setInvitedUsers(data.data?.invites || []);
       }
     } catch (error) {
-      console.error('Failed to load invited users:', error);
+      logger.error('Failed to load invited users', error);
     } finally {
       if (showLoading) {
         setLoadingInvites(false);
@@ -158,7 +159,7 @@ export function QuizInviteDialog({
         }
       } catch (error) {
         if (!cancelled) {
-          console.error('Failed to search users:', error);
+          logger.error('Failed to search users', error);
           setSearchResults([]);
         }
       } finally {
@@ -230,7 +231,7 @@ export function QuizInviteDialog({
         description: data.data?.message || `Successfully invited ${data.data?.results?.invited || 0} people`,
       });
     } catch (error) {
-      console.error('Error sending invites:', error);
+      logger.error('Error sending invites', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to send invites",
@@ -265,7 +266,7 @@ export function QuizInviteDialog({
       setInviteToRevoke(null);
       loadInvitedUsers();
     } catch (error) {
-      console.error('Error revoking invite:', error);
+      logger.error('Error revoking invite', error);
       toast({
         title: "Error",
         description: "Failed to revoke invite",
