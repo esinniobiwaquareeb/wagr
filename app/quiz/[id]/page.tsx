@@ -23,6 +23,7 @@ import { QuizHeader } from "@/components/quiz-header";
 import { QuizInfo } from "@/components/quiz-info";
 import { QuizActions } from "@/components/quiz-actions";
 import { useDeadlineCountdown } from "@/hooks/use-deadline-countdown";
+import { logger } from "@/lib/logger";
 
 interface Quiz {
   id: string;
@@ -149,7 +150,7 @@ export default function QuizDetailPage() {
         fetchedResponsesRef.current = true;
       }
     } catch (error) {
-      console.error('Error fetching responses:', error);
+      logger.error('Error fetching responses', error);
       // Don't show error toast if results aren't available yet
       if (
         error instanceof Error && 
@@ -212,7 +213,7 @@ export default function QuizDetailPage() {
         setParticipant(userParticipant);
       }
     } catch (error) {
-      console.error('Error fetching quiz:', error);
+      logger.error('Error fetching quiz', error);
       const errorMessage = error instanceof Error ? error.message : "Failed to load quiz";
       fetchErrorRef.current = errorMessage;
       toast({
@@ -322,7 +323,7 @@ export default function QuizDetailPage() {
         }
       }, 500);
     } catch (error) {
-      console.error('Error settling quiz:', error);
+      logger.error('Error settling quiz', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to settle quiz",
@@ -358,7 +359,7 @@ export default function QuizDetailPage() {
       
       fetchQuiz(); // Refresh to get updated participant status
     } catch (error) {
-      console.error('Error accepting invite:', error);
+      logger.error('Error accepting invite', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to accept invitation",
@@ -391,7 +392,7 @@ export default function QuizDetailPage() {
 
       router.push('/quizzes');
     } catch (error) {
-      console.error('Error deleting quiz:', error);
+      logger.error('Error deleting quiz', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to delete quiz",
@@ -427,7 +428,7 @@ export default function QuizDetailPage() {
 
       fetchQuiz(); // Refresh to get updated status
     } catch (error) {
-      console.error('Error opening quiz:', error);
+      logger.error('Error opening quiz', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to open quiz",
@@ -507,7 +508,7 @@ export default function QuizDetailPage() {
         description: "Quiz results have been exported to CSV.",
       });
     } catch (error) {
-      console.error('Error exporting results:', error);
+      logger.error('Error exporting results', error);
       toast({
         title: "Error",
         description: "Failed to export quiz results",

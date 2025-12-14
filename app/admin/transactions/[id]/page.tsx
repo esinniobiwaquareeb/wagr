@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
+import { logger } from "@/lib/logger";
 
 interface AdminTransactionDetailPageProps {
   params: Promise<{ id: string }>;
@@ -84,7 +85,7 @@ export default function AdminTransactionDetailPage({ params }: AdminTransactionD
 
         setTransaction(transformedTransaction);
       } catch (error: any) {
-        console.error("Error loading transaction:", error);
+        logger.error("Error loading transaction", error);
         toast({
           title: "Error",
           description: error.message || "Failed to load transaction details.",
@@ -117,7 +118,7 @@ export default function AdminTransactionDetailPage({ params }: AdminTransactionD
         description: "Reference copied to clipboard",
       });
     } catch (error) {
-      console.error("Failed to copy:", error);
+      logger.error("Failed to copy", error);
     }
   };
 

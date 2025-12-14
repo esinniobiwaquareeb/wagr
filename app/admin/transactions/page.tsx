@@ -9,6 +9,7 @@ import { DataTable } from "@/components/data-table";
 import { useAdmin } from "@/contexts/admin-context";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { logger } from "@/lib/logger";
 
 interface Transaction {
   id: string;
@@ -55,7 +56,7 @@ export default function AdminTransactionsPage() {
       
       setTransactions(transformedData);
     } catch (error) {
-      console.error("Error fetching transactions:", error);
+      logger.error("Error fetching transactions", error);
       toast({
         title: "Error",
         description: "Failed to fetch transactions.",
@@ -89,7 +90,7 @@ export default function AdminTransactionsPage() {
         description: "Reference copied to clipboard",
       });
     } catch (error) {
-      console.error("Failed to copy:", error);
+      logger.error("Failed to copy", error);
     }
   };
 

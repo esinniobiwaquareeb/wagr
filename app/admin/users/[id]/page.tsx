@@ -39,6 +39,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { logger } from "@/lib/logger";
 
 interface AdminUserDetailPageProps {
   params: Promise<{ id: string }>;
@@ -188,7 +189,7 @@ export default function AdminUserDetailPage({ params }: AdminUserDetailPageProps
           quizParticipations: response.statistics.quizParticipations || 0,
         });
       } catch (error) {
-        console.error("Failed to load user details", error);
+        logger.error("Failed to load user details", error);
         toast({
           title: "Unable to load user details",
           description: error instanceof Error ? error.message : "Please try again.",

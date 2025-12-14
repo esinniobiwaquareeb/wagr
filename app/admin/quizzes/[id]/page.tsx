@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { logger } from "@/lib/logger";
 
 interface AdminQuizDetailPageProps {
   params: Promise<{ id: string }>;
@@ -106,7 +107,7 @@ export default function AdminQuizDetailPage({ params }: AdminQuizDetailPageProps
         const questionData = quizData.questions || [];
         setQuestions(questionData);
       } catch (error) {
-        console.error("Failed to load quiz", error);
+        logger.error("Failed to load quiz", error);
         toast({
           title: "Unable to load quiz",
           description: error instanceof Error ? error.message : "Please try again.",

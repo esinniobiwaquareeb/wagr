@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { CreateQuizModal } from "@/components/create-quiz-modal";
 import { Skeleton } from "@/components/ui/skeleton";
+import { logger } from "@/lib/logger";
 
 interface Quiz {
   id: string;
@@ -74,7 +75,7 @@ function QuizzesPageContent() {
 
       setQuizzes(data.data?.quizzes || []);
     } catch (error) {
-      console.error('Error fetching quizzes:', error);
+      logger.error('Error fetching quizzes', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to load quizzes",

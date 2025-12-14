@@ -20,6 +20,7 @@ import { KycModal } from "@/components/kyc-modal";
 import { clear2FAVerification } from "@/lib/session-2fa";
 import { Badge } from "@/components/ui/badge";
 import type { KycSummary } from "@/lib/kyc/types";
+import { logger } from "@/lib/logger";
 
 interface Profile {
   id: string;
@@ -84,7 +85,7 @@ export default function Profile() {
         setUsername(initialUsername);
       }
     } catch (error) {
-      console.error("Error fetching profile:", error);
+      logger.error("Error fetching profile", error);
     } finally {
       setLoading(false);
       fetchingRef.current = false;
@@ -99,7 +100,7 @@ export default function Profile() {
       const response = await kycApi.get();
       setKycSummary(response.summary);
     } catch (error) {
-      console.error("Error fetching KYC summary:", error);
+      logger.error("Error fetching KYC summary", error);
     } finally {
       setKycLoading(false);
     }
@@ -158,7 +159,7 @@ export default function Profile() {
         setMyWagers([]);
       }
     } catch (error) {
-      console.error('Error fetching my wagers:', error);
+      logger.error('Error fetching my wagers', error);
       setMyWagers([]);
     } finally {
       setLoadingWagers(false);
@@ -394,7 +395,7 @@ export default function Profile() {
             description: "Your profile picture has been updated",
           });
         } catch (error) {
-          console.error('Error uploading avatar:', error);
+          logger.error('Error uploading avatar', error);
           toast({
             title: "Upload failed",
             description: error instanceof Error ? error.message : "Couldn't upload your avatar. Please try again",
@@ -417,7 +418,7 @@ export default function Profile() {
         e.target.value = '';
       };
     } catch (error) {
-      console.error('Error uploading avatar:', error);
+          logger.error('Error uploading avatar', error);
       toast({
         title: "Upload failed",
         description: "Couldn't upload your avatar. Please try again",
@@ -444,7 +445,7 @@ export default function Profile() {
       router.push("/wagers?login=true");
       router.refresh();
     } catch (error) {
-      console.error("Error logging out:", error);
+      logger.error("Error logging out", error);
       toast({
         title: "Couldn't sign you out",
         description: "Something went wrong. Please try again.",

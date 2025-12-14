@@ -45,7 +45,7 @@ export function PushNotificationSettings() {
           setIsSubscribed(preferenceEnabled);
         }
       } catch (error) {
-        console.error('Error checking push notification subscription:', error);
+        logger.error('Error checking push notification subscription', error);
         setIsSubscribed(false);
       }
       
@@ -83,7 +83,7 @@ export function PushNotificationSettings() {
             try {
               await preferencesApi.update({ push_notifications_enabled: false });
             } catch (error) {
-              console.error('Error updating preference:', error);
+              logger.error('Error updating preference', error);
             }
           }
         } else {
@@ -92,7 +92,7 @@ export function PushNotificationSettings() {
           try {
             await preferencesApi.update({ push_notifications_enabled: false });
           } catch (error) {
-            console.error('Error updating preference:', error);
+              logger.error('Error updating preference', error);
           }
         }
       } else {
@@ -104,7 +104,7 @@ export function PushNotificationSettings() {
           await preferencesApi.update({ push_notifications_enabled: false });
           setIsSubscribed(false);
         } catch (error) {
-          console.error('Error updating preference:', error);
+              logger.error('Error updating preference', error);
           // If unsubscribe succeeded but DB update failed, still update UI
           if (success) {
             setIsSubscribed(false);

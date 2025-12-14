@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { AlertCircle } from "lucide-react";
 import Link from "next/link";
+import { logger } from "@/lib/logger";
 
 export default function Error({
   error,
@@ -12,7 +13,7 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("Application error:", error);
+    logger.error("Application error", error);
   }, [error]);
 
   return (

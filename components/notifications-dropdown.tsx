@@ -60,7 +60,7 @@ export function NotificationsDropdown({
       setNotifications(fetchedNotifications);
       onUnreadCountChange(response.unreadCount || 0);
     } catch (error) {
-      console.error("Error fetching notifications:", error);
+      logger.error("Error fetching notifications", error);
     } finally {
       setLoading(false);
       fetchingRef.current = false;

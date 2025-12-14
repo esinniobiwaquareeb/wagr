@@ -9,6 +9,7 @@ import { DataTable } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAdmin } from "@/contexts/admin-context";
+import { logger } from "@/lib/logger";
 
 interface Transaction {
   id: string;
@@ -174,7 +175,7 @@ export default function AdminReportsPage() {
 
       setAnalytics(analyticsData);
     } catch (error) {
-      console.error("Error fetching transactions:", error);
+      logger.error("Error fetching transactions", error);
       toast({
         title: "Error",
         description: "Failed to fetch transactions.",

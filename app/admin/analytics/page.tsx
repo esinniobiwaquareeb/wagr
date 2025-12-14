@@ -22,6 +22,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Button } from "@/components/ui/button";
+import { logger } from "@/lib/logger";
 
 interface Transaction {
   id: string;
@@ -230,7 +231,7 @@ export default function AdminAnalyticsPage() {
 
       setFinancialMetrics(metrics);
     } catch (error) {
-      console.error("Error fetching analytics data:", error);
+      logger.error("Error fetching analytics data", error);
       toast({
         title: "Error",
         description: "Failed to fetch analytics data.",

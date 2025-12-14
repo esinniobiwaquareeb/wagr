@@ -33,6 +33,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatCurrency, DEFAULT_CURRENCY } from "@/lib/currency";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { logger } from "@/lib/logger";
 
 interface Setting {
   id: string;
@@ -143,7 +144,7 @@ export default function AdminSettingsPage() {
         setHasChanges(false);
       }
     } catch (error) {
-      console.error('Error fetching settings:', error);
+      logger.error('Error fetching settings', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to load settings",
@@ -220,7 +221,7 @@ export default function AdminSettingsPage() {
         await fetchSettings();
       }
     } catch (error) {
-      console.error('Error saving settings:', error);
+      logger.error('Error saving settings', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to save settings",

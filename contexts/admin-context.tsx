@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { getCurrentAdmin, type AdminAuthUser } from "@/lib/auth/client";
+import { logger } from "@/lib/logger";
 
 interface AdminContextType {
   admin: AdminAuthUser | null;
@@ -32,7 +33,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       setAdmin(currentAdmin);
       setIsAdmin(true);
     } catch (error) {
-      console.error("Error checking admin status:", error);
+      logger.error("Error checking admin status", error);
       setAdmin(null);
       setIsAdmin(false);
       router.replace("/admin/login");

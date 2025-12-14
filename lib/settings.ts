@@ -62,7 +62,7 @@ export async function getSettingsByCategory(category: string): Promise<PlatformS
     const data = await apiGet<{ settings: PlatformSetting[] }>(`/settings?category=${encodeURIComponent(category)}`);
     return (data as any)?.settings ?? [];
   } catch (error) {
-    console.error(`Error fetching settings for category ${category}:`, error);
+    logger.error(`Error fetching settings for category ${category}`, error);
     return [];
   }
 }

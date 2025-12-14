@@ -17,6 +17,7 @@ import { BillsTab } from "@/components/wallet/bills-tab";
 import { TransactionHistory } from "@/components/wallet/transaction-history";
 import { useSettings } from "@/hooks/use-settings";
 import type { KycSummary } from "@/lib/kyc/types";
+import { logger } from "@/lib/logger";
 
 interface Profile {
   balance: number;
@@ -98,7 +99,7 @@ function WalletContent() {
       const transData = transactionsResponse?.transactions || [];
       setTransactions(transData);
     } catch (error) {
-      console.error("Error fetching wallet data:", error);
+      logger.error("Error fetching wallet data", error);
     } finally {
       setLoading(false);
       fetchingRef.current = false;
@@ -123,7 +124,7 @@ function WalletContent() {
       const response = await kycApi.get();
       setKycSummary(response.summary);
     } catch (error) {
-      console.error("Error fetching KYC summary:", error);
+      logger.error("Error fetching KYC summary", error);
     } finally {
       setKycLoading(false);
     }
@@ -164,7 +165,7 @@ function WalletContent() {
         banksFetchedRef.current = true;
       }
     } catch (error) {
-      console.error('Error fetching banks:', error);
+      logger.error('Error fetching banks', error);
     } finally {
       setLoadingBanks(false);
     }
@@ -241,7 +242,7 @@ function WalletContent() {
         lastVerifiedRef.current = null;
       }
     } catch (error) {
-      console.error('Error verifying account:', error);
+      logger.error('Error verifying account', error);
       setAccountName('');
       lastVerifiedRef.current = null;
       // Don't show toast for network errors during verification - it's too noisy
@@ -529,7 +530,7 @@ function WalletContent() {
         });
       }
     } catch (error) {
-      console.error("Error processing withdrawal:", error);
+      logger.error("Error processing withdrawal", error);
       const { extractErrorMessage } = await import('@/lib/error-extractor');
       const errorMessage = extractErrorMessage(error, "Something went wrong. Please try again.");
       
@@ -692,7 +693,7 @@ function WalletContent() {
         });
       }
     } catch (error) {
-      console.error("Error processing transfer:", error);
+      logger.error("Error processing transfer", error);
       const { extractErrorMessage } = await import('@/lib/error-extractor');
       const errorMessage = extractErrorMessage(error, "Something went wrong. Please try again.");
       
@@ -806,8 +807,7 @@ function WalletContent() {
       // Open Paystack checkout (new API format: data.data.authorization_url)
       const authUrl = data.data?.authorization_url;
       if (!authUrl) {
-        console.error('Payment response data:', data);
-        console.error('Expected authorization_url in data.data.authorization_url');
+        logger.error('Payment response data', { data, expectedPath: 'data.data.authorization_url' });
         throw new Error('Payment URL not received from server. Please try again.');
       }
       
@@ -815,7 +815,7 @@ function WalletContent() {
         window.location.href = authUrl;
       }
     } catch (error) {
-      console.error("Error initializing payment:", error);
+      logger.error("Error initializing payment", error);
       const { extractErrorMessage } = await import('@/lib/error-extractor');
       const errorMessage = extractErrorMessage(error, "We couldn't start the payment process. Please try again.");
       

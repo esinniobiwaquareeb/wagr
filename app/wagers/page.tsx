@@ -13,6 +13,7 @@ import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { wagersApi, preferencesApi, categoriesApi } from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
 import { Wager } from "@/lib/types/api";
+import { logger } from "@/lib/logger";
 
 interface WagerWithEntries extends Wager {
   entries_count: number;
@@ -294,7 +295,7 @@ function WagersPageContent() {
           setAllCategories(categorySlugs);
         }
       } catch (error) {
-        console.error('Error fetching categories:', error);
+        logger.error('Error fetching categories', error);
         // Fallback to empty array
         setAllCategories([]);
       }
@@ -316,7 +317,7 @@ function WagersPageContent() {
         const categories = response.preferences?.preferred_categories || [];
         setPreferredCategories(categories);
       } catch (error) {
-        console.error('Error fetching preferences:', error);
+        logger.error('Error fetching preferences', error);
         // Silently fail - preferences are optional, don't show error toast
         setPreferredCategories(null);
       }

@@ -15,6 +15,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable } from "@/components/data-table";
 import { Loader2, ShieldCheck, ShieldAlert, Clock, Calendar, Eye } from "lucide-react";
 import type { KycSubmissionRecord } from "@/lib/kyc/types";
+import { logger } from "@/lib/logger";
 
 interface KycUser {
   id: string;
@@ -67,7 +68,7 @@ export default function AdminKycPage() {
         setSubmissions(response.submissions || []);
         setSummary(response.summary || { pending: 0, verified: 0, rejected: 0 });
       } catch (error) {
-        console.error("Error fetching KYC submissions:", error);
+        logger.error("Error fetching KYC submissions", error);
         toast({
           title: "Error",
           description: "Failed to fetch KYC submissions.",
@@ -132,7 +133,7 @@ export default function AdminKycPage() {
       closeDialog();
       fetchSubmissions(activeFilter);
     } catch (error: any) {
-      console.error("Error updating KYC submission:", error);
+      logger.error("Error updating KYC submission", error);
       toast({
         title: "Error",
         description: error?.message || "Failed to update submission.",

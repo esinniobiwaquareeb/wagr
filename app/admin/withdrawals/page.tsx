@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAdmin } from "@/contexts/admin-context";
 import { DollarSign, Clock, CheckCircle } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 interface Withdrawal {
   id: string;
@@ -40,7 +41,7 @@ export default function AdminWithdrawals() {
       const response = await apiGet<{ withdrawals: Withdrawal[] }>('/admin/withdrawals?limit=500');
       setWithdrawals(response.withdrawals || []);
     } catch (error) {
-      console.error("Error fetching withdrawals:", error);
+      logger.error("Error fetching withdrawals", error);
       toast({
         title: "Error",
         description: "Failed to fetch withdrawals.",

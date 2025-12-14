@@ -208,7 +208,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
           const response = await walletApi.getBalance();
           setUserBalance(response.balance || 0);
         } catch (error) {
-          console.error('Error fetching balance:', error);
+          logger.error('Error fetching balance', error);
           setUserBalance(0);
         }
       };

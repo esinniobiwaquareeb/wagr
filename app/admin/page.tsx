@@ -30,6 +30,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Wager } from "@/lib/types/api";
+import { logger } from "@/lib/logger";
 
 interface Stats {
   totalUsers: number;
@@ -65,7 +66,7 @@ export default function AdminPage() {
       const response = await apiGet<{ stats: Stats }>('/admin/stats');
       setStats(response.stats);
     } catch (error) {
-      console.error("Error fetching stats:", error);
+      logger.error("Error fetching stats", error);
       toast({
         title: "Error",
         description: "Failed to load statistics.",
@@ -83,7 +84,7 @@ export default function AdminPage() {
       const response = await apiGet<{ wagers: Wager[] }>('/wagers?limit=10');
       setRecentWagers(response.wagers || []);
     } catch (error) {
-      console.error("Error fetching recent wagers:", error);
+      logger.error("Error fetching recent wagers", error);
     }
   }, [admin?.id]);
 
@@ -94,7 +95,7 @@ export default function AdminPage() {
       const response = await apiGet<{ transactions: Transaction[] }>('/admin/transactions?limit=20');
       setRecentTransactions(response.transactions || []);
     } catch (error) {
-      console.error("Error fetching recent transactions:", error);
+      logger.error("Error fetching recent transactions", error);
       toast({
         title: "Error",
         description: "Failed to fetch recent transactions.",
@@ -122,7 +123,7 @@ export default function AdminPage() {
       fetchRecentWagers();
       fetchStats();
     } catch (error) {
-      console.error("Error resolving wager:", error);
+      logger.error("Error resolving wager", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to resolve wager.";
       toast({
         title: "Error",
@@ -143,7 +144,7 @@ export default function AdminPage() {
         fetchRecentWagers(),
         fetchRecentTransactions(),
       ]).catch((error) => {
-        console.error("Error fetching admin data:", error);
+        logger.error("Error fetching admin data", error);
       }).finally(() => {
         setLoading(false);
       });

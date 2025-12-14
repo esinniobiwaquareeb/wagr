@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
+import { logger } from "@/lib/logger";
 
 interface AdminWagerDetailPageProps {
   params: Promise<{ id: string }>;
@@ -84,7 +85,7 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
             .reduce((sum: number, entry: any) => sum + Number(entry.amount || 0), 0),
         );
       } catch (error) {
-        console.error("Failed to load wager", error);
+        logger.error("Failed to load wager", error);
         toast({
           title: "Unable to load wager",
           description: error instanceof Error ? error.message : "Please try again.",
@@ -160,7 +161,7 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
             variant: "default",
           });
         } else {
-          console.warn("Unexpected wager state after settlement attempt:", updatedWager);
+          logger.warn("Unexpected wager state after settlement attempt", { wager: updatedWager });
           toast({
             title: "Winning side set",
             description: "Winning side has been set. Please verify the wager status.",
@@ -168,14 +169,14 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
           });
         }
       } catch (checkError: any) {
-        console.error("Exception during status check:", checkError);
+        logger.error("Exception during status check", checkError);
         // Wager was resolved, but status check failed - that's okay
       }
 
       // Refresh wager details
       await loadDetails(wagerId);
     } catch (error) {
-      console.error("Error resolving wager:", error);
+      logger.error("Error resolving wager", error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to resolve wager.",

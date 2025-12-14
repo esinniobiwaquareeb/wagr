@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Shield, Lock, Mail, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { getCurrentAdmin } from "@/lib/auth/client";
+import { logger } from "@/lib/logger";
 
 export default function AdminLogin() {
   const router = useRouter();
@@ -27,7 +28,7 @@ export default function AdminLogin() {
         }
       } catch (error) {
         // Silently fail - admin just needs to login
-        console.error("Error checking admin status:", error);
+        // Silent fail - admin just needs to login
       }
     };
 
@@ -107,7 +108,7 @@ export default function AdminLogin() {
       const adminData = apiResponse.data?.admin;
 
       if (!adminData) {
-        console.error('Admin login response:', apiResponse);
+        logger.error('Admin login response missing admin data', { response: apiResponse });
         throw new Error('Invalid response: Admin data not found');
       }
 
@@ -132,7 +133,7 @@ export default function AdminLogin() {
         router.replace("/admin");
       }, 100);
     } catch (error) {
-      console.error("Login error:", error);
+      logger.error("Login error", error);
       const { extractErrorMessage } = await import('@/lib/error-extractor');
       const errorMessage = extractErrorMessage(error, "Failed to log in. Please try again.");
       

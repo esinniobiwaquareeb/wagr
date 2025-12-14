@@ -14,6 +14,7 @@ import { useAdmin } from "@/contexts/admin-context";
 import { apiGet, apiPatch, apiDelete } from "@/lib/api-client";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { logger } from "@/lib/logger";
 
 interface User {
   id: string;
@@ -64,7 +65,7 @@ export default function AdminUsersPage() {
       const response = await apiGet<{ users: User[] }>('/admin/users');
       setUsers(response.users || []);
     } catch (error) {
-      console.error("Error fetching users:", error);
+      logger.error("Error fetching users", error);
       toast({
         title: "Error",
         description: "Failed to fetch users.",
@@ -97,7 +98,7 @@ export default function AdminUsersPage() {
       setSelectedUser(null);
       setSuspensionReason("");
     } catch (error) {
-      console.error("Error updating user status:", error);
+      logger.error("Error updating user status", error);
       toast({
         title: "Error",
         description: "Failed to update user status.",
@@ -152,7 +153,7 @@ export default function AdminUsersPage() {
       setShowDeleteDialog(false);
       setSelectedUser(null);
     } catch (error: any) {
-      console.error("Error deleting user:", error);
+      logger.error("Error deleting user", error);
       toast({
         title: "Error",
         description: error?.message || "Failed to delete user account.",

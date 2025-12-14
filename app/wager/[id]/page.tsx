@@ -24,6 +24,7 @@ import { WagerActivities } from "@/components/wager-activities";
 import { WagerParticipants } from "@/components/wager-participants";
 import { wagersApi, walletApi } from "@/lib/api-client";
 import { Wager } from "@/lib/types/api";
+import { logger } from "@/lib/logger";
 
 interface Entry {
   id: string;
@@ -113,7 +114,7 @@ export default function WagerDetail() {
           const userId = String(user.id).trim().toLowerCase();
           
           if (creatorId && userId && creatorId !== userId) {
-            console.log('Blocking access in fetchWager - user is not the creator');
+            logger.debug('Blocking access in fetchWager - user is not the creator');
             setLoading(false);
             fetchingRef.current = false;
             toast({
@@ -170,7 +171,7 @@ export default function WagerDetail() {
         setUserNames({});
       }
     } catch (error) {
-      console.error('Error fetching wager:', error);
+      logger.error('Error fetching wager', error);
       toast({
         title: "Error",
         description: "Failed to load wager. Please try again.",
@@ -204,7 +205,7 @@ export default function WagerDetail() {
           setCategories(mappedCategories);
         }
       } catch (error) {
-        console.error('Error fetching categories:', error);
+        logger.error('Error fetching categories', error);
         setCategories([]);
       }
     };
@@ -317,14 +318,14 @@ export default function WagerDetail() {
   useEffect(() => {
     // Don't do anything if we've already redirected
     if (hasRedirectedRef.current) {
-      console.log('Already redirected, skipping check');
+      logger.debug('Already redirected, skipping check');
       return;
     }
     
     // Skip if we've already checked this wager/user combination
     const checkKey = `${wager?.id}-${user?.id}`;
     if (accessCheckRef.current === checkKey) {
-      console.log('Skipping duplicate access check');
+      logger.debug('Skipping duplicate access check');
       return;
     }
     
@@ -335,7 +336,7 @@ export default function WagerDetail() {
       const userId = String(user.id).trim().toLowerCase();
       
       // Debug: Log the comparison
-      console.log('Private wager access validation in useEffect:', {
+      logger.debug('Private wager access validation in useEffect', {
         creatorId,
         userId,
         match: creatorId === userId,
@@ -348,7 +349,7 @@ export default function WagerDetail() {
       
       // Only redirect if IDs definitely don't match
       if (creatorId && userId && creatorId !== userId) {
-        console.log('BLOCKING access - user is NOT the creator, redirecting...');
+        logger.debug('BLOCKING access - user is NOT the creator, redirecting...');
         hasRedirectedRef.current = true;
         toast({
           title: "Private Wager",
@@ -358,11 +359,11 @@ export default function WagerDetail() {
         router.push('/wagers');
       } else {
         // User is the creator - allow access (no redirect)
-        console.log('ALLOWING access - user IS the creator, IDs match');
+        logger.debug('ALLOWING access - user IS the creator, IDs match');
         // Don't set hasRedirectedRef - allow access
       }
     } else {
-      console.log('Missing data for access check:', {
+      logger.debug('Missing data for access check', {
         hasUser: !!user,
         hasUserId: !!(user && user.id),
         hasWager: !!wager,
@@ -490,7 +491,7 @@ export default function WagerDetail() {
       setShowJoinDialog(false);
       setSelectedSide(null);
     } catch (error) {
-      console.error("Error joining wager:", error);
+      logger.error("Error joining wager", error);
       const errorMessage = error instanceof Error ? error.message : "Couldn't join the wager. Please try again.";
       
       toast({
@@ -571,7 +572,7 @@ export default function WagerDetail() {
       await fetchWager(true);
       setShowUnjoinDialog(false);
     } catch (error) {
-      console.error("Error unjoining wager:", error);
+      logger.error("Error unjoining wager", error);
       const errorMessage = error instanceof Error ? error.message : "Couldn't unjoin the wager. Please try again.";
       
       toast({
@@ -666,7 +667,7 @@ export default function WagerDetail() {
       setShowChangeSideDialog(false);
       setNewSide(null);
     } catch (error) {
-      console.error("Error changing side:", error);
+      logger.error("Error changing side", error);
       const errorMessage = error instanceof Error ? error.message : "Couldn't change your side. Please try again.";
       
       toast({
@@ -748,7 +749,7 @@ export default function WagerDetail() {
       router.push("/wagers");
       router.refresh();
     } catch (error) {
-      console.error("Error deleting wager:", error);
+      logger.error("Error deleting wager", error);
       const errorMessage = error instanceof Error ? error.message : "Couldn't delete the wager. Please try again.";
       
       toast({
@@ -883,7 +884,7 @@ export default function WagerDetail() {
       await fetchWager(true);
       setShowEditDialog(false);
     } catch (error) {
-      console.error("Error editing wager:", error);
+      logger.error("Error editing wager", error);
       const { extractErrorMessage } = await import('@/lib/error-extractor');
       const errorMessage = extractErrorMessage(error, "Couldn't update the wager. Please try again.");
       

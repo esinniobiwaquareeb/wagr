@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { DeadlineDisplay } from "@/components/deadline-display";
+import { logger } from "@/lib/logger";
 
 interface WagerEntry {
   id: string;
@@ -171,7 +172,7 @@ function HistoryPageContent() {
         setEntries([]);
       }
     } catch (error) {
-      console.error('Error fetching history:', error);
+      logger.error('Error fetching history', error);
       setEntries([]);
     } finally {
       setLoading(false);

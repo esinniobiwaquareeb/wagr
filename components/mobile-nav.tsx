@@ -11,6 +11,7 @@ import { CreateWagerModal } from "@/components/create-wager-modal";
 import { useToast } from "@/hooks/use-toast";
 import { clear2FAVerification } from "@/lib/session-2fa";
 import { getCurrentUser, type AuthUser } from "@/lib/auth/client";
+import { logger } from "@/lib/logger";
 
 export function MobileNav() {
   const pathname = usePathname();
@@ -38,7 +39,7 @@ export function MobileNav() {
           setUnreadCount(0);
         }
       } catch (error) {
-        console.error('Error getting user:', error);
+        // Silent fail - user just needs to login
         setUser(null);
         setProfile(null);
         setUnreadCount(0);
@@ -245,7 +246,7 @@ export function MobileNav() {
         router.push("/wagers?login=true");
       }, 100);
     } catch (error) {
-      console.error("Error logging out:", error);
+      logger.error("Error logging out", error);
       
       // Even on error, clear local state
       setUser(null);

@@ -6,6 +6,7 @@ import { Mail, Send, Phone, MessageSquare } from "lucide-react";
 import { StructuredData } from "@/components/seo/structured-data";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { contactPageSchema } from "./metadata";
+import { logger } from "@/lib/logger";
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -39,7 +40,7 @@ export default function ContactPage() {
           });
         }
       } catch (error) {
-        console.error('Error fetching support info:', error);
+        logger.error('Error fetching support info', error);
       } finally {
         setLoadingInfo(false);
       }

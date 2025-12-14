@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { logger } from "@/lib/logger";
 
 function VerifyEmailContent() {
   const router = useRouter();
@@ -57,7 +58,7 @@ function VerifyEmailContent() {
       } catch (error) {
         setStatus('error');
         setMessage('Something went wrong. Please try again.');
-        console.error('Error verifying email:', error);
+        logger.error('Error verifying email', error);
       }
     };
 

@@ -11,6 +11,7 @@ import { DataTable } from "@/components/data-table";
 import { useAdmin } from "@/contexts/admin-context";
 import { apiDelete } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+import { logger } from "@/lib/logger";
 
 interface Quiz {
   id: string;
@@ -72,7 +73,7 @@ export default function AdminQuizzesPage() {
       const quizzesData = result.data?.quizzes || result.quizzes || [];
       setQuizzes(quizzesData);
     } catch (error) {
-      console.error("Error fetching quizzes:", error);
+      logger.error("Error fetching quizzes", error);
       toast({
         title: "Error",
         description: "Failed to fetch quizzes.",
@@ -110,7 +111,7 @@ export default function AdminQuizzesPage() {
       setDeletingQuiz(null);
       fetchQuizzes();
     } catch (error) {
-      console.error("Error deleting quiz:", error);
+      logger.error("Error deleting quiz", error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to delete quiz.",
