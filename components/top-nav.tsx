@@ -630,6 +630,12 @@ function TopNavContent() {
                       </DropdownMenuLabel>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem asChild>
+                        <Link href="/profile" className="flex items-center gap-2 cursor-pointer">
+                          <User className="h-4 w-4" />
+                          <span>Profile</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
                         <Link href="/wagers" className="flex items-center gap-2 cursor-pointer">
                           <Home className="h-4 w-4" />
                           <span>Wagers</span>
@@ -666,12 +672,6 @@ function TopNavContent() {
                         </Link>
                       </DropdownMenuItem>
                       
-                      <DropdownMenuItem asChild>
-                        <Link href="/profile" className="flex items-center gap-2 cursor-pointer">
-                          <User className="h-4 w-4" />
-                          <span>Profile</span>
-                        </Link>
-                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={() => setShowLogoutDialog(true)}
@@ -1103,37 +1103,39 @@ function TopNavContent() {
   );
 }
 
-export function TopNav() {
+function TopNavSkeleton() {
   return (
-    <Suspense
-      fallback={
-        <>
-          <nav className="hidden lg:block sticky top-0 z-50 bg-background/95 backdrop-blur-lg border-b border-border" suppressHydrationWarning>
-            <div className="max-w-7xl mx-auto px-4 md:px-6">
-              <div className="flex items-center justify-between h-16 gap-4">
-                <div className="h-8 w-24 bg-muted/50 rounded animate-pulse" />
-                <div className="flex-1 max-w-xl mx-4 lg:mx-6">
-                  <div className="h-9 bg-muted/50 rounded animate-pulse" />
-                </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <div className="h-9 w-9 bg-muted/50 rounded animate-pulse" />
-                  <div className="h-9 w-20 bg-muted/50 rounded animate-pulse" />
-                </div>
-              </div>
+    <>
+      <nav className="hidden lg:block sticky top-0 z-50 bg-background/95 backdrop-blur-lg border-b border-border">
+        <div className="max-w-7xl mx-auto px-4 md:px-6">
+          <div className="flex items-center justify-between h-16 gap-4">
+            <div className="h-8 w-24 bg-muted/50 rounded animate-pulse" />
+            <div className="flex-1 max-w-xl mx-4 lg:mx-6">
+              <div className="h-9 bg-muted/50 rounded animate-pulse" />
             </div>
-          </nav>
-          <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-lg border-b border-border" suppressHydrationWarning>
-            <div className="flex items-center justify-between h-14 px-3">
-              <div className="h-6 w-20 bg-muted/50 rounded animate-pulse" />
-              <div className="flex items-center gap-1.5">
-                <div className="h-9 w-9 bg-muted/50 rounded animate-pulse" />
-                <div className="h-9 w-9 bg-muted/50 rounded animate-pulse" />
-              </div>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <div className="h-9 w-9 bg-muted/50 rounded animate-pulse" />
+              <div className="h-9 w-20 bg-muted/50 rounded animate-pulse" />
             </div>
           </div>
-        </>
-      }
-    >
+        </div>
+      </nav>
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-lg border-b border-border">
+        <div className="flex items-center justify-between h-14 px-3">
+          <div className="h-6 w-20 bg-muted/50 rounded animate-pulse" />
+          <div className="flex items-center gap-1.5">
+            <div className="h-9 w-9 bg-muted/50 rounded animate-pulse" />
+            <div className="h-9 w-9 bg-muted/50 rounded animate-pulse" />
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+export function TopNav() {
+  return (
+    <Suspense fallback={<TopNavSkeleton />}>
       <TopNavContent />
     </Suspense>
   );

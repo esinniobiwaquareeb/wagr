@@ -25,7 +25,6 @@ export interface EmailTemplateData {
   verificationUrl?: string;
   // Password reset
   resetUrl?: string;
-  resetCode?: string;
   // Welcome
   loginUrl?: string;
   // Password changed
@@ -178,12 +177,6 @@ export function generateEmailHTML(data: EmailTemplateData): string {
       content = `
         <p style="margin: 0 0 16px; ${baseStyles} font-size: 16px;">We received a request to reset the password for your ${appName} account.</p>
         <p style="margin: 0 0 24px; ${baseStyles} font-size: 16px;">Click the button below to create a new secure password. This link will expire in <strong>1 hour</strong> for your security.</p>
-        ${data.resetCode ? `
-        <div style="background-color: #fef3c7; padding: 20px; border-radius: 6px; border: 1px solid #fbbf24; margin: 24px 0;">
-          <p style="margin: 0 0 8px; ${baseStyles} font-size: 13px; color: #92400e; font-weight: 600;">Your Reset Code:</p>
-          <p style="margin: 0; font-family: 'Courier New', monospace; font-size: 24px; font-weight: 700; color: #92400e; letter-spacing: 3px;">${data.resetCode}</p>
-        </div>
-        ` : ''}
         <div style="background-color: #fef3c7; padding: 16px; border-left: 3px solid #f59e0b; border-radius: 4px; margin: 24px 0;">
           <p style="margin: 0; ${baseStyles} font-size: 14px; color: #92400e;">
             <strong>Didn't request this?</strong> If you didn't request a password reset, please ignore this email and your password will remain unchanged. If you're concerned about your account security, contact us immediately.
@@ -555,7 +548,7 @@ export function generateEmailText(data: EmailTemplateData): string {
       content = `Hi ${name},\n\nWelcome to ${appName}! We're excited to have you join our community.\n\nGet started: ${data.loginUrl || `${appUrl}/wagers`}\n\nBest regards,\nThe ${appName} Team`;
       break;
     case 'password-reset':
-      content = `Hi ${name},\n\nWe received a request to reset your password. Visit:\n\n${data.resetUrl || `${appUrl}/reset-password`}\n\n${data.resetCode ? `Reset Code: ${data.resetCode}\n\n` : ''}This link expires in 1 hour.\n\nIf you didn't request this, please ignore this email.\n\nBest regards,\nThe ${appName} Team`;
+      content = `Hi ${name},\n\nWe received a request to reset your password. Visit:\n\n${data.resetUrl || `${appUrl}/reset-password`}\n\nThis link expires in 1 hour.\n\nIf you didn't request this, please ignore this email.\n\nBest regards,\nThe ${appName} Team`;
       break;
     case 'password-changed':
       content = `Hi ${name},\n\nYour ${appName} password was successfully changed on ${data.changeDate || new Date().toLocaleString()}.\n\nIf you didn't make this change, please contact us immediately.\n\nBest regards,\nThe ${appName} Team`;
