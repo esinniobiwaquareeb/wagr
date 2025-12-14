@@ -3,6 +3,7 @@
  */
 
 import { requestDeduplication } from '@/lib/request-deduplication';
+import { logger } from '@/lib/logger';
 
 export interface AuthUser {
   id: string;
@@ -45,7 +46,7 @@ export async function getCurrentUser(forceRefresh = false): Promise<AuthUser | n
         if (!response.ok) {
           // Only log unexpected errors (not 401/403)
           if (response.status !== 401 && response.status !== 403) {
-            console.warn('Unexpected status when fetching user:', response.status);
+            logger.warn('Unexpected status when fetching user', { status: response.status });
           }
           return null;
         }
@@ -66,7 +67,7 @@ export async function getCurrentUser(forceRefresh = false): Promise<AuthUser | n
     // Only log unexpected errors, not network errors or expected auth failures
     const errorMessage = error instanceof Error ? error.message : String(error);
     if (!errorMessage.includes('fetch') && !errorMessage.includes('network')) {
-      console.error('Error fetching current user:', error);
+      logger.error('Error fetching current user', error);
     }
     return null;
   }
@@ -84,10 +85,10 @@ export async function logout(): Promise<void> {
     });
     
     if (!response.ok) {
-      console.warn('Logout API returned non-OK status:', response.status);
+      logger.warn('Logout API returned non-OK status', { status: response.status });
     }
   } catch (error) {
-    console.error('Error logging out:', error);
+    logger.error('Error logging out', error);
   } finally {
     // Always remove token from client, even if API call failed
     // Import here to avoid circular dependency
@@ -113,10 +114,10 @@ export async function adminLogout(): Promise<void> {
     });
     
     if (!response.ok) {
-      console.warn('Admin logout API returned non-OK status:', response.status);
+      logger.warn('Admin logout API returned non-OK status', { status: response.status });
     }
   } catch (error) {
-    console.error('Error logging out admin:', error);
+    logger.error('Error logging out admin', error);
   } finally {
     // Always remove token from client, even if API call failed
     // Import here to avoid circular dependency
@@ -171,7 +172,7 @@ export const getCurrentAdmin = async (forceRefresh = false): Promise<AdminAuthUs
 
     return admin as AdminAuthUser | null;
   } catch (error) {
-    console.error('Error fetching current admin:', error);
+    logger.error('Error fetching current admin', error);
     return null;
   }
 };

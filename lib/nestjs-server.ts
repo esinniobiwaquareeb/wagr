@@ -40,7 +40,9 @@ export async function nestjsServerFetch<T>(
   
   // Debug logging (only in development)
   if (process.env.NODE_ENV === 'development') {
-    console.log(`[nestjsServerFetch] ${method} ${urlString}`, {
+    // Use logger for consistency, but only in development
+    const { logger } = require('./logger');
+    logger.debug(`[nestjsServerFetch] ${method} ${urlString}`, {
       hasToken: !!options?.token,
       requireAuth,
       bodyLength: options?.body ? String(options.body).length : 0,
@@ -73,9 +75,10 @@ export async function nestjsServerFetch<T>(
       try {
         data = await response.json();
       } catch (jsonError) {
-        console.error(`Failed to parse JSON response from ${urlString}:`, jsonError);
+        const { logger } = require('./logger');
+        logger.error(`Failed to parse JSON response from ${urlString}`, jsonError);
         const text = await response.text();
-        console.error('Response text:', text.substring(0, 500));
+        logger.error('Response text', { text: text.substring(0, 500) });
         return {
           success: false,
           error: {
@@ -87,7 +90,11 @@ export async function nestjsServerFetch<T>(
     } else {
       // Non-JSON response (likely HTML error page or empty)
       const text = await response.text();
-      console.error(`Non-JSON response from ${urlString} (status ${response.status}):`, text.substring(0, 500));
+      const { logger } = require('./logger');
+      logger.error(`Non-JSON response from ${urlString}`, { 
+        status: response.status, 
+        text: text.substring(0, 500) 
+      });
       return {
         success: false,
         error: {
@@ -111,7 +118,8 @@ export async function nestjsServerFetch<T>(
 
     return data;
   } catch (error) {
-    console.error(`NestJS API request failed for ${urlString}:`, error);
+    const { logger } = require('./logger');
+    logger.error(`NestJS API request failed for ${urlString}`, error);
     const errorMessage = error instanceof Error ? error.message : 'Network request failed';
     
     // Check if it's a connection error

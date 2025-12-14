@@ -18,6 +18,7 @@ import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency"
 import { DepositModal } from "@/components/deposit-modal";
 import { CreateWagerModal } from "@/components/create-wager-modal";
 import { HowItWorksModal } from "@/components/how-it-works-modal";
+import { logger } from "@/lib/logger";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -96,7 +97,7 @@ function TopNavContent() {
         setCategoryCounts(counts);
       } catch (error) {
         // Silent fail - counts are not critical
-        console.error('Error fetching category counts:', error);
+        // Error logged silently as counts are not critical
       } finally {
         categoryCountsFetchingRef.current = false;
       }
@@ -138,7 +139,7 @@ function TopNavContent() {
           setCategories(mappedCategories);
         }
       } catch (error) {
-        console.error('Error fetching categories:', error);
+        logger.error('Error fetching categories', error);
         setCategories([]);
       }
     };
@@ -167,7 +168,7 @@ function TopNavContent() {
         setWalletBalance(response.balance);
       } catch (error) {
         // Silent fail - balance is not critical
-        console.error('Error fetching wallet balance:', error);
+        // Error logged silently as balance is not critical
       } finally {
         walletBalanceFetchingRef.current = false;
       }
@@ -190,7 +191,7 @@ function TopNavContent() {
             setWalletBalance(response.balance);
           } catch (error) {
             // Silent fail - balance will update via polling
-            console.error('Error fetching wallet balance from event:', error);
+            // Error logged silently as balance will update via polling
           }
         }, 300); // Small delay to ensure transaction is committed
       };
@@ -223,7 +224,7 @@ function TopNavContent() {
         // Only log unexpected errors, not 401/403 which are expected after logout
         const errorMessage = error instanceof Error ? error.message : String(error);
         if (!errorMessage.includes('Unauthorized') && !errorMessage.includes('Forbidden')) {
-          console.error('Error getting user:', error);
+          logger.error('Error getting user', error);
         }
         setUser(null);
         setProfile(null);
@@ -1062,7 +1063,7 @@ function TopNavContent() {
                     const response = await walletApi.getBalance();
                     setWalletBalance(response.balance);
                   } catch (error) {
-                    console.error('Error refreshing balance:', error);
+                    // Silent fail - balance will update via polling
                   }
                 };
                 fetchBalance();

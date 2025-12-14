@@ -3,6 +3,8 @@
  * Direct client for calling NestJS backend endpoints
  */
 
+import { logger } from './logger';
+
 const NESTJS_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
 export interface NestJSResponse<T> {
@@ -146,7 +148,7 @@ async function nestjsFetch<T>(
 
     return data;
   } catch (error) {
-    console.error('NestJS API request failed:', error);
+    logger.error('NestJS API request failed', error);
     return {
       success: false,
       error: {

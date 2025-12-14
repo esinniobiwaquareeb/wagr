@@ -62,24 +62,4 @@ export function clear2FAVerification(): void {
   sessionStorage.removeItem(SESSION_2FA_KEY);
 }
 
-/**
- * Check if user needs 2FA verification for this login attempt
- * This should be called before allowing login to proceed
- * 
- * @deprecated This function is no longer used - 2FA check is handled by NestJS backend
- */
-export async function requires2FAForLogin(
-  userId: string,
-  _apiUrl?: string,
-  _apiKey?: string
-): Promise<boolean> {
-  // If session is already verified, no need for 2FA again
-  if (isSession2FAVerified(userId)) {
-    return false;
-  }
-  
-  // 2FA check is now handled by the NestJS backend during login
-  // This function is kept for backward compatibility but always returns false
-  return false;
-}
 

@@ -132,8 +132,9 @@ export function logError(error: Error | AppError, context?: any) {
     timestamp: new Date().toISOString(),
   };
 
-  // In production, send to error tracking service (e.g., Sentry)
-  console.error('Error:', errorInfo);
+  // Use logger for consistent error logging
+  const { logger } = require('./logger');
+  logger.error('Error logged', errorInfo);
 
   // Use monitoring utility for error tracking
   if (typeof window === 'undefined') {

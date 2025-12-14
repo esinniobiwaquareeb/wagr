@@ -5,8 +5,14 @@ import { logger } from '@/lib/logger';
 /**
  * Test endpoint to send a test email
  * For development/testing purposes only
+ * Disabled in production by default
  */
 export async function POST(request: NextRequest) {
+  // Disable in production unless explicitly enabled
+  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_TEST_ENDPOINTS !== 'true') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
   try {
     const body = await request.json();
     const { email, type = 'welcome' } = body;
@@ -18,21 +24,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify this is called from an authorized source (optional for testing)
+    // Always require auth in production
     const authHeader = request.headers.get('authorization');
     const apiSecret = process.env.NOTIFICATION_API_SECRET || process.env.CRON_SECRET;
     
-    // Allow without auth in development, require in production
-    if (process.env.NODE_ENV === 'production' && apiSecret && authHeader !== `Bearer ${apiSecret}`) {
+    if (apiSecret && authHeader !== `Bearer ${apiSecret}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     logger.info('Sending test email to:', email);
 
     // Send test email
+    type EmailType = 'welcome' | 'verification' | 'password-reset' | 'password-changed';
     const result = await sendEmail({
       to: email,
-      type: type as any,
+      type: (type as EmailType) || 'welcome',
       data: {
         recipientName: 'Test User',
         loginUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://wagered.app',

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCurrentUser, logout as clientLogout, type AuthUser } from '@/lib/auth/client';
+import { logger } from '@/lib/logger';
 
 export interface UseAuthOptions {
   redirectTo?: string;
@@ -53,7 +54,7 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthResult {
       // Only log unexpected errors, not 401/403 which are expected after logout
       const errorMessage = error instanceof Error ? error.message : String(error);
       if (!errorMessage.includes('Unauthorized') && !errorMessage.includes('Forbidden')) {
-        console.error('Error checking auth:', error);
+        logger.error('Error checking auth', error);
       }
       setUser(null);
       setLoading(false);

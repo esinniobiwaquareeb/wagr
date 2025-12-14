@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { categoriesApi } from "@/lib/api-client";
 import { Wager } from "@/lib/types/api";
+import { logger } from "@/lib/logger";
 
 export default function AdminWagersPage() {
   const { toast } = useToast();
@@ -74,7 +75,7 @@ export default function AdminWagersPage() {
         setWagers([]);
       }
     } catch (error) {
-      console.error("Error fetching wagers:", error);
+      logger.error("Error fetching wagers", error);
       toast({
         title: "Error",
         description: "Failed to fetch wagers.",
@@ -99,7 +100,7 @@ export default function AdminWagersPage() {
           setCategories(mappedCategories);
         }
       } catch (error) {
-        console.error('Error fetching categories:', error);
+        logger.error('Error fetching categories', error);
         setCategories([]);
       }
     };
@@ -153,7 +154,7 @@ export default function AdminWagersPage() {
       // Refresh wagers list
       fetchWagers();
     } catch (error) {
-      console.error("Error resolving wager:", error);
+      logger.error("Error resolving wager", error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to resolve wager.",
@@ -176,7 +177,7 @@ export default function AdminWagersPage() {
       setShowCreateModal(false);
       fetchWagers();
     } catch (error) {
-      console.error("Error creating wager:", error);
+      logger.error("Error creating wager", error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to create wager",
@@ -200,7 +201,7 @@ export default function AdminWagersPage() {
       setEditingWager(null);
       fetchWagers();
     } catch (error) {
-      console.error("Error updating wager:", error);
+      logger.error("Error updating wager", error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to update wager",
@@ -224,7 +225,7 @@ export default function AdminWagersPage() {
       setDeletingWager(null);
       fetchWagers();
     } catch (error) {
-      console.error("Error deleting wager:", error);
+      logger.error("Error deleting wager", error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to delete wager",

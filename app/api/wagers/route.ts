@@ -1,10 +1,10 @@
 import { NextRequest } from 'next/server';
 import { nestjsServerFetch } from '@/lib/nestjs-server';
-import { getCurrentUser } from '@/lib/auth/server';
 import { requireAuth } from '@/lib/auth/server';
 import { logError } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse, getPaginationParams } from '@/lib/api-response';
 import { cookies } from 'next/headers';
+import { logger } from '@/lib/logger';
 
 /**
  * GET /api/wagers
@@ -36,20 +36,32 @@ export async function GET(request: NextRequest) {
     
     // Call NestJS backend using server-side fetch
     // NestJS returns: { success: true, data: [...], meta: {...} }
-    const response = await nestjsServerFetch<any>(`/wagers?${queryParams.toString()}`, {
+    // nestjsServerFetch returns: { success: true, data: { success: true, data: [...], meta: {...} } }
+    interface NestJSWagersResponse {
+      data: unknown[];
+      meta?: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      };
+    }
+
+    const response = await nestjsServerFetch<{ data: unknown[]; meta?: NestJSWagersResponse['meta'] }>(`/wagers?${queryParams.toString()}`, {
       method: 'GET',
       token,
       requireAuth: false, // Public endpoint
     });
 
-    if (!response.success) {
-      console.error('NestJS API error:', response.error);
+    if (!response.success || !response.data) {
+      logger.error('NestJS API error when fetching wagers', response.error);
       return successResponseNext({ wagers: [] });
     }
 
-    // nestjsServerFetch returns the raw NestJS response: { success: true, data: [...], meta: {...} }
-    // So response.data is the array, and we need to check for meta at the top level
-    const nestjsResponse = response as any;
+    // nestjsServerFetch returns: { success: true, data: <NestJS response> }
+    // NestJS response is: { success: true, data: [...], meta: {...} }
+    // So response.data is the NestJS response object, access response.data.data for the array
+    const nestjsResponse = response.data as { data?: unknown[]; meta?: NestJSWagersResponse['meta'] };
     const wagers = Array.isArray(nestjsResponse.data) ? nestjsResponse.data : [];
     const meta = nestjsResponse.meta || {
       page,
@@ -99,7 +111,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Call NestJS backend to create wager
-    const response = await nestjsServerFetch<{ data: any }>('/wagers', {
+    interface CreateWagerResponse {
+      data: {
+        id: string;
+        short_id: string;
+        title: string;
+        [key: string]: unknown;
+      };
+    }
+
+    const response = await nestjsServerFetch<CreateWagerResponse>('/wagers', {
       method: 'POST',
       token,
       requireAuth: true,
