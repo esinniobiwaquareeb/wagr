@@ -5,7 +5,7 @@
 
 import { logger } from './logger';
 
-const NESTJS_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+const NESTJS_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
 
 export interface NestJSResponse<T> {
   success: boolean;

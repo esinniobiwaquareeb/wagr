@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const provider = searchParams.get('provider') || 'paystack';
 
     // Build NestJS URL
-    const nestjsUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    const nestjsUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://localhost:3000/api/v1';
     const nestjsParams = new URLSearchParams();
     if (reference) nestjsParams.set('reference', reference);
     if (trxref) nestjsParams.set('trxref', trxref);

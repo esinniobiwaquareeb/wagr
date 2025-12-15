@@ -35,8 +35,9 @@ export async function GET(request: NextRequest) {
     const token = cookieStore.get('auth_token')?.value || null;
     
     // Call NestJS backend using server-side fetch
-    // NestJS returns: { success: true, data: [...], meta: {...} }
-    // nestjsServerFetch returns: { success: true, data: { success: true, data: [...], meta: {...} } }
+    // Backend controller returns: { success: true, data: [...], meta: {...} }
+    // TransformInterceptor passes it through as-is (since it has 'success' field)
+    // nestjsServerFetch returns: { success: true, data: [...], meta: {...} }
     interface NestJSWagersResponse {
       data: unknown[];
       meta?: {
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    const response = await nestjsServerFetch<{ data: unknown[]; meta?: NestJSWagersResponse['meta'] }>(`/wagers?${queryParams.toString()}`, {
+    const response = await nestjsServerFetch<{ success: boolean; data: unknown[]; meta?: NestJSWagersResponse['meta'] }>(`/wagers?${queryParams.toString()}`, {
       method: 'GET',
       token,
       requireAuth: false, // Public endpoint
@@ -58,12 +59,10 @@ export async function GET(request: NextRequest) {
       return successResponseNext({ wagers: [] });
     }
 
-    // nestjsServerFetch returns: { success: true, data: <NestJS response> }
-    // NestJS response is: { success: true, data: [...], meta: {...} }
-    // So response.data is the NestJS response object, access response.data.data for the array
-    const nestjsResponse = response.data as { data?: unknown[]; meta?: NestJSWagersResponse['meta'] };
-    const wagers = Array.isArray(nestjsResponse.data) ? nestjsResponse.data : [];
-    const meta = nestjsResponse.meta || {
+    // nestjsServerFetch returns the backend response directly: { success: true, data: [...], meta: {...} }
+    // So response.data is the array, and we can access meta from the response object
+    const wagers = Array.isArray(response.data) ? response.data : [];
+    const meta = (response as any).meta || {
       page,
       limit,
       total: wagers.length,
@@ -111,12 +110,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Call NestJS backend to create wager
+    // Backend controller returns: { success: true, data: { wager: {...} } }
+    // nestjsServerFetch returns the backend response directly: { success: true, data: { wager: {...} } }
     interface CreateWagerResponse {
+      success: boolean;
       data: {
-        id: string;
-        short_id: string;
-        title: string;
-        [key: string]: unknown;
+        wager: {
+          id: string;
+          short_id: string;
+          title: string;
+          [key: string]: unknown;
+        };
       };
     }
 
@@ -142,8 +146,8 @@ export async function POST(request: NextRequest) {
       throw new Error(response.error?.message || 'Failed to create wager');
     }
 
-    // NestJS returns { success: true, data: {...} } format
-    const wager = response.data;
+    // nestjsServerFetch returns the backend response directly, so response.data is { wager: {...} }
+    const wager = response.data.wager;
 
     return successResponseNext({ wager }, undefined, 201);
   } catch (error) {

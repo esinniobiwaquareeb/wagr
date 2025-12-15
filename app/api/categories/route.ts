@@ -19,8 +19,8 @@ export async function GET(request: NextRequest) {
     const includeInactive = searchParams.get('includeInactive') === 'true';
 
     // Call NestJS backend to get categories
-    // NestJS returns: { success: true, data: [...] }
-    // nestjsServerFetch returns: { success: true, data: { success: true, data: [...] } }
+    // Backend returns: { success: true, data: [...] }
+    // nestjsServerFetch returns this directly
     interface Category {
       id: string;
       slug: string;
@@ -33,7 +33,9 @@ export async function GET(request: NextRequest) {
     }
 
     const queryString = includeInactive ? '?includeInactive=true' : '';
-    const response = await nestjsServerFetch<{ data: Category[] }>(`/categories${queryString}`, {
+    // Backend controller returns: { success: true, data: [...] }
+    // nestjsServerFetch returns the backend response directly: { success: true, data: [...] }
+    const response = await nestjsServerFetch<{ success: boolean; data: Category[] }>(`/categories${queryString}`, {
       method: 'GET',
       token: token || undefined,
       requireAuth: false,
@@ -43,11 +45,8 @@ export async function GET(request: NextRequest) {
       throw new Error(response.error?.message || 'Failed to fetch categories');
     }
 
-    // nestjsServerFetch returns: { success: true, data: <NestJS response> }
-    // NestJS response is: { success: true, data: [...] }
-    // So response.data is the NestJS response object, access response.data.data for the array
-    const nestjsResponse = response.data as { data?: Category[] };
-    const categories = Array.isArray(nestjsResponse.data) ? nestjsResponse.data : [];
+    // nestjsServerFetch returns the backend response directly, so response.data is the array
+    const categories = Array.isArray(response.data) ? response.data : [];
 
     return successResponseNext({
       categories,

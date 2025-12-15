@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       const errorCode = response.error?.code || 'UNKNOWN_ERROR';
       logger.error(`Login failed: [${errorCode}] ${errorMessage}`, {
         error: response.error,
-        backendUrl: process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://localhost:3001/api/v1',
+        backendUrl: process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://localhost:3000/api/v1',
       });
       throw new Error(errorMessage);
     }
