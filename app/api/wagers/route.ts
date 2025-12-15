@@ -146,8 +146,8 @@ export async function POST(request: NextRequest) {
       throw new Error(response.error?.message || 'Failed to create wager');
     }
 
-    // nestjsServerFetch returns the backend response directly, so response.data is { wager: {...} }
-    const wager = response.data.wager;
+    // nestjsServerFetch returns the backend response directly, so response.data.data is { wager: {...} }
+    const wager = response.data.data.wager;
 
     return successResponseNext({ wager }, undefined, 201);
   } catch (error) {
