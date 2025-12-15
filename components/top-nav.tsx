@@ -62,6 +62,16 @@ function TopNavContent() {
     if (pathname === '/wagers') {
       const urlSearch = searchParams?.get('search') || '';
       setSearchQuery(urlSearch);
+      
+      // If login=true param is present, refresh auth state
+      if (searchParams?.get('login') === 'true') {
+        // Small delay to ensure cookies are set
+        setTimeout(() => {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('auth-state-changed'));
+          }
+        }, 200);
+      }
     } else {
       // Clear search query when not on wagers page
       setSearchQuery('');
@@ -207,13 +217,29 @@ function TopNavContent() {
     }
   }, [user]);
 
+  // Track if we're currently fetching to prevent duplicate calls
+  const fetchingUserRef = useRef(false);
+  // Use ref to track user state for event handlers to avoid stale closures
+  const userRef = useRef<AuthUser | null>(null);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const getUser = async (forceRefresh = false) => {
+      // Prevent concurrent fetches (unless forced)
+      if (fetchingUserRef.current && !forceRefresh) return;
+      fetchingUserRef.current = true;
+
       try {
         const currentUser = await getCurrentUser(forceRefresh);
         setUser(currentUser);
+        userRef.current = currentUser;
+        
         // If no user, ensure all dependent state is cleared
         if (!currentUser) {
           setProfile(null);
@@ -227,34 +253,36 @@ function TopNavContent() {
           logger.error('Error getting user', error);
         }
         setUser(null);
+        userRef.current = null;
         setProfile(null);
         setWalletBalance(null);
         setUnreadCount(0);
+      } finally {
+        fetchingUserRef.current = false;
       }
     };
     
+    // Initial fetch
     getUser();
 
     const handleAuthStateChanged = async () => {
-      // Only fetch user if we don't already know user is null
-      // This prevents unnecessary API calls after logout
-      if (user !== null) {
+      // Always force refresh when auth state changes
+      // Try immediate fetch first, then retry after a delay to ensure cookies/tokens are updated
+      await getUser(true);
+      
+      // Also retry after a short delay to catch any cookie propagation delays
+      setTimeout(async () => {
         await getUser(true);
-      } else {
-        // If user is already null, just ensure state is cleared
-        setProfile(null);
-        setWalletBalance(null);
-        setUnreadCount(0);
-      }
+      }, 300);
     };
+    
     window.addEventListener('auth-state-changed', handleAuthStateChanged);
 
-    // Reduced polling frequency - check every 5 minutes instead of 1 minute
-    // Only poll if user exists (don't poll after logout)
+    // Reduced polling frequency - check every 5 minutes
+    // Only poll if we have a user (don't poll after logout)
     const interval = setInterval(() => {
-      // Only fetch if we have a user or if we haven't checked yet
-      // This prevents continuous errors after logout
-      if (user !== null || user === undefined) {
+      // Only poll if we currently have a user (check ref to avoid stale closure)
+      if (userRef.current !== null) {
         getUser();
       }
     }, 300000); // Every 5 minutes
@@ -263,7 +291,7 @@ function TopNavContent() {
       window.removeEventListener('auth-state-changed', handleAuthStateChanged);
       clearInterval(interval);
     };
-  }, [router, user]);
+  }, [router]); // Removed 'user' from dependencies to prevent circular updates
 
   const fetchingProfileRef = useRef(false);
   const debounceProfileTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -414,6 +442,7 @@ function TopNavContent() {
       
       // Immediately clear all local state before logout API call
       setUser(null);
+      userRef.current = null;
       setProfile(null);
       setWalletBalance(null);
       setUnreadCount(0);
@@ -438,6 +467,7 @@ function TopNavContent() {
     } catch (error) {
       // Even on error, ensure local state is cleared
       setUser(null);
+      userRef.current = null;
       setProfile(null);
       setWalletBalance(null);
       setUnreadCount(0);
@@ -1033,6 +1063,13 @@ function TopNavContent() {
         isOpen={showAuthModal}
         onClose={() => {
           setShowAuthModal(false);
+          // Force refresh auth state when modal closes (in case login happened)
+          // Use a small delay to ensure cookies/tokens are set
+          setTimeout(() => {
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new Event('auth-state-changed'));
+            }
+          }, 200);
         }}
       />
       <ConfirmDialog
