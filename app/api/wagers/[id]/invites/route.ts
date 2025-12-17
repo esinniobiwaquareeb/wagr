@@ -27,31 +27,56 @@ export async function GET(
 
     // Call NestJS backend
     const response = await nestjsServerFetch<{
-      invites: Array<{
-        id: string;
-        invitee_id: string;
-        invitee: {
+      success: boolean;
+      data?: {
+        invites: Array<{
           id: string;
-          username: string | null;
-          email: string;
-          avatar_url: string | null;
-        } | null;
-        status: string;
-        created_at: string;
-        inviter_id: string;
-        inviter_name: string;
-      }>;
+          invitee_id: string;
+          invitee: {
+            id: string;
+            username: string | null;
+            email: string;
+            avatar_url: string | null;
+          } | null;
+          status: string;
+          created_at: string;
+          inviter_id: string;
+          inviter_name: string;
+        }>;
+      };
+      error?: { code?: string; message?: string };
     }>(`/wagers/${id}/invites`, {
       method: 'GET',
       token,
       requireAuth: true,
     });
 
-    if (!response.success || !response.data) {
-      throw new Error(response.error?.message || 'Failed to fetch invites');
+    const responseData = response as {
+      success: boolean;
+      data?: {
+        invites: Array<{
+          id: string;
+          invitee_id: string;
+          invitee: {
+            id: string;
+            username: string | null;
+            email: string;
+            avatar_url: string | null;
+          } | null;
+          status: string;
+          created_at: string;
+          inviter_id: string;
+          inviter_name: string;
+        }>;
+      };
+      error?: { code?: string; message?: string };
+    };
+
+    if (!responseData.success || !responseData.data) {
+      throw new Error(responseData.error?.message || 'Failed to fetch invites');
     }
 
-    return successResponseNext(response.data);
+    return successResponseNext(responseData.data);
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);

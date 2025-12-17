@@ -27,18 +27,26 @@ export async function DELETE(
 
     // Call NestJS backend
     const response = await nestjsServerFetch<{
-      message: string;
+      success: boolean;
+      data?: { message: string };
+      error?: { code?: string; message?: string };
     }>(`/wagers/${id}/invites/${inviteId}`, {
       method: 'DELETE',
       token,
       requireAuth: true,
     });
 
-    if (!response.success || !response.data) {
-      throw new Error(response.error?.message || 'Failed to revoke invitation');
+    const responseData = response as {
+      success: boolean;
+      data?: { message: string };
+      error?: { code?: string; message?: string };
+    };
+
+    if (!responseData.success || !responseData.data) {
+      throw new Error(responseData.error?.message || 'Failed to revoke invitation');
     }
 
-    return successResponseNext(response.data);
+    return successResponseNext(responseData.data);
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);

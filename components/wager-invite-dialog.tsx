@@ -36,6 +36,7 @@ interface WagerInviteDialogProps {
   onOpenChange: (open: boolean) => void;
   wagerId: string;
   wagerTitle: string;
+  isCreator?: boolean;
 }
 
 export function WagerInviteDialog({
@@ -43,6 +44,7 @@ export function WagerInviteDialog({
   onOpenChange,
   wagerId,
   wagerTitle,
+  isCreator = true,
 }: WagerInviteDialogProps) {
   const [inviteInput, setInviteInput] = useState("");
   const [invites, setInvites] = useState<string[]>([]);
@@ -111,11 +113,11 @@ export function WagerInviteDialog({
   }, [wagerId]);
 
   useEffect(() => {
-    if (open) {
+    if (open && isCreator) {
       loadTeams();
       loadInvitedUsers();
     }
-  }, [open, loadTeams, loadInvitedUsers]);
+  }, [open, isCreator, loadTeams, loadInvitedUsers]);
 
   // Search users
   useEffect(() => {

@@ -34,12 +34,16 @@ export async function POST(
 
     // Call NestJS backend
     const response = await nestjsServerFetch<{
-      message: string;
-      results: {
-        invited: Array<{ identifier: string; type: 'user' | 'email'; userId?: string }>;
-        notFound: string[];
-        errors: Array<{ identifier: string; error: string }>;
+      success: boolean;
+      data?: {
+        message: string;
+        results: {
+          invited: Array<{ identifier: string; type: 'user' | 'email'; userId?: string }>;
+          notFound: string[];
+          errors: Array<{ identifier: string; error: string }>;
+        };
       };
+      error?: { code?: string; message?: string };
     }>(`/wagers/${id}/invite`, {
       method: 'POST',
       token,
@@ -50,11 +54,24 @@ export async function POST(
       }),
     });
 
-    if (!response.success || !response.data) {
-      throw new Error(response.error?.message || 'Failed to send invitations');
+    const responseData = response as {
+      success: boolean;
+      data?: {
+        message: string;
+        results: {
+          invited: Array<{ identifier: string; type: 'user' | 'email'; userId?: string }>;
+          notFound: string[];
+          errors: Array<{ identifier: string; error: string }>;
+        };
+      };
+      error?: { code?: string; message?: string };
+    };
+
+    if (!responseData.success || !responseData.data) {
+      throw new Error(responseData.error?.message || 'Failed to send invitations');
     }
 
-    return successResponseNext(response.data);
+    return successResponseNext(responseData.data);
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);

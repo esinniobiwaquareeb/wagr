@@ -1327,7 +1327,7 @@ export default function WagerDetail() {
                     <Share2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
                     <span className="text-[10px] md:text-xs font-medium hidden sm:inline">Share</span>
                   </button>
-                  {user && (
+                  {user && isCreator && (
                     <button
                       onClick={() => setShowInviteDialog(true)}
                       className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 border border-primary transition active:scale-[0.98] touch-manipulation flex-shrink-0"
@@ -1777,6 +1777,7 @@ export default function WagerDetail() {
           onOpenChange={setShowInviteDialog}
           wagerId={wager.id}
           wagerTitle={wager.title}
+          isCreator={!!isCreator}
         />
       )}
 
