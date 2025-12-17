@@ -211,16 +211,9 @@ export default function Profile() {
     }
   }, [user, fetchProfile, fetchMyWagers]);
 
-  // Poll for profile updates and listen for custom events
+  // Listen for custom events to refresh profile when something changes
   useEffect(() => {
     if (!user) return;
-
-    // Poll for updates every 30 seconds
-    const pollInterval = setInterval(() => {
-      if (!fetchingRef.current) {
-        debouncedRefetchProfile();
-      }
-    }, 30000); // 30 seconds
 
     // Listen for custom profile update events
     const handleProfileUpdate = () => {
@@ -230,7 +223,6 @@ export default function Profile() {
     window.addEventListener('balance-updated', handleProfileUpdate);
 
     return () => {
-      clearInterval(pollInterval);
       window.removeEventListener('profile-updated', handleProfileUpdate);
       window.removeEventListener('balance-updated', handleProfileUpdate);
       if (debounceTimeoutRef.current) {
