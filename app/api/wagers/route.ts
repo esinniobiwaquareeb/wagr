@@ -111,10 +111,10 @@ export async function POST(request: NextRequest) {
 
     // Call NestJS backend to create wager
     // Backend controller returns: { success: true, data: { wager: {...} } }
-    // nestjsServerFetch returns the backend response directly: { success: true, data: { wager: {...} } }
-    interface CreateWagerResponse {
+    // nestjsServerFetch returns this JSON body directly.
+    const response = await nestjsServerFetch<{
       success: boolean;
-      data: {
+      data?: {
         wager: {
           id: string;
           short_id: string;
@@ -122,9 +122,11 @@ export async function POST(request: NextRequest) {
           [key: string]: unknown;
         };
       };
-    }
-
-    const response = await nestjsServerFetch<CreateWagerResponse>('/wagers', {
+      error?: {
+        code?: string;
+        message?: string;
+      };
+    }>('/wagers', {
       method: 'POST',
       token,
       requireAuth: true,
@@ -142,12 +144,17 @@ export async function POST(request: NextRequest) {
       }),
     });
 
-    if (!response.success || !response.data) {
-      throw new Error(response.error?.message || 'Failed to create wager');
+    const responseData = response as {
+      success: boolean;
+      data?: { wager?: { id: string; short_id: string; title: string; [key: string]: unknown } };
+      error?: { code?: string; message?: string };
+    };
+
+    if (!responseData.success || !responseData.data?.wager) {
+      throw new Error(responseData.error?.message || 'Failed to create wager');
     }
 
-    // nestjsServerFetch returns the backend response directly, so response.data.data is { wager: {...} }
-    const wager = response.data.data.wager;
+    const wager = responseData.data.wager;
 
     return successResponseNext({ wager }, undefined, 201);
   } catch (error) {
