@@ -74,7 +74,9 @@ export default function Profile() {
 
     // Always fetch fresh data from API (no cache)
     try {
-      setLoading(true);
+      if (!force) {
+        setLoading(true);
+      }
       const { profileApi } = await import('@/lib/api-client');
       const response = await profileApi.get();
       const profileData = response.profile;
@@ -87,7 +89,9 @@ export default function Profile() {
     } catch (error) {
       logger.error("Error fetching profile", error);
     } finally {
-      setLoading(false);
+      if (!force) {
+        setLoading(false);
+      }
       fetchingRef.current = false;
     }
   }, [user]);
