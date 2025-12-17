@@ -329,11 +329,6 @@ function WagersPageContent() {
   useEffect(() => {
     fetchWagers();
 
-    // Poll for updates every 30 seconds (replaces real-time subscriptions)
-    const pollInterval = setInterval(() => {
-      fetchWagers(true);
-    }, 30000);
-
     // Listen for wager update events from card components
     const handleWagerUpdate = () => {
       debouncedRefetchRef.current();
@@ -342,7 +337,6 @@ function WagersPageContent() {
     window.addEventListener('balance-updated', handleWagerUpdate);
 
     return () => {
-      clearInterval(pollInterval);
       window.removeEventListener('wager-updated', handleWagerUpdate);
       window.removeEventListener('balance-updated', handleWagerUpdate);
       if (debounceTimeoutRef.current) {

@@ -292,14 +292,6 @@ export default function WagerDetail() {
     // Initial fetch
     fetchWager();
 
-    // Poll for updates every 30 seconds (replaces real-time subscriptions)
-    // Use a longer interval to reduce API calls
-    const pollInterval = setInterval(() => {
-      if (fetchWagerRef.current && !fetchingRef.current) {
-        fetchWagerRef.current(true);
-      }
-    }, 30000); // 30 seconds
-
     // Listen for custom wager update events
     const handleWagerUpdate = () => {
       if (debounceTimeoutRef.current) {
@@ -315,7 +307,6 @@ export default function WagerDetail() {
     window.addEventListener('balance-updated', handleWagerUpdate);
 
     return () => {
-      clearInterval(pollInterval);
       window.removeEventListener('wager-updated', handleWagerUpdate);
       window.removeEventListener('balance-updated', handleWagerUpdate);
       if (debounceTimeoutRef.current) {
