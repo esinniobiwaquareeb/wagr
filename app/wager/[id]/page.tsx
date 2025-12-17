@@ -55,6 +55,7 @@ export default function WagerDetail() {
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   const [showUnjoinDialog, setShowUnjoinDialog] = useState(false);
   const [showChangeSideDialog, setShowChangeSideDialog] = useState(false);
+  const [showResolveDialog, setShowResolveDialog] = useState(false);
   const [selectedSide, setSelectedSide] = useState<"a" | "b" | null>(null);
   const [newSide, setNewSide] = useState<"a" | "b" | null>(null);
   const [unjoining, setUnjoining] = useState(false);
@@ -256,6 +257,19 @@ export default function WagerDetail() {
   const isCreator = useMemo(() => {
     return user && wager && wager.creator_id === user.id;
   }, [user, wager]);
+
+  // Creator can resolve when:
+  // - They are the creator
+  // - Wager is OPEN
+  // - Deadline has passed
+  // - No winning_side set yet
+  const canCreatorResolve = useMemo(() => {
+    if (!wager || !isCreator) return false;
+    if (wager.status !== "OPEN") return false;
+    if (!isDeadlineElapsed(wager.deadline)) return false;
+    if (wager.winning_side) return false;
+    return true;
+  }, [wager, isCreator]);
 
   // Calculate total won for settled wagers (must be before any conditional returns)
   const totalWon = useMemo(() => {
@@ -762,6 +776,54 @@ export default function WagerDetail() {
     }
   };
 
+  const handleResolve = () => {
+    if (!canCreatorResolve) {
+      toast({
+        title: "Cannot resolve yet",
+        description: "You can only resolve this wager after the deadline, while it is still open and without a winning side set.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setShowResolveDialog(true);
+  };
+
+  const confirmResolve = async (winningSide: "a" | "b") => {
+    if (!user || !wager) return;
+
+    try {
+      const response = await fetch(`/api/wagers/${wager.id}/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ winningSide }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error?.message || data?.message || 'Failed to resolve wager');
+      }
+
+      toast({
+        title: "Wager resolved",
+        description: `You set "${winningSide === "a" ? wager.side_a : wager.side_b}" as the winning side. Settlements will run shortly.`,
+      });
+
+      window.dispatchEvent(new CustomEvent('wager-updated'));
+      await fetchWager(true);
+    } catch (error) {
+      logger.error("Error resolving wager", error);
+      const errorMessage = error instanceof Error ? error.message : "Couldn't resolve the wager. Please try again.";
+      toast({
+        title: "Couldn't resolve wager",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setShowResolveDialog(false);
+    }
+  };
+
   const handleEdit = () => {
     if (!user || !wager) return;
 
@@ -1049,6 +1111,21 @@ export default function WagerDetail() {
         onConfirm={handleChangeSide}
       />
 
+      <ConfirmDialog
+        open={showResolveDialog}
+        onOpenChange={setShowResolveDialog}
+        title="Resolve Wager"
+        description={
+          wager
+            ? `Which side won "${wager.title}"? This will mark the wager as resolved and trigger settlement.`
+            : "Select the winning side for this wager."
+        }
+        confirmText={wager && selectedSide ? `Set ${selectedSide === "a" ? wager.side_a : wager.side_b} as Winner` : "Set Winner"}
+        cancelText="Cancel"
+        // We reuse selectedSide for the resolve action; default to side A if none chosen
+        onConfirm={() => confirmResolve(selectedSide || "a")}
+      />
+
       {/* Edit Dialog */}
       {showEditDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -1175,27 +1252,46 @@ export default function WagerDetail() {
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <BackButton fallbackHref="/wagers" />
               <h1 className="text-lg md:text-2xl font-bold flex-1 break-words">{wager.title}</h1>
-              {/* Edit and Delete Buttons - Only show for creator when no other users have wagered and deadline hasn't elapsed */}
-              {user && wager.creator_id === user.id && wager.status === "OPEN" && entries.filter(e => e.user_id !== user.id).length === 0 && !isDeadlineElapsed(wager.deadline) && (
+              {/* Creator Actions */}
+              {user && wager.creator_id === user.id && (
                 <>
-                  <button
-                    onClick={handleEdit}
-                    disabled={editing}
-                    className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition active:scale-[0.98] touch-manipulation disabled:opacity-50 flex-shrink-0"
-                    title="Edit wager"
-                  >
-                    <Edit2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                    <span className="text-[10px] md:text-xs font-medium hidden sm:inline">Edit</span>
-                  </button>
-                  <button
-                    onClick={handleDelete}
-                    disabled={deleting}
-                    className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 transition active:scale-[0.98] touch-manipulation disabled:opacity-50 flex-shrink-0"
-                    title="Delete wager"
-                  >
-                    <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                    <span className="text-[10px] md:text-xs font-medium hidden sm:inline">Delete</span>
-                  </button>
+                  {/* Edit/Delete while open, before deadline, and no other participants */}
+                  {wager.status === "OPEN" &&
+                    entries.filter(e => e.user_id !== user.id).length === 0 &&
+                    !isDeadlineElapsed(wager.deadline) && (
+                      <>
+                        <button
+                          onClick={handleEdit}
+                          disabled={editing}
+                          className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition active:scale-[0.98] touch-manipulation disabled:opacity-50 flex-shrink-0"
+                          title="Edit wager"
+                        >
+                          <Edit2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                          <span className="text-[10px] md:text-xs font-medium hidden sm:inline">Edit</span>
+                        </button>
+                        <button
+                          onClick={handleDelete}
+                          disabled={deleting}
+                          className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 transition active:scale-[0.98] touch-manipulation disabled:opacity-50 flex-shrink-0"
+                          title="Delete wager"
+                        >
+                          <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                          <span className="text-[10px] md:text-xs font-medium hidden sm:inline">Delete</span>
+                        </button>
+                      </>
+                    )}
+
+                  {/* Resolve button after deadline for creators */}
+                  {canCreatorResolve && (
+                    <button
+                      onClick={handleResolve}
+                      className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-400 border border-blue-500/30 transition active:scale-[0.98] touch-manipulation flex-shrink-0"
+                      title="Resolve wager"
+                    >
+                      <Trophy className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                      <span className="text-[10px] md:text-xs font-medium hidden sm:inline">Resolve</span>
+                    </button>
+                  )}
                 </>
               )}
               {wager.is_system_generated ? (
