@@ -154,11 +154,47 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         // DO NOT clear auth cache or trigger auth state change
         // User is not logged in - they need to verify email and then login
       } else {
-        // Login validation
+        // Login validation - accept either email or username
+        const trimmedIdentifier = email.trim();
+        if (!trimmedIdentifier) {
+          setError("Please enter your email or username");
+          setIsLoading(false);
+          return;
+        }
+
+        // Validate password
         if (password.length < 1) {
           setError("Password is required");
           setIsLoading(false);
           return;
+        }
+
+        // Determine if identifier is email or username
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const isEmail = emailRegex.test(trimmedIdentifier);
+
+        // Prepare login payload - send either email or username
+        const loginPayload: { email?: string; username?: string; password: string; rememberMe: boolean } = {
+          password,
+          rememberMe,
+        };
+
+        if (isEmail) {
+          loginPayload.email = trimmedIdentifier;
+        } else {
+          // Validate username format
+          const usernameRegex = /^[a-zA-Z0-9_-]+$/;
+          if (!usernameRegex.test(trimmedIdentifier)) {
+            setError("Username can only contain letters, numbers, underscores, and hyphens");
+            setIsLoading(false);
+            return;
+          }
+          if (trimmedIdentifier.length < 3) {
+            setError("Username must be at least 3 characters long");
+            setIsLoading(false);
+            return;
+          }
+          loginPayload.username = trimmedIdentifier;
         }
 
         // Use the new login API that supports 2FA
@@ -167,11 +203,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            email: trimmedEmail,
-            password,
-            rememberMe,
-          }),
+          body: JSON.stringify(loginPayload),
         });
 
         const data = await response.json();
@@ -565,15 +597,17 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             </div>
           )}
           <div>
-            <label className="block text-sm font-medium mb-2">Email</label>
+            <label className="block text-sm font-medium mb-2">
+              {isSignUp ? "Email" : "Email or Username"}
+            </label>
             <input
-              type="email"
+              type={isSignUp ? "email" : "text"}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               className="w-full px-4 py-3 text-base border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
-              placeholder="you@example.com"
-              autoComplete="email"
+              placeholder={isSignUp ? "you@example.com" : "Email or username"}
+              autoComplete={isSignUp ? "email" : "username"}
             />
           </div>
 

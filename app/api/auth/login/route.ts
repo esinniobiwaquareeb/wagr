@@ -8,7 +8,12 @@ import { logger } from '@/lib/logger';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password, twoFactorCode, isBackupCode, rememberMe } = body;
+    const { email, username, password, twoFactorCode, isBackupCode, rememberMe } = body;
+
+    // Validate that either email or username is provided
+    if (!email && !username) {
+      throw new Error('Please provide either email or username');
+    }
 
     // Call NestJS backend login endpoint
     // Note: User responses no longer include is_admin since admins are separate entities
@@ -27,7 +32,8 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       requireAuth: false,
       body: JSON.stringify({
-        email,
+        ...(email && { email }),
+        ...(username && { username }),
         password,
         twoFactorCode,
         isBackupCode,
