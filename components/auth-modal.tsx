@@ -54,30 +54,29 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setError(null);
 
     try {
-      // Validate email
-      const trimmedEmail = email.trim();
-      if (!trimmedEmail) {
-        setError("We need your email address to continue");
-        setIsLoading(false);
-        return;
-      }
-
-      // Basic email validation
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(trimmedEmail)) {
-        setError("That doesn't look like a valid email address");
-        setIsLoading(false);
-        return;
-      }
-
-      // Validate password
-      if (!password) {
-        setError("Password is required");
-        setIsLoading(false);
-        return;
-      }
-
       if (isSignUp) {
+        // Sign up validation - email is required
+        const trimmedEmail = email.trim();
+        if (!trimmedEmail) {
+          setError("We need your email address to continue");
+          setIsLoading(false);
+          return;
+        }
+
+        // Basic email validation for signup
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(trimmedEmail)) {
+          setError("That doesn't look like a valid email address");
+          setIsLoading(false);
+          return;
+        }
+
+        // Validate password for signup
+        if (!password) {
+          setError("Password is required");
+          setIsLoading(false);
+          return;
+        }
         // Validate username for sign up
         const trimmedUsername = username.trim();
         if (!trimmedUsername) {
