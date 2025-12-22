@@ -48,6 +48,16 @@ export function QuizTakingInterface({
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [hasStarted, setHasStarted] = useState(false);
+  const initializingRef = useRef(false);
+  const initializedRef = useRef(false); // Track if we've already initialized
+  const onCompleteRef = useRef(onComplete);
+  const toastRef = useRef(toast);
+  
+  // Keep refs updated
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+    toastRef.current = toast;
+  }, [onComplete, toast]);
 
   // Load saved progress from localStorage
   const loadSavedProgress = useCallback(() => {
@@ -66,6 +76,8 @@ export function QuizTakingInterface({
         }
         if (progress.startTime) {
           setStartTime(new Date(progress.startTime));
+          // If we have saved progress, mark as started
+          setHasStarted(true);
         }
         return progress;
       }
@@ -98,17 +110,47 @@ export function QuizTakingInterface({
     }
   }, [hasStarted, responses, currentQuestionIndex, timeRemaining, saveProgress]);
 
-  // Start quiz
+  // Start quiz or resume if already started
   useEffect(() => {
     let isMounted = true;
+    
+    // Prevent multiple initializations - only run once per quizId/user
+    if (initializedRef.current || initializingRef.current || !user) {
+      if (!user) {
+        setLoading(false);
+      }
+      return;
+    }
+    
+    // Check for saved progress first - if exists, we're resuming
+    const savedProgress = loadSavedProgress();
+    const isResuming = savedProgress && savedProgress.startTime;
+    
+    // If resuming, set hasStarted immediately and load questions
+    if (isResuming && !hasStarted) {
+      setHasStarted(true);
+      setLoading(false); // Don't show loader for resume
+    }
+
     const startQuiz = async () => {
-      if (!user || hasStarted) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      // If already started and not resuming, don't start again
+      if (hasStarted && !isResuming) {
+        return;
+      }
 
       try {
-        setLoading(true);
+        initializingRef.current = true;
+        if (!isResuming) {
+          setLoading(true);
+        }
         
-        // Try to load saved progress first
-        const savedProgress = loadSavedProgress();
+        // Load saved progress (already loaded above, but get fresh copy)
+        const savedProgressData = loadSavedProgress();
         
         const response = await fetch(`/api/quizzes/${quizId}/take`, {
           method: 'POST',
@@ -151,9 +193,16 @@ export function QuizTakingInterface({
         setQuestions(questions);
         
         // Use saved start time if available, otherwise use current time
-        const savedStartTime = savedProgress?.startTime ? new Date(savedProgress.startTime) : new Date();
+        const savedStartTime = savedProgressData?.startTime ? new Date(savedProgressData.startTime) : new Date();
         setStartTime(savedStartTime);
-        setHasStarted(true);
+        if (!hasStarted) {
+          setHasStarted(true);
+        }
+        initializedRef.current = true; // Mark as initialized
+        initializingRef.current = false;
+        if (!isResuming) {
+          setLoading(false);
+        }
         
         // Try to fetch existing responses from backend if quiz was already started
         // Note: Responses are only saved on submit, so this will usually be empty
@@ -182,17 +231,17 @@ export function QuizTakingInterface({
         }
         
         // Merge: saved progress takes precedence, then existing responses, then empty
-        if (savedProgress?.responses) {
-          setResponses({ ...existingResponses, ...savedProgress.responses });
+        if (savedProgressData?.responses) {
+          setResponses({ ...existingResponses, ...savedProgressData.responses });
         } else if (Object.keys(existingResponses).length > 0) {
           setResponses(existingResponses);
         }
         
         // Calculate time remaining
         if (durationMinutes) {
-          if (savedProgress?.timeRemaining && savedProgress.timeRemaining > 0) {
+          if (savedProgressData?.timeRemaining && savedProgressData.timeRemaining > 0) {
             // Use saved time remaining
-            setTimeRemaining(savedProgress.timeRemaining);
+            setTimeRemaining(savedProgressData.timeRemaining);
           } else {
             // Calculate elapsed time
             const elapsed = Math.floor((new Date().getTime() - savedStartTime.getTime()) / 1000);
@@ -201,28 +250,52 @@ export function QuizTakingInterface({
             setTimeRemaining(remaining);
           }
         }
+        
+        // If resuming, we're done - don't show loader
+        if (isResuming) {
+          setLoading(false);
+        }
       } catch (error) {
         logger.error('Error starting quiz', error);
-        toast({
-          title: "Error",
-          description: error instanceof Error ? error.message : "Failed to start quiz",
-          variant: "destructive",
-        });
-        // Call onComplete with empty array to close the interface on error
-        onComplete([]);
+        initializedRef.current = true; // Mark as initialized even on error to prevent retry loop
+        initializingRef.current = false;
+        if (isMounted) {
+          setLoading(false);
+          toastRef.current({
+            title: "Error",
+            description: error instanceof Error ? error.message : "Failed to start quiz",
+            variant: "destructive",
+          });
+          // Call onComplete with empty array to close the interface on error
+          onCompleteRef.current([]);
+        }
       } finally {
         if (isMounted) {
           setLoading(false);
+          initializingRef.current = false;
         }
       }
     };
 
-    startQuiz();
+    // Start quiz (or resume if already started)
+    if (user && !initializingRef.current && !initializedRef.current) {
+      startQuiz();
+    } else if (!user) {
+      setLoading(false);
+    }
 
     return () => {
       isMounted = false;
+      // Don't reset initializedRef here - only reset on quizId/user change
     };
-  }, [quizId, user, durationMinutes, hasStarted, toast, onComplete, loadSavedProgress]);
+  }, [quizId, user?.id, durationMinutes]); // Only depend on stable values - removed hasStarted, toast, onComplete, loadSavedProgress
+
+  // Reset initialized flag when quizId or user changes
+  useEffect(() => {
+    initializedRef.current = false;
+    initializingRef.current = false;
+    setHasStarted(false);
+  }, [quizId, user?.id]);
 
   // Timer countdown
   useEffect(() => {

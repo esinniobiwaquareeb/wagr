@@ -241,6 +241,14 @@ export default function QuizDetailPage() {
           }
         );
         setParticipant(userParticipant || null);
+        
+        // Auto-show quiz interface if participant status is 'started' (resume quiz)
+        if (userParticipant) {
+          const normalizedStatus = (userParticipant.status || '').toLowerCase();
+          if (normalizedStatus === 'started') {
+            setTakingQuiz(true);
+          }
+        }
       } else if (user) {
         // Explicitly set to null if no participants array or user not found
         setParticipant(null);
