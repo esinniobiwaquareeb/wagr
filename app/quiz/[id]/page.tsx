@@ -801,15 +801,19 @@ export default function QuizDetailPage() {
             showResultsImmediately: quiz.show_results_immediately,
             settlementMethod: quiz.settlement_method as 'proportional' | 'top_winners' | 'equal_split',
             topWinnersCount: quiz.top_winners_count || undefined,
-            questions: quiz.questions?.map(q => ({
-              questionText: q.question_text,
-              questionType: q.question_type as 'multiple_choice' | 'true_false',
-              points: q.points || 1,
-              answers: (q.quiz_answers || q.answers || []).map((a: any) => ({
-                answerText: a.answer_text || a.answerText,
-                isCorrect: a.is_correct !== undefined ? a.is_correct : a.isCorrect,
-              })),
-            })) || [],
+            questions: (quiz.questions || []).map((q: any) => {
+              // Backend uses 'answers' relation, frontend might expect 'quiz_answers'
+              const answersArray = q.answers || q.quiz_answers || [];
+              return {
+                questionText: q.question_text || q.questionText,
+                questionType: (q.question_type || q.questionType) as 'multiple_choice' | 'true_false',
+                points: q.points || 1,
+                answers: answersArray.map((a: any) => ({
+                  answerText: a.answer_text || a.answerText,
+                  isCorrect: a.is_correct !== undefined ? a.is_correct : (a.isCorrect !== undefined ? a.isCorrect : false),
+                })),
+              };
+            }),
           }}
           onSuccess={() => {
             fetchQuiz();

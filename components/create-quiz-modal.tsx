@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY } from "@/lib/currency";
@@ -16,6 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { logger } from "@/lib/logger";
+import { utcToLocal, localToUTC, isDeadlineValid } from "@/lib/deadline-utils";
 
 interface Question {
   id: string;
@@ -99,6 +100,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
   const [currentStep, setCurrentStep] = useState(1);
   const { toast } = useToast();
   const { getSetting, getQuizLimits, loading: settingsLoading } = useSettings();
+  const formInitializedRef = useRef<string | null>(null);
   
   // Get platform fee from settings (default to 10% if not loaded yet)
   const PLATFORM_FEE_PERCENTAGE = settingsLoading ? 0.10 : (getSetting('fees.quiz_platform_fee_percentage', 0.10) as number);
@@ -124,7 +126,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
 
   const [questions, setQuestions] = useState<Question[]>([]);
 
-  // Reset form when modal closes
+  // Reset form when modal closes (but not when opening in edit mode)
   useEffect(() => {
     if (!open) {
       setFormData({
@@ -145,32 +147,41 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
       setQuestions([]);
       setSubmitting(false);
       setCurrentStep(1);
+      formInitializedRef.current = null; // Reset flag when modal closes
+    } else if (open && !isEditMode) {
+      // Reset form when opening in create mode (not edit mode)
+      setFormData({
+        title: "",
+        description: "",
+        entryFeePerQuestion: "",
+        maxParticipants: "",
+        totalQuestions: "",
+        startDate: "",
+        endDate: "",
+        durationMinutes: "",
+        randomizeQuestions: true,
+        randomizeAnswers: true,
+        showResultsImmediately: false,
+        settlementMethod: 'proportional',
+        topWinnersCount: "",
+      });
+      setQuestions([]);
+      setCurrentStep(1);
+      formInitializedRef.current = null;
     }
-  }, [open]);
+  }, [open, isEditMode]);
 
-  // Populate form when initialData is provided (edit mode)
+  // Populate form when initialData is provided (edit mode) - only once per quiz when modal opens
   useEffect(() => {
-    if (open && initialData && isEditMode) {
-      // Format dates for datetime-local inputs
-      const formatDateTimeLocal = (dateString?: string) => {
-        if (!dateString) return "";
-        const date = new Date(dateString);
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        return `${year}-${month}-${day}T${hours}:${minutes}`;
-      };
-
+    if (open && initialData && isEditMode && quizId && formInitializedRef.current !== quizId) {
       setFormData({
         title: initialData.title || "",
         description: initialData.description || "",
         entryFeePerQuestion: initialData.entryFeePerQuestion?.toString() || "",
         maxParticipants: initialData.maxParticipants?.toString() || "",
         totalQuestions: initialData.totalQuestions?.toString() || "",
-        startDate: formatDateTimeLocal(initialData.startDate),
-        endDate: formatDateTimeLocal(initialData.endDate),
+        startDate: utcToLocal(initialData.startDate),
+        endDate: utcToLocal(initialData.endDate),
         durationMinutes: initialData.durationMinutes?.toString() || "",
         randomizeQuestions: initialData.randomizeQuestions ?? true,
         randomizeAnswers: initialData.randomizeAnswers ?? true,
@@ -196,8 +207,10 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
         }));
         setQuestions(formattedQuestions);
       }
+      
+      formInitializedRef.current = quizId; // Mark as initialized for this quiz
     }
-  }, [open, initialData, isEditMode]);
+  }, [open, quizId, isEditMode, initialData]); // Include initialData but check quizId to prevent re-runs
 
   // Fetch user balance
   useEffect(() => {
@@ -421,14 +434,36 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
           return false;
         }
         
-        // Quiz deadline is mandatory
+        // Quiz end date is mandatory
         if (!formData.endDate || !formData.endDate.trim()) {
           toast({
-            title: "Deadline required",
-            description: "Please set a deadline for the quiz.",
+            title: "End date required",
+            description: "Please set an end date for the quiz.",
             variant: "destructive",
           });
           return false;
+        }
+
+        // Validate end date is after start date (if start date is provided)
+        if (formData.startDate && formData.endDate) {
+          const startDate = new Date(formData.startDate);
+          const endDate = new Date(formData.endDate);
+          if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+            toast({
+              title: "Invalid date format",
+              description: "Please enter valid dates.",
+              variant: "destructive",
+            });
+            return false;
+          }
+          if (endDate <= startDate) {
+            toast({
+              title: "Invalid date range",
+              description: "End date must be after start date.",
+              variant: "destructive",
+            });
+            return false;
+          }
         }
         
         return true;
@@ -538,6 +573,47 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
         })),
       }));
 
+      // Validate end date is in the future (if provided)
+      if (formData.endDate && !isDeadlineValid(formData.endDate)) {
+        toast({
+          title: "Invalid end date",
+          description: "End date must be in the future.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      // Validate start date is in the future (if provided)
+      if (formData.startDate && !isDeadlineValid(formData.startDate)) {
+        toast({
+          title: "Invalid start date",
+          description: "Start date must be in the future.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      // Validate end date is after start date (if both provided)
+      if (formData.startDate && formData.endDate) {
+        const startDate = new Date(formData.startDate);
+        const endDate = new Date(formData.endDate);
+        if (endDate <= startDate) {
+          toast({
+            title: "Invalid date range",
+            description: "End date must be after start date.",
+            variant: "destructive",
+          });
+          setSubmitting(false);
+          return;
+        }
+      }
+
+      // Convert local datetime to UTC ISO strings
+      const startDateUTC = localToUTC(formData.startDate);
+      const endDateUTC = localToUTC(formData.endDate);
+
       // Create or update quiz
       const url = isEditMode ? `/api/quizzes/${quizId}` : '/api/quizzes';
       const method = isEditMode ? 'PATCH' : 'POST';
@@ -551,8 +627,8 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
           entryFeePerQuestion: entryFee,
           maxParticipants,
           totalQuestions,
-          startDate: formData.startDate || null,
-          endDate: formData.endDate || null,
+          startDate: startDateUTC,
+          endDate: endDateUTC,
           durationMinutes: formData.durationMinutes ? parseInt(formData.durationMinutes) : null,
           randomizeQuestions: formData.randomizeQuestions,
           randomizeAnswers: formData.randomizeAnswers,
@@ -996,11 +1072,11 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
                   )}
                   <Card className="bg-muted/50 mt-3 border-primary/20">
                     <CardContent className="pt-4">
-                      <p className="text-xs sm:text-sm text-muted-foreground space-y-1.5">
+                      <div className="text-xs sm:text-sm text-muted-foreground space-y-1.5">
                         <div><strong className="text-foreground">Proportional:</strong> Winnings distributed based on each participant's score percentage. Higher scores = larger share.</div>
                         <div><strong className="text-foreground">Top Winners:</strong> Only the top N winners split the prize pool equally. Best for competitive quizzes.</div>
                         <div><strong className="text-foreground">Equal Split:</strong> All participants who complete the quiz split the prize pool equally. Best for team building.</div>
-                      </p>
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
