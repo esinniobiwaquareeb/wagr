@@ -102,47 +102,60 @@ export function WithdrawTab({
     (!maxWithdrawal || amount <= maxWithdrawal);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4 sm:space-y-5">
       <div>
-        <label className="text-xs font-medium mb-1.5 block text-foreground">Amount</label>
-        <input
-          type="number"
-          value={withdrawAmount}
-          onChange={(e) => {
-            const value = e.target.value;
-            if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
-              setWithdrawAmount(value);
-            }
-          }}
-          placeholder={maxWithdrawal ? `Enter amount (₦${minWithdrawal} - ₦${maxWithdrawal.toLocaleString()})` : `Enter amount (minimum ₦${minWithdrawal})`}
-          className={`w-full px-3 py-2 border rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-            amountError 
-              ? 'border-red-500 focus:ring-red-500/50 focus:border-red-500' 
-              : 'border-input focus:ring-primary/50 focus:border-primary/50'
-          }`}
-          min={minWithdrawal}
-          max={maxWithdrawal}
-          step="0.01"
-          disabled={processingWithdrawal}
-        />
+        <label className="text-sm sm:text-base font-semibold mb-2 block text-foreground">
+          Amount to Withdraw
+        </label>
+        <div className="relative">
+          <span className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-sm sm:text-base">
+            ₦
+          </span>
+          <input
+            type="number"
+            value={withdrawAmount}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
+                setWithdrawAmount(value);
+              }
+            }}
+            placeholder={maxWithdrawal ? `${minWithdrawal.toLocaleString()} - ${maxWithdrawal.toLocaleString()}` : `Minimum ${minWithdrawal.toLocaleString()}`}
+            className={`w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-3 sm:py-3.5 border rounded-lg bg-background text-foreground text-base sm:text-lg focus:outline-none focus:ring-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation ${
+              amountError 
+                ? 'border-red-500 focus:ring-red-500/50 focus:border-red-500' 
+                : 'border-input focus:ring-primary/50 focus:border-primary'
+            }`}
+            min={minWithdrawal}
+            max={maxWithdrawal}
+            step="0.01"
+            disabled={processingWithdrawal}
+            inputMode="decimal"
+          />
+        </div>
         {amountError && (
-          <p className="text-xs text-red-600 dark:text-red-400 mt-1.5">{amountError}</p>
+          <p className="text-xs sm:text-sm text-red-600 dark:text-red-400 mt-2 flex items-center gap-1.5">
+            <span className="text-red-500">•</span>
+            {amountError}
+          </p>
         )}
         {withdrawAmount.trim() && !amountError && (
-          <p className="text-xs text-muted-foreground mt-1.5">
-            Available balance: ₦{balance.toLocaleString()}
+          <p className="text-xs sm:text-sm text-muted-foreground mt-2">
+            Available balance: <span className="font-semibold text-foreground">₦{balance.toLocaleString()}</span>
           </p>
         )}
       </div>
       <div>
-        <label className="text-xs font-medium mb-1.5 block text-foreground">Bank</label>
+        <label className="text-sm sm:text-base font-semibold mb-2 block text-foreground">
+          Select Bank
+        </label>
         <Select value={bankCode} onValueChange={setBankCode} disabled={loadingBanks || processingWithdrawal}>
-          <SelectTrigger className="w-full h-9 text-sm">
-            <SelectValue placeholder={loadingBanks ? "Loading banks..." : "Select bank"} />
+          <SelectTrigger className="w-full h-12 sm:h-14 text-base sm:text-lg border-input rounded-lg touch-manipulation">
+            <SelectValue placeholder={loadingBanks ? "Loading banks..." : "Choose your bank"} />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-[300px]">
             {banks.map((bank) => (
-              <SelectItem key={bank.code} value={bank.code}>
+              <SelectItem key={bank.code} value={bank.code} className="text-base sm:text-lg py-3 touch-manipulation">
                 {bank.name}
               </SelectItem>
             ))}
@@ -150,7 +163,9 @@ export function WithdrawTab({
         </Select>
       </div>
       <div>
-        <label className="text-xs font-medium mb-1.5 block text-foreground">Account Number</label>
+        <label className="text-sm sm:text-base font-semibold mb-2 block text-foreground">
+          Account Number
+        </label>
         <input
           type="text"
           value={accountNumber}
@@ -159,19 +174,20 @@ export function WithdrawTab({
             setAccountNumber(value);
           }}
           placeholder="Enter 10-digit account number"
-          className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-3 sm:px-4 py-3 sm:py-3.5 border border-input rounded-lg bg-background text-foreground text-base sm:text-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
           maxLength={10}
           disabled={processingWithdrawal}
+          inputMode="numeric"
         />
         {verifyingAccount && (
-          <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1.5">
-            <Loader2 className="h-3 w-3 animate-spin" />
+          <p className="text-xs sm:text-sm text-muted-foreground mt-2 flex items-center gap-2">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
             Verifying account...
           </p>
         )}
-        {accountName && accountNumber.length === 10 && (
-          <p className="text-xs text-green-600 dark:text-green-400 mt-1.5 font-medium flex items-center gap-1.5">
-            <span>✓</span>
+        {accountName && accountNumber.length === 10 && !verifyingAccount && (
+          <p className="text-xs sm:text-sm text-green-600 dark:text-green-400 mt-2 font-semibold flex items-center gap-2 bg-green-50 dark:bg-green-950/20 px-3 py-2 rounded-md border border-green-200 dark:border-green-800">
+            <span className="text-green-600 dark:text-green-400">✓</span>
             <span>{accountName}</span>
           </p>
         )}
@@ -179,27 +195,29 @@ export function WithdrawTab({
       <button
         onClick={onWithdraw}
         disabled={processingWithdrawal || !canWithdraw}
-        className="w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-md font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2 min-h-[40px] focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+        className="w-full px-4 sm:px-6 py-3.5 sm:py-4 bg-primary text-primary-foreground rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98] touch-manipulation flex items-center justify-center gap-2 min-h-[52px] sm:min-h-[56px] focus:outline-none focus:ring-2 focus:ring-primary/50 text-base sm:text-lg shadow-sm hover:shadow-md"
       >
         {processingWithdrawal ? (
           <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Processing...
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span>Processing...</span>
           </>
         ) : (
           <>
-            <ArrowUpCircle className="h-4 w-4" />
-            Withdraw Funds
+            <ArrowUpCircle className="h-5 w-5" />
+            <span>Withdraw Funds</span>
           </>
         )}
       </button>
-      <p className="text-xs text-muted-foreground text-center">
-        {maxWithdrawal ? (
-          <>Range: ₦{minWithdrawal} - ₦{maxWithdrawal.toLocaleString()} • Transferred to your bank account</>
-        ) : (
-          <>Minimum: ₦{minWithdrawal} • Transferred to your bank account</>
-        )}
-      </p>
+      <div className="pt-2 border-t border-border/50">
+        <p className="text-xs sm:text-sm text-muted-foreground text-center leading-relaxed">
+          {maxWithdrawal ? (
+            <>Withdrawal range: ₦{minWithdrawal.toLocaleString()} - ₦{maxWithdrawal.toLocaleString()}<br className="sm:hidden" /> <span className="hidden sm:inline">•</span> Funds will be transferred to your bank account</>
+          ) : (
+            <>Minimum withdrawal: ₦{minWithdrawal.toLocaleString()}<br className="sm:hidden" /> <span className="hidden sm:inline">•</span> Funds will be transferred to your bank account</>
+          )}
+        </p>
+      </div>
     </div>
   );
 }

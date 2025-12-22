@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
-import { Send, ArrowDownCircle, ArrowUpCircle, Smartphone } from "lucide-react";
+import { Send, ArrowDownCircle, ArrowUpCircle, Smartphone, Wallet as WalletIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BalanceCard } from "@/components/wallet/balance-card";
@@ -81,7 +81,10 @@ function WalletContent() {
 
     // Always fetch fresh data from API (no cache)
     try {
-      setLoading(true);
+      // Only show loading on initial load or explicit force refresh
+      if (force || !profile) {
+        setLoading(true);
+      }
       const { walletApi } = await import('@/lib/api-client');
       
       // Fetch balance and transactions in parallel
@@ -101,10 +104,13 @@ function WalletContent() {
     } catch (error) {
       logger.error("Error fetching wallet data", error);
     } finally {
-      setLoading(false);
+      // Only hide loading on initial load or explicit force refresh
+      if (force || !profile) {
+        setLoading(false);
+      }
       fetchingRef.current = false;
     }
-  }, [user]);
+  }, [user, profile]);
 
   // Debounced refetch function for subscriptions
   const debouncedRefetch = useCallback(() => {
@@ -363,29 +369,25 @@ function WalletContent() {
     }
   }, [user, authLoading, searchParams, router]);
 
-  // Poll for updates and listen for balance update events
+  // Listen for balance update events (event-driven, no polling)
   useEffect(() => {
     if (!user) return;
-
-    // Poll for updates every 30 seconds (replaces real-time subscriptions)
-    const pollInterval = setInterval(() => {
-      fetchWalletData(true);
-    }, 30000);
 
     // Listen for custom balance update events
     const handleBalanceUpdate = () => {
       debouncedRefetch();
     };
     window.addEventListener('balance-updated', handleBalanceUpdate);
+    window.addEventListener('wager-updated', handleBalanceUpdate);
 
     return () => {
-      clearInterval(pollInterval);
       window.removeEventListener('balance-updated', handleBalanceUpdate);
+      window.removeEventListener('wager-updated', handleBalanceUpdate);
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [user, fetchWalletData, debouncedRefetch]);
+  }, [user, debouncedRefetch]);
 
   const handleWithdraw = async () => {
     // Validate amount
@@ -830,9 +832,13 @@ function WalletContent() {
 
   if (loading) {
     return (
-      <main className="flex-1 pb-24 md:pb-0">
-        <div className="max-w-6xl mx-auto px-4 md:px-6 py-12 text-center">
-          <p className="text-muted-foreground">Loading wallet...</p>
+      <main className="flex-1 pb-24 lg:pb-0">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+          <div className="space-y-6">
+            <div className="h-8 w-32 bg-muted animate-pulse rounded-lg" />
+            <div className="h-32 bg-muted animate-pulse rounded-lg" />
+            <div className="h-64 bg-muted animate-pulse rounded-lg" />
+          </div>
         </div>
       </main>
     );
@@ -840,67 +846,83 @@ function WalletContent() {
 
   if (!user) {
     return (
-      <main className="flex-1 pb-24 md:pb-0">
-        <div className="max-w-6xl mx-auto px-4 md:px-6 py-12 text-center">
-          <p className="text-muted-foreground">Please log in to view wallet</p>
+      <main className="flex-1 pb-24 lg:pb-0">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16 text-center">
+          <div className="max-w-md mx-auto space-y-4">
+            <WalletIcon className="h-16 w-16 mx-auto text-muted-foreground/50" />
+            <h2 className="text-xl sm:text-2xl font-semibold">Please log in</h2>
+            <p className="text-sm sm:text-base text-muted-foreground">
+              You need to be logged in to view your wallet
+            </p>
+          </div>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="flex-1 pb-24 md:pb-0">
-      <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6">
-        {/* Compact Header with Balance */}
-        <div className="mb-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <h1 className="text-xl md:text-2xl font-bold">Wallet</h1>
-              <p className="text-xs text-muted-foreground mt-0.5">Manage your funds</p>
+    <main className="flex-1 pb-24 lg:pb-0">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+        {/* Enhanced Header with Balance */}
+        <div className="mb-6">
+          <div className="flex flex-col gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold mb-1">Wallet</h1>
+              <p className="text-sm text-muted-foreground">Manage your funds and transactions</p>
             </div>
             {profile && (
-              <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 rounded-lg bg-muted/50 border border-border/50">
-                <div className="flex-1 sm:flex-none sm:text-right">
-                  <p className="text-xs text-muted-foreground mb-0.5">Balance</p>
-                  <p className="text-base sm:text-lg md:text-xl font-bold text-foreground truncate sm:whitespace-normal">{formatCurrency(profile.balance, currency)}</p>
-                </div>
-              </div>
+              <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-background dark:from-primary/20 dark:via-primary/10 dark:to-background border-primary/20">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Available Balance</p>
+                      <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground break-words">
+                        {formatCurrency(profile.balance, currency)}
+                      </p>
+                    </div>
+                    <div className="ml-4 p-3 sm:p-4 rounded-full bg-primary/10 dark:bg-primary/20 flex-shrink-0">
+                      <WalletIcon className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             )}
           </div>
         </div>
 
-        {/* Compact Actions Tabs */}
-        <Card className="mb-4">
-          <CardContent className="p-4 md:p-5">
+        {/* Enhanced Actions Tabs */}
+        <Card className="mb-6">
+          <CardContent className="p-4 sm:p-6">
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "deposit" | "withdraw" | "transfer" | "bills")} className="w-full">
-              <TabsList className="grid w-full grid-cols-4 mb-4 h-10 p-1 bg-muted/50">
+              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 mb-6 h-auto p-1 bg-muted/50 gap-1">
                 <TabsTrigger 
                   value="deposit" 
-                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
+                  className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 py-3 sm:py-2.5 px-3 text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all min-h-[60px] sm:min-h-[44px] touch-manipulation"
                 >
-                  <ArrowDownCircle className="h-3.5 w-3.5" />
-                  <span>Deposit</span>
+                  <ArrowDownCircle className="h-4 w-4 sm:h-3.5 sm:w-3.5 flex-shrink-0" />
+                  <span className="font-medium">Deposit</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="withdraw" 
-                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
+                  className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 py-3 sm:py-2.5 px-3 text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all min-h-[60px] sm:min-h-[44px] touch-manipulation"
                 >
-                  <ArrowUpCircle className="h-3.5 w-3.5" />
-                  <span>Withdraw</span>
+                  <ArrowUpCircle className="h-4 w-4 sm:h-3.5 sm:w-3.5 flex-shrink-0" />
+                  <span className="font-medium">Withdraw</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="transfer" 
-                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
+                  className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 py-3 sm:py-2.5 px-3 text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all min-h-[60px] sm:min-h-[44px] touch-manipulation"
                 >
-                  <Send className="h-3.5 w-3.5" />
-                  <span>Wallet Transfer</span>
+                  <Send className="h-4 w-4 sm:h-3.5 sm:w-3.5 flex-shrink-0" />
+                  <span className="font-medium hidden sm:inline">Transfer</span>
+                  <span className="font-medium sm:hidden">Send</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="bills" 
-                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
+                  className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 py-3 sm:py-2.5 px-3 text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all min-h-[60px] sm:min-h-[44px] touch-manipulation"
                 >
-                  <Smartphone className="h-3.5 w-3.5" />
-                  <span>Bills</span>
+                  <Smartphone className="h-4 w-4 sm:h-3.5 sm:w-3.5 flex-shrink-0" />
+                  <span className="font-medium">Bills</span>
                 </TabsTrigger>
               </TabsList>
 
@@ -1034,9 +1056,13 @@ function WalletContent() {
 export default function Wallet() {
   return (
     <Suspense fallback={
-      <main className="flex-1 pb-24 md:pb-0">
-        <div className="max-w-6xl mx-auto px-4 md:px-6 py-12 text-center">
-          <p className="text-muted-foreground">Loading wallet...</p>
+      <main className="flex-1 pb-24 lg:pb-0">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+          <div className="space-y-6">
+            <div className="h-8 w-32 bg-muted animate-pulse rounded-lg" />
+            <div className="h-32 bg-muted animate-pulse rounded-lg" />
+            <div className="h-64 bg-muted animate-pulse rounded-lg" />
+          </div>
         </div>
       </main>
     }>
