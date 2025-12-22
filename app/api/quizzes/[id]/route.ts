@@ -14,7 +14,6 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAuth();
     const { id } = await params;
     
     // Get token from cookies
@@ -22,7 +21,15 @@ export async function GET(
     const token = cookieStore.get('auth_token')?.value || null;
 
     if (!token) {
-      throw new Error('Authentication required');
+      return appErrorToResponse(new Error('Authentication required to view quiz'));
+    }
+
+    // Verify user is authenticated (but don't throw, just check)
+    try {
+      await requireAuth();
+    } catch (authError) {
+      // If auth verification fails, return error
+      return appErrorToResponse(new Error('Invalid or expired authentication token'));
     }
 
     // Call NestJS backend to get quiz

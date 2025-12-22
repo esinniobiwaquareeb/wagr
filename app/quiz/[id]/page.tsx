@@ -108,6 +108,7 @@ export default function QuizDetailPage() {
   const [takingQuiz, setTakingQuiz] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [accepting, setAccepting] = useState(false);
+  const [declining, setDeclining] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -213,9 +214,12 @@ export default function QuizDetailPage() {
       // Check if user is a participant
       if (user && quizData?.participants) {
         const userParticipant = quizData.participants.find(
-          (p: any) => p.user_id === user.id
+          (p: any) => p.user_id === user.id || p.user?.id === user.id
         );
-        setParticipant(userParticipant);
+        setParticipant(userParticipant || null);
+      } else if (user) {
+        // Explicitly set to null if no participants array or user not found
+        setParticipant(null);
       }
     } catch (error) {
       logger.error('Error fetching quiz', error);
@@ -372,6 +376,43 @@ export default function QuizDetailPage() {
       });
     } finally {
       setAccepting(false);
+    }
+  };
+
+  const handleDeclineInvite = async () => {
+    if (!quiz || !user || !participant) return;
+
+    setDeclining(true);
+    try {
+      const response = await fetch(`/api/quizzes/${quizId}/decline`, {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Failed to decline invitation');
+      }
+
+      toast({
+        title: "Invitation declined",
+        description: "You have declined the quiz invitation.",
+      });
+
+      // Dispatch event to notify invite dialog to refresh
+      window.dispatchEvent(new Event('quiz-invite-accepted'));
+      
+      setParticipant(null); // Clear participant state
+      fetchQuiz(); // Refresh to get updated participant status
+    } catch (error) {
+      logger.error('Error declining invite', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to decline invitation",
+        variant: "destructive",
+      });
+    } finally {
+      setDeclining(false);
     }
   };
 
@@ -633,8 +674,10 @@ export default function QuizDetailPage() {
                 participant={participant}
                 quizStatus={quiz.status}
                 onAcceptInvite={handleAcceptInvite}
+                onDeclineInvite={handleDeclineInvite}
                 onStartQuiz={handleStartQuiz}
                 accepting={accepting}
+                declining={declining}
               />
             </Card>
 
