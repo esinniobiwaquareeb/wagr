@@ -59,8 +59,8 @@ export function QuizTakingInterface({
     toastRef.current = toast;
   }, [onComplete, toast]);
 
-  // Load saved progress from localStorage
-  const loadSavedProgress = useCallback(() => {
+  // Load saved progress from localStorage (regular function to avoid dependency issues)
+  const loadSavedProgress = () => {
     try {
       const saved = localStorage.getItem(`quiz_progress_${quizId}`);
       if (saved) {
@@ -85,7 +85,7 @@ export function QuizTakingInterface({
       logger.error('Error loading saved progress', error);
     }
     return null;
-  }, [quizId]);
+  };
 
   // Save progress to localStorage
   const saveProgress = useCallback(() => {

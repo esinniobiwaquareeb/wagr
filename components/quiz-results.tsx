@@ -108,12 +108,17 @@ export function QuizResults({
   };
 
   const participantScore = participant?.score ?? 0;
-  const participantPercentage =
-    participant?.percentage_score != null
-      ? participant.percentage_score
-      : totalPossiblePoints > 0
-        ? (participantScore / totalPossiblePoints) * 100
-        : 0;
+  const participantPercentage = useMemo(() => {
+    if (participant?.percentage_score != null) {
+      // Convert to number if it's a string (from database)
+      const percentage = Number(participant.percentage_score);
+      return Number.isFinite(percentage) ? percentage : 0;
+    }
+    if (totalPossiblePoints > 0) {
+      return (participantScore / totalPossiblePoints) * 100;
+    }
+    return 0;
+  }, [participant?.percentage_score, participantScore, totalPossiblePoints]);
 
   return (
     <div className="space-y-6">
@@ -297,11 +302,18 @@ export function QuizResults({
                               : `${p.score ?? 0} pts`}
                           </span>
                           <span>
-                            {p.percentage_score != null 
-                              ? `${p.percentage_score.toFixed(1)}%` 
-                              : totalPossiblePoints > 0 
-                                ? `${(((p.score ?? 0) / totalPossiblePoints) * 100).toFixed(1)}%`
-                                : '0%'}
+                            {(() => {
+                              let percentage: number;
+                              if (p.percentage_score != null) {
+                                percentage = Number(p.percentage_score);
+                                if (!Number.isFinite(percentage)) percentage = 0;
+                              } else if (totalPossiblePoints > 0) {
+                                percentage = ((p.score ?? 0) / totalPossiblePoints) * 100;
+                              } else {
+                                percentage = 0;
+                              }
+                              return `${percentage.toFixed(1)}%`;
+                            })()}
                           </span>
                         </div>
                           </div>
