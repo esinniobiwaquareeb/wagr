@@ -47,6 +47,16 @@ function WagersPageContent() {
     return new Date(wager.deadline).getTime() < Date.now();
   }, []);
 
+  // Helper function to extract category slug consistently
+  const getCategorySlug = useCallback((category: any): string | null => {
+    if (!category) return null;
+    if (typeof category === 'string') return category;
+    if (typeof category === 'object') {
+      return category.slug || category.label || category.id || null;
+    }
+    return null;
+  }, []);
+
   // Separate wagers by type
   const systemWagers = useMemo(() => {
     const filtered = allWagers.filter(w => 
@@ -104,10 +114,9 @@ function WagersPageContent() {
         wager.side_a.toLowerCase().includes(query) ||
         wager.side_b.toLowerCase().includes(query) ||
         (() => {
-          const category = wager.category;
-          if (!category) return false;
-          return category.slug?.toLowerCase().includes(query) || 
-                 category.label?.toLowerCase().includes(query) || false;
+          const categorySlug = getCategorySlug(wager.category);
+          if (!categorySlug) return false;
+          return categorySlug.toLowerCase().includes(query);
         })() ||
         wager.tags?.some(tag => tag.toLowerCase().includes(query))
       );
@@ -126,7 +135,15 @@ function WagersPageContent() {
       }
     } else {
       // No search query - use normal tab filtering
-      if (activeTab === 'all') {
+      // If category is selected and tab is 'all', show ALL wagers in that category (including expired/settled)
+      if (activeTab === 'all' && selectedCategory) {
+        // Filter all wagers by category first
+        tabWagers = allWagers.filter(wager => {
+          const categorySlug = getCategorySlug(wager.category);
+          return categorySlug === selectedCategory;
+        });
+      } else if (activeTab === 'all') {
+        // No category selected - show only active markets (open, non-expired)
         tabWagers = [...systemWagers, ...userWagers];
       } else if (activeTab === 'system') {
         tabWagers = systemWagers;
@@ -139,10 +156,11 @@ function WagersPageContent() {
       }
     }
     
-    // Filter by category from URL params (applies to both search results and normal tab results)
-    if (selectedCategory) {
+    // Filter by category from URL params (applies to search results and non-'all' tabs)
+    // Note: For 'all' tab with category, filtering is already done above
+    if (selectedCategory && !(activeTab === 'all' && !searchQuery.trim())) {
       tabWagers = tabWagers.filter(wager => {
-        const categorySlug = wager.category?.slug || null;
+        const categorySlug = getCategorySlug(wager.category);
         return categorySlug === selectedCategory;
       });
     }
@@ -154,20 +172,55 @@ function WagersPageContent() {
       
       // Only filter if user has selected some but not all categories
       if (!hasAllCategories) {
-        tabWagers = tabWagers.filter(wager => 
-          (() => {
-            if (!wager.category) return true;
-            const categorySlug = typeof wager.category === 'string' 
-              ? wager.category 
-              : wager.category?.slug || null;
-            return !categorySlug || preferredCategories.includes(categorySlug);
-          })()
-        );
+        tabWagers = tabWagers.filter(wager => {
+          const categorySlug = getCategorySlug(wager.category);
+          return !categorySlug || preferredCategories.includes(categorySlug);
+        });
       }
     }
     
     return tabWagers;
-  }, [activeTab, systemWagers, userWagers, expiredWagers, settledWagers, searchQuery, selectedCategory, allWagers, user, preferredCategories, allCategories, isExpired]);
+  }, [activeTab, systemWagers, userWagers, expiredWagers, settledWagers, searchQuery, selectedCategory, allWagers, user, preferredCategories, allCategories, isExpired, getCategorySlug]);
+
+  // Calculate filtered counts for each tab (for display)
+  // These counts should reflect what would be shown in each tab after category/preference filters are applied
+  const filteredCounts = useMemo(() => {
+    // If category is selected, calculate counts from all wagers filtered by category
+    // Otherwise, use the pre-filtered arrays
+    let baseWagers: WagerWithEntries[];
+    
+    if (selectedCategory) {
+      // Filter all wagers by category first
+      baseWagers = allWagers.filter(w => {
+        const categorySlug = getCategorySlug(w.category);
+        return categorySlug === selectedCategory;
+      });
+    } else {
+      // No category filter - use all wagers
+      baseWagers = allWagers;
+    }
+
+    // Apply user preference filter if present
+    if (user && preferredCategories !== null && preferredCategories.length > 0) {
+      const hasAllCategories = preferredCategories.length === allCategories.length && 
+        allCategories.every(id => preferredCategories.includes(id));
+      
+      if (!hasAllCategories) {
+        baseWagers = baseWagers.filter(w => {
+          const categorySlug = getCategorySlug(w.category);
+          return !categorySlug || preferredCategories.includes(categorySlug);
+        });
+      }
+    }
+
+    // Now calculate counts for each tab from the filtered base
+    return {
+      system: baseWagers.filter(w => w.is_system_generated === true && w.status === "OPEN" && !isExpired(w)).length,
+      user: baseWagers.filter(w => w.is_system_generated !== true && w.status === "OPEN" && !isExpired(w)).length,
+      expired: baseWagers.filter(w => isExpired(w)).length,
+      settled: baseWagers.filter(w => w.status === "SETTLED" || w.status === "RESOLVED").length,
+    };
+  }, [allWagers, selectedCategory, user, preferredCategories, allCategories, getCategorySlug, isExpired]);
 
   // Pull to refresh
   const { isRefreshing, pullDistance } = usePullToRefresh({
@@ -386,7 +439,7 @@ function WagersPageContent() {
           >
             <Sparkles className="h-5 w-5" />
             <span className="text-xs font-medium">System</span>
-            <span className="text-xs font-semibold">{systemWagers.length}</span>
+            <span className="text-xs font-semibold">{filteredCounts.system}</span>
           </button>
           <button
             onClick={() => handleTabChange('user')}
@@ -398,7 +451,7 @@ function WagersPageContent() {
           >
             <User className="h-5 w-5" />
             <span className="text-xs font-medium">Community</span>
-            <span className="text-xs font-semibold">{userWagers.length}</span>
+            <span className="text-xs font-semibold">{filteredCounts.user}</span>
           </button>
           <button
             onClick={() => handleTabChange('expired')}
@@ -410,7 +463,7 @@ function WagersPageContent() {
           >
             <Clock className="h-5 w-5" />
             <span className="text-xs font-medium">Ended</span>
-            <span className="text-xs font-semibold">{expiredWagers.length}</span>
+            <span className="text-xs font-semibold">{filteredCounts.expired}</span>
           </button>
           <button
             onClick={() => handleTabChange('settled')}
@@ -422,7 +475,7 @@ function WagersPageContent() {
           >
             <CheckCircle className="h-5 w-5" />
             <span className="text-xs font-medium">Settled</span>
-            <span className="text-xs font-semibold">{settledWagers.length}</span>
+            <span className="text-xs font-semibold">{filteredCounts.settled}</span>
           </button>
         </div>
 
@@ -477,7 +530,7 @@ function WagersPageContent() {
                   ? 'bg-primary/10 text-primary' 
                   : 'bg-muted text-muted-foreground'
               }`}>
-                {systemWagers.length}
+                {filteredCounts.system}
               </span>
               {activeTab === 'system' && (
                 <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
@@ -498,7 +551,7 @@ function WagersPageContent() {
                   ? 'bg-primary/10 text-primary' 
                   : 'bg-muted text-muted-foreground'
               }`}>
-                {userWagers.length}
+                {filteredCounts.user}
               </span>
               {activeTab === 'user' && (
                 <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
@@ -519,7 +572,7 @@ function WagersPageContent() {
                   ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400' 
                   : 'bg-muted text-muted-foreground'
               }`}>
-                {expiredWagers.length}
+                {filteredCounts.expired}
               </span>
               {activeTab === 'expired' && (
                 <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
@@ -540,7 +593,7 @@ function WagersPageContent() {
                   ? 'bg-green-500/10 text-green-600 dark:text-green-400' 
                   : 'bg-muted text-muted-foreground'
               }`}>
-                {settledWagers.length}
+                {filteredCounts.settled}
               </span>
               {activeTab === 'settled' && (
                 <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
@@ -600,7 +653,7 @@ function WagersPageContent() {
               entriesCount={wager.entries_count}
               deadline={wager.deadline || ""}
               currency={wager.currency}
-              category={wager.category?.slug || wager.category?.label || undefined}
+              category={getCategorySlug(wager.category) || undefined}
               sideACount={wager.side_a_count || 0}
               sideBCount={wager.side_b_count || 0}
               sideATotal={wager.side_a_total || 0}
