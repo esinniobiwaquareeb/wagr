@@ -26,20 +26,23 @@ export async function GET(
     }
 
     // Call NestJS backend to get quiz
-    const response = await nestjsServerFetch<{
-      quiz: any;
-    }>(`/quizzes/${id}`, {
+    const response = await nestjsServerFetch<any>(`/quizzes/${id}`, {
       method: 'GET',
       token,
       requireAuth: true,
     });
 
-    if (!response.success || !response.data) {
+    if (!response.success) {
       throw new Error(response.error?.message || 'Failed to fetch quiz');
     }
 
+    // Backend returns: { success: true, data: { quiz: {...} } }
+    // nestjsServerFetch returns the parsed JSON, so response.data is the backend response
+    const backendResponse = response.data;
+    const quiz = backendResponse?.quiz || backendResponse?.data?.quiz || backendResponse;
+
     return successResponseNext({
-      quiz: response.data.quiz,
+      quiz,
     });
   } catch (error) {
     logError(error as Error);

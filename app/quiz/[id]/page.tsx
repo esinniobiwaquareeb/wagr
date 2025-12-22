@@ -57,7 +57,12 @@ interface Quiz {
     question_text: string;
     question_type: 'multiple_choice' | 'true_false';
     points: number;
-    quiz_answers: Array<{
+    answers?: Array<{
+      id: string;
+      answer_text: string;
+      is_correct: boolean;
+    }>;
+    quiz_answers?: Array<{
       id: string;
       answer_text: string;
       is_correct: boolean;
@@ -800,11 +805,11 @@ export default function QuizDetailPage() {
               questionText: q.question_text,
               questionType: q.question_type as 'multiple_choice' | 'true_false',
               points: q.points || 1,
-              answers: q.quiz_answers.map(a => ({
-                answerText: a.answer_text,
-                isCorrect: a.is_correct,
+              answers: (q.quiz_answers || q.answers || []).map((a: any) => ({
+                answerText: a.answer_text || a.answerText,
+                isCorrect: a.is_correct !== undefined ? a.is_correct : a.isCorrect,
               })),
-            })),
+            })) || [],
           }}
           onSuccess={() => {
             fetchQuiz();
