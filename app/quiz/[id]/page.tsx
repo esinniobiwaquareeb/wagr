@@ -128,8 +128,27 @@ export default function QuizDetailPage() {
   const canSettleQuiz = useMemo(() => {
     if (!quiz || !isCreator) return false;
     if (quiz.status === 'settled' || quiz.status === 'draft') return false;
-    const completedCount = quiz.participantCounts?.completed ?? 0;
-    return quizHasEnded && completedCount > 0;
+    
+    // Calculate participant counts
+    let totalParticipants = 0;
+    let completedCount = 0;
+    
+    if (quiz.participantCounts) {
+      totalParticipants = quiz.participantCounts.total || 0;
+      completedCount = quiz.participantCounts.completed || 0;
+    } else if (Array.isArray(quiz.participants)) {
+      totalParticipants = quiz.participants.length;
+      completedCount = quiz.participants.filter((p: any) => 
+        p.status === 'completed' || p.status === 'COMPLETED'
+      ).length;
+    }
+    
+    // Allow settling if:
+    // 1. Quiz has ended (end_date passed or status is completed/in_progress)
+    // 2. AND there is at least one participant (completed or not)
+    // The creator should be able to settle manually when the quiz has ended
+    const hasEnded = quizHasEnded || quiz.status === 'completed' || quiz.status === 'in_progress';
+    return hasEnded && totalParticipants > 0;
   }, [quiz, isCreator, quizHasEnded]);
 
   const fetchingResponsesRef = useRef(false);

@@ -119,16 +119,34 @@ export function QuizTakingInterface({
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.error?.message || 'Failed to start quiz');
+          const errorMessage = data.error?.message || data.message || 'Failed to start quiz';
+          logger.error('Failed to start quiz:', { status: response.status, data });
+          throw new Error(errorMessage);
         }
 
         if (!isMounted) return;
 
+        // Check if we have the expected data structure
+        // Backend returns: { success: true, data: { quiz, questions, participant } }
+        // Next.js API wraps it: { success: true, data: { quiz, questions, participant } }
+        // So we need: data.data.questions
+        const responseData = data.data;
+        
+        if (!responseData) {
+          logger.error('Unexpected response structure:', data);
+          throw new Error('Invalid response from server');
+        }
+
         // Normalize questions: map 'answers' to 'quiz_answers' for frontend compatibility
-        const questions = (data.data?.questions || []).map((q: any) => ({
+        const questions = (responseData.questions || []).map((q: any) => ({
           ...q,
           quiz_answers: q.quiz_answers || q.answers || [],
         }));
+
+        if (questions.length === 0) {
+          logger.error('No questions received:', responseData);
+          throw new Error('No questions found for this quiz');
+        }
 
         setQuestions(questions);
         
@@ -141,7 +159,7 @@ export function QuizTakingInterface({
         // Note: Responses are only saved on submit, so this will usually be empty
         // We rely on localStorage for resume functionality
         let existingResponses: Record<string, string> = {};
-        const participantStatus = data.data?.participant?.status?.toLowerCase();
+        const participantStatus = responseData.participant?.status?.toLowerCase();
         if (participantStatus === 'started') {
           try {
             const responsesResponse = await fetch(`/api/quizzes/${quizId}/responses`);
