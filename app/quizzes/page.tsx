@@ -101,6 +101,7 @@ function QuizzesPageContent() {
   const filteredQuizzes = useMemo(() => {
     return quizzes.filter(quiz => {
       if (statusFilter === 'all') return true;
+      if (statusFilter === 'draft') return quiz.status === 'draft';
       if (statusFilter === 'open') return quiz.status === 'open';
       if (statusFilter === 'completed') return quiz.status === 'completed';
       if (statusFilter === 'settled') return quiz.status === 'settled';
@@ -111,16 +112,16 @@ function QuizzesPageContent() {
 
   const getStatusBadge = (status: string) => {
     const badges = {
-      draft: { label: 'Draft', className: 'bg-gray-100 text-gray-800' },
-      open: { label: 'Open', className: 'bg-blue-100 text-blue-800' },
-      in_progress: { label: 'In Progress', className: 'bg-yellow-100 text-yellow-800' },
-      completed: { label: 'Completed', className: 'bg-purple-100 text-purple-800' },
-      settled: { label: 'Settled', className: 'bg-green-100 text-green-800' },
-      cancelled: { label: 'Cancelled', className: 'bg-red-100 text-red-800' },
+      draft: { label: 'Draft', className: 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-700' },
+      open: { label: 'Open', className: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-700' },
+      in_progress: { label: 'In Progress', className: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border border-yellow-300 dark:border-yellow-700' },
+      completed: { label: 'Completed', className: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 border border-purple-300 dark:border-purple-700' },
+      settled: { label: 'Settled', className: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-300 dark:border-green-700' },
+      cancelled: { label: 'Cancelled', className: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-300 dark:border-red-700' },
     };
     const badge = badges[status as keyof typeof badges] || badges.draft;
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${badge.className}`}>
+      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${badge.className}`}>
         {badge.label}
       </span>
     );
@@ -128,17 +129,20 @@ function QuizzesPageContent() {
 
   return (
     <main className="flex-1 pb-24 lg:pb-0 w-full overflow-x-hidden">
-      <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 lg:py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 lg:py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold mb-1">Quizzes</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-2xl sm:text-3xl font-bold mb-1.5">Corporate Quizzes</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">
               Create and participate in team building quizzes with monetary rewards
             </p>
           </div>
           {user && (
-            <Button onClick={() => setShowCreateModal(true)}>
+            <Button 
+              onClick={() => setShowCreateModal(true)}
+              className="w-full sm:w-auto h-10 sm:h-11 text-sm sm:text-base"
+            >
               <Plus className="h-4 w-4 mr-2" />
               Create Quiz
             </Button>
@@ -146,16 +150,17 @@ function QuizzesPageContent() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="flex flex-col gap-3 sm:gap-4 mb-6">
           <form onSubmit={handleSearch} className="flex-1">
             <Input
-              placeholder="Search quizzes..."
+              placeholder="Search quizzes by title or description..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-10 sm:h-11 text-sm sm:text-base"
             />
           </form>
-          <div className="flex gap-2">
-            {['all', 'open', 'completed', 'settled', 'my-quizzes'].map((status) => (
+          <div className="flex flex-wrap gap-2">
+            {['all', 'draft', 'open', 'completed', 'settled', 'my-quizzes'].map((status) => (
               <Button
                 key={status}
                 variant={statusFilter === status ? 'default' : 'outline'}
@@ -169,6 +174,7 @@ function QuizzesPageContent() {
                   }
                   router.push(`/quizzes?${params.toString()}`);
                 }}
+                className="h-9 sm:h-10 text-xs sm:text-sm"
               >
                 {status === 'my-quizzes' ? 'My Quizzes' : status.charAt(0).toUpperCase() + status.slice(1)}
               </Button>
@@ -209,81 +215,85 @@ function QuizzesPageContent() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
             {filteredQuizzes.map((quiz) => {
               // Use stored base_cost if available, otherwise calculate
               const baseCost = quiz.base_cost ?? (quiz.entry_fee_per_question * quiz.total_questions * quiz.max_participants);
               // Prize pool is base cost minus 10% platform fee
               const prizePool = baseCost;
               const participantCounts = quiz.participantCounts || { total: 0, completed: 0 };
+              const participationProgress = quiz.max_participants > 0 
+                ? (participantCounts.total / quiz.max_participants) * 100 
+                : 0;
 
               return (
                 <Link key={quiz.id} href={`/quiz/${quiz.id}`}>
-                  <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <CardTitle className="line-clamp-2">{quiz.title}</CardTitle>
+                  <Card className="hover:shadow-lg dark:hover:shadow-xl transition-all cursor-pointer h-full border-border/50 hover:border-primary/50 group">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <CardTitle className="line-clamp-2 text-base sm:text-lg group-hover:text-primary transition-colors flex-1">
+                          {quiz.title}
+                        </CardTitle>
                         {getStatusBadge(quiz.status)}
                       </div>
                       {quiz.description && (
-                        <p className="text-sm text-muted-foreground line-clamp-2">
+                        <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
                           {quiz.description}
                         </p>
                       )}
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div className="flex items-center gap-2">
-                          <BookOpen className="h-4 w-4 text-muted-foreground" />
-                          <span>{quiz.total_questions} questions</span>
+                    <CardContent className="space-y-3 sm:space-y-4">
+                      <div className="grid grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
+                        <div className="flex items-center gap-1.5 sm:gap-2">
+                          <BookOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
+                          <span className="truncate">{quiz.total_questions} {quiz.total_questions === 1 ? 'question' : 'questions'}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4 text-muted-foreground" />
-                          <span>{participantCounts.total} / {quiz.max_participants} participants</span>
+                        <div className="flex items-center gap-1.5 sm:gap-2">
+                          <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
+                          <span className="truncate">{participantCounts.total} / {quiz.max_participants}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Trophy className="h-4 w-4 text-muted-foreground" />
-                          <span>{formatCurrency(quiz.entry_fee_per_question, DEFAULT_CURRENCY)} per question</span>
+                        <div className="flex items-center gap-1.5 sm:gap-2">
+                          <Trophy className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
+                          <span className="truncate">{formatCurrency(quiz.entry_fee_per_question, DEFAULT_CURRENCY)}/q</span>
                         </div>
-                        {quiz.start_date && (
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-xs">Starts: {format(new Date(quiz.start_date), 'MMM d, h:mm a')}</span>
+                        {quiz.end_date ? (
+                          <div className="flex items-center gap-1.5 sm:gap-2">
+                            <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
+                            <span className="text-xs truncate">{format(new Date(quiz.end_date), 'MMM d, h:mm a')}</span>
                           </div>
-                        )}
-                        {quiz.end_date && (
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-xs">Ends: {format(new Date(quiz.end_date), 'MMM d, h:mm a')}</span>
-                          </div>
-                        )}
-                        {!quiz.start_date && !quiz.end_date && (
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">No time limit</span>
+                        ) : (
+                          <div className="flex items-center gap-1.5 sm:gap-2">
+                            <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
+                            <span className="text-xs text-muted-foreground truncate">No deadline</span>
                           </div>
                         )}
                       </div>
 
-                      {participantCounts.completed > 0 && (
-                        <div className="pt-2 border-t">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">Completed</span>
-                            <span className="font-medium">
-                              {participantCounts.completed} / {participantCounts.total}
+                      {participantCounts.total > 0 && (
+                        <div className="pt-2 border-t border-border/50">
+                          <div className="flex items-center justify-between text-xs sm:text-sm mb-1.5">
+                            <span className="text-muted-foreground">Participation</span>
+                            <span className="font-semibold">
+                              {participantCounts.completed} / {participantCounts.total} completed
                             </span>
+                          </div>
+                          <div className="w-full bg-muted rounded-full h-1.5 sm:h-2">
+                            <div 
+                              className="bg-primary h-full rounded-full transition-all"
+                              style={{ width: `${Math.min(participationProgress, 100)}%` }}
+                            />
                           </div>
                         </div>
                       )}
 
-                      <div className="pt-2 border-t">
-                        <p className="text-xs text-muted-foreground">Total Prize Pool</p>
-                        <p className="text-lg font-bold">
+                      <div className="pt-2 sm:pt-3 border-t border-border/50">
+                        <p className="text-xs text-muted-foreground mb-1">Total Prize Pool</p>
+                        <p className="text-lg sm:text-xl font-bold text-primary">
                           {formatCurrency(prizePool, DEFAULT_CURRENCY)}
                         </p>
                         {quiz.base_cost && quiz.platform_fee && (
-                          <p className="text-xs text-muted-foreground">
-                            {formatCurrency(quiz.base_cost, DEFAULT_CURRENCY)} contributions - {formatCurrency(quiz.platform_fee, DEFAULT_CURRENCY)} platform fee
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {formatCurrency(quiz.base_cost, DEFAULT_CURRENCY)} contributions • {formatCurrency(quiz.platform_fee, DEFAULT_CURRENCY)} fee
                           </p>
                         )}
                       </div>

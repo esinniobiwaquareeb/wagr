@@ -516,7 +516,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
       return;
     }
 
-    if (!validateStep(5)) {
+    if (!validateStep(3)) {
       return;
     }
 
@@ -607,17 +607,17 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle>{isEditMode ? 'Edit Quiz' : 'Create Corporate Quiz'}</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col p-0 sm:p-6">
+        <DialogHeader className="px-4 sm:px-0 pt-4 sm:pt-0">
+          <DialogTitle className="text-xl sm:text-2xl">{isEditMode ? 'Edit Quiz' : 'Create Corporate Quiz'}</DialogTitle>
+          <DialogDescription className="text-sm sm:text-base">
             Step {currentStep} of {totalSteps}: {stepTitles[currentStep - 1]}
           </DialogDescription>
         </DialogHeader>
 
         {/* Progress Bar */}
-        <div className="space-y-2 mb-6">
-          <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
+        <div className="space-y-2 mb-4 sm:mb-6 px-4 sm:px-0">
+          <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground mb-2">
             <span>Progress</span>
             <span>{Math.round(progress)}%</span>
           </div>
@@ -625,7 +625,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
         </div>
 
         {/* Step Indicators */}
-        <div className="flex items-center justify-between mb-6 pb-4 border-b">
+        <div className="flex items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 border-b px-4 sm:px-0 gap-2">
           {stepTitles.map((title, index) => {
             const stepNum = index + 1;
             const isActive = stepNum === currentStep;
@@ -638,128 +638,184 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
                 }`}
               >
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all ${
+                  className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border-2 transition-all ${
                     isActive
-                      ? 'border-primary bg-primary text-primary-foreground'
+                      ? 'border-primary bg-primary text-primary-foreground shadow-md'
                       : isCompleted
                       ? 'border-green-500 bg-green-500 text-white'
                       : 'border-border bg-background'
                   }`}
                 >
                   {isCompleted ? (
-                    <Check className="h-4 w-4" />
+                    <Check className="h-4 w-4 sm:h-5 sm:w-5" />
                   ) : (
-                    <span className="text-sm font-medium">{stepNum}</span>
+                    <span className="text-sm sm:text-base font-semibold">{stepNum}</span>
                   )}
                 </div>
-                <span className="text-xs mt-1 text-center hidden md:block">{title}</span>
+                <span className="text-[10px] sm:text-xs mt-1.5 text-center line-clamp-2">{title}</span>
               </div>
             );
           })}
         </div>
 
         {/* Step Content */}
-        <div className="flex-1 overflow-y-auto pr-2">
-          <form onSubmit={(e) => { e.preventDefault(); handleNext(); }} className="space-y-6">
+        <div className="flex-1 overflow-y-auto pr-1 sm:pr-2 px-4 sm:px-0">
+          <form onSubmit={(e) => { e.preventDefault(); handleNext(); }} className="space-y-4 sm:space-y-6">
             {/* Step 1: Basic Info & Settings */}
             {currentStep === 1 && (
-              <div className="space-y-4">
+              <div className="space-y-4 sm:space-y-5">
                 <div>
-                  <Label htmlFor="title">Quiz Title *</Label>
+                  <Label htmlFor="title" className="text-sm sm:text-base font-semibold mb-2 block">
+                    Quiz Title <span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     id="title"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     placeholder="e.g., Company Knowledge Quiz 2024"
+                    className="text-sm sm:text-base h-10 sm:h-11"
                     required
                   />
+                  {formData.title && formData.title.trim().length < 5 && (
+                    <p className="text-xs text-red-500 mt-1">Title must be at least 5 characters</p>
+                  )}
                 </div>
 
                 <div>
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="description" className="text-sm sm:text-base font-semibold mb-2 block">
+                    Description <span className="text-muted-foreground text-xs">(Optional)</span>
+                  </Label>
                   <Textarea
                     id="description"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="Describe your quiz..."
                     rows={3}
+                    className="text-sm sm:text-base resize-none"
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <Label htmlFor="entryFee">Entry Fee per Question (₦) *</Label>
-                    <Input
-                      id="entryFee"
-                      type="number"
-                      min="1"
-                      step="0.01"
-                      value={formData.entryFeePerQuestion}
-                      onChange={(e) => setFormData({ ...formData, entryFeePerQuestion: e.target.value })}
-                      placeholder="100"
-                      required
-                    />
+                    <Label htmlFor="entryFee" className="text-sm sm:text-base font-semibold mb-2 block">
+                      Entry Fee per Question (₦) <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-sm sm:text-base">
+                        ₦
+                      </span>
+                      <Input
+                        id="entryFee"
+                        type="number"
+                        min={quizLimits.minEntryFeePerQuestion}
+                        max={quizLimits.maxEntryFeePerQuestion}
+                        step="0.01"
+                        value={formData.entryFeePerQuestion}
+                        onChange={(e) => setFormData({ ...formData, entryFeePerQuestion: e.target.value })}
+                        placeholder={`Min: ₦${quizLimits.minEntryFeePerQuestion}`}
+                        className="pl-8 text-sm sm:text-base h-10 sm:h-11"
+                        required
+                        inputMode="decimal"
+                      />
+                    </div>
+                    {formData.entryFeePerQuestion && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Range: ₦{quizLimits.minEntryFeePerQuestion} - ₦{quizLimits.maxEntryFeePerQuestion}
+                      </p>
+                    )}
                   </div>
 
                   <div>
-                    <Label htmlFor="maxParticipants">Max Participants *</Label>
+                    <Label htmlFor="maxParticipants" className="text-sm sm:text-base font-semibold mb-2 block">
+                      Max Participants <span className="text-red-500">*</span>
+                    </Label>
                     <Input
                       id="maxParticipants"
                       type="number"
-                      min="1"
+                      min={quizLimits.minParticipants}
+                      max={quizLimits.maxParticipants}
                       value={formData.maxParticipants}
                       onChange={(e) => setFormData({ ...formData, maxParticipants: e.target.value })}
-                      placeholder="10"
+                      placeholder={`Min: ${quizLimits.minParticipants}`}
+                      className="text-sm sm:text-base h-10 sm:h-11"
                       required
+                      inputMode="numeric"
                     />
+                    {formData.maxParticipants && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Range: {quizLimits.minParticipants} - {quizLimits.maxParticipants}
+                      </p>
+                    )}
                   </div>
 
                   <div>
-                    <Label htmlFor="totalQuestions">Total Questions *</Label>
+                    <Label htmlFor="totalQuestions" className="text-sm sm:text-base font-semibold mb-2 block">
+                      Total Questions <span className="text-red-500">*</span>
+                    </Label>
                     <Input
                       id="totalQuestions"
                       type="number"
-                      min="1"
+                      min={quizLimits.minQuestions}
+                      max={quizLimits.maxQuestions}
                       value={formData.totalQuestions}
                       onChange={(e) => setFormData({ ...formData, totalQuestions: e.target.value })}
-                      placeholder="5"
+                      placeholder={`Min: ${quizLimits.minQuestions}`}
+                      className="text-sm sm:text-base h-10 sm:h-11"
                       required
+                      inputMode="numeric"
                     />
+                    {formData.totalQuestions && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Range: {quizLimits.minQuestions} - {quizLimits.maxQuestions}
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 {/* Cost Calculation */}
                 {cost > 0 && (
-                  <Card className="bg-muted/30">
-                    <CardContent className="pt-4">
-                      <div className="space-y-3">
+                  <Card className="bg-gradient-to-br from-primary/5 via-primary/10 to-background dark:from-primary/10 dark:via-primary/5 dark:to-background border-primary/20">
+                    <CardContent className="pt-4 sm:pt-5">
+                      <div className="space-y-3 sm:space-y-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <Calculator className="h-4 w-4" />
-                            <span className="text-sm font-medium">Cost Breakdown</span>
+                            <Calculator className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                            <span className="text-sm sm:text-base font-semibold">Cost Breakdown</span>
                           </div>
                         </div>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
+                        <div className="space-y-2.5 text-sm sm:text-base">
+                          <div className="flex justify-between items-center">
                             <span className="text-muted-foreground">Base Cost:</span>
-                            <span>{formatCurrency(baseCost(), DEFAULT_CURRENCY)}</span>
+                            <span className="font-medium">{formatCurrency(baseCost(), DEFAULT_CURRENCY)}</span>
                           </div>
-                          <div className="flex justify-between">
+                          <div className="flex justify-between items-center">
                             <span className="text-muted-foreground">Platform Fee ({Math.round(PLATFORM_FEE_PERCENTAGE * 100)}%):</span>
-                            <span>{formatCurrency(baseCost() * PLATFORM_FEE_PERCENTAGE, DEFAULT_CURRENCY)}</span>
+                            <span className="font-medium">{formatCurrency(baseCost() * PLATFORM_FEE_PERCENTAGE, DEFAULT_CURRENCY)}</span>
                           </div>
-                          <div className="flex justify-between pt-2 border-t font-semibold">
-                            <span>Total Cost:</span>
-                            <span className="text-lg">{formatCurrency(cost, DEFAULT_CURRENCY)}</span>
+                          <div className="flex justify-between items-center pt-2.5 border-t border-primary/20 font-bold">
+                            <span className="text-base sm:text-lg">Total Cost:</span>
+                            <span className="text-lg sm:text-xl text-primary">{formatCurrency(cost, DEFAULT_CURRENCY)}</span>
                           </div>
-                          <div className="text-xs text-muted-foreground pt-1">
-                            {formData.entryFeePerQuestion} × {formData.totalQuestions} × {formData.maxParticipants} + {PLATFORM_FEE_PERCENTAGE * 100}%
+                          <div className="text-xs sm:text-sm text-muted-foreground pt-1.5 bg-muted/30 p-2 rounded-md">
+                            <span className="font-medium">Calculation:</span> ₦{formData.entryFeePerQuestion || 0} × {formData.totalQuestions || 0} questions × {formData.maxParticipants || 0} participants + {Math.round(PLATFORM_FEE_PERCENTAGE * 100)}% fee
                           </div>
                           {userBalance !== null && (
-                            <div className={`text-xs mt-2 pt-2 border-t ${userBalance >= cost ? 'text-green-600' : 'text-red-600'}`}>
-                              Your Balance: {formatCurrency(userBalance, DEFAULT_CURRENCY)}
+                            <div className={`text-xs sm:text-sm mt-2.5 pt-2.5 border-t border-primary/20 font-medium ${userBalance >= cost ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                              <div className="flex justify-between items-center mb-1">
+                                <span>Your Balance:</span>
+                                <span className="font-semibold">{formatCurrency(userBalance, DEFAULT_CURRENCY)}</span>
+                              </div>
                               {userBalance < cost && (
-                                <span className="block mt-1">Insufficient balance. You need {formatCurrency(cost - userBalance, DEFAULT_CURRENCY)} more.</span>
+                                <div className="mt-2 p-2 bg-red-50 dark:bg-red-950/20 rounded-md border border-red-200 dark:border-red-800">
+                                  <span className="block">⚠️ Insufficient balance</span>
+                                  <span className="block mt-1">You need {formatCurrency(cost - userBalance, DEFAULT_CURRENCY)} more to create this quiz.</span>
+                                </div>
+                              )}
+                              {userBalance >= cost && (
+                                <div className="mt-2 p-2 bg-green-50 dark:bg-green-950/20 rounded-md border border-green-200 dark:border-green-800">
+                                  <span className="block">✓ Sufficient balance</span>
+                                  <span className="block mt-1 text-xs">Remaining after quiz: {formatCurrency(userBalance - cost, DEFAULT_CURRENCY)}</span>
+                                </div>
                               )}
                             </div>
                           )}
@@ -773,90 +829,140 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
 
             {/* Step 2: Options & Settlement */}
             {currentStep === 2 && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-4 sm:space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="startDate">Start Date</Label>
+                    <Label htmlFor="startDate" className="text-sm sm:text-base font-semibold mb-2 block">
+                      Start Date <span className="text-muted-foreground text-xs">(Optional)</span>
+                    </Label>
                     <Input
                       id="startDate"
                       type="datetime-local"
                       value={formData.startDate}
-                      required
                       onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                      className="text-sm sm:text-base h-10 sm:h-11"
+                      min={new Date().toISOString().slice(0, 16)}
                     />
+                    {formData.startDate && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Quiz will start: {new Date(formData.startDate).toLocaleString()}
+                      </p>
+                    )}
                   </div>
 
                   <div>
-                    <Label htmlFor="endDate">End Date</Label>
+                    <Label htmlFor="endDate" className="text-sm sm:text-base font-semibold mb-2 block">
+                      End Date <span className="text-red-500">*</span>
+                    </Label>
                     <Input
                       id="endDate"
                       type="datetime-local"
                       value={formData.endDate}
                       required
                       onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                      className="text-sm sm:text-base h-10 sm:h-11"
+                      min={formData.startDate || new Date().toISOString().slice(0, 16)}
                     />
+                    {formData.endDate && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Quiz will end: {new Date(formData.endDate).toLocaleString()}
+                      </p>
+                    )}
+                    {formData.startDate && formData.endDate && new Date(formData.endDate) <= new Date(formData.startDate) && (
+                      <p className="text-xs text-red-500 mt-1">End date must be after start date</p>
+                    )}
                   </div>
                 </div>
 
                 <div>
-                  <Label htmlFor="durationMinutes">Duration (Minutes, Optional)</Label>
+                  <Label htmlFor="durationMinutes" className="text-sm sm:text-base font-semibold mb-2 block">
+                    Duration (Minutes) <span className="text-muted-foreground text-xs">(Optional)</span>
+                  </Label>
                   <Input
                     id="durationMinutes"
                     type="number"
                     min="1"
                     value={formData.durationMinutes}
                     onChange={(e) => setFormData({ ...formData, durationMinutes: e.target.value })}
-                    placeholder="30"
+                    placeholder="e.g., 30 minutes per participant"
+                    className="text-sm sm:text-base h-10 sm:h-11"
+                    inputMode="numeric"
                   />
+                  {formData.durationMinutes && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Each participant will have {formData.durationMinutes} minutes to complete the quiz
+                    </p>
+                  )}
                 </div>
 
-                <div className="space-y-3 pt-4 border-t">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label htmlFor="randomizeQuestions">Randomize Questions</Label>
-                      <p className="text-xs text-muted-foreground">Prevent cheating by randomizing question order</p>
-                    </div>
-                    <Switch
-                      id="randomizeQuestions"
-                      checked={formData.randomizeQuestions}
-                      onCheckedChange={(checked) => setFormData({ ...formData, randomizeQuestions: checked })}
-                    />
-                  </div>
+                <div className="space-y-3 sm:space-y-4 pt-4 border-t">
+                  <Card className="bg-muted/30">
+                    <CardContent className="pt-4">
+                      <h3 className="text-sm sm:text-base font-semibold mb-3">Quiz Settings</h3>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex-1">
+                            <Label htmlFor="randomizeQuestions" className="text-sm sm:text-base font-medium cursor-pointer">
+                              Randomize Questions
+                            </Label>
+                            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                              Prevent cheating by randomizing question order for each participant
+                            </p>
+                          </div>
+                          <Switch
+                            id="randomizeQuestions"
+                            checked={formData.randomizeQuestions}
+                            onCheckedChange={(checked) => setFormData({ ...formData, randomizeQuestions: checked })}
+                          />
+                        </div>
 
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label htmlFor="randomizeAnswers">Randomize Answer Options</Label>
-                      <p className="text-xs text-muted-foreground">Randomize the order of answer choices</p>
-                    </div>
-                    <Switch
-                      id="randomizeAnswers"
-                      checked={formData.randomizeAnswers}
-                      onCheckedChange={(checked) => setFormData({ ...formData, randomizeAnswers: checked })}
-                    />
-                  </div>
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex-1">
+                            <Label htmlFor="randomizeAnswers" className="text-sm sm:text-base font-medium cursor-pointer">
+                              Randomize Answer Options
+                            </Label>
+                            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                              Randomize the order of answer choices for each question
+                            </p>
+                          </div>
+                          <Switch
+                            id="randomizeAnswers"
+                            checked={formData.randomizeAnswers}
+                            onCheckedChange={(checked) => setFormData({ ...formData, randomizeAnswers: checked })}
+                          />
+                        </div>
 
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label htmlFor="showResultsImmediately">Show Results Immediately</Label>
-                      <p className="text-xs text-muted-foreground">Show results to participants after completion</p>
-                    </div>
-                    <Switch
-                      id="showResultsImmediately"
-                      checked={formData.showResultsImmediately}
-                      onCheckedChange={(checked) => setFormData({ ...formData, showResultsImmediately: checked })}
-                    />
-                  </div>
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex-1">
+                            <Label htmlFor="showResultsImmediately" className="text-sm sm:text-base font-medium cursor-pointer">
+                              Show Results Immediately
+                            </Label>
+                            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                              Show results and correct answers to participants immediately after completion
+                            </p>
+                          </div>
+                          <Switch
+                            id="showResultsImmediately"
+                            checked={formData.showResultsImmediately}
+                            onCheckedChange={(checked) => setFormData({ ...formData, showResultsImmediately: checked })}
+                          />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
 
                 <div className="pt-4 border-t">
-                  <Label htmlFor="settlementMethod">Settlement Method</Label>
+                  <Label htmlFor="settlementMethod" className="text-sm sm:text-base font-semibold mb-2 block">
+                    Settlement Method
+                  </Label>
                   <Select
                     value={formData.settlementMethod}
                     onValueChange={(value: 'proportional' | 'top_winners' | 'equal_split') => 
-                      setFormData({ ...formData, settlementMethod: value })
+                      setFormData({ ...formData, settlementMethod: value, topWinnersCount: value === 'top_winners' ? formData.topWinnersCount : '' })
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-10 sm:h-11 text-sm sm:text-base">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -866,26 +972,34 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
                     </SelectContent>
                   </Select>
                   {formData.settlementMethod === 'top_winners' && (
-                    <div className="mt-2">
-                      <Label htmlFor="topWinnersCount">Number of Top Winners</Label>
+                    <div className="mt-3">
+                      <Label htmlFor="topWinnersCount" className="text-sm sm:text-base font-semibold mb-2 block">
+                        Number of Top Winners <span className="text-red-500">*</span>
+                      </Label>
                       <Input
                         id="topWinnersCount"
                         type="number"
                         min="1"
+                        max={parseInt(formData.maxParticipants) || 100}
                         value={formData.topWinnersCount}
                         onChange={(e) => setFormData({ ...formData, topWinnersCount: e.target.value })}
-                        placeholder="3"
+                        placeholder="e.g., 3"
+                        className="text-sm sm:text-base h-10 sm:h-11"
+                        inputMode="numeric"
                       />
+                      {formData.maxParticipants && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Maximum: {formData.maxParticipants} (based on max participants)
+                        </p>
+                      )}
                     </div>
                   )}
-                  <Card className="bg-muted/50 mt-2">
+                  <Card className="bg-muted/50 mt-3 border-primary/20">
                     <CardContent className="pt-4">
-                      <p className="text-sm text-muted-foreground">
-                        <strong>Proportional:</strong> Winnings distributed based on each participant's score percentage.
-                        <br />
-                        <strong>Top Winners:</strong> Only the top N winners split the prize pool equally.
-                        <br />
-                        <strong>Equal Split:</strong> All participants who complete the quiz split the prize pool equally.
+                      <p className="text-xs sm:text-sm text-muted-foreground space-y-1.5">
+                        <div><strong className="text-foreground">Proportional:</strong> Winnings distributed based on each participant's score percentage. Higher scores = larger share.</div>
+                        <div><strong className="text-foreground">Top Winners:</strong> Only the top N winners split the prize pool equally. Best for competitive quizzes.</div>
+                        <div><strong className="text-foreground">Equal Split:</strong> All participants who complete the quiz split the prize pool equally. Best for team building.</div>
                       </p>
                     </CardContent>
                   </Card>
@@ -895,122 +1009,171 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
 
             {/* Step 3: Questions & Answers */}
             {currentStep === 3 && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <Label>Questions ({questions.length})</Label>
+              <div className="space-y-4 sm:space-y-5">
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-base sm:text-lg font-semibold">
+                    Questions ({questions.length})
+                  </Label>
+                  <span className="text-xs sm:text-sm text-muted-foreground">
+                    {questions.filter(q => q.questionText.trim() && q.answers.filter(a => a.answerText.trim() && a.isCorrect).length === 1).length} / {questions.length} complete
+                  </span>
                 </div>
 
-                {questions.map((question, qIndex) => (
-                  <Card key={question.id}>
-                    <CardContent className="pt-4 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-medium">Question {qIndex + 1}</h4>
-                        <div className="flex items-center gap-2">
-                          <Select
-                            value={question.questionType}
-                            onValueChange={(value: 'multiple_choice' | 'true_false') => {
-                              const newQuestions = [...questions];
-                              newQuestions[qIndex].questionType = value;
-                              if (value === 'true_false' && newQuestions[qIndex].answers.length > 2) {
-                                newQuestions[qIndex].answers = newQuestions[qIndex].answers.slice(0, 2);
-                              }
-                              setQuestions(newQuestions);
-                            }}
-                          >
-                            <SelectTrigger className="w-40">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
-                              <SelectItem value="true_false">True/False</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Input
-                            type="number"
-                            min="1"
-                            value={question.points}
-                            onChange={(e) => {
-                              const newQuestions = [...questions];
-                              newQuestions[qIndex].points = parseFloat(e.target.value) || 1;
-                              setQuestions(newQuestions);
-                            }}
-                            className="w-20"
-                            placeholder="Points"
-                          />
-                        </div>
-                      </div>
+                {questions.map((question, qIndex) => {
+                  const hasQuestionText = question.questionText.trim().length > 0;
+                  const hasCorrectAnswer = question.answers.filter(a => a.isCorrect && a.answerText.trim()).length === 1;
+                  const allAnswersFilled = question.answers.every(a => a.answerText.trim().length > 0);
+                  const isComplete = hasQuestionText && hasCorrectAnswer && allAnswersFilled;
 
-                      <Input
-                        value={question.questionText}
-                        onChange={(e) => {
-                          const newQuestions = [...questions];
-                          newQuestions[qIndex].questionText = e.target.value;
-                          setQuestions(newQuestions);
-                        }}
-                        placeholder="Enter your question..."
-                      />
-
-                      <div className="space-y-2">
-                        <Label>Answers</Label>
-                        {question.answers.map((answer, aIndex) => (
-                          <div key={answer.id} className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              name={`correct-${qIndex}`}
-                              checked={answer.isCorrect}
-                              onChange={() => setCorrectAnswer(qIndex, aIndex)}
-                              className="h-4 w-4"
-                            />
-                            <Input
-                              value={answer.answerText}
-                              onChange={(e) => {
+                  return (
+                    <Card key={question.id} className={isComplete ? 'border-green-500/50 bg-green-50/50 dark:bg-green-950/10' : ''}>
+                      <CardContent className="pt-4 sm:pt-5 space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold ${
+                              isComplete 
+                                ? 'bg-green-500 text-white' 
+                                : 'bg-muted text-muted-foreground'
+                            }`}>
+                              {isComplete ? <Check className="h-3 w-3 sm:h-4 sm:w-4" /> : qIndex + 1}
+                            </div>
+                            <h4 className="font-semibold text-sm sm:text-base">Question {qIndex + 1}</h4>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Select
+                              value={question.questionType}
+                              onValueChange={(value: 'multiple_choice' | 'true_false') => {
                                 const newQuestions = [...questions];
-                                newQuestions[qIndex].answers[aIndex].answerText = e.target.value;
+                                newQuestions[qIndex].questionType = value;
+                                if (value === 'true_false' && newQuestions[qIndex].answers.length > 2) {
+                                  newQuestions[qIndex].answers = newQuestions[qIndex].answers.slice(0, 2);
+                                }
                                 setQuestions(newQuestions);
                               }}
-                              placeholder={`Answer ${aIndex + 1}`}
-                              className={answer.isCorrect ? 'border-green-500' : ''}
-                            />
-                            {question.answers.length > 2 && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => removeAnswer(qIndex, aIndex)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
+                            >
+                              <SelectTrigger className="w-36 sm:w-40 h-9 sm:h-10 text-xs sm:text-sm">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
+                                <SelectItem value="true_false">True/False</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <div className="relative">
+                              <Input
+                                type="number"
+                                min="1"
+                                value={question.points}
+                                onChange={(e) => {
+                                  const newQuestions = [...questions];
+                                  newQuestions[qIndex].points = parseFloat(e.target.value) || 1;
+                                  setQuestions(newQuestions);
+                                }}
+                                className="w-16 sm:w-20 h-9 sm:h-10 text-xs sm:text-sm"
+                                placeholder="Pts"
+                                inputMode="numeric"
+                              />
+                            </div>
                           </div>
-                        ))}
-                        {question.questionType === 'multiple_choice' && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => addAnswer(qIndex)}
-                            className="w-full"
-                          >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add Answer
-                          </Button>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                        </div>
+
+                        <div>
+                          <Textarea
+                            value={question.questionText}
+                            onChange={(e) => {
+                              const newQuestions = [...questions];
+                              newQuestions[qIndex].questionText = e.target.value;
+                              setQuestions(newQuestions);
+                            }}
+                            placeholder="Enter your question..."
+                            className="text-sm sm:text-base min-h-[80px] resize-none"
+                            rows={3}
+                          />
+                          {!hasQuestionText && (
+                            <p className="text-xs text-red-500 mt-1">Question text is required</p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2.5">
+                          <Label className="text-sm sm:text-base font-semibold">
+                            Answers {question.questionType === 'true_false' && <span className="text-xs text-muted-foreground font-normal">(Select the correct one)</span>}
+                          </Label>
+                          {question.answers.map((answer, aIndex) => (
+                            <div key={answer.id} className="flex items-center gap-2 sm:gap-3">
+                              <button
+                                type="button"
+                                onClick={() => setCorrectAnswer(qIndex, aIndex)}
+                                className={`flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                                  answer.isCorrect
+                                    ? 'border-green-500 bg-green-500 text-white'
+                                    : 'border-border hover:border-primary/50'
+                                }`}
+                              >
+                                {answer.isCorrect && <Check className="h-3 w-3 sm:h-4 sm:w-4" />}
+                              </button>
+                              <Input
+                                value={answer.answerText}
+                                onChange={(e) => {
+                                  const newQuestions = [...questions];
+                                  newQuestions[qIndex].answers[aIndex].answerText = e.target.value;
+                                  setQuestions(newQuestions);
+                                }}
+                                placeholder={question.questionType === 'true_false' 
+                                  ? (aIndex === 0 ? 'True' : 'False')
+                                  : `Answer ${aIndex + 1}`
+                                }
+                                className={`text-sm sm:text-base h-9 sm:h-10 flex-1 ${
+                                  answer.isCorrect 
+                                    ? 'border-green-500 bg-green-50/50 dark:bg-green-950/20 focus:ring-green-500' 
+                                    : ''
+                                }`}
+                              />
+                              {question.answers.length > 2 && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => removeAnswer(qIndex, aIndex)}
+                                  className="flex-shrink-0 h-9 w-9 sm:h-10 sm:w-10 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                          {question.questionType === 'multiple_choice' && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => addAnswer(qIndex)}
+                              className="w-full h-9 sm:h-10 text-xs sm:text-sm"
+                            >
+                              <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                              Add Answer Option
+                            </Button>
+                          )}
+                          {!hasCorrectAnswer && (
+                            <p className="text-xs text-red-500 mt-1">Please select the correct answer</p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </form>
         </div>
 
         {/* Navigation */}
-        <div className="flex justify-between items-center pt-4 border-t mt-4">
-          <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 pt-4 border-t mt-4 px-4 sm:px-0">
+          <div className="flex gap-2 order-2 sm:order-1">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
+              className="flex-1 sm:flex-none h-10 sm:h-11 text-sm sm:text-base"
             >
               Cancel
             </Button>
@@ -1019,9 +1182,11 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
               variant="ghost"
               onClick={handlePrevious}
               disabled={currentStep === 1}
+              className="flex-1 sm:flex-none h-10 sm:h-11 text-sm sm:text-base"
             >
-              <ChevronLeft className="h-4 w-4 mr-2" />
-              Previous
+              <ChevronLeft className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Previous</span>
+              <span className="sm:hidden">Prev</span>
             </Button>
           </div>
 
@@ -1029,28 +1194,29 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
             <Button
               type="button"
               onClick={handleNext}
-              className="min-w-[120px]"
+              className="min-w-[120px] sm:min-w-[140px] h-10 sm:h-11 text-sm sm:text-base order-1 sm:order-2"
             >
               Next
-              <ChevronRight className="h-4 w-4 ml-2" />
+              <ChevronRight className="h-4 w-4 ml-1 sm:ml-2" />
             </Button>
           ) : (
             <Button
               type="button"
               onClick={handleSubmit}
               disabled={submitting || cost === 0 || (userBalance !== null && userBalance < cost)}
-              className="min-w-[180px]"
+              className="min-w-full sm:min-w-[200px] h-10 sm:h-11 text-sm sm:text-base order-1 sm:order-2"
             >
               {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating...
+                  <span className="hidden sm:inline">Creating...</span>
+                  <span className="sm:hidden">Creating</span>
                 </>
               ) : (
                 <>
                   {isEditMode ? 'Update Quiz' : 'Create Quiz'}
                   {!isEditMode && (
-                    <span className="ml-2 text-xs opacity-90">
+                    <span className="ml-2 text-xs opacity-90 hidden sm:inline">
                       ({formatCurrency(cost, DEFAULT_CURRENCY)})
                     </span>
                   )}

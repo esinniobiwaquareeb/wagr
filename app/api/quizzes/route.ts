@@ -25,25 +25,57 @@ export async function GET(request: NextRequest) {
       throw new Error('Authentication required');
     }
 
-    // Build query string
-    const searchParams = url.searchParams.toString();
+    // Build query string - filter out invalid status values
+    const validStatuses = ['draft', 'open', 'in_progress', 'completed', 'settled', 'cancelled'];
+    const statusParam = url.searchParams.get('status');
+    const search = url.searchParams.get('search');
+    const page = url.searchParams.get('page');
+    const limit = url.searchParams.get('limit');
+    const creatorId = url.searchParams.get('creatorId');
+    const scopeParam = url.searchParams.get('scope');
+
+    // Build clean query params
+    const cleanParams = new URLSearchParams();
+    if (statusParam && validStatuses.includes(statusParam)) {
+      cleanParams.set('status', statusParam);
+    }
+    if (search) {
+      cleanParams.set('search', search);
+    }
+    if (page) {
+      cleanParams.set('page', page);
+    }
+    if (limit) {
+      cleanParams.set('limit', limit);
+    }
+    if (creatorId) {
+      cleanParams.set('creatorId', creatorId);
+    }
+    if (scopeParam) {
+      cleanParams.set('scope', scopeParam);
+    }
 
     // Call NestJS backend to list quizzes
-    const response = await nestjsServerFetch<{
-      quizzes: any[];
-    }>(`/quizzes?${searchParams}`, {
+    const response = await nestjsServerFetch<any>(`/quizzes?${cleanParams.toString()}`, {
       method: 'GET',
       token,
       requireAuth: true,
     });
 
-    if (!response.success || !response.data) {
+    if (!response.success) {
       throw new Error(response.error?.message || 'Failed to fetch quizzes');
     }
 
+    // Backend controller returns: { success: true, data: quizzes[], meta: pagination }
+    // nestjsServerFetch parses JSON and returns it directly
+    // So response is: { success: true, data: quizzes[], meta: pagination, error?: ... }
+    // response.data is the quizzes array, response.meta is pagination
+    const quizzes = Array.isArray(response.data) ? response.data : [];
+    const meta = (response as any).meta;
+
     return successResponseNext({
-      quizzes: response.data.quizzes || [],
-    });
+      quizzes,
+    }, meta);
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);
