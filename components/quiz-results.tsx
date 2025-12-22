@@ -11,10 +11,10 @@ import { format } from "date-fns";
 interface Participant {
   id: string;
   user_id: string;
-  score: number;
-  percentage_score?: number | null;
+  score: number | string; // Can be string from decimal column
+  percentage_score?: number | string | null; // Can be string from decimal column
   rank: number | null;
-  winnings: number;
+  winnings: number | string; // Can be string from decimal column
   completed_at: string;
   profiles?: {
     username: string;
@@ -94,8 +94,11 @@ export function QuizResults({
   }, [quiz.questions, quiz.total_questions, responses]);
 
   // Sort participants by score (descending)
+  // Convert scores to numbers for comparison (TypeORM returns decimals as strings)
   const sortedParticipants = [...participants].sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
+    const scoreA = typeof a.score === 'string' ? Number(a.score) : (a.score ?? 0);
+    const scoreB = typeof b.score === 'string' ? Number(b.score) : (b.score ?? 0);
+    if (scoreB !== scoreA) return scoreB - scoreA;
     return new Date(a.completed_at).getTime() - new Date(b.completed_at).getTime();
   });
 
@@ -107,18 +110,50 @@ export function QuizResults({
     return <span className="text-sm font-medium">#{rank}</span>;
   };
 
-  const participantScore = participant?.score ?? 0;
-  const participantPercentage = useMemo(() => {
+  // Calculate score from responses if available (more accurate), otherwise use participant record
+  const participantScore: number = useMemo(() => {
+    // First, try to calculate from responses (most accurate)
+    if (responses && responses.length > 0) {
+      const calculatedScore = responses.reduce((sum, response) => {
+        const points = response.points_earned ?? 0;
+        return sum + (typeof points === 'string' ? Number(points) : points);
+      }, 0);
+      if (calculatedScore > 0) {
+        return calculatedScore;
+      }
+    }
+    
+    // Fallback to participant record score
+    const score = participant?.score;
+    if (score == null) return 0;
+    const numScore = typeof score === 'string' ? Number(score) : score;
+    return Number.isFinite(numScore) ? numScore : 0;
+  }, [participant?.score, responses]);
+
+  const participantPercentage: number = useMemo(() => {
+    // First, try to calculate from responses if available
+    if (responses && responses.length > 0 && totalPossiblePoints > 0) {
+      const calculatedPercentage = (participantScore / totalPossiblePoints) * 100;
+      if (calculatedPercentage > 0) {
+        return calculatedPercentage;
+      }
+    }
+    
+    // Fallback to participant record percentage
     if (participant?.percentage_score != null) {
       // Convert to number if it's a string (from database)
-      const percentage = Number(participant.percentage_score);
+      const percentage = typeof participant.percentage_score === 'string' 
+        ? Number(participant.percentage_score)
+        : participant.percentage_score;
       return Number.isFinite(percentage) ? percentage : 0;
     }
+    
+    // Calculate from score if we have total possible points
     if (totalPossiblePoints > 0) {
       return (participantScore / totalPossiblePoints) * 100;
     }
     return 0;
-  }, [participant?.percentage_score, participantScore, totalPossiblePoints]);
+  }, [participant?.percentage_score, participantScore, totalPossiblePoints, responses]);
 
   return (
     <div className="space-y-6">
@@ -155,14 +190,19 @@ export function QuizResults({
                 <div>
                   <p className="text-sm text-muted-foreground">Winnings</p>
                   <p className="text-2xl font-bold text-green-600">
-                    {formatCurrency(participant.winnings, DEFAULT_CURRENCY)}
+                    {formatCurrency(
+                      typeof participant.winnings === 'string' 
+                        ? Number(participant.winnings) 
+                        : (participant.winnings ?? 0),
+                      DEFAULT_CURRENCY
+                    )}
                   </p>
                 </div>
               )}
             </div>
 
             <Progress 
-              value={participantPercentage ?? 0}
+              value={Number.isFinite(participantPercentage) ? participantPercentage : 0}
               className="h-3" 
             />
           </CardContent>
@@ -172,19 +212,22 @@ export function QuizResults({
       {/* Tabs for Answer Summary, Results, and Leaderboard */}
       <Card>
         <CardContent className="p-0">
-          <Tabs defaultValue="answers" className="w-full">
+          <Tabs defaultValue={showDetails ? "answers" : "leaderboard"} className="w-full">
             <TabsList className="grid w-full grid-cols-2 h-12 p-1 bg-muted/50 rounded-none border-b">
-              <TabsTrigger 
-                value="answers" 
-                className="flex items-center justify-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm"
-              >
-                <FileText className="h-4 w-4" />
-                <span className="hidden sm:inline">Answer Summary</span>
-                <span className="sm:hidden">Answers</span>
-              </TabsTrigger>
+              {/* Only show Answer Summary tab if we have participant responses (showDetails=true) */}
+              {showDetails && participant && (
+                <TabsTrigger 
+                  value="answers" 
+                  className="flex items-center justify-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                >
+                  <FileText className="h-4 w-4" />
+                  <span className="hidden sm:inline">Answer Summary</span>
+                  <span className="sm:hidden">Answers</span>
+                </TabsTrigger>
+              )}
               <TabsTrigger 
                 value="leaderboard" 
-                className="flex items-center justify-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                className={`flex items-center justify-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm ${!showDetails ? 'col-span-2' : ''}`}
               >
                 <List className="h-4 w-4" />
                 <span>Leaderboard</span>
@@ -196,9 +239,10 @@ export function QuizResults({
               </TabsTrigger>
             </TabsList>
 
-            {/* Answer Summary Tab */}
-            <TabsContent value="answers" className="mt-0 p-6">
-              {responses && Array.isArray(responses) && responses.length > 0 ? (
+            {/* Answer Summary Tab - Only show if we have participant responses */}
+            {showDetails && participant && (
+              <TabsContent value="answers" className="mt-0 p-6">
+                {responses && Array.isArray(responses) && responses.length > 0 ? (
                 <div className="space-y-4">
                   {responses.map((response: any, index: number) => {
                     // Handle nested quiz_questions structure from API
@@ -260,7 +304,8 @@ export function QuizResults({
                   </p>
                 </div>
               )}
-            </TabsContent>
+              </TabsContent>
+            )}
             
             {/* Leaderboard Tab */}
             <TabsContent value="leaderboard" className="mt-0 p-6">
@@ -305,10 +350,15 @@ export function QuizResults({
                             {(() => {
                               let percentage: number;
                               if (p.percentage_score != null) {
-                                percentage = Number(p.percentage_score);
+                                // Convert to number if it's a string (from database)
+                                percentage = typeof p.percentage_score === 'string'
+                                  ? Number(p.percentage_score)
+                                  : p.percentage_score;
                                 if (!Number.isFinite(percentage)) percentage = 0;
                               } else if (totalPossiblePoints > 0) {
-                                percentage = ((p.score ?? 0) / totalPossiblePoints) * 100;
+                                // Convert score to number (TypeORM returns decimals as strings)
+                                const score = typeof p.score === 'string' ? Number(p.score) : (p.score ?? 0);
+                                percentage = (score / totalPossiblePoints) * 100;
                               } else {
                                 percentage = 0;
                               }
@@ -318,14 +368,17 @@ export function QuizResults({
                         </div>
                           </div>
                         </div>
-                        {isSettled && p.winnings > 0 && (
-                          <div className="text-right ml-4">
-                            <p className="text-xs text-muted-foreground">Winnings</p>
-                            <p className="font-bold text-green-600">
-                              {formatCurrency(p.winnings, DEFAULT_CURRENCY)}
-                            </p>
-                          </div>
-                        )}
+                        {isSettled && (() => {
+                          const winnings = typeof p.winnings === 'string' ? Number(p.winnings) : (p.winnings ?? 0);
+                          return winnings > 0 && (
+                            <div className="text-right ml-4">
+                              <p className="text-xs text-muted-foreground">Winnings</p>
+                              <p className="font-bold text-green-600">
+                                {formatCurrency(winnings, DEFAULT_CURRENCY)}
+                              </p>
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })}

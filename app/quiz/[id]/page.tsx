@@ -614,10 +614,12 @@ export default function QuizDetailPage() {
   const showResults = Boolean(hasCompleted && quizHasEnded);
 
   useEffect(() => {
-    if (hasCompleted && quizHasEnded) {
+    // Fetch responses when quiz has ended (for participants who completed)
+    // Also fetch for creator to see all participants data
+    if (quizHasEnded && (hasCompleted || isCreator)) {
       fetchParticipantResponses();
     }
-  }, [hasCompleted, quizHasEnded]);
+  }, [hasCompleted, quizHasEnded, isCreator, fetchParticipantResponses]);
 
   if (loading || authLoading) {
     return (
@@ -758,6 +760,7 @@ export default function QuizDetailPage() {
                       entry_fee_per_question: quiz.entry_fee_per_question,
                       status: quiz.status,
                       settled_at: quiz.settled_at,
+                      questions: quiz.questions, // Include questions for total points calculation
                     }}
                     participant={participant}
                     participants={allParticipants.length > 0 ? allParticipants : (quiz.participants || []).filter((p: any) => p.status === 'completed')}
@@ -768,8 +771,8 @@ export default function QuizDetailPage() {
               </div>
             )}
 
-            {/* Show scoreboard for all participants if quiz is settled or completed (for creator) */}
-            {isCreator && (quiz.status === 'settled' || quiz.status === 'completed') && (
+            {/* Show scoreboard for all participants if quiz is completed or settled (creator only) */}
+            {isCreator && (quiz.status === 'settled' || quiz.status === 'completed') && quizHasEnded && (
               <div className="mt-6">
                 <Card>
                   <CardHeader>
@@ -781,9 +784,32 @@ export default function QuizDetailPage() {
                   <CardContent>
                     {(() => {
                       // Use allParticipants if available (from responses API), otherwise use quiz.participants
-                      const participantsToShow = allParticipants.length > 0 
+                      // Ensure we have the correct data structure with user_id and profiles
+                      let participantsToShow = allParticipants.length > 0 
                         ? allParticipants 
-                        : (quiz.participants || []).filter((p: any) => p.status === 'completed');
+                        : (quiz.participants || []).filter((p: any) => {
+                            const status = (p.status || '').toLowerCase();
+                            return status === 'completed';
+                          });
+                      
+                      // Ensure all participants have required fields with proper data structure
+                      participantsToShow = participantsToShow.map((p: any) => ({
+                        id: p.id,
+                        user_id: p.user_id || p.user?.id,
+                        score: typeof p.score === 'string' ? Number(p.score) : (p.score ?? 0),
+                        percentage_score: p.percentage_score != null
+                          ? (typeof p.percentage_score === 'string' ? Number(p.percentage_score) : p.percentage_score)
+                          : null,
+                        rank: p.rank,
+                        winnings: typeof p.winnings === 'string' ? Number(p.winnings) : (p.winnings ?? 0),
+                        completed_at: p.completed_at,
+                        status: p.status,
+                        profiles: p.profiles || (p.user ? {
+                          username: p.user.username,
+                          avatar_url: p.user.avatar_url,
+                          email: p.user.email,
+                        } : undefined),
+                      }));
                       
                       if (participantsToShow.length === 0) {
                         return (
@@ -803,10 +829,11 @@ export default function QuizDetailPage() {
                             entry_fee_per_question: quiz.entry_fee_per_question,
                             status: quiz.status,
                             settled_at: quiz.settled_at,
+                            questions: quiz.questions, // Include questions for total points calculation
                           }}
-                          participant={undefined}
+                          participant={participant} // Pass current participant so they can see their position
                           participants={participantsToShow}
-                          responses={[]}
+                          responses={[]} // Empty for scoreboard view
                           showDetails={false}
                         />
                       );
