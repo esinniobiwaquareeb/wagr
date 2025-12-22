@@ -138,8 +138,11 @@ export function QuizTakingInterface({
         setHasStarted(true);
         
         // Try to fetch existing responses from backend if quiz was already started
+        // Note: Responses are only saved on submit, so this will usually be empty
+        // We rely on localStorage for resume functionality
         let existingResponses: Record<string, string> = {};
-        if (data.data?.participant?.status === 'started') {
+        const participantStatus = data.data?.participant?.status?.toLowerCase();
+        if (participantStatus === 'started') {
           try {
             const responsesResponse = await fetch(`/api/quizzes/${quizId}/responses`);
             if (responsesResponse.ok) {
@@ -154,7 +157,9 @@ export function QuizTakingInterface({
               }
             }
           } catch (error) {
-            logger.error('Error fetching existing responses', error);
+            // Silently fail - we'll use localStorage instead
+            // This is expected since responses aren't saved until submit
+            logger.debug('No existing responses in backend (expected for in-progress quiz), using localStorage', error);
           }
         }
         

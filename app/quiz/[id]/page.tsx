@@ -157,11 +157,13 @@ export default function QuizDetailPage() {
       }
     } catch (error) {
       logger.error('Error fetching responses', error);
-      // Don't show error toast if results aren't available yet
+      // Don't show error toast if results aren't available yet or if quiz is in progress
       if (
         error instanceof Error && 
         !/not available/i.test(error.message) && 
-        !/after the quiz ends/i.test(error.message)
+        !/after the quiz ends/i.test(error.message) &&
+        !/must complete/i.test(error.message) &&
+        !/must start/i.test(error.message)
       ) {
         toast({
           title: "Error",
