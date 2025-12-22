@@ -81,20 +81,16 @@ export function QuizInviteDialog({
     if (open) {
       loadInvitedUsers(true);
       
-      // Set up polling to refresh invites every 2 seconds while dialog is open
-      const interval = setInterval(() => {
-        loadInvitedUsers();
-      }, 2000);
-      
-      // Listen for custom events when invite is accepted
+      // Listen for custom events when invite is accepted or updated
       const handleInviteAccepted = () => {
         loadInvitedUsers();
       };
       window.addEventListener('quiz-invite-accepted', handleInviteAccepted);
+      window.addEventListener('quiz-invite-updated', handleInviteAccepted);
       
       return () => {
-        clearInterval(interval);
         window.removeEventListener('quiz-invite-accepted', handleInviteAccepted);
+        window.removeEventListener('quiz-invite-updated', handleInviteAccepted);
       };
     }
   }, [open, loadInvitedUsers]);

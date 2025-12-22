@@ -81,11 +81,6 @@ export default function NotificationsPage() {
     if (user && !authLoading) {
       fetchNotifications();
 
-      // Poll for updates every 30 seconds (replaces real-time subscriptions)
-      const pollInterval = setInterval(() => {
-        fetchNotifications();
-      }, 30000);
-
       // Listen for custom notification update events
       const handleNotificationUpdate = () => {
         debouncedRefetchNotifications();
@@ -93,7 +88,6 @@ export default function NotificationsPage() {
       window.addEventListener('notification-updated', handleNotificationUpdate);
 
       return () => {
-        clearInterval(pollInterval);
         window.removeEventListener('notification-updated', handleNotificationUpdate);
         if (debounceTimeoutRef.current) {
           clearTimeout(debounceTimeoutRef.current);

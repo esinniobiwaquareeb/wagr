@@ -81,11 +81,6 @@ export function PlatformActivities() {
   useEffect(() => {
     fetchActivities(1, false);
 
-    // Poll for updates every 30 seconds (replaces real-time subscriptions)
-    const pollInterval = setInterval(() => {
-      fetchActivities(1, false);
-    }, 30000);
-
     // Listen for custom activity update events
     const handleActivityUpdate = () => {
       fetchActivities(1, false);
@@ -93,7 +88,6 @@ export function PlatformActivities() {
     window.addEventListener('wager-activity-updated', handleActivityUpdate);
 
     return () => {
-      clearInterval(pollInterval);
       window.removeEventListener('wager-activity-updated', handleActivityUpdate);
     };
   }, [fetchActivities]);

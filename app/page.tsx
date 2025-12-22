@@ -298,15 +298,9 @@ function WagersPageContent() {
     };
     window.addEventListener('wager-created', handleWagerCreated);
 
-    // Poll for updates every 30 seconds (replaces real-time subscriptions)
-    const pollInterval = setInterval(() => {
-      debouncedRefetchRef.current();
-    }, 30000);
-
     return () => {
       window.removeEventListener('wager-updated', handleWagerUpdate);
       window.removeEventListener('wager-created', handleWagerCreated);
-      clearInterval(pollInterval);
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }

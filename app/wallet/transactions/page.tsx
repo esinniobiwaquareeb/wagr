@@ -74,20 +74,16 @@ export default function TransactionsPage() {
     if (user) {
       fetchTransactions();
 
-      // Poll for updates every 30 seconds (replaces real-time subscriptions)
-      const pollInterval = setInterval(() => {
-        fetchTransactions();
-      }, 30000);
-
       // Listen for custom balance update events
       const handleBalanceUpdate = () => {
         debouncedRefetch();
       };
       window.addEventListener('balance-updated', handleBalanceUpdate);
+      window.addEventListener('wager-updated', handleBalanceUpdate);
 
       return () => {
-        clearInterval(pollInterval);
         window.removeEventListener('balance-updated', handleBalanceUpdate);
+        window.removeEventListener('wager-updated', handleBalanceUpdate);
         if (debounceTimeoutRef.current) {
           clearTimeout(debounceTimeoutRef.current);
         }

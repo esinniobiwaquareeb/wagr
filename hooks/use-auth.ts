@@ -109,21 +109,11 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthResult {
       window.addEventListener('auth-state-changed', handleAuthStateChanged);
     }
 
-    // Poll for auth changes (fallback) - increased to 5 minutes to reduce calls
-    // Only poll if user exists (don't poll after logout)
-    const interval = setInterval(() => {
-      // Only fetch if we have a user (don't poll after logout)
-      // This prevents continuous errors after logout
-      if (userRef.current !== null) {
-        fetchUserRef.current();
-      }
-    }, 300000); // Check every 5 minutes instead of 1 minute
-
+    // Listen for auth state changes (event-driven, no polling)
     return () => {
       if (typeof window !== 'undefined') {
         window.removeEventListener('auth-state-changed', handleAuthStateChanged);
       }
-      clearInterval(interval);
     };
   }, []); // Empty deps - use refs to access current values
 

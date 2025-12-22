@@ -92,15 +92,11 @@ export function NotificationsDropdown({
       debouncedRefetch();
     };
     window.addEventListener('notifications-updated', handleNotificationUpdate);
-
-    // Poll for updates every 30 seconds
-    const pollInterval = setInterval(() => {
-      debouncedRefetch();
-    }, 30000);
+    window.addEventListener('notification-updated', handleNotificationUpdate);
 
     return () => {
       window.removeEventListener('notifications-updated', handleNotificationUpdate);
-      clearInterval(pollInterval);
+      window.removeEventListener('notification-updated', handleNotificationUpdate);
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }

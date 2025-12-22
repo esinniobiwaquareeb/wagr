@@ -117,15 +117,18 @@ function TopNavContent() {
       fetchCategoryCounts();
     }
 
-    // Refresh counts periodically
-    const interval = setInterval(() => {
+    // Listen for wager update events to refresh category counts
+    const handleWagerUpdate = () => {
       if (categories.length > 0) {
         fetchCategoryCounts();
       }
-    }, 120000); // Every 2 minutes
+    };
+    window.addEventListener('wager-updated', handleWagerUpdate);
+    window.addEventListener('wager-created', handleWagerUpdate);
 
     return () => {
-      clearInterval(interval);
+      window.removeEventListener('wager-updated', handleWagerUpdate);
+      window.removeEventListener('wager-created', handleWagerUpdate);
       if (categoryCountsDebounceRef.current) {
         clearTimeout(categoryCountsDebounceRef.current);
       }
@@ -187,10 +190,7 @@ function TopNavContent() {
     if (user) {
       fetchWalletBalance();
       
-      // Refresh balance periodically - increased to 2 minutes
-      const interval = setInterval(fetchWalletBalance, 120000); // Every 2 minutes
-      
-      // Listen for custom balance update events (triggered after wager creation/join)
+      // Listen for custom balance update events (triggered after wager creation/join, deposits, withdrawals, etc.)
       const handleBalanceUpdate = async () => {
         // Force refresh by bypassing the guard for event-triggered updates
         // Add a small delay to ensure database transaction is committed
@@ -200,16 +200,16 @@ function TopNavContent() {
             const response = await walletApi.getBalance();
             setWalletBalance(response.balance);
           } catch (error) {
-            // Silent fail - balance will update via polling
-            // Error logged silently as balance will update via polling
+            // Silent fail - balance will update via events
           }
         }, 300); // Small delay to ensure transaction is committed
       };
       window.addEventListener('balance-updated', handleBalanceUpdate);
+      window.addEventListener('wager-updated', handleBalanceUpdate);
 
       return () => {
-        clearInterval(interval);
         window.removeEventListener('balance-updated', handleBalanceUpdate);
+        window.removeEventListener('wager-updated', handleBalanceUpdate);
         if (walletBalanceDebounceRef.current) {
           clearTimeout(walletBalanceDebounceRef.current);
         }
@@ -278,18 +278,9 @@ function TopNavContent() {
     
     window.addEventListener('auth-state-changed', handleAuthStateChanged);
 
-    // Reduced polling frequency - check every 5 minutes
-    // Only poll if we have a user (don't poll after logout)
-    const interval = setInterval(() => {
-      // Only poll if we currently have a user (check ref to avoid stale closure)
-      if (userRef.current !== null) {
-        getUser();
-      }
-    }, 300000); // Every 5 minutes
-
+    // Listen for auth state changes (no polling - event-driven only)
     return () => {
       window.removeEventListener('auth-state-changed', handleAuthStateChanged);
-      clearInterval(interval);
     };
   }, [router]); // Removed 'user' from dependencies to prevent circular updates
 
@@ -334,15 +325,16 @@ function TopNavContent() {
   useEffect(() => {
     fetchProfile();
 
-    // Poll for profile updates every 2 minutes
-    const interval = setInterval(() => {
-      if (user) {
-        debouncedRefetchProfile();
-      }
-    }, 120000);
+    // Listen for profile update events (no polling)
+    const handleProfileUpdate = () => {
+      debouncedRefetchProfile();
+    };
+    window.addEventListener('profile-updated', handleProfileUpdate);
+    window.addEventListener('balance-updated', handleProfileUpdate);
 
     return () => {
-      clearInterval(interval);
+      window.removeEventListener('profile-updated', handleProfileUpdate);
+      window.removeEventListener('balance-updated', handleProfileUpdate);
       if (debounceProfileTimeoutRef.current) {
         clearTimeout(debounceProfileTimeoutRef.current);
       }
@@ -407,15 +399,16 @@ function TopNavContent() {
   useEffect(() => {
     fetchUnreadCount();
 
-    // Poll for notification updates every 30 seconds
-    const interval = setInterval(() => {
-      if (user) {
-        debouncedRefetchNotifications();
-      }
-    }, 30000);
+    // Listen for notification update events (no polling)
+    const handleNotificationUpdate = () => {
+      debouncedRefetchNotifications();
+    };
+    window.addEventListener('notifications-updated', handleNotificationUpdate);
+    window.addEventListener('notification-updated', handleNotificationUpdate);
 
     return () => {
-      clearInterval(interval);
+      window.removeEventListener('notifications-updated', handleNotificationUpdate);
+      window.removeEventListener('notification-updated', handleNotificationUpdate);
       if (debounceNotificationsTimeoutRef.current) {
         clearTimeout(debounceNotificationsTimeoutRef.current);
       }

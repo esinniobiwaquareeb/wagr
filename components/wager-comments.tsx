@@ -61,11 +61,6 @@ export function WagerComments({ wagerId }: WagerCommentsProps) {
   useEffect(() => {
     fetchComments();
 
-    // Poll for updates every 30 seconds (replaces real-time subscriptions)
-    const pollInterval = setInterval(() => {
-      fetchComments();
-    }, 30000);
-
     // Listen for custom comment update events
     const handleCommentUpdate = () => {
       fetchComments();
@@ -73,7 +68,6 @@ export function WagerComments({ wagerId }: WagerCommentsProps) {
     window.addEventListener('wager-comment-updated', handleCommentUpdate);
 
     return () => {
-      clearInterval(pollInterval);
       window.removeEventListener('wager-comment-updated', handleCommentUpdate);
     };
   }, [wagerId, fetchComments]);

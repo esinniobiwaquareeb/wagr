@@ -55,14 +55,9 @@ export function MobileNav() {
     };
     window.addEventListener('auth-state-changed', handleAuthStateChanged);
 
-    // Poll for auth changes (fallback)
-    const interval = setInterval(() => {
-      getUser();
-    }, 60000); // Check every minute
-
+    // Listen for auth state changes (event-driven, no polling)
     return () => {
       window.removeEventListener('auth-state-changed', handleAuthStateChanged);
-      clearInterval(interval);
     };
   }, []);
 
@@ -109,15 +104,16 @@ export function MobileNav() {
   useEffect(() => {
     fetchProfile();
 
-    // Poll for profile updates every 2 minutes
-    const interval = setInterval(() => {
-      if (user) {
-        debouncedRefetchProfile();
-      }
-    }, 120000);
+    // Listen for profile update events (no polling)
+    const handleProfileUpdate = () => {
+      debouncedRefetchProfile();
+    };
+    window.addEventListener('profile-updated', handleProfileUpdate);
+    window.addEventListener('balance-updated', handleProfileUpdate);
 
     return () => {
-      clearInterval(interval);
+      window.removeEventListener('profile-updated', handleProfileUpdate);
+      window.removeEventListener('balance-updated', handleProfileUpdate);
       if (debounceProfileTimeoutRef.current) {
         clearTimeout(debounceProfileTimeoutRef.current);
       }
@@ -187,15 +183,16 @@ export function MobileNav() {
   useEffect(() => {
     fetchUnreadCount();
 
-    // Poll for notification updates every 30 seconds
-    const interval = setInterval(() => {
-      if (user) {
-        debouncedRefetchNotifications();
-      }
-    }, 30000);
+    // Listen for notification update events (no polling)
+    const handleNotificationUpdate = () => {
+      debouncedRefetchNotifications();
+    };
+    window.addEventListener('notifications-updated', handleNotificationUpdate);
+    window.addEventListener('notification-updated', handleNotificationUpdate);
 
     return () => {
-      clearInterval(interval);
+      window.removeEventListener('notifications-updated', handleNotificationUpdate);
+      window.removeEventListener('notification-updated', handleNotificationUpdate);
       if (debounceNotificationsTimeoutRef.current) {
         clearTimeout(debounceNotificationsTimeoutRef.current);
       }
