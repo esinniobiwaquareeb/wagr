@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, CheckCircle2, XCircle, Clock, ArrowRight, ArrowLeft } from "lucide-react";
@@ -15,7 +15,8 @@ interface Question {
   question_text: string;
   question_type: string;
   points: number;
-  quiz_answers: Answer[];
+  quiz_answers?: Answer[]; // Frontend expects this
+  answers?: Answer[]; // Backend returns this
 }
 
 interface Answer {
@@ -48,9 +49,54 @@ export function QuizTakingInterface({
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [hasStarted, setHasStarted] = useState(false);
 
-  useEffect(() => {
-    setHasStarted(false);
+  // Load saved progress from localStorage
+  const loadSavedProgress = useCallback(() => {
+    try {
+      const saved = localStorage.getItem(`quiz_progress_${quizId}`);
+      if (saved) {
+        const progress = JSON.parse(saved);
+        if (progress.responses) {
+          setResponses(progress.responses);
+        }
+        if (progress.currentQuestionIndex !== undefined) {
+          setCurrentQuestionIndex(progress.currentQuestionIndex);
+        }
+        if (progress.timeRemaining !== undefined && progress.timeRemaining > 0) {
+          setTimeRemaining(progress.timeRemaining);
+        }
+        if (progress.startTime) {
+          setStartTime(new Date(progress.startTime));
+        }
+        return progress;
+      }
+    } catch (error) {
+      logger.error('Error loading saved progress', error);
+    }
+    return null;
   }, [quizId]);
+
+  // Save progress to localStorage
+  const saveProgress = useCallback(() => {
+    try {
+      const progress = {
+        responses,
+        currentQuestionIndex,
+        timeRemaining,
+        startTime: startTime?.toISOString(),
+        savedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(`quiz_progress_${quizId}`, JSON.stringify(progress));
+    } catch (error) {
+      logger.error('Error saving progress', error);
+    }
+  }, [quizId, responses, currentQuestionIndex, timeRemaining, startTime]);
+
+  // Save progress whenever it changes
+  useEffect(() => {
+    if (hasStarted) {
+      saveProgress();
+    }
+  }, [hasStarted, responses, currentQuestionIndex, timeRemaining, saveProgress]);
 
   // Start quiz
   useEffect(() => {
@@ -60,6 +106,10 @@ export function QuizTakingInterface({
 
       try {
         setLoading(true);
+        
+        // Try to load saved progress first
+        const savedProgress = loadSavedProgress();
+        
         const response = await fetch(`/api/quizzes/${quizId}/take`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -74,12 +124,59 @@ export function QuizTakingInterface({
 
         if (!isMounted) return;
 
-        setQuestions(data.data?.questions || []);
-        setStartTime(new Date());
+        // Normalize questions: map 'answers' to 'quiz_answers' for frontend compatibility
+        const questions = (data.data?.questions || []).map((q: any) => ({
+          ...q,
+          quiz_answers: q.quiz_answers || q.answers || [],
+        }));
+
+        setQuestions(questions);
+        
+        // Use saved start time if available, otherwise use current time
+        const savedStartTime = savedProgress?.startTime ? new Date(savedProgress.startTime) : new Date();
+        setStartTime(savedStartTime);
         setHasStarted(true);
         
+        // Try to fetch existing responses from backend if quiz was already started
+        let existingResponses: Record<string, string> = {};
+        if (data.data?.participant?.status === 'started') {
+          try {
+            const responsesResponse = await fetch(`/api/quizzes/${quizId}/responses`);
+            if (responsesResponse.ok) {
+              const responsesData = await responsesResponse.json();
+              if (responsesData.data?.responses && Array.isArray(responsesData.data.responses)) {
+                // Map responses to questionId -> answerId format
+                responsesData.data.responses.forEach((r: any) => {
+                  if (r.question_id && r.answer_id) {
+                    existingResponses[r.question_id] = r.answer_id;
+                  }
+                });
+              }
+            }
+          } catch (error) {
+            logger.error('Error fetching existing responses', error);
+          }
+        }
+        
+        // Merge: saved progress takes precedence, then existing responses, then empty
+        if (savedProgress?.responses) {
+          setResponses({ ...existingResponses, ...savedProgress.responses });
+        } else if (Object.keys(existingResponses).length > 0) {
+          setResponses(existingResponses);
+        }
+        
+        // Calculate time remaining
         if (durationMinutes) {
-          setTimeRemaining(durationMinutes * 60);
+          if (savedProgress?.timeRemaining && savedProgress.timeRemaining > 0) {
+            // Use saved time remaining
+            setTimeRemaining(savedProgress.timeRemaining);
+          } else {
+            // Calculate elapsed time
+            const elapsed = Math.floor((new Date().getTime() - savedStartTime.getTime()) / 1000);
+            const totalSeconds = durationMinutes * 60;
+            const remaining = Math.max(0, totalSeconds - elapsed);
+            setTimeRemaining(remaining);
+          }
         }
       } catch (error) {
         logger.error('Error starting quiz', error);
@@ -102,17 +199,17 @@ export function QuizTakingInterface({
     return () => {
       isMounted = false;
     };
-  }, [quizId, user, durationMinutes, hasStarted, toast, onComplete]);
+  }, [quizId, user, durationMinutes, hasStarted, toast, onComplete, loadSavedProgress]);
 
   // Timer countdown
   useEffect(() => {
-    if (timeRemaining === null || timeRemaining <= 0) return;
+    if (timeRemaining === null || timeRemaining <= 0 || !hasStarted) return;
 
     const interval = setInterval(() => {
       setTimeRemaining(prev => {
         if (prev === null || prev <= 1) {
           // Auto-submit when time runs out
-          handleSubmit();
+          handleSubmitRef.current();
           return 0;
         }
         return prev - 1;
@@ -120,7 +217,10 @@ export function QuizTakingInterface({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [timeRemaining]);
+  }, [timeRemaining, hasStarted]);
+
+  // Store handleSubmit in ref for timer
+  const handleSubmitRef = useRef<() => void>(() => {});
 
   const handleAnswerSelect = (questionId: string, answerId: string) => {
     setResponses(prev => ({
@@ -166,6 +266,13 @@ export function QuizTakingInterface({
 
       if (!response.ok) {
         throw new Error(data.error?.message || 'Failed to submit quiz');
+      }
+
+      // Clear saved progress after successful submission
+      try {
+        localStorage.removeItem(`quiz_progress_${quizId}`);
+      } catch (error) {
+        logger.error('Error clearing saved progress', error);
       }
 
       toast({
@@ -257,7 +364,7 @@ export function QuizTakingInterface({
             </div>
 
             <div className="space-y-3">
-              {currentQuestion.quiz_answers?.map((answer) => {
+              {(currentQuestion.quiz_answers || currentQuestion.answers || []).map((answer) => {
                 const isSelected = responses[currentQuestion.id] === answer.id;
                 return (
                   <button

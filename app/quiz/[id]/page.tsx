@@ -92,7 +92,7 @@ interface Quiz {
 export default function QuizDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const quizId = params?.id as string;
 
@@ -212,9 +212,12 @@ export default function QuizDetailPage() {
       setQuiz(quizData);
 
       // Check if user is a participant
-      if (user && quizData?.participants) {
+      if (user && quizData?.participants && Array.isArray(quizData.participants)) {
         const userParticipant = quizData.participants.find(
-          (p: any) => p.user_id === user.id || p.user?.id === user.id
+          (p: any) => {
+            const participantUserId = p.user_id || p.user?.id || p.user_id;
+            return participantUserId === user.id;
+          }
         );
         setParticipant(userParticipant || null);
       } else if (user) {
@@ -242,6 +245,9 @@ export default function QuizDetailPage() {
   useEffect(() => {
     if (!quizId) return;
     
+    // Wait for auth to finish loading before fetching quiz
+    if (authLoading) return;
+    
     const quizIdChanged = quizId !== lastFetchedQuizIdRef.current;
     const userLoaded = user?.id && user.id !== lastFetchedUserIdRef.current;
     const shouldRefetch = quizIdChanged || (userLoaded && fetchErrorRef.current && !quiz);
@@ -257,7 +263,7 @@ export default function QuizDetailPage() {
       }
       fetchQuiz();
     }
-  }, [quizId, user?.id, fetchQuiz, quiz]);
+  }, [quizId, user?.id, authLoading, fetchQuiz, quiz]);
 
   const handleStartQuiz = () => {
     setTakingQuiz(true);
@@ -584,7 +590,7 @@ export default function QuizDetailPage() {
     }
   }, [hasCompleted, quizHasEnded]);
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <main className="flex-1 pb-24 lg:pb-0 w-full overflow-x-hidden">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 lg:py-8">
