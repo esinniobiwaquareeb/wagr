@@ -23,13 +23,51 @@ export async function GET(request: NextRequest) {
       requireAuth: false, // Public endpoint
     });
 
+    // Log response structure for debugging (development only)
+    if (process.env.NODE_ENV === 'development') {
+      const { logger } = await import('@/lib/logger');
+      logger.debug('Platform activities API response', {
+        success: response.success,
+        hasData: !!response.data,
+        dataType: typeof response.data,
+        isArray: Array.isArray(response.data),
+        dataKeys: response.data && typeof response.data === 'object' ? Object.keys(response.data) : [],
+        error: response.error,
+      });
+    }
+
     if (!response.success) {
+      const { logger } = await import('@/lib/logger');
+      logger.error('Failed to fetch platform activities', {
+        error: response.error,
+      });
       return successResponseNext([], { total: 0, page: 1, limit });
     }
 
-    // NestJS returns { success: true, data: [...], meta: {...} }
-    const activities = Array.isArray(response.data) ? response.data : [];
-    const meta = (response as any).meta || {};
+    if (!response.data) {
+      return successResponseNext([], { total: 0, page: 1, limit });
+    }
+
+    // NestJS backend returns: { success: true, data: [...], meta: {...} }
+    // nestjsServerFetch returns the response as-is, so response.data is the activities array
+    let activities: any[] = [];
+    let meta: any = {};
+
+    // Check response structure
+    if (Array.isArray(response.data)) {
+      // Direct array: { success: true, data: [...] }
+      activities = response.data;
+      meta = (response as any).meta || {};
+    } else if (response.data && typeof response.data === 'object') {
+      // Nested structure: { success: true, data: { data: [...], meta: {...} } }
+      if (Array.isArray(response.data.data)) {
+        activities = response.data.data;
+        meta = response.data.meta || {};
+      } else if (Array.isArray(response.data.activities)) {
+        activities = response.data.activities;
+        meta = response.data.meta || {};
+      }
+    }
 
     // Return activities as array directly (not wrapped in object) to match frontend expectation
     return successResponseNext(activities, {

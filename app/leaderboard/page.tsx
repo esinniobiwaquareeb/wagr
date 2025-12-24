@@ -7,6 +7,7 @@ import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency"
 import { Skeleton } from "@/components/ui/skeleton";
 import { leaderboardApi } from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
+import { maskUsername } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -79,20 +80,6 @@ export default function Leaderboard() {
     if (rank === 2) return <Medal className="h-6 w-6 text-gray-400" />;
     if (rank === 3) return <Award className="h-6 w-6 text-amber-600" />;
     return <span className="text-muted-foreground font-bold">#{rank}</span>;
-  };
-
-  const maskUsername = (username: string | null): string => {
-    if (!username) return "Anonymous";
-    
-    // If username is 3 characters or less, show first character only
-    if (username.length <= 3) {
-      return username[0] + "**";
-    }
-    
-    // Show first 2 characters and mask the rest
-    const visibleChars = Math.min(2, Math.floor(username.length / 3));
-    const maskedChars = "*".repeat(Math.max(3, username.length - visibleChars));
-    return username.substring(0, visibleChars) + maskedChars;
   };
 
   if (loading) {

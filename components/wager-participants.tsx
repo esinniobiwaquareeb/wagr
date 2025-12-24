@@ -2,6 +2,7 @@
 
 import { Users, Crown, Trophy } from "lucide-react";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
+import { maskUsername } from "@/lib/utils";
 
 interface Entry {
   id: string;
@@ -63,7 +64,7 @@ export function WagerParticipants({ entries, userNames, wager }: WagerParticipan
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-medium text-foreground truncate">
-                    {userNames[entry.user_id] || `User ${entry.user_id.slice(0, 8)}`}
+                    {maskUsername(userNames[entry.user_id] || `User ${entry.user_id.slice(0, 8)}`)}
                   </span>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     {isCreator && (

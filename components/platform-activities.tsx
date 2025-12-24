@@ -56,9 +56,35 @@ export function PlatformActivities() {
       const data = await response.json();
       
       // Handle response format: { success: true, data: [...], meta: {...} }
-      const activitiesData = data.success && Array.isArray(data.data)
-        ? data.data
-        : data.activities || [];
+      let activitiesData: Activity[] = [];
+      
+      if (data.success) {
+        if (Array.isArray(data.data)) {
+          // Direct array: { success: true, data: [...] }
+          activitiesData = data.data;
+        } else if (data.data && typeof data.data === 'object') {
+          // Nested structure: { success: true, data: { data: [...], meta: {...} } }
+          if (Array.isArray(data.data.data)) {
+            activitiesData = data.data.data;
+          } else if (Array.isArray(data.data.activities)) {
+            activitiesData = data.data.activities;
+          }
+        } else if (Array.isArray(data.activities)) {
+          // Alternative: { success: true, activities: [...] }
+          activitiesData = data.activities;
+        }
+      }
+      
+      // Log for debugging (only in development)
+      if (process.env.NODE_ENV === 'development' && activitiesData.length === 0 && data.success) {
+        logger.debug('Platform activities response structure', {
+          hasData: !!data.data,
+          dataType: typeof data.data,
+          isArray: Array.isArray(data.data),
+          dataKeys: data.data && typeof data.data === 'object' ? Object.keys(data.data) : [],
+          responseSample: JSON.stringify(data).substring(0, 500),
+        });
+      }
 
       if (append) {
         setActivities((prev) => [...prev, ...activitiesData]);
@@ -72,6 +98,10 @@ export function PlatformActivities() {
       setHasMore(currentTotal < total);
     } catch (error) {
       logger.error("Error fetching activities", error);
+      // Set empty array on error to show empty state
+      if (!append) {
+        setActivities([]);
+      }
     } finally {
       setLoading(false);
       setLoadingMore(false);
