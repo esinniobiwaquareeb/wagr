@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY } from "@/lib/currency";
@@ -242,6 +242,21 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
     return baseCost + platformFee;
   }, [formData.entryFeePerQuestion, formData.totalQuestions, formData.maxParticipants, platformFeePercentage]);
 
+  // Check if amount-related fields have changed in edit mode
+  const hasAmountFieldsChanged = useMemo(() => {
+    if (!isEditMode || !initialData) return false;
+    return (
+      parseFloat(formData.entryFeePerQuestion) !== (initialData.entryFeePerQuestion || 0) ||
+      parseInt(formData.maxParticipants) !== (initialData.maxParticipants || 0) ||
+      parseInt(formData.totalQuestions) !== (initialData.totalQuestions || 0)
+    );
+  }, [isEditMode, initialData, formData.entryFeePerQuestion, formData.maxParticipants, formData.totalQuestions]);
+
+  // Determine if balance validation should be applied
+  const shouldValidateBalance = useMemo(() => {
+    return !isEditMode || hasAmountFieldsChanged;
+  }, [isEditMode, hasAmountFieldsChanged]);
+
   const baseCost = useCallback(() => {
     const entryFee = parseFloat(formData.entryFeePerQuestion) || 0;
     const questions = parseFloat(formData.totalQuestions) || 0;
@@ -413,14 +428,16 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
           return false;
         }
 
-        const cost = totalCost();
-        if (userBalance !== null && userBalance < cost) {
-          toast({
-            title: "Insufficient balance",
-            description: `You need ${formatCurrency(cost, DEFAULT_CURRENCY)} to create this quiz. Your balance: ${formatCurrency(userBalance || 0, DEFAULT_CURRENCY)}`,
-            variant: "destructive",
-          });
-          return false;
+        if (shouldValidateBalance) {
+          const cost = totalCost();
+          if (userBalance !== null && userBalance < cost) {
+            toast({
+              title: "Insufficient balance",
+              description: `You need ${formatCurrency(cost, DEFAULT_CURRENCY)} to ${isEditMode ? 'update' : 'create'} this quiz. Your balance: ${formatCurrency(userBalance || 0, DEFAULT_CURRENCY)}`,
+              variant: "destructive",
+            });
+            return false;
+          }
         }
         return true;
       
@@ -875,7 +892,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
                           <div className="text-xs sm:text-sm text-muted-foreground pt-1.5 bg-muted/30 p-2 rounded-md">
                             <span className="font-medium">Calculation:</span> ₦{formData.entryFeePerQuestion || 0} × {formData.totalQuestions || 0} questions × {formData.maxParticipants || 0} participants + {Math.round(PLATFORM_FEE_PERCENTAGE * 100)}% fee
                           </div>
-                          {userBalance !== null && (
+                          {userBalance !== null && shouldValidateBalance && (
                             <div className={`text-xs sm:text-sm mt-2.5 pt-2.5 border-t border-primary/20 font-medium ${userBalance >= cost ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                               <div className="flex justify-between items-center mb-1">
                                 <span>Your Balance:</span>
@@ -884,7 +901,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
                               {userBalance < cost && (
                                 <div className="mt-2 p-2 bg-red-50 dark:bg-red-950/20 rounded-md border border-red-200 dark:border-red-800">
                                   <span className="block">⚠️ Insufficient balance</span>
-                                  <span className="block mt-1">You need {formatCurrency(cost - userBalance, DEFAULT_CURRENCY)} more to create this quiz.</span>
+                                  <span className="block mt-1">You need {formatCurrency(cost - userBalance, DEFAULT_CURRENCY)} more to {isEditMode ? 'update' : 'create'} this quiz.</span>
                                 </div>
                               )}
                               {userBalance >= cost && (
@@ -893,6 +910,11 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
                                   <span className="block mt-1 text-xs">Remaining after quiz: {formatCurrency(userBalance - cost, DEFAULT_CURRENCY)}</span>
                                 </div>
                               )}
+                            </div>
+                          )}
+                          {isEditMode && !shouldValidateBalance && userBalance !== null && (
+                            <div className="text-xs sm:text-sm mt-2.5 pt-2.5 border-t border-primary/20 text-muted-foreground">
+                              <span>Balance check skipped - no amount changes detected</span>
                             </div>
                           )}
                         </div>
@@ -1279,7 +1301,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
             <Button
               type="button"
               onClick={handleSubmit}
-              disabled={submitting || cost === 0 || (userBalance !== null && userBalance < cost)}
+              disabled={submitting || cost === 0 || (shouldValidateBalance && userBalance !== null && userBalance < cost)}
               className="min-w-full sm:min-w-[200px] h-10 sm:h-11 text-sm sm:text-base order-1 sm:order-2"
             >
               {submitting ? (
