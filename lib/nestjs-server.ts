@@ -180,26 +180,45 @@ export async function verifyAdminJWTToken(token: string): Promise<{
   role: string;
   is_active: boolean;
 } | null> {
-  const response = await nestjsServerFetch<{
-    admin: {
-      id: string;
-      email: string;
-      username: string | null;
-      full_name: string | null;
-      role: string;
-      is_active: boolean;
-    };
-  }>('/admin/me', {
-    method: 'GET',
-    token,
-    requireAuth: true,
-  });
+  try {
+    const response = await nestjsServerFetch<{
+      admin: {
+        id: string;
+        email: string;
+        username: string | null;
+        full_name: string | null;
+        role: string;
+        is_active: boolean;
+      };
+    }>('/admin/me', {
+      method: 'GET',
+      token,
+      requireAuth: true,
+    });
 
-  if (!response.success || !response.data?.admin) {
+    if (!response.success || !response.data?.admin) {
+      // Log the error for debugging
+      if (process.env.NODE_ENV === 'development') {
+        const { logger } = require('./logger');
+        logger.debug('Admin token verification failed', {
+          success: response.success,
+          hasData: !!response.data,
+          hasAdmin: !!response.data?.admin,
+          error: response.error,
+        });
+      }
+      return null;
+    }
+
+    return response.data.admin;
+  } catch (error) {
+    // Log error but return null (will be handled by caller)
+    if (process.env.NODE_ENV === 'development') {
+      const { logger } = require('./logger');
+      logger.debug('Admin token verification error', error);
+    }
     return null;
   }
-
-  return response.data.admin;
 }
 
 

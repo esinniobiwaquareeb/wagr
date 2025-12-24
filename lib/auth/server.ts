@@ -63,27 +63,32 @@ export async function getCurrentAdmin(): Promise<AdminAuthUser | null> {
     const cookieStore = await cookies();
     const token = cookieStore.get('auth_token')?.value || cookieStore.get('wagr_session')?.value;
 
-  if (!token) {
-    return null;
-  }
+    if (!token) {
+      return null;
+    }
 
-  // Verify token with NestJS backend
-  const admin = await verifyAdminJWTToken(token);
-  if (!admin) {
-    return null;
-  }
+    // Verify token with NestJS backend
+    const admin = await verifyAdminJWTToken(token);
+    if (!admin) {
+      return null;
+    }
 
-  return {
-    id: admin.id,
-    email: admin.email,
-    username: admin.username || null,
-    full_name: admin.full_name || '',
-    role: admin.role || '',
-    is_active: admin.is_active || true,
-  };
+    return {
+      id: admin.id,
+      email: admin.email,
+      username: admin.username || null,
+      full_name: admin.full_name || '',
+      role: admin.role || '',
+      is_active: admin.is_active || true,
+    };
   } catch (error) {
+    // Log error but don't throw - return null to indicate no admin
     const { logError } = await import('@/lib/error-handler');
-    logError(error as Error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    // Only log unexpected errors, not authentication failures
+    if (!errorMessage.includes('Unauthorized') && !errorMessage.includes('Invalid token')) {
+      logError(error as Error);
+    }
     return null;
   }
 }

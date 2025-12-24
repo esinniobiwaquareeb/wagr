@@ -3,6 +3,7 @@ import { nestjsServerFetch } from '@/lib/nestjs-server';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 import { logError } from '@/lib/error-handler';
 import { cookies } from 'next/headers';
+import { getCurrentAdmin } from '@/lib/auth/server';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,7 +15,15 @@ export async function GET(request: NextRequest) {
       return successResponseNext({ admin: null });
     }
 
-    // Call NestJS backend to get current admin
+    // Verify admin access using server-side auth (this ensures token is valid admin token)
+    const admin = await getCurrentAdmin();
+    
+    if (!admin) {
+      // Token exists but is not a valid admin token
+      return successResponseNext({ admin: null });
+    }
+
+    // Call NestJS backend to get current admin (double-check with backend)
     const response = await nestjsServerFetch<{
       admin: {
         id: string;
@@ -40,6 +49,13 @@ export async function GET(request: NextRequest) {
       admin: response.data.admin,
     });
   } catch (error) {
+    // Don't log auth errors - just return null admin
+    if (error instanceof Error && 
+        (error.message.includes('Unauthorized') || 
+         error.message.includes('Forbidden') ||
+         error.message.includes('Admin access'))) {
+      return successResponseNext({ admin: null });
+    }
     logError(error as Error);
     return appErrorToResponse(error);
   }

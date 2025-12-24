@@ -14,18 +14,29 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAdmin();
-    const { id } = await params;
-    const body = await request.json();
-    
-    // Get token from cookies
+    // Get token from cookies first
     const cookieStore = await cookies();
     const token = cookieStore.get('auth_token')?.value || null;
 
     if (!token) {
-      throw new Error('Authentication required');
+      return appErrorToResponse(new Error('Authentication required. Please log in as admin.'));
     }
 
+    // Verify admin access
+    try {
+      await requireAdmin();
+    } catch (adminError: any) {
+      // Provide more specific error message
+      const errorMessage = adminError?.message || 'Admin access required';
+      if (errorMessage.includes('Forbidden') || errorMessage.includes('Admin access')) {
+        return appErrorToResponse(new Error('Admin authentication failed. Please ensure you are logged in as an admin and your session is valid.'));
+      }
+      throw adminError;
+    }
+
+    const { id } = await params;
+    const body = await request.json();
+    
     // Call NestJS backend to resolve wager
     const response = await nestjsServerFetch<{ message: string }>(`/admin/wagers/${id}/resolve`, {
       method: 'POST',
