@@ -253,21 +253,24 @@ export default function WagerDetail() {
     return true;
   }, [wager, isWithinCutoff]);
 
-  // Check if user is the creator
+  // Check if user is the creator (using string comparison to handle UUID/string mismatches)
   const isCreator = useMemo(() => {
-    return user && wager && wager.creator_id === user.id;
+    if (!user || !wager || !user.id || !wager.creator_id) return false;
+    // Normalize both IDs to strings for comparison
+    const creatorId = String(wager.creator_id).trim();
+    const userId = String(user.id).trim();
+    return creatorId === userId;
   }, [user, wager]);
 
   // Creator can resolve when:
   // - They are the creator
   // - Wager is OPEN
-  // - Deadline has passed
-  // - No winning_side set yet
+  // - Winning side may or may not be set (creators can set it or settle if already set)
+  // Note: Creators can resolve regardless of deadline (unlike regular users)
   const canCreatorResolve = useMemo(() => {
     if (!wager || !isCreator) return false;
     if (wager.status !== "OPEN") return false;
-    if (!isDeadlineElapsed(wager.deadline)) return false;
-    if (wager.winning_side) return false;
+    // Creators can always resolve OPEN wagers (set winning side or settle if already set)
     return true;
   }, [wager, isCreator]);
 
@@ -779,12 +782,19 @@ export default function WagerDetail() {
   const handleResolve = () => {
     if (!canCreatorResolve) {
       toast({
-        title: "Cannot resolve yet",
-        description: "You can only resolve this wager after the deadline, while it is still open and without a winning side set.",
+        title: "Cannot resolve",
+        description: "You can only resolve this wager while it is still open.",
         variant: "destructive",
       });
       return;
     }
+    
+    // If winning side is already set, settle directly without showing dialog
+    if (wager?.winning_side && wager.winning_side.trim() !== "") {
+      confirmResolve(wager.winning_side.toLowerCase() as "a" | "b");
+      return;
+    }
+    
     setShowResolveDialog(true);
   };
 
@@ -804,10 +814,17 @@ export default function WagerDetail() {
         throw new Error(data?.error?.message || data?.message || 'Failed to resolve wager');
       }
 
+      const data = await response.json();
+      
       toast({
         title: "Wager resolved",
-        description: `You set "${winningSide === "a" ? wager.side_a : wager.side_b}" as the winning side. Settlements will run shortly.`,
+        description: data.message || data.data?.message || `You set "${winningSide === "a" ? wager.side_a : wager.side_b}" as the winning side. Settlements will run shortly.`,
       });
+
+      // Dispatch balance update event if settlement happened immediately
+      if (data.message?.includes('settled') || data.data?.message?.includes('settled')) {
+        window.dispatchEvent(new CustomEvent('balance-updated'));
+      }
 
       window.dispatchEvent(new CustomEvent('wager-updated'));
       await fetchWager(true);
@@ -1116,20 +1133,52 @@ export default function WagerDetail() {
         onConfirm={handleChangeSide}
       />
 
-      <ConfirmDialog
-        open={showResolveDialog}
-        onOpenChange={setShowResolveDialog}
-        title="Resolve Wager"
-        description={
-          wager
-            ? `Which side won "${wager.title}"? This will mark the wager as resolved and trigger settlement.`
-            : "Select the winning side for this wager."
-        }
-        confirmText={wager && selectedSide ? `Set ${selectedSide === "a" ? wager.side_a : wager.side_b} as Winner` : "Set Winner"}
-        cancelText="Cancel"
-        // We reuse selectedSide for the resolve action; default to side A if none chosen
-        onConfirm={() => confirmResolve(selectedSide || "a")}
-      />
+      {/* Resolve Dialog with Side Selection */}
+      {showResolveDialog && wager && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-card border border-border rounded-lg p-4 md:p-6 max-w-md w-full mx-4">
+            <h2 className="text-xl md:text-2xl font-bold mb-4">Resolve Wager</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Which side won "{wager.title}"? This will mark the wager as resolved and trigger settlement.
+            </p>
+            
+            <div className="space-y-3 mb-6">
+              <button
+                onClick={() => {
+                  setSelectedSide("a");
+                  confirmResolve("a");
+                }}
+                className="w-full p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-primary/5 transition text-left"
+              >
+                <div className="font-semibold text-lg mb-1">Side A</div>
+                <div className="text-sm text-muted-foreground">{wager.side_a}</div>
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedSide("b");
+                  confirmResolve("b");
+                }}
+                className="w-full p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-primary/5 transition text-left"
+              >
+                <div className="font-semibold text-lg mb-1">Side B</div>
+                <div className="text-sm text-muted-foreground">{wager.side_b}</div>
+              </button>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowResolveDialog(false);
+                  setSelectedSide(null);
+                }}
+                className="flex-1 px-4 py-2 text-sm border border-input rounded-lg hover:bg-muted transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Dialog */}
       {showEditDialog && (
@@ -1258,11 +1307,16 @@ export default function WagerDetail() {
               <BackButton fallbackHref="/wagers" />
               <h1 className="text-lg md:text-2xl font-bold flex-1 break-words">{wager.title}</h1>
               {/* Creator Actions */}
-              {user && wager.creator_id === user.id && (
+              {isCreator && (
                 <>
                   {/* Edit/Delete while open, before deadline, and no other participants */}
                   {wager.status === "OPEN" &&
-                    entries.filter(e => e.user_id !== user.id).length === 0 &&
+                    user &&
+                    entries.filter(e => {
+                      const entryUserId = String(e.user_id).trim();
+                      const currentUserId = String(user.id).trim();
+                      return entryUserId !== currentUserId;
+                    }).length === 0 &&
                     !isDeadlineElapsed(wager.deadline) && (
                       <>
                         <button
@@ -1286,7 +1340,7 @@ export default function WagerDetail() {
                       </>
                     )}
 
-                  {/* Resolve button after deadline for creators */}
+                  {/* Resolve button for creators - can resolve regardless of deadline */}
                   {canCreatorResolve && (
                     <button
                       onClick={handleResolve}
@@ -1299,6 +1353,7 @@ export default function WagerDetail() {
                   )}
                 </>
               )}
+
               {wager.is_system_generated ? (
                 <div className="flex items-center gap-1 px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 flex-shrink-0">
                   <Sparkles className="h-3.5 w-3.5 md:h-4 md:w-4" />
