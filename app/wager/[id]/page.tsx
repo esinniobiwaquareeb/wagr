@@ -85,6 +85,7 @@ export default function WagerDetail() {
   const fetchingRef = useRef(false);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const fetchWagerRef = useRef<((force?: boolean) => Promise<void>) | null>(null);
+  const joiningRef = useRef(false);
 
   const fetchWager = useCallback(async (force = false) => {
     // Prevent concurrent fetches
@@ -425,10 +426,23 @@ export default function WagerDetail() {
   };
 
   const confirmJoin = async () => {
-    if (!selectedSide || !wager || !user) return;
+    if (!selectedSide || !wager || !user) {
+      logger.warn("confirmJoin: Missing required data", { selectedSide, wager: !!wager, user: !!user });
+      return;
+    }
 
+    // Prevent multiple simultaneous requests using ref (more reliable than state)
+    if (joiningRef.current) {
+      logger.warn("confirmJoin: Already joining, skipping duplicate request");
+      return;
+    }
+
+    joiningRef.current = true;
     setJoining(true);
+    
     try {
+      logger.info("confirmJoin: Starting join process", { wagerId: wager.id, side: selectedSide });
+      
       // Check if wager is still open
       if (wager.status !== "OPEN") {
         toast({
@@ -436,7 +450,6 @@ export default function WagerDetail() {
           description: "Bets are no longer being accepted for this wager.",
           variant: "destructive",
         });
-        setJoining(false);
         setShowJoinDialog(false);
         return;
       }
@@ -448,7 +461,6 @@ export default function WagerDetail() {
           description: "The deadline for this wager has already passed.",
           variant: "destructive",
         });
-        setJoining(false);
         setShowJoinDialog(false);
         return;
       }
@@ -461,11 +473,12 @@ export default function WagerDetail() {
           description: "You cannot place bets within 20 seconds of the deadline.",
           variant: "destructive",
         });
-        setJoining(false);
         setShowJoinDialog(false);
         return;
       }
 
+      logger.info("confirmJoin: Making API request", { url: `/api/wagers/${wager.id}/join`, side: selectedSide });
+      
       // Join wager via API route (proxies to NestJS backend)
       const response = await fetch(`/api/wagers/${wager.id}/join`, {
         method: 'POST',
@@ -474,10 +487,16 @@ export default function WagerDetail() {
         body: JSON.stringify({ side: selectedSide }),
       });
 
+      logger.info("confirmJoin: API response received", { ok: response.ok, status: response.status });
+
       if (!response.ok) {
         const data = await response.json();
+        logger.error("confirmJoin: API error", { status: response.status, data });
         throw new Error(data.error?.message || data.message || 'Failed to join wager');
       }
+
+      const responseData = await response.json();
+      logger.info("confirmJoin: Join successful", { data: responseData });
 
       trackABTestEvent(AB_TESTS.BUTTON_STYLE, buttonVariant, 'wager_joined', {
         wager_id: wager.id,
@@ -518,6 +537,8 @@ export default function WagerDetail() {
       });
     } finally {
       setJoining(false);
+      joiningRef.current = false;
+      logger.info("confirmJoin: Completed, ref reset");
     }
   };
 

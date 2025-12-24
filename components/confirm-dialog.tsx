@@ -18,7 +18,7 @@ interface ConfirmDialogProps {
   confirmText?: string;
   cancelText?: string;
   variant?: "default" | "destructive";
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
 }
 
 export function ConfirmDialog({
@@ -31,9 +31,20 @@ export function ConfirmDialog({
   variant = "default",
   onConfirm,
 }: ConfirmDialogProps) {
-  const handleConfirm = () => {
-    onConfirm();
-    onOpenChange(false);
+  const handleConfirm = async () => {
+    try {
+      // Call onConfirm - if it's async, wait for it
+      const result = onConfirm();
+      // If it returns a promise, wait for it before closing
+      if (result instanceof Promise) {
+        await result;
+      }
+      // Close dialog after successful confirmation
+      onOpenChange(false);
+    } catch (error) {
+      // Don't close dialog on error - let the handler show error message
+      // The error will be handled by the onConfirm function
+    }
   };
 
   return (
