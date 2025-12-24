@@ -692,7 +692,7 @@ function TopNavContent() {
                       <DropdownMenuItem asChild>
                         <Link href="/activity" className="flex items-center gap-2 cursor-pointer">
                           <Activity className="h-4 w-4" />
-                          <span>Activity</span>
+                          <span>Platform Activity</span>
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
@@ -710,7 +710,14 @@ function TopNavContent() {
                       <DropdownMenuItem asChild>
                         <Link href="/history" className="flex items-center gap-2 cursor-pointer">
                           <History className="h-4 w-4" />
-                          <span>History</span>
+                          <span>Wager History</span>
+                        </Link>
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem asChild>
+                        <Link href="/wallet/transactions" className="flex items-center gap-2 cursor-pointer">
+                          <History className="h-4 w-4" />
+                          <span>Transaction History</span>
                         </Link>
                       </DropdownMenuItem>
                       
@@ -944,7 +951,7 @@ function TopNavContent() {
                     }`}
                   >
                     <Activity className="h-4 w-4 flex-shrink-0" />
-                    <span>Activity</span>
+                    <span>Platform Activity</span>
                   </Link>
                   <Link
                     href="/quizzes"
