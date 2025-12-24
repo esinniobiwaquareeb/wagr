@@ -130,48 +130,17 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
         }
       }
 
-      // Resolve the wager via API
+      // Resolve the wager via API (calls NestJS backend)
       const { apiPost } = await import('@/lib/api-client');
-      const resolveResponse = await apiPost<{ wager: any }>(`/admin/wagers/${wagerId}/resolve`, {
-        winning_side: winningSide,
+      const resolveResponse = await apiPost<{ message: string }>(`/admin/wagers/${wagerId}/resolve`, {
+        winningSide: winningSide,
       });
 
-      if (!resolveResponse.wager) {
-        throw new Error("Failed to resolve wager");
-      }
-
-      // Wait a moment for the settlement to complete
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Verify the wager status was updated
-      try {
-        const { apiGet } = await import('@/lib/api-client');
-        const checkResponse = await apiGet<{ wager: any }>(`/admin/wagers/${wagerId}`);
-        const updatedWager = checkResponse.wager;
-
-        if (updatedWager?.status === "SETTLED" || updatedWager?.status === "RESOLVED") {
-          toast({
-            title: "Wager resolved",
-            description: "Wager has been resolved and settled. Winnings have been distributed to participants.",
-          });
-        } else if (updatedWager?.winning_side === winningSide) {
-          toast({
-            title: "Winning side set",
-            description: "Winning side has been set. Settlement will be processed automatically on the next cron run.",
-            variant: "default",
-          });
-        } else {
-          logger.warn("Unexpected wager state after settlement attempt", { wager: updatedWager });
-          toast({
-            title: "Winning side set",
-            description: "Winning side has been set. Please verify the wager status.",
-            variant: "default",
-          });
-        }
-      } catch (checkError: any) {
-        logger.error("Exception during status check", checkError);
-        // Wager was resolved, but status check failed - that's okay
-      }
+      // Show success message from backend response
+      toast({
+        title: "Wager resolved",
+        description: resolveResponse.message || "Wager has been resolved successfully.",
+      });
 
       // Refresh wager details
       await loadDetails(wagerId);
