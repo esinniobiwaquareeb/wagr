@@ -33,6 +33,7 @@ export async function GET(
     // NestJS returns { success: true, data: { activities } }
     const activities = response.data?.activities || (response.data as any)?.activities || [];
 
+    // Return activities in the format expected by frontend
     return successResponseNext({
       activities,
     });

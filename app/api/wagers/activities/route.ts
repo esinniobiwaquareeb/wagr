@@ -24,16 +24,18 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.success) {
-      return successResponseNext({ activities: [] });
+      return successResponseNext([], { total: 0, page: 1, limit });
     }
 
     // NestJS returns { success: true, data: [...], meta: {...} }
     const activities = Array.isArray(response.data) ? response.data : [];
-    const meta = (response as any).meta;
+    const meta = (response as any).meta || {};
 
-    return successResponseNext({
-      activities,
-      meta,
+    // Return activities as array directly (not wrapped in object) to match frontend expectation
+    return successResponseNext(activities, {
+      page: meta.page || page,
+      limit: meta.limit || limit,
+      total: meta.total || 0,
     });
   } catch (error) {
     logError(error as Error);

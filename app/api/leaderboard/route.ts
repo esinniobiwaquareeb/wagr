@@ -52,7 +52,15 @@ export async function GET(request: NextRequest) {
       throw new Error(response.error?.message || 'Failed to fetch leaderboard');
     }
 
-    return successResponseNext(response.data, response.data.meta);
+    // Backend returns { success: true, data: { leaderboard: [...], meta: {...} } }
+    // Frontend expects { success: true, data: { leaderboard: [...] }, meta: {...} }
+    const leaderboardData = response.data.leaderboard || [];
+    const meta = response.data.meta || {};
+
+    return successResponseNext(
+      { leaderboard: leaderboardData },
+      meta
+    );
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);
