@@ -177,13 +177,17 @@ export default function QuizDetailPage() {
     } catch (error) {
       logger.error('Error fetching responses', error);
       // Don't show error toast if results aren't available yet or if quiz is in progress
+      // Also mark as fetched to prevent infinite retries
       if (
         error instanceof Error && 
-        !/not available/i.test(error.message) && 
-        !/after the quiz ends/i.test(error.message) &&
-        !/must complete/i.test(error.message) &&
-        !/must start/i.test(error.message)
+        (/not available/i.test(error.message) || 
+         /after the quiz ends/i.test(error.message) ||
+         /must complete/i.test(error.message) ||
+         /must start/i.test(error.message))
       ) {
+        // Mark as fetched to prevent infinite retries for expected errors
+        fetchedResponsesRef.current = true;
+      } else if (error instanceof Error) {
         toast({
           title: "Error",
           description: error.message,
