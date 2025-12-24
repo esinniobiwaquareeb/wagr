@@ -31,8 +31,12 @@ export async function GET(request: NextRequest) {
         hasData: !!response.data,
         dataType: typeof response.data,
         isArray: Array.isArray(response.data),
-        dataKeys: response.data && typeof response.data === 'object' ? Object.keys(response.data) : [],
+        dataLength: Array.isArray(response.data) ? response.data.length : 'N/A',
+        dataKeys: response.data && typeof response.data === 'object' && !Array.isArray(response.data) ? Object.keys(response.data) : [],
+        hasMeta: !!(response as any).meta,
+        metaKeys: (response as any).meta ? Object.keys((response as any).meta) : [],
         error: response.error,
+        fullResponse: JSON.stringify(response).substring(0, 1000),
       });
     }
 
@@ -49,13 +53,15 @@ export async function GET(request: NextRequest) {
     }
 
     // NestJS backend returns: { success: true, data: [...], meta: {...} }
-    // nestjsServerFetch returns the response as-is, so response.data is the activities array
+    // nestjsServerFetch returns the response as-is, so:
+    // - response.data = the activities array
+    // - response.meta = the meta object (at top level)
     let activities: any[] = [];
     let meta: any = {};
 
     // Check response structure
     if (Array.isArray(response.data)) {
-      // Direct array: { success: true, data: [...] }
+      // Direct array: { success: true, data: [...], meta: {...} }
       activities = response.data;
       meta = (response as any).meta || {};
     } else if (response.data && typeof response.data === 'object') {
@@ -67,6 +73,16 @@ export async function GET(request: NextRequest) {
         activities = response.data.activities;
         meta = response.data.meta || {};
       }
+    }
+
+    // Log for debugging
+    if (process.env.NODE_ENV === 'development') {
+      const { logger } = await import('@/lib/logger');
+      logger.debug('Platform activities extracted', {
+        activitiesCount: activities.length,
+        hasMeta: !!meta,
+        metaKeys: meta ? Object.keys(meta) : [],
+      });
     }
 
     // Return activities as array directly (not wrapped in object) to match frontend expectation
