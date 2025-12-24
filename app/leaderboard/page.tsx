@@ -17,11 +17,14 @@ import {
 
 interface LeaderboardUser {
   id: string;
-  username: string;
-  total_wagers: number;
-  wins: number;
-  win_rate: number;
-  total_winnings: number;
+  username: string | null;
+  avatar_url: string | null;
+  total_wagers?: number;
+  wins?: number;
+  losses?: number;
+  win_rate?: number;
+  total_winnings?: number;
+  balance?: number;
   rank: number;
 }
 
@@ -29,7 +32,7 @@ export default function Leaderboard() {
   const [users, setUsers] = useState<LeaderboardUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<"wins" | "win_rate" | "winnings">("wins");
+  const [sortBy, setSortBy] = useState<"balance" | "wins" | "win_rate" | "winnings">("wins");
   const { toast } = useToast();
 
   const fetchLeaderboard = useCallback(async () => {
@@ -37,16 +40,19 @@ export default function Leaderboard() {
       setLoading(true);
       setError(null);
       
-      const type = sortBy === "wins" ? "wins" : sortBy === "win_rate" ? "win_rate" : "winnings";
+      const type = sortBy;
       const response = await leaderboardApi.get({ type, limit: 100 });
       
       const leaderboardData: LeaderboardUser[] = (response.leaderboard || []).map((item: any) => ({
-        id: item.id,
-        username: item.username,
+        id: item.id || item.user?.id,
+        username: item.username || item.user?.username || null,
+        avatar_url: item.avatar_url || item.user?.avatar_url || null,
         total_wagers: item.total_wagers,
         wins: item.wins,
+        losses: item.losses,
         win_rate: item.win_rate,
         total_winnings: item.total_winnings,
+        balance: item.balance,
         rank: item.rank,
       }));
 
@@ -106,13 +112,14 @@ export default function Leaderboard() {
             <div className="flex items-center gap-2 md:gap-3">
               <h1 className="text-xl md:text-3xl lg:text-4xl font-bold">Leaderboard</h1>
             </div>
-            <Select value={sortBy} onValueChange={(value) => setSortBy(value as "wins" | "win_rate" | "winnings")}>
+            <Select value={sortBy} onValueChange={(value) => setSortBy(value as "balance" | "wins" | "win_rate" | "winnings")}>
               <SelectTrigger className="w-[140px] md:w-[180px]">
                 <SelectValue>
-                  {sortBy === "wins" ? "Most Wins" : sortBy === "win_rate" ? "Best Win Rate" : "Total Winnings"}
+                  {sortBy === "balance" ? "Balance" : sortBy === "wins" ? "Most Wins" : sortBy === "win_rate" ? "Best Win Rate" : "Total Winnings"}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="balance">Balance</SelectItem>
                 <SelectItem value="wins">Most Wins</SelectItem>
                 <SelectItem value="win_rate">Best Win Rate</SelectItem>
                 <SelectItem value="winnings">Total Winnings</SelectItem>
@@ -155,38 +162,54 @@ export default function Leaderboard() {
                     </h3>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-[10px]">
-                    <div className="flex items-center gap-1">
-                      <Trophy className="h-3 w-3 text-yellow-500" />
-                      <div>
-                        <div className="text-muted-foreground">Wins</div>
-                        <div className="font-bold text-foreground">{user.wins}</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Target className="h-3 w-3 text-primary" />
-                      <div>
-                        <div className="text-muted-foreground">Win Rate</div>
-                        <div className="font-bold text-foreground">
-                          {user.total_wagers > 0 ? `${user.win_rate.toFixed(1)}%` : "0%"}
+                    {sortBy === "balance" ? (
+                      <>
+                        <div className="flex items-center gap-1">
+                          <Zap className="h-3 w-3 text-green-500" />
+                          <div>
+                            <div className="text-muted-foreground">Balance</div>
+                            <div className="font-bold text-green-600 dark:text-green-400 text-xs">
+                              {formatCurrency(user.balance || 0, DEFAULT_CURRENCY as Currency)}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Zap className="h-3 w-3 text-green-500" />
-                      <div>
-                        <div className="text-muted-foreground">Winnings</div>
-                        <div className="font-bold text-green-600 dark:text-green-400 text-xs">
-                          {formatCurrency(user.total_winnings, DEFAULT_CURRENCY as Currency)}
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-1">
+                          <Trophy className="h-3 w-3 text-yellow-500" />
+                          <div>
+                            <div className="text-muted-foreground">Wins</div>
+                            <div className="font-bold text-foreground">{user.wins || 0}</div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Users className="h-3 w-3 text-blue-500" />
-                      <div>
-                        <div className="text-muted-foreground">Total Wagers</div>
-                        <div className="font-bold text-foreground">{user.total_wagers}</div>
-                      </div>
-                    </div>
+                        <div className="flex items-center gap-1">
+                          <Target className="h-3 w-3 text-primary" />
+                          <div>
+                            <div className="text-muted-foreground">Win Rate</div>
+                            <div className="font-bold text-foreground">
+                              {(user.total_wagers || 0) > 0 ? `${(user.win_rate || 0).toFixed(1)}%` : "0%"}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Zap className="h-3 w-3 text-green-500" />
+                          <div>
+                            <div className="text-muted-foreground">Winnings</div>
+                            <div className="font-bold text-green-600 dark:text-green-400 text-xs">
+                              {formatCurrency(user.total_winnings || 0, DEFAULT_CURRENCY as Currency)}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Users className="h-3 w-3 text-blue-500" />
+                          <div>
+                            <div className="text-muted-foreground">Total Wagers</div>
+                            <div className="font-bold text-foreground">{user.total_wagers || 0}</div>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -200,49 +223,64 @@ export default function Leaderboard() {
                   {/* Username */}
                   <div className="flex-shrink-0 w-48 lg:w-64">
                     <h3 className="font-semibold text-base lg:text-lg truncate">
-                      {user.username}
+                      {user.username || "Anonymous"}
                     </h3>
                   </div>
                   
-                  {/* Wins */}
-                  <div className="flex items-center gap-2 flex-shrink-0 w-24">
-                    <Trophy className="h-4 w-4 text-yellow-500" />
-                    <div>
-                      <div className="text-xs text-muted-foreground">Wins</div>
-                      <div className="font-bold text-foreground">{user.wins}</div>
-                    </div>
-                  </div>
-                  
-                  {/* Win Rate */}
-                  <div className="flex items-center gap-2 flex-shrink-0 w-28">
-                    <Target className="h-4 w-4 text-primary" />
-                    <div>
-                      <div className="text-xs text-muted-foreground">Win Rate</div>
-                      <div className="font-bold text-foreground">
-                        {user.total_wagers > 0 ? `${user.win_rate.toFixed(1)}%` : "0%"}
+                  {sortBy === "balance" ? (
+                    /* Balance */
+                    <div className="flex items-center gap-2 flex-shrink-0 w-32 lg:w-40">
+                      <Zap className="h-4 w-4 text-green-500" />
+                      <div>
+                        <div className="text-xs text-muted-foreground">Balance</div>
+                        <div className="font-bold text-green-600 dark:text-green-400 text-sm">
+                          {formatCurrency(user.balance || 0, DEFAULT_CURRENCY as Currency)}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  {/* Winnings */}
-                  <div className="flex items-center gap-2 flex-shrink-0 w-32 lg:w-40">
-                    <Zap className="h-4 w-4 text-green-500" />
-                    <div>
-                      <div className="text-xs text-muted-foreground">Winnings</div>
-                      <div className="font-bold text-green-600 dark:text-green-400 text-sm">
-                        {formatCurrency(user.total_winnings, DEFAULT_CURRENCY as Currency)}
+                  ) : (
+                    <>
+                      {/* Wins */}
+                      <div className="flex items-center gap-2 flex-shrink-0 w-24">
+                        <Trophy className="h-4 w-4 text-yellow-500" />
+                        <div>
+                          <div className="text-xs text-muted-foreground">Wins</div>
+                          <div className="font-bold text-foreground">{user.wins || 0}</div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                  
-                  {/* Total Wagers */}
-                  <div className="flex items-center gap-2 flex-shrink-0 w-28">
-                    <Users className="h-4 w-4 text-blue-500" />
-                    <div>
-                      <div className="text-xs text-muted-foreground">Wagers</div>
-                      <div className="font-bold text-foreground">{user.total_wagers}</div>
-                    </div>
-                  </div>
+                      
+                      {/* Win Rate */}
+                      <div className="flex items-center gap-2 flex-shrink-0 w-28">
+                        <Target className="h-4 w-4 text-primary" />
+                        <div>
+                          <div className="text-xs text-muted-foreground">Win Rate</div>
+                          <div className="font-bold text-foreground">
+                            {(user.total_wagers || 0) > 0 ? `${(user.win_rate || 0).toFixed(1)}%` : "0%"}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Winnings */}
+                      <div className="flex items-center gap-2 flex-shrink-0 w-32 lg:w-40">
+                        <Zap className="h-4 w-4 text-green-500" />
+                        <div>
+                          <div className="text-xs text-muted-foreground">Winnings</div>
+                          <div className="font-bold text-green-600 dark:text-green-400 text-sm">
+                            {formatCurrency(user.total_winnings || 0, DEFAULT_CURRENCY as Currency)}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Total Wagers */}
+                      <div className="flex items-center gap-2 flex-shrink-0 w-28">
+                        <Users className="h-4 w-4 text-blue-500" />
+                        <div>
+                          <div className="text-xs text-muted-foreground">Wagers</div>
+                          <div className="font-bold text-foreground">{user.total_wagers || 0}</div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             ))}
