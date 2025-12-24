@@ -31,7 +31,7 @@ function WagersPageContent() {
   const [userEntries, setUserEntries] = useState<Map<string, { amount: number; side: string }>>(new Map());
   const [preferredCategories, setPreferredCategories] = useState<string[] | null>(null);
   const [allCategories, setAllCategories] = useState<string[]>([]);
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -488,9 +488,15 @@ function WagersPageContent() {
                 {filteredWagers.length} {filteredWagers.length === 1 ? 'wager' : 'wagers'} available
               </p>
             </div>
-            {user && (
+            {!authLoading && (
               <button
-                onClick={() => setShowCreateModal(true)}
+                onClick={() => {
+                  if (!user) {
+                    setShowAuthModal(true);
+                  } else {
+                    setShowCreateModal(true);
+                  }
+                }}
                 className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 <span className="text-lg">+</span>
@@ -627,7 +633,7 @@ function WagersPageContent() {
               <p className="text-sm lg:text-base text-muted-foreground mb-6">
                 {searchQuery ? "Try a different search term" : "Be the first to create a market!"}
               </p>
-              {user && (
+              {!authLoading && user && (
                 <button
                   onClick={() => setShowCreateModal(true)}
                   className="inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-lg font-medium hover:opacity-90 transition-all active:scale-95 touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px] shadow-sm hover:shadow-md"

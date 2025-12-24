@@ -122,8 +122,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         const data = await response.json();
 
         if (!response.ok || !data.success) {
-          const { extractErrorFromResponse } = await import('@/lib/error-extractor');
-          const errorMessage = await extractErrorFromResponse(response, 'Registration failed, please try again.');
+          const { extractErrorMessage } = await import('@/lib/error-extractor');
+          // Use the already-parsed data object instead of trying to parse response again
+          const errorMessage = extractErrorMessage(data, 'Registration failed, please try again.');
           throw new Error(errorMessage);
         }
 
@@ -283,8 +284,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        const { extractErrorFromResponse } = await import('@/lib/error-extractor');
-        const errorMessage = await extractErrorFromResponse(response, 'Verification failed, please try again.');
+        const { extractErrorMessage } = await import('@/lib/error-extractor');
+        // Use the already-parsed data object instead of trying to parse response again
+        const errorMessage = extractErrorMessage(data, 'Verification failed, please try again.');
         throw new Error(errorMessage);
       }
 
