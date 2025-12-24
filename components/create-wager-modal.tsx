@@ -494,6 +494,11 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
         detail: { wager: newWager }
       }));
       
+      // Dispatch balance-updated event to refresh balance in top nav
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('balance-updated'));
+      }
+      
       // Close modal and notify parent to refresh wagers list
       onOpenChange(false);
       if (onSuccess) {

@@ -933,6 +933,11 @@ export default function WagerDetail() {
         description: "Your wager has been updated successfully.",
       });
 
+      // Dispatch balance-updated event to refresh balance in top nav
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('balance-updated'));
+      }
+
       // Refresh wager data
       await fetchWager(true);
       setShowEditDialog(false);

@@ -152,6 +152,10 @@ export function WagerCard({
       });
       // Trigger refresh event for parent component
       window.dispatchEvent(new Event('wager-updated'));
+      // Dispatch balance-updated event to refresh balance in top nav
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('balance-updated'));
+      }
     } catch (error: any) {
       const errorMessage = error?.message || "Failed to join wager. Please try again.";
       toast({
