@@ -420,9 +420,9 @@ function WagersPageContent() {
                 <span className="text-sm font-medium">Refreshing...</span>
               </>
             ) : (
-              <span className="text-sm font-medium">Pull to refresh</span>
+                <span className="text-sm font-medium">Pull to refresh</span>
             )}
-            </div>
+          </div>
         </div>
       )}
 
@@ -488,23 +488,21 @@ function WagersPageContent() {
                 {filteredWagers.length} {filteredWagers.length === 1 ? 'wager' : 'wagers'} available
               </p>
             </div>
-            {!authLoading && (
               <button
                 onClick={() => {
-                  if (!user) {
-                    setShowAuthModal(true);
-                  } else {
-                    setShowCreateModal(true);
-                  }
+                if (!user) {
+                  setShowAuthModal(true);
+                } else {
+                  setShowCreateModal(true);
+                }
                 }}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
-                <span className="text-lg">+</span>
-                <span>Create Market</span>
+              <span className="text-lg">+</span>
+              <span>Create Market</span>
               </button>
-            )}
-          </div>
-          
+        </div>
+
           {/* Sleek Tab Bar */}
           <div className="flex items-center gap-1 bg-muted/30 backdrop-blur-sm rounded-xl p-1 border border-border/50">
             <button
@@ -532,7 +530,7 @@ function WagersPageContent() {
               <Sparkles className="h-4 w-4" />
               <span>System</span>
               <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                activeTab === 'system' 
+                activeTab === 'system'
                   ? 'bg-primary/10 text-primary' 
                   : 'bg-muted text-muted-foreground'
               }`}>
@@ -553,7 +551,7 @@ function WagersPageContent() {
               <User className="h-4 w-4" />
               <span>Community</span>
               <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                activeTab === 'user' 
+                activeTab === 'user'
                   ? 'bg-primary/10 text-primary' 
                   : 'bg-muted text-muted-foreground'
               }`}>
@@ -574,7 +572,7 @@ function WagersPageContent() {
               <Clock className="h-4 w-4" />
               <span>Ended</span>
               <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                activeTab === 'expired' 
+                activeTab === 'expired'
                   ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400' 
                   : 'bg-muted text-muted-foreground'
               }`}>
@@ -595,7 +593,7 @@ function WagersPageContent() {
               <CheckCircle className="h-4 w-4" />
               <span>Settled</span>
               <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                activeTab === 'settled' 
+                activeTab === 'settled'
                   ? 'bg-green-500/10 text-green-600 dark:text-green-400' 
                   : 'bg-muted text-muted-foreground'
               }`}>
@@ -633,15 +631,19 @@ function WagersPageContent() {
               <p className="text-sm lg:text-base text-muted-foreground mb-6">
                 {searchQuery ? "Try a different search term" : "Be the first to create a market!"}
               </p>
-              {!authLoading && user && (
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-lg font-medium hover:opacity-90 transition-all active:scale-95 touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px] shadow-sm hover:shadow-md"
-                >
-                  <span className="text-lg">+</span>
-                  <span>Create Market</span>
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  if (!user) {
+                    setShowAuthModal(true);
+                  } else {
+                    setShowCreateModal(true);
+                  }
+                }}
+                className="inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-lg font-medium hover:opacity-90 transition-all active:scale-95 touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px] shadow-sm hover:shadow-md"
+              >
+                <span className="text-lg">+</span>
+                <span>Create Market</span>
+              </button>
             </div>
           </div>
         ) : (

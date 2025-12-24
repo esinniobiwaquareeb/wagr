@@ -95,14 +95,9 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthResult {
 
     // Listen for auth state changes
     const handleAuthStateChanged = () => {
-      // Only fetch if we have a user or haven't checked yet
-      // This prevents unnecessary API calls after logout
-      if (userRef.current !== null) {
-        fetchUserRef.current(true);
-      } else {
-        // If user is already null, just ensure loading is false
-        setLoading(false);
-      }
+      // Always fetch user when auth state changes (e.g., after login)
+      // This ensures the user is loaded immediately after login
+      fetchUserRef.current(true);
     };
 
     if (typeof window !== 'undefined') {
