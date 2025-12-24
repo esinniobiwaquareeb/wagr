@@ -141,9 +141,10 @@ export default function WagerDetail() {
       if (allEntries.length > 0) {
         setEntries(allEntries);
         
-        // Use entryCounts from backend response
-        const entryCounts = wagerData.entryCounts || { sideA: 0, sideB: 0, total: 0 };
-        setSideCount({ a: entryCounts.sideA, b: entryCounts.sideB });
+        // Calculate side counts from entries (count of participants, not totals)
+        const sideACount = allEntries.filter((e: Entry) => e.side === "a").length;
+        const sideBCount = allEntries.filter((e: Entry) => e.side === "b").length;
+        setSideCount({ a: sideACount, b: sideBCount });
         
         // Calculate actual amounts wagered on each side
         const sideATotal = allEntries
@@ -1061,7 +1062,8 @@ export default function WagerDetail() {
     );
   }
 
-  const totalParticipants = sideCount.a + sideCount.b;
+  // Calculate total participants from entries count (not from sideCount which might be totals)
+  const totalParticipants = entries.length;
   const sideAPercentage = totalParticipants > 0 ? (sideCount.a / totalParticipants) * 100 : 50;
   const sideBPercentage = totalParticipants > 0 ? (sideCount.b / totalParticipants) * 100 : 50;
   
