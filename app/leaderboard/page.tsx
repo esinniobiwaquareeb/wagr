@@ -81,6 +81,20 @@ export default function Leaderboard() {
     return <span className="text-muted-foreground font-bold">#{rank}</span>;
   };
 
+  const maskUsername = (username: string | null): string => {
+    if (!username) return "Anonymous";
+    
+    // If username is 3 characters or less, show first character only
+    if (username.length <= 3) {
+      return username[0] + "**";
+    }
+    
+    // Show first 2 characters and mask the rest
+    const visibleChars = Math.min(2, Math.floor(username.length / 3));
+    const maskedChars = "*".repeat(Math.max(3, username.length - visibleChars));
+    return username.substring(0, visibleChars) + maskedChars;
+  };
+
   if (loading) {
     return (
       <main className="flex-1 pb-24 md:pb-0">
@@ -158,7 +172,7 @@ export default function Leaderboard() {
                       {getRankIcon(user.rank)}
                     </div>
                     <h3 className="font-semibold text-sm truncate">
-                      {user.username}
+                      {maskUsername(user.username)}
                     </h3>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-[10px]">
@@ -223,7 +237,7 @@ export default function Leaderboard() {
                   {/* Username */}
                   <div className="flex-shrink-0 w-48 lg:w-64">
                     <h3 className="font-semibold text-base lg:text-lg truncate">
-                      {user.username || "Anonymous"}
+                      {maskUsername(user.username)}
                     </h3>
                   </div>
                   
