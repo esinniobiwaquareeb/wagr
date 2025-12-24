@@ -38,7 +38,7 @@ export async function POST(
     const body = await request.json();
     
     // Call NestJS backend to resolve wager
-    const response = await nestjsServerFetch<{ message: string }>(`/admin/wagers/${id}/resolve`, {
+    const response = await nestjsServerFetch<{ success: boolean; message: string }>(`/admin/wagers/${id}/resolve`, {
       method: 'POST',
       token,
       requireAuth: true,
@@ -49,8 +49,13 @@ export async function POST(
       throw new Error(response.error?.message || 'Failed to resolve wager');
     }
 
+    // NestJS backend returns { success: true, message: '...' } directly
+    // nestjsServerFetch wraps it in data, so response.data is { success: true, message: '...' }
+    const backendResponse = response.data as { success?: boolean; message?: string };
+    const message = backendResponse?.message || response.data?.message || 'Winning side set. The wager will be automatically settled by the system when the deadline passes.';
+
     return successResponseNext({
-      message: response.data?.message || 'Winning side set. The wager will be automatically settled by the system when the deadline passes.',
+      message,
     });
   } catch (error) {
     logError(error as Error);
