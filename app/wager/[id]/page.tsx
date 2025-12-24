@@ -487,7 +487,16 @@ export default function WagerDetail() {
       });
       
       // Dispatch events to update UI
-      window.dispatchEvent(new CustomEvent('balance-updated'));
+      // Dispatch balance-updated event to refresh balance in top nav
+      // Add a small delay to ensure database transaction is committed
+      if (typeof window !== 'undefined') {
+        // Dispatch immediately
+        window.dispatchEvent(new CustomEvent('balance-updated'));
+        // Also dispatch after a short delay to ensure transaction is committed
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('balance-updated'));
+        }, 300);
+      }
       window.dispatchEvent(new CustomEvent('wager-updated'));
       
       // Refresh wager data
