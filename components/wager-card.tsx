@@ -326,7 +326,7 @@ export function WagerCard({
         {/* Sides - Responsive design with quick wager buttons */}
         <div className="grid grid-cols-2 gap-2 sm:gap-1.5 mb-2 sm:mb-1.5 flex-shrink-0">
           {isOpen && !userParticipated && user ? (
-            // Quick wager buttons for open wagers - Touch-friendly on mobile
+            // Quick wager buttons for authenticated users - Touch-friendly on mobile
             <>
               {/* Side A (Yes) - Blue with Check icon */}
               <button
@@ -375,8 +375,24 @@ export function WagerCard({
                 )}
               </button>
             </>
+          ) : isOpen && !user ? (
+            // Display for unauthenticated users viewing open wagers - Show sides clearly
+            <div className="grid grid-cols-2 gap-1.5 sm:gap-1 bg-muted/20 rounded-md p-2 sm:p-1.5 col-span-2">
+              <div className="text-center relative rounded p-1.5 sm:p-1 bg-blue-500/5 border border-blue-500/20">
+                <div className="flex items-center justify-center gap-1 sm:gap-0.5 mb-0.5">
+                  <Check className="h-3 w-3 sm:h-2.5 sm:w-2.5 text-blue-600 dark:text-blue-400 flex-shrink-0" strokeWidth={3} />
+                </div>
+                <p className="font-semibold text-xs sm:text-[10px] text-blue-600 dark:text-blue-400 truncate">{sideA}</p>
+              </div>
+              <div className="text-center border-l border-border relative rounded p-1.5 sm:p-1 bg-orange-500/5 border border-orange-500/20 ml-[-1px]">
+                <div className="flex items-center justify-center gap-1 sm:gap-0.5 mb-0.5">
+                  <X className="h-3 w-3 sm:h-2.5 sm:w-2.5 text-orange-600 dark:text-orange-400 flex-shrink-0" strokeWidth={3} />
+                </div>
+                <p className="font-semibold text-xs sm:text-[10px] text-orange-600 dark:text-orange-400 truncate">{sideB}</p>
+              </div>
+            </div>
           ) : (
-            // Display only for settled/resolved or if user already participated
+            // Display for settled/resolved or if user already participated
             <div className="grid grid-cols-2 gap-1.5 sm:gap-1 bg-muted/30 rounded-md p-2 sm:p-1.5 col-span-2">
               <div className={`text-center relative rounded p-1.5 sm:p-1 transition-all ${
                 sideAWon 
