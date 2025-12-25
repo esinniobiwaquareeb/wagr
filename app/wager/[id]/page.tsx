@@ -1337,30 +1337,31 @@ export default function WagerDetail() {
       <div className="max-w-7xl mx-auto px-3 md:px-6 py-3 md:py-4">
         {/* Header Section - Mobile Optimized */}
         <div className="mb-4 md:mb-6">
-          {/* Back Button - Own Row */}
-          <div className="mb-3 md:mb-4">
-            <BackButton fallbackHref="/wagers" />
-          </div>
+          {/* Top Row: Back Button (left) + Badges & Actions (right) */}
+          <div className="flex items-center justify-between gap-2 md:gap-3 mb-3 md:mb-4 flex-wrap">
+            {/* Back Button - Left */}
+            <div className="flex-shrink-0">
+              <BackButton fallbackHref="/wagers" />
+            </div>
 
-          {/* Title Row */}
-          <div className="mb-3 md:mb-4">
-            <h1 className="text-xl md:text-2xl lg:text-3xl font-bold leading-tight break-words mb-2 md:mb-3">{wager.title}</h1>
-            
-            {/* Status & Type Badges */}
-            <div className="flex flex-wrap items-center gap-2">
+            {/* Badges & Action Buttons - Right */}
+            <div className="flex items-center gap-1.5 md:gap-2 flex-wrap justify-end flex-1 min-w-0">
+              {/* Type Badge (Auto/User) */}
               {wager.is_system_generated ? (
-                <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 text-primary border border-primary/20">
+                <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 text-primary border border-primary/20 flex-shrink-0">
                   <Sparkles className="h-3.5 w-3.5" />
                   <span className="text-[10px] font-medium">Auto</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-muted text-muted-foreground">
+                <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-muted text-muted-foreground flex-shrink-0">
                   <User className="h-3.5 w-3.5" />
                   <span className="text-[10px] font-medium">User</span>
                 </div>
               )}
+
+              {/* Status Badge */}
               <span
-                className={`text-[10px] px-2.5 py-1 rounded-full font-semibold ${
+                className={`text-[10px] px-2.5 py-1 rounded-full font-semibold flex-shrink-0 ${
                   wager.status === "OPEN"
                     ? "bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/30"
                     : wager.status === "RESOLVED" || wager.status === "SETTLED"
@@ -1370,83 +1371,85 @@ export default function WagerDetail() {
               >
                 {wager.status === "SETTLED" ? "Settled" : wager.status === "RESOLVED" ? "Resolved" : wager.status}
               </span>
+
+              {/* Share & Invite buttons - only available before deadline */}
+              {wager && !isDeadlineElapsed(wager.deadline) && (
+                <>
+                  <button
+                    onClick={handleShare}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-muted hover:bg-muted/80 text-foreground border border-border transition active:scale-[0.98] touch-manipulation text-xs font-medium flex-shrink-0"
+                    title="Copy wager link"
+                  >
+                    <Share2 className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Share</span>
+                  </button>
+                  {user && isCreator && (
+                    <button
+                      onClick={() => setShowInviteDialog(true)}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition active:scale-[0.98] touch-manipulation text-xs font-medium flex-shrink-0"
+                      title="Invite people to wager"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Invite</span>
+                    </button>
+                  )}
+                </>
+              )}
+
+              {/* Creator Actions */}
+              {isCreator && (
+                <>
+                  {/* Edit/Delete while open, before deadline, and no other participants */}
+                  {wager.status === "OPEN" &&
+                    user &&
+                    entries.filter(e => {
+                      const entryUserId = String(e.user_id).trim();
+                      const currentUserId = String(user.id).trim();
+                      return entryUserId !== currentUserId;
+                    }).length === 0 &&
+                    !isDeadlineElapsed(wager.deadline) && (
+                      <>
+                        <button
+                          onClick={handleEdit}
+                          disabled={editing}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition active:scale-[0.98] touch-manipulation disabled:opacity-50 text-xs font-medium flex-shrink-0"
+                          title="Edit wager"
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">Edit</span>
+                        </button>
+                        <button
+                          onClick={handleDelete}
+                          disabled={deleting}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 transition active:scale-[0.98] touch-manipulation disabled:opacity-50 text-xs font-medium flex-shrink-0"
+                          title="Delete wager"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">Delete</span>
+                        </button>
+                      </>
+                    )}
+
+                  {/* Resolve button for creators */}
+                  {canCreatorResolve && (
+                    <button
+                      onClick={handleResolve}
+                      disabled={resolving}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-400 border border-blue-500/30 transition active:scale-[0.98] touch-manipulation text-xs font-medium disabled:opacity-50 flex-shrink-0"
+                      title="Resolve wager"
+                    >
+                      <Trophy className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Resolve</span>
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           </div>
 
-          {/* Action Buttons Row - Mobile: Compact, Desktop: Full */}
-          <div className="flex flex-wrap items-center gap-2 mb-3 md:mb-4">
-            {/* Creator Actions */}
-            {isCreator && (
-              <>
-                {/* Edit/Delete while open, before deadline, and no other participants */}
-                {wager.status === "OPEN" &&
-                  user &&
-                  entries.filter(e => {
-                    const entryUserId = String(e.user_id).trim();
-                    const currentUserId = String(user.id).trim();
-                    return entryUserId !== currentUserId;
-                  }).length === 0 &&
-                  !isDeadlineElapsed(wager.deadline) && (
-                    <>
-                      <button
-                        onClick={handleEdit}
-                        disabled={editing}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition active:scale-[0.98] touch-manipulation disabled:opacity-50 text-xs font-medium"
-                        title="Edit wager"
-                      >
-                        <Edit2 className="h-3.5 w-3.5" />
-                        <span>Edit</span>
-                      </button>
-                      <button
-                        onClick={handleDelete}
-                        disabled={deleting}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 transition active:scale-[0.98] touch-manipulation disabled:opacity-50 text-xs font-medium"
-                        title="Delete wager"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        <span>Delete</span>
-                      </button>
-                    </>
-                  )}
-
-                {/* Resolve button for creators */}
-                {canCreatorResolve && (
-                  <button
-                    onClick={handleResolve}
-                    disabled={resolving}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-400 border border-blue-500/30 transition active:scale-[0.98] touch-manipulation text-xs font-medium disabled:opacity-50"
-                    title="Resolve wager"
-                  >
-                    <Trophy className="h-3.5 w-3.5" />
-                    <span>Resolve</span>
-                  </button>
-                )}
-              </>
-            )}
-
-            {/* Share & Invite buttons - only available before deadline */}
-            {wager && !isDeadlineElapsed(wager.deadline) && (
-              <>
-                <button
-                  onClick={handleShare}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-muted hover:bg-muted/80 text-foreground border border-border transition active:scale-[0.98] touch-manipulation text-xs font-medium"
-                  title="Copy wager link"
-                >
-                  <Share2 className="h-3.5 w-3.5" />
-                  <span>Share</span>
-                </button>
-                {user && isCreator && (
-                  <button
-                    onClick={() => setShowInviteDialog(true)}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition active:scale-[0.98] touch-manipulation text-xs font-medium"
-                    title="Invite people to wager"
-                  >
-                    <UserPlus className="h-3.5 w-3.5" />
-                    <span>Invite</span>
-                  </button>
-                )}
-              </>
-            )}
+          {/* Title Row */}
+          <div className="mb-2 md:mb-3">
+            <h1 className="text-xl md:text-2xl lg:text-3xl font-bold leading-tight break-words">{wager.title}</h1>
           </div>
           
           {/* Description */}
