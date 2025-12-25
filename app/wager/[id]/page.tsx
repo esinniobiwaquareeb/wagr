@@ -1783,7 +1783,9 @@ export default function WagerDetail() {
             </div>
             <p className="text-xs text-muted-foreground">
               {wager.status === "SETTLED" 
-                ? "This wager has been settled and winnings have been distributed"
+                ? totalParticipants === 0
+                  ? "This wager has been settled. No participants bet on this wager, but you can see the outcome below."
+                  : "This wager has been settled and winnings have been distributed"
                 : "This competition has been resolved"}
             </p>
           </div>
