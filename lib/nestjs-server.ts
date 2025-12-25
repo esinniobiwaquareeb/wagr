@@ -55,8 +55,9 @@ export async function nestjsServerFetch<T>(
     ...(options?.headers as Record<string, string>),
   };
   
-  // Add auth token if required
-  if (requireAuth && options?.token) {
+  // Add auth token if provided (always send if available, even if requireAuth is false)
+  // The backend's OptionalJwtAuthGuard will handle optional authentication
+  if (options?.token) {
     headers['Authorization'] = `Bearer ${options.token}`;
   }
   

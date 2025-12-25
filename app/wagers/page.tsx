@@ -231,6 +231,7 @@ function WagersPageContent() {
 
   const fetchingRef = useRef(false);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasFetchedWithUserRef = useRef(false);
 
   const fetchWagers = useCallback(async (force = false) => {
     if (fetchingRef.current && !force) return;
@@ -369,7 +370,24 @@ function WagersPageContent() {
   }, [user]);
 
   useEffect(() => {
-    fetchWagers();
+    // Reset flag when user logs out
+    if (!user) {
+      hasFetchedWithUserRef.current = false;
+    }
+
+    // Wait for auth to finish loading before fetching
+    if (authLoading) {
+      return;
+    }
+
+    // If user just loaded and we haven't fetched with user data yet, fetch now
+    if (user && !hasFetchedWithUserRef.current) {
+      hasFetchedWithUserRef.current = true;
+      fetchWagers(true); // Force refresh to get user entries
+    } else {
+      // Initial fetch (when no user) or re-fetch when user changes
+      fetchWagers();
+    }
 
     // Listen for wager update events from card components
     const handleWagerUpdate = () => {
@@ -386,7 +404,7 @@ function WagersPageContent() {
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [user, fetchWagers, debouncedRefetch]);
+  }, [user, fetchWagers, authLoading]);
 
   const handleTabChange = (tab: TabType) => {
     const params = new URLSearchParams(searchParams?.toString() || '');

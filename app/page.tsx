@@ -29,7 +29,7 @@ function WagersPageContent() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [userEntries, setUserEntries] = useState<Map<string, { amount: number; side: string }>>(new Map());
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -163,6 +163,7 @@ function WagersPageContent() {
 
   const fetchingRef = useRef(false);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasFetchedWithUserRef = useRef(false);
 
   const fetchWagers = useCallback(async (force = false) => {
     if (fetchingRef.current && !force) return;
@@ -271,8 +272,24 @@ function WagersPageContent() {
   }, [user, searchParams, router]);
 
   useEffect(() => {
-    // Fetch wagers immediately on mount
-    fetchWagers();
+    // Reset flag when user logs out
+    if (!user) {
+      hasFetchedWithUserRef.current = false;
+    }
+
+    // Wait for auth to finish loading before fetching
+    if (authLoading) {
+      return;
+    }
+
+    // If user just loaded and we haven't fetched with user data yet, fetch now
+    if (user && !hasFetchedWithUserRef.current) {
+      hasFetchedWithUserRef.current = true;
+      fetchWagers(true); // Force refresh to get user entries
+    } else {
+      // Initial fetch (when no user) or re-fetch when user changes
+      fetchWagers();
+    }
 
     // Listen for wager update events from card components
     const handleWagerUpdate = () => {
@@ -295,7 +312,7 @@ function WagersPageContent() {
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [fetchWagers]); // Include fetchWagers but it's memoized so won't cause re-subscriptions
+  }, [user, fetchWagers, authLoading]); // Include user and authLoading to re-fetch when user loads
 
   const handleTabChange = (tab: TabType) => {
     const params = new URLSearchParams(searchParams?.toString() || '');
