@@ -7,7 +7,7 @@ import { AuthModal } from "@/components/auth-modal";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
-import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Award, Coins, Trash2, Edit2, Share2, Crown, Star, UserPlus, MessageSquare, Activity } from "lucide-react";
+import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Award, Coins, Trash2, Edit2, Share2, Crown, Star, UserPlus, MessageSquare, Activity, Loader2 } from "lucide-react";
 import { WagerInviteDialog } from "@/components/wager-invite-dialog";
 import { BackButton } from "@/components/back-button";
 import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
@@ -56,6 +56,7 @@ export default function WagerDetail() {
   const [showUnjoinDialog, setShowUnjoinDialog] = useState(false);
   const [showChangeSideDialog, setShowChangeSideDialog] = useState(false);
   const [showResolveDialog, setShowResolveDialog] = useState(false);
+  const [resolving, setResolving] = useState(false);
   const [selectedSide, setSelectedSide] = useState<"a" | "b" | null>(null);
   const [newSide, setNewSide] = useState<"a" | "b" | null>(null);
   const [unjoining, setUnjoining] = useState(false);
@@ -821,8 +822,9 @@ export default function WagerDetail() {
   };
 
   const confirmResolve = async (winningSide: "a" | "b") => {
-    if (!user || !wager) return;
+    if (!user || !wager || resolving) return;
 
+    setResolving(true);
     try {
       const response = await fetch(`/api/wagers/${wager.id}/resolve`, {
         method: 'POST',
@@ -859,6 +861,7 @@ export default function WagerDetail() {
         variant: "destructive",
       });
     } finally {
+      setResolving(false);
       setShowResolveDialog(false);
     }
   };
@@ -1171,9 +1174,13 @@ export default function WagerDetail() {
                   setSelectedSide("a");
                   confirmResolve("a");
                 }}
-                className="w-full p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-primary/5 transition text-left"
+                disabled={resolving}
+                className="w-full p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-primary/5 transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <div className="font-semibold text-lg mb-1">Side A</div>
+                <div className="font-semibold text-lg mb-1 flex items-center gap-2">
+                  Side A
+                  {resolving && selectedSide === "a" && <Loader2 className="h-4 w-4 animate-spin" />}
+                </div>
                 <div className="text-sm text-muted-foreground">{wager.side_a}</div>
               </button>
               <button
@@ -1181,9 +1188,13 @@ export default function WagerDetail() {
                   setSelectedSide("b");
                   confirmResolve("b");
                 }}
-                className="w-full p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-primary/5 transition text-left"
+                disabled={resolving}
+                className="w-full p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-primary/5 transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <div className="font-semibold text-lg mb-1">Side B</div>
+                <div className="font-semibold text-lg mb-1 flex items-center gap-2">
+                  Side B
+                  {resolving && selectedSide === "b" && <Loader2 className="h-4 w-4 animate-spin" />}
+                </div>
                 <div className="text-sm text-muted-foreground">{wager.side_b}</div>
               </button>
             </div>
@@ -1194,7 +1205,8 @@ export default function WagerDetail() {
                   setShowResolveDialog(false);
                   setSelectedSide(null);
                 }}
-                className="flex-1 px-4 py-2 text-sm border border-input rounded-lg hover:bg-muted transition"
+                disabled={resolving}
+                className="flex-1 px-4 py-2 text-sm border border-input rounded-lg hover:bg-muted transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>

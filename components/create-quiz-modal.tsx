@@ -429,14 +429,38 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
         }
 
         if (shouldValidateBalance) {
-          const cost = totalCost();
-          if (userBalance !== null && userBalance < cost) {
-            toast({
-              title: "Insufficient balance",
-              description: `You need ${formatCurrency(cost, DEFAULT_CURRENCY)} to ${isEditMode ? 'update' : 'create'} this quiz. Your balance: ${formatCurrency(userBalance || 0, DEFAULT_CURRENCY)}`,
-              variant: "destructive",
-            });
-            return false;
+          if (isEditMode && initialData) {
+            // In edit mode, only check balance if cost is increasing
+            // Calculate current cost from initial data
+            const currentEntryFee = initialData.entryFeePerQuestion || 0;
+            const currentQuestions = initialData.totalQuestions || 0;
+            const currentParticipants = initialData.maxParticipants || 0;
+            const currentBaseCost = currentEntryFee * currentQuestions * currentParticipants;
+            const currentPlatformFee = currentBaseCost * platformFeePercentage;
+            const currentCost = currentBaseCost + currentPlatformFee;
+            
+            const newCost = totalCost();
+            const costIncrease = newCost - currentCost;
+            
+            if (costIncrease > 0 && userBalance !== null && userBalance < costIncrease) {
+              toast({
+                title: "Insufficient balance",
+                description: `You need ${formatCurrency(costIncrease, DEFAULT_CURRENCY)} additional balance to update this quiz. Your balance: ${formatCurrency(userBalance || 0, DEFAULT_CURRENCY)}`,
+                variant: "destructive",
+              });
+              return false;
+            }
+          } else {
+            // In create mode, check total cost
+            const cost = totalCost();
+            if (userBalance !== null && userBalance < cost) {
+              toast({
+                title: "Insufficient balance",
+                description: `You need ${formatCurrency(cost, DEFAULT_CURRENCY)} to create this quiz. Your balance: ${formatCurrency(userBalance || 0, DEFAULT_CURRENCY)}`,
+                variant: "destructive",
+              });
+              return false;
+            }
           }
         }
         return true;
