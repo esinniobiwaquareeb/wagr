@@ -1334,74 +1334,33 @@ export default function WagerDetail() {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 md:py-4">
-        {/* Header Section */}
-        <div className="mb-3">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <BackButton fallbackHref="/wagers" />
-              <h1 className="text-lg md:text-2xl font-bold flex-1 break-words">{wager.title}</h1>
-              {/* Creator Actions */}
-              {isCreator && (
-                <>
-                  {/* Edit/Delete while open, before deadline, and no other participants */}
-                  {wager.status === "OPEN" &&
-                    user &&
-                    entries.filter(e => {
-                      const entryUserId = String(e.user_id).trim();
-                      const currentUserId = String(user.id).trim();
-                      return entryUserId !== currentUserId;
-                    }).length === 0 &&
-                    !isDeadlineElapsed(wager.deadline) && (
-                      <>
-                        <button
-                          onClick={handleEdit}
-                          disabled={editing}
-                          className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition active:scale-[0.98] touch-manipulation disabled:opacity-50 flex-shrink-0"
-                          title="Edit wager"
-                        >
-                          <Edit2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                          <span className="text-[10px] md:text-xs font-medium hidden sm:inline">Edit</span>
-                        </button>
-                        <button
-                          onClick={handleDelete}
-                          disabled={deleting}
-                          className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 transition active:scale-[0.98] touch-manipulation disabled:opacity-50 flex-shrink-0"
-                          title="Delete wager"
-                        >
-                          <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                          <span className="text-[10px] md:text-xs font-medium hidden sm:inline">Delete</span>
-                        </button>
-                      </>
-                    )}
+      <div className="max-w-7xl mx-auto px-3 md:px-6 py-3 md:py-4">
+        {/* Header Section - Mobile Optimized */}
+        <div className="mb-4 md:mb-6">
+          {/* Back Button - Own Row */}
+          <div className="mb-3 md:mb-4">
+            <BackButton fallbackHref="/wagers" />
+          </div>
 
-                  {/* Resolve button for creators - can resolve regardless of deadline */}
-                  {canCreatorResolve && (
-                    <button
-                      onClick={handleResolve}
-                      className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-400 border border-blue-500/30 transition active:scale-[0.98] touch-manipulation flex-shrink-0"
-                      title="Resolve wager"
-                    >
-                      <Trophy className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                      <span className="text-[10px] md:text-xs font-medium hidden sm:inline">Resolve</span>
-                    </button>
-                  )}
-                </>
-              )}
-
+          {/* Title Row */}
+          <div className="mb-3 md:mb-4">
+            <h1 className="text-xl md:text-2xl lg:text-3xl font-bold leading-tight break-words mb-2 md:mb-3">{wager.title}</h1>
+            
+            {/* Status & Type Badges */}
+            <div className="flex flex-wrap items-center gap-2">
               {wager.is_system_generated ? (
-                <div className="flex items-center gap-1 px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 flex-shrink-0">
-                  <Sparkles className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                  <span className="text-[10px] md:text-xs font-medium hidden sm:inline">Auto</span>
+                <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 text-primary border border-primary/20">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span className="text-[10px] font-medium">Auto</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-1 px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-muted text-muted-foreground flex-shrink-0">
-                  <User className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                  <span className="text-[10px] md:text-xs font-medium hidden sm:inline">User</span>
+                <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-muted text-muted-foreground">
+                  <User className="h-3.5 w-3.5" />
+                  <span className="text-[10px] font-medium">User</span>
                 </div>
               )}
               <span
-                className={`text-[10px] md:text-xs px-2.5 md:px-3 py-1 md:py-1.5 rounded-full font-semibold flex-shrink-0 ${
+                className={`text-[10px] px-2.5 py-1 rounded-full font-semibold ${
                   wager.status === "OPEN"
                     ? "bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/30"
                     : wager.status === "RESOLVED" || wager.status === "SETTLED"
@@ -1411,88 +1370,142 @@ export default function WagerDetail() {
               >
                 {wager.status === "SETTLED" ? "Settled" : wager.status === "RESOLVED" ? "Resolved" : wager.status}
               </span>
-              {/* Share & Invite buttons - only available before deadline */}
-              {wager && !isDeadlineElapsed(wager.deadline) && (
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleShare}
-                    className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-muted hover:bg-muted/80 text-foreground border border-border transition active:scale-[0.98] touch-manipulation flex-shrink-0"
-                    title="Copy wager link"
-                  >
-                    <Share2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                    <span className="text-[10px] md:text-xs font-medium hidden sm:inline">Share</span>
-                  </button>
-                  {user && isCreator && (
-                    <button
-                      onClick={() => setShowInviteDialog(true)}
-                      className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 border border-primary transition active:scale-[0.98] touch-manipulation flex-shrink-0"
-                      title="Invite people to wager"
-                    >
-                      <UserPlus className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                      <span className="text-[10px] md:text-xs font-medium hidden sm:inline">Invite</span>
-                    </button>
-                  )}
-                </div>
-              )}
             </div>
           </div>
+
+          {/* Action Buttons Row - Mobile: Compact, Desktop: Full */}
+          <div className="flex flex-wrap items-center gap-2 mb-3 md:mb-4">
+            {/* Creator Actions */}
+            {isCreator && (
+              <>
+                {/* Edit/Delete while open, before deadline, and no other participants */}
+                {wager.status === "OPEN" &&
+                  user &&
+                  entries.filter(e => {
+                    const entryUserId = String(e.user_id).trim();
+                    const currentUserId = String(user.id).trim();
+                    return entryUserId !== currentUserId;
+                  }).length === 0 &&
+                  !isDeadlineElapsed(wager.deadline) && (
+                    <>
+                      <button
+                        onClick={handleEdit}
+                        disabled={editing}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition active:scale-[0.98] touch-manipulation disabled:opacity-50 text-xs font-medium"
+                        title="Edit wager"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        onClick={handleDelete}
+                        disabled={deleting}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 transition active:scale-[0.98] touch-manipulation disabled:opacity-50 text-xs font-medium"
+                        title="Delete wager"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>Delete</span>
+                      </button>
+                    </>
+                  )}
+
+                {/* Resolve button for creators */}
+                {canCreatorResolve && (
+                  <button
+                    onClick={handleResolve}
+                    disabled={resolving}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-400 border border-blue-500/30 transition active:scale-[0.98] touch-manipulation text-xs font-medium disabled:opacity-50"
+                    title="Resolve wager"
+                  >
+                    <Trophy className="h-3.5 w-3.5" />
+                    <span>Resolve</span>
+                  </button>
+                )}
+              </>
+            )}
+
+            {/* Share & Invite buttons - only available before deadline */}
+            {wager && !isDeadlineElapsed(wager.deadline) && (
+              <>
+                <button
+                  onClick={handleShare}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-muted hover:bg-muted/80 text-foreground border border-border transition active:scale-[0.98] touch-manipulation text-xs font-medium"
+                  title="Copy wager link"
+                >
+                  <Share2 className="h-3.5 w-3.5" />
+                  <span>Share</span>
+                </button>
+                {user && isCreator && (
+                  <button
+                    onClick={() => setShowInviteDialog(true)}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition active:scale-[0.98] touch-manipulation text-xs font-medium"
+                    title="Invite people to wager"
+                  >
+                    <UserPlus className="h-3.5 w-3.5" />
+                    <span>Invite</span>
+                  </button>
+                )}
+              </>
+            )}
+          </div>
           
+          {/* Description */}
           {wager.description && (
-            <p className="text-sm md:text-lg text-muted-foreground mb-4 md:mb-6 leading-relaxed">{wager.description}</p>
+            <p className="text-sm md:text-base text-muted-foreground mb-4 md:mb-6 leading-relaxed">{wager.description}</p>
           )}
 
-          {/* Quick Stats */}
+          {/* Quick Stats - Mobile Optimized */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-4 md:mb-6">
-            <div className="bg-card border border-border rounded-lg p-3 md:p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <Users className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
-                <p className="text-[10px] md:text-xs text-muted-foreground">Participants</p>
+            <div className="bg-card border border-border rounded-lg p-2.5 md:p-4">
+              <div className="flex items-center gap-1.5 md:gap-2 mb-1">
+                <Users className="h-3.5 w-3.5 md:h-5 md:w-5 text-muted-foreground flex-shrink-0" />
+                <p className="text-[9px] md:text-xs text-muted-foreground truncate">Participants</p>
               </div>
-              <p className="text-lg md:text-2xl font-bold">{totalParticipants}</p>
+              <p className="text-base md:text-2xl font-bold">{totalParticipants}</p>
             </div>
-            <div className="bg-card border border-border rounded-lg p-3 md:p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
-                <p className="text-[10px] md:text-xs text-muted-foreground">Total Pot</p>
+            <div className="bg-card border border-border rounded-lg p-2.5 md:p-4">
+              <div className="flex items-center gap-1.5 md:gap-2 mb-1">
+                <TrendingUp className="h-3.5 w-3.5 md:h-5 md:w-5 text-muted-foreground flex-shrink-0" />
+                <p className="text-[9px] md:text-xs text-muted-foreground truncate">Total Pot</p>
               </div>
-              <p className="text-lg md:text-2xl font-bold">{formatCurrency(totalPot, (wager.currency || DEFAULT_CURRENCY) as Currency)}</p>
+              <p className="text-base md:text-2xl font-bold truncate">{formatCurrency(totalPot, (wager.currency || DEFAULT_CURRENCY) as Currency)}</p>
             </div>
             {isSettled && totalWon !== null ? (
-              <div className="bg-card border-2 border-green-500/30 rounded-lg p-3 md:p-4 bg-gradient-to-br from-green-500/10 to-green-500/5">
-                <div className="flex items-center gap-2 mb-1">
-                  <Trophy className="h-4 w-4 md:h-5 md:w-5 text-green-600 dark:text-green-400" />
-                  <p className="text-[10px] md:text-xs text-green-700 dark:text-green-400 font-semibold">Total Won</p>
+              <div className="bg-card border-2 border-green-500/30 rounded-lg p-2.5 md:p-4 bg-gradient-to-br from-green-500/10 to-green-500/5">
+                <div className="flex items-center gap-1.5 md:gap-2 mb-1">
+                  <Trophy className="h-3.5 w-3.5 md:h-5 md:w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                  <p className="text-[9px] md:text-xs text-green-700 dark:text-green-400 font-semibold truncate">Total Won</p>
                 </div>
-                <p className="text-lg md:text-2xl font-bold text-green-600 dark:text-green-400">
+                <p className="text-base md:text-2xl font-bold text-green-600 dark:text-green-400 truncate">
                   {formatCurrency(totalWon, (wager.currency || DEFAULT_CURRENCY) as Currency)}
                 </p>
               </div>
             ) : (
-              <div className="bg-card border border-border rounded-lg p-3 md:p-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <Award className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
-                  <p className="text-[10px] md:text-xs text-muted-foreground">Entry Fee</p>
+              <div className="bg-card border border-border rounded-lg p-2.5 md:p-4">
+                <div className="flex items-center gap-1.5 md:gap-2 mb-1">
+                  <Award className="h-3.5 w-3.5 md:h-5 md:w-5 text-muted-foreground flex-shrink-0" />
+                  <p className="text-[9px] md:text-xs text-muted-foreground truncate">Entry Fee</p>
                 </div>
-                <p className="text-lg md:text-2xl font-bold">{formatCurrency(wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}</p>
+                <p className="text-base md:text-2xl font-bold truncate">{formatCurrency(wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}</p>
               </div>
             )}
             {wager.deadline ? (
-              <div className="bg-card border border-border rounded-lg p-3 md:p-4">
+              <div className="bg-card border border-border rounded-lg p-2.5 md:p-4">
                 <DeadlineDisplay 
                   deadline={wager.deadline} 
-                  size="md"
+                  size="sm"
                   showLabel={true}
                   cardFormat={true}
                 />
               </div>
             ) : (
-              <div className="bg-card border border-border rounded-lg p-3 md:p-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <Coins className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
-                  <p className="text-[10px] md:text-xs text-muted-foreground">Platform Fee</p>
+              <div className="bg-card border border-border rounded-lg p-2.5 md:p-4">
+                <div className="flex items-center gap-1.5 md:gap-2 mb-1">
+                  <Coins className="h-3.5 w-3.5 md:h-5 md:w-5 text-muted-foreground flex-shrink-0" />
+                  <p className="text-[9px] md:text-xs text-muted-foreground truncate">Platform Fee</p>
                 </div>
-                <p className="text-lg md:text-2xl font-bold">{(wager.fee_percentage || defaultPlatformFee) * 100}%</p>
-                <p className="text-[9px] md:text-[10px] text-muted-foreground mt-0.5">
+                <p className="text-base md:text-2xl font-bold">{(wager.fee_percentage || defaultPlatformFee) * 100}%</p>
+                <p className="text-[8px] md:text-[10px] text-muted-foreground mt-0.5 truncate">
                   {formatCurrency(returns.platformFee, (wager.currency || DEFAULT_CURRENCY) as Currency)}
                 </p>
               </div>
