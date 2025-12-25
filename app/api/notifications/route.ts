@@ -93,8 +93,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Call NestJS backend to mark all notifications as read
-    const response = await nestjsServerFetch<{ message: string }>('/notifications/mark-all-read', {
-      method: 'POST',
+    // Backend endpoint is /notifications/read-all with PATCH method
+    const response = await nestjsServerFetch<{ message: string }>('/notifications/read-all', {
+      method: 'PATCH',
       token,
       requireAuth: true,
     });

@@ -214,7 +214,7 @@ export const notificationsApi = {
     return apiGet<{ notifications: any[]; unreadCount: number; meta?: any }>(`/notifications${query ? `?${query}` : ''}`);
   },
   
-  markAllRead: () => apiPost<{ message: string }>('/notifications'),
+  markAllRead: () => apiPost<{ message: string }>('/notifications/mark-all-read'),
   
   markRead: (id: string) => apiPatch<{ message: string }>(`/notifications/${id}`),
   
