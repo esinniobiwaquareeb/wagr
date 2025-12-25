@@ -172,32 +172,21 @@ function WagersPageContent() {
       setLoading(true);
       
       // Fetch wagers - user entry info is included in wager data
-      const wagersResponse = await wagersApi.list({ limit: 200 });
+      // Force refresh when force=true to get latest user entry data
+      const wagersResponse = await wagersApi.list({ limit: 200 }, force);
 
       // Extract user entries from wagers data if user is logged in
       if (user) {
         const userEntriesMap = new Map<string, { amount: number; side: string }>();
         const wagersData = wagersResponse?.wagers || (Array.isArray(wagersResponse) ? wagersResponse : []);
         
-        // Check each wager's entries for user participation
+        // Extract user entry from API response (userEntry field)
         wagersData.forEach((wager: any) => {
-          if (wager.entries?.sideA || wager.entries?.sideB) {
-            const sideAEntries = wager.entries.sideA || [];
-            const sideBEntries = wager.entries.sideB || [];
-            const userEntryA = sideAEntries.find((e: any) => e.user_id === user.id);
-            const userEntryB = sideBEntries.find((e: any) => e.user_id === user.id);
-            
-            if (userEntryA) {
-              userEntriesMap.set(wager.id, {
-                amount: Number(userEntryA.amount),
-                side: 'a',
-              });
-            } else if (userEntryB) {
-              userEntriesMap.set(wager.id, {
-                amount: Number(userEntryB.amount),
-                side: 'b',
-              });
-            }
+          if (wager.userEntry) {
+            userEntriesMap.set(wager.id, {
+              amount: Number(wager.userEntry.amount || 0),
+              side: wager.userEntry.side || 'a',
+            });
           }
         });
         
@@ -287,7 +276,8 @@ function WagersPageContent() {
 
     // Listen for wager update events from card components
     const handleWagerUpdate = () => {
-      debouncedRefetchRef.current();
+      // Immediately refresh to get updated user entry data
+      fetchWagers(true);
     };
     window.addEventListener('wager-updated', handleWagerUpdate);
 

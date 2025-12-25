@@ -245,30 +245,19 @@ function WagersPageContent() {
     try {
       setLoading(true);
       // Increased limit to 500 to show more wagers
-      const response = await wagersApi.list({ limit: 500 });
+      // Force refresh cache when force=true to get latest user entry data
+      const response = await wagersApi.list({ limit: 500 }, force);
       const wagersData = response?.wagers || (Array.isArray(response) ? response : []);
 
       const wagersWithCounts: WagerWithEntries[] = wagersData.map((wager: any) => {
         const entryCounts = wager.entryCounts || { sideA: 0, sideB: 0, total: 0 };
         
-        // Extract user entry from wager entries if available
-        if (user && wager.entries) {
-          const userEntry = wager.entries.sideA?.find((e: any) => e.user_id === user.id) ||
-                          wager.entries.sideB?.find((e: any) => e.user_id === user.id);
-          if (userEntry) {
-            const existing = userEntriesMap.get(wager.id);
-            if (existing) {
-              userEntriesMap.set(wager.id, {
-                amount: existing.amount + Number(userEntry.amount || 0),
-                side: userEntry.side || existing.side,
-              });
-            } else {
-              userEntriesMap.set(wager.id, {
-                amount: Number(userEntry.amount || 0),
-                side: userEntry.side || 'a',
-              });
-            }
-          }
+        // Extract user entry from API response (userEntry field)
+        if (user && wager.userEntry) {
+          userEntriesMap.set(wager.id, {
+            amount: Number(wager.userEntry.amount || 0),
+            side: wager.userEntry.side || 'a',
+          });
         }
         
         return {
@@ -384,7 +373,8 @@ function WagersPageContent() {
 
     // Listen for wager update events from card components
     const handleWagerUpdate = () => {
-      debouncedRefetchRef.current();
+      // Immediately refresh to get updated user entry data
+      fetchWagers(true);
     };
     window.addEventListener('wager-updated', handleWagerUpdate);
     window.addEventListener('balance-updated', handleWagerUpdate);

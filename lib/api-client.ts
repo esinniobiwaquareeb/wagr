@@ -117,7 +117,7 @@ export const wagersApi = {
     category?: string;
     search?: string;
     currency?: string;
-  }) => {
+  }, forceRefresh = false) => {
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.set('page', params.page.toString());
     if (params?.limit) queryParams.set('limit', params.limit.toString());
@@ -127,7 +127,7 @@ export const wagersApi = {
     if (params?.currency) queryParams.set('currency', params.currency);
     
     const query = queryParams.toString();
-    return apiGet<{ wagers: any[]; meta?: any }>(`/wagers${query ? `?${query}` : ''}`);
+    return apiGet<{ wagers: any[]; meta?: any }>(`/wagers${query ? `?${query}` : ''}`, forceRefresh);
   },
   
   get: (id: string) => apiGet<{ wager: any }>(`/wagers/${id}`),
