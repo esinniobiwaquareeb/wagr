@@ -354,16 +354,21 @@ export function MobileNav() {
       {user && (
         <Link
           href="/notifications"
-          className={`fixed bottom-20 right-4 lg:hidden z-40 w-12 h-12 rounded-full shadow-lg transition-all duration-300 active:scale-95 touch-manipulation flex items-center justify-center ${
+          onClick={(e) => {
+            // Ensure click is handled properly
+            e.stopPropagation();
+          }}
+          className={`fixed bottom-28 right-4 lg:hidden z-[60] w-14 h-14 rounded-full shadow-xl transition-all duration-300 active:scale-95 touch-manipulation flex items-center justify-center pointer-events-auto ${
             isActive("/notifications")
               ? "bg-primary text-primary-foreground shadow-primary/50"
-              : "bg-card border-2 border-border text-foreground hover:border-primary hover:shadow-xl"
+              : "bg-card border-2 border-primary/30 text-foreground hover:border-primary hover:shadow-2xl hover:scale-105"
           }`}
           title="Notifications"
+          aria-label="View notifications"
         >
-          <Bell className="h-5 w-5" />
+          <Bell className="h-6 w-6" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[9px] font-bold rounded-full w-5 h-5 flex items-center justify-center min-w-[20px] leading-none border-2 border-background">
+            <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] font-bold rounded-full w-6 h-6 flex items-center justify-center min-w-[24px] leading-none border-2 border-background shadow-lg">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
