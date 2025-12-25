@@ -266,7 +266,7 @@ export function WagerCard({
       className="block group"
       onClick={onClick}
     >
-      <div className="bg-card border border-border rounded-lg p-3 hover:border-primary hover:shadow-md transition-all cursor-pointer active:scale-[0.98] touch-manipulation h-full flex flex-col relative overflow-hidden">
+      <div className="bg-card border border-border rounded-lg p-3 sm:p-2.5 hover:border-primary/50 hover:shadow-sm transition-all cursor-pointer active:scale-[0.99] touch-manipulation h-full flex flex-col relative overflow-hidden">
         {/* Status indicator bar - color based on deadline */}
         <div className={`absolute top-0 left-0 right-0 h-0.5 ${
           !isOpen
@@ -280,21 +280,37 @@ export function WagerCard({
               : "bg-green-500"
         }`} />
 
-        {/* Header */}
-        <div className="flex justify-between items-start mb-1.5">
-          <div className="flex items-start gap-1.5 flex-1 min-w-0">
-            <h3 className="font-semibold text-foreground flex-1 text-xs md:text-sm line-clamp-2 leading-tight group-hover:text-primary transition-colors">
+        {/* Header - Responsive */}
+        <div className="flex items-start justify-between gap-2 mb-2 sm:mb-1.5">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-foreground text-sm sm:text-xs leading-snug line-clamp-2 group-hover:text-primary transition-colors mb-1 sm:mb-0.5">
               {title}
             </h3>
+            {category && (
+              <div className="flex items-center justify-between gap-1 mt-0.5">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs sm:text-[10px]">{categoryIcons[category] || "📌"}</span>
+                  <span className="text-[10px] sm:text-[9px] text-muted-foreground uppercase font-medium">
+                    {category}
+                  </span>
+                </div>
+                {createdAt && (
+                  <div className="flex items-center gap-1 sm:gap-0.5 text-muted-foreground text-[9px] sm:text-[8px] whitespace-nowrap">
+                    <Calendar className="h-3 w-3 sm:h-2.5 sm:w-2.5" />
+                    <span>{format(new Date(createdAt), "MMM d")}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+          <div className="flex items-center gap-1.5 sm:gap-1 flex-shrink-0">
             {isSystemGenerated ? (
-              <Sparkles className="h-3 w-3 text-primary" />
+              <Sparkles className="h-4 w-4 sm:h-3 sm:w-3 text-primary" />
             ) : (
-              <User className="h-3 w-3 text-muted-foreground" />
+              <User className="h-4 w-4 sm:h-3 sm:w-3 text-muted-foreground" />
             )}
             <span
-              className={`text-[8px] px-1.5 py-0.5 rounded font-medium ${
+              className={`text-[10px] sm:text-[9px] px-2 py-1 sm:px-1.5 sm:py-0.5 rounded font-medium whitespace-nowrap ${
                 isOpen
                   ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                   : (status === "RESOLVED" || status === "SETTLED")
@@ -307,53 +323,32 @@ export function WagerCard({
           </div>
         </div>
 
-        {/* Category badge - compact */}
-        {category && (
-          <div className="mb-1.5 flex items-center gap-1">
-            <span className="text-xs">{categoryIcons[category] || "📌"}</span>
-            <span className="text-[8px] text-muted-foreground uppercase font-medium">
-              {category}
-            </span>
-          </div>
-        )}
-
-        {/* Description - single line */}
-        {description && (
-          <p className="text-[9px] text-muted-foreground mb-2 line-clamp-1 leading-tight">
-            {description}
-          </p>
-        )}
-
-        {/* Sides - Compact design with quick wager buttons */}
-        <div className="grid grid-cols-2 gap-1.5 mb-2 flex-shrink-0">
+        {/* Sides - Responsive design with quick wager buttons */}
+        <div className="grid grid-cols-2 gap-2 sm:gap-1.5 mb-2 sm:mb-1.5 flex-shrink-0">
           {isOpen && !userParticipated && user ? (
-            // Quick wager buttons for open wagers - Colorblind accessible design
+            // Quick wager buttons for open wagers - Touch-friendly on mobile
             <>
               {/* Side A (Yes) - Blue with Check icon */}
               <button
                 key={`bet-a-${id}`}
                 onClick={(e) => handleQuickBet(e, "a")}
                 disabled={joiningSide !== null}
-                className={`relative rounded-lg p-2.5 min-h-[44px] transition-all touch-manipulation focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${
+                className={`relative rounded-md p-2.5 sm:p-2 min-h-[48px] sm:min-h-[40px] transition-all touch-manipulation focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${
                   joiningSide === "a"
-                    ? "bg-blue-500/20 border-2 border-blue-500"
-                    : "bg-blue-500/10 hover:bg-blue-500/20 border-2 border-blue-500/40 hover:border-blue-500"
+                    ? "bg-blue-500/20 border border-blue-500"
+                    : "bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/40 hover:border-blue-500"
                 } disabled:opacity-50 disabled:cursor-not-allowed active:scale-95`}
                 aria-label={`Wager on ${sideA}`}
               >
                 {joiningSide === "a" ? (
-                  <div className="flex items-center justify-center gap-1.5">
-                    <Loader2 className="h-3 w-3 animate-spin text-blue-600 dark:text-blue-400" />
-                    <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">Joining...</span>
+                  <div className="flex items-center justify-center">
+                    <Loader2 className="h-4 w-4 sm:h-3 sm:w-3 animate-spin text-blue-600 dark:text-blue-400" />
                   </div>
                 ) : (
-                  <>
-                    <div className="flex items-center justify-center gap-1 mb-0.5">
-                      <Check className="h-3 w-3 text-blue-600 dark:text-blue-400" strokeWidth={3} />
-                      <p className="font-bold text-[11px] text-blue-600 dark:text-blue-400">{sideA}</p>
-                    </div>
-                    <p className="text-[8px] text-muted-foreground">Click to wager</p>
-                  </>
+                  <div className="flex items-center justify-center gap-1.5 sm:gap-1">
+                    <Check className="h-4 w-4 sm:h-3 sm:w-3 text-blue-600 dark:text-blue-400 flex-shrink-0" strokeWidth={3} />
+                    <p className="font-semibold text-xs sm:text-[10px] text-blue-600 dark:text-blue-400 leading-tight line-clamp-2 text-center">{sideA}</p>
+                  </div>
                 )}
               </button>
               {/* Side B (No) - Orange with X icon */}
@@ -361,33 +356,29 @@ export function WagerCard({
                 key={`bet-b-${id}`}
                 onClick={(e) => handleQuickBet(e, "b")}
                 disabled={joiningSide !== null}
-                className={`relative rounded-lg p-2.5 min-h-[44px] transition-all touch-manipulation focus:outline-none focus:ring-2 focus:ring-orange-500/50 ${
+                className={`relative rounded-md p-2.5 sm:p-2 min-h-[48px] sm:min-h-[40px] transition-all touch-manipulation focus:outline-none focus:ring-2 focus:ring-orange-500/50 ${
                   joiningSide === "b"
-                    ? "bg-orange-500/20 border-2 border-orange-500"
-                    : "bg-orange-500/10 hover:bg-orange-500/20 border-2 border-orange-500/40 hover:border-orange-500"
+                    ? "bg-orange-500/20 border border-orange-500"
+                    : "bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/40 hover:border-orange-500"
                 } disabled:opacity-50 disabled:cursor-not-allowed active:scale-95`}
                 aria-label={`Wager on ${sideB}`}
               >
                 {joiningSide === "b" ? (
-                  <div className="flex items-center justify-center gap-1.5">
-                    <Loader2 className="h-3 w-3 animate-spin text-orange-600 dark:text-orange-400" />
-                    <span className="text-[10px] font-semibold text-orange-600 dark:text-orange-400">Joining...</span>
+                  <div className="flex items-center justify-center">
+                    <Loader2 className="h-4 w-4 sm:h-3 sm:w-3 animate-spin text-orange-600 dark:text-orange-400" />
                   </div>
                 ) : (
-                  <>
-                    <div className="flex items-center justify-center gap-1 mb-0.5">
-                      <X className="h-3 w-3 text-orange-600 dark:text-orange-400" strokeWidth={3} />
-                      <p className="font-bold text-[11px] text-orange-600 dark:text-orange-400">{sideB}</p>
-                    </div>
-                    <p className="text-[8px] text-muted-foreground">Click to wager</p>
-                  </>
+                  <div className="flex items-center justify-center gap-1.5 sm:gap-1">
+                    <X className="h-4 w-4 sm:h-3 sm:w-3 text-orange-600 dark:text-orange-400 flex-shrink-0" strokeWidth={3} />
+                    <p className="font-semibold text-xs sm:text-[10px] text-orange-600 dark:text-orange-400 leading-tight line-clamp-2 text-center">{sideB}</p>
+                  </div>
                 )}
               </button>
             </>
           ) : (
             // Display only for settled/resolved or if user already participated
-            <div className="grid grid-cols-2 gap-1.5 bg-muted/20 rounded p-1.5 col-span-2">
-              <div className={`text-center relative rounded p-1 transition-all ${
+            <div className="grid grid-cols-2 gap-1.5 sm:gap-1 bg-muted/30 rounded-md p-2 sm:p-1.5 col-span-2">
+              <div className={`text-center relative rounded p-1.5 sm:p-1 transition-all ${
                 sideAWon 
                   ? "bg-green-500/20 border border-green-500" 
                   : sideBWon
@@ -396,7 +387,7 @@ export function WagerCard({
                   ? "bg-primary/10 border border-primary/30"
                   : ""
               }`}>
-                <p className={`font-semibold text-[10px] truncate ${
+                <p className={`font-semibold text-xs sm:text-[10px] truncate ${
                   sideAWon 
                     ? "text-green-700 dark:text-green-400" 
                     : sideBWon
@@ -406,15 +397,15 @@ export function WagerCard({
                     : "text-foreground"
                 }`}>{sideA}</p>
                 {sideAWon && (
-                  <Trophy className="h-2.5 w-2.5 text-green-600 dark:text-green-400 mx-auto mt-0.5" />
+                  <Trophy className="h-3 w-3 sm:h-2.5 sm:w-2.5 text-green-600 dark:text-green-400 mx-auto mt-0.5" />
                 )}
                 {userParticipated && userEntrySide === "a" && !sideAWon && !sideBWon && (
-                  <div className="absolute -top-1 -right-1 bg-primary rounded-full p-0.5">
-                    <CheckCircle2 className="h-2 w-2 text-white" />
+                  <div className="absolute -top-0.5 -right-0.5 bg-primary rounded-full p-0.5">
+                    <CheckCircle2 className="h-1.5 w-1.5 text-white" />
                   </div>
                 )}
               </div>
-              <div className={`text-center border-l border-border relative rounded p-1 transition-all ${
+              <div className={`text-center border-l border-border relative rounded p-1.5 sm:p-1 transition-all ${
                 sideBWon 
                   ? "bg-green-500/20 border border-green-500 ml-[-1px]" 
                   : sideAWon
@@ -423,7 +414,7 @@ export function WagerCard({
                   ? "bg-primary/10 border border-primary/30"
                   : ""
               }`}>
-                <p className={`font-semibold text-[10px] truncate ${
+                <p className={`font-semibold text-xs sm:text-[10px] truncate ${
                   sideBWon 
                     ? "text-green-700 dark:text-green-400" 
                     : sideAWon
@@ -433,11 +424,11 @@ export function WagerCard({
                     : "text-foreground"
                 }`}>{sideB}</p>
                 {sideBWon && (
-                  <Trophy className="h-2.5 w-2.5 text-green-600 dark:text-green-400 mx-auto mt-0.5" />
+                  <Trophy className="h-3 w-3 sm:h-2.5 sm:w-2.5 text-green-600 dark:text-green-400 mx-auto mt-0.5" />
                 )}
                 {userParticipated && userEntrySide === "b" && !sideAWon && !sideBWon && (
-                  <div className="absolute -top-1 -right-1 bg-primary rounded-full p-0.5">
-                    <CheckCircle2 className="h-2 w-2 text-white" />
+                  <div className="absolute -top-0.5 -right-0.5 bg-primary rounded-full p-0.5">
+                    <CheckCircle2 className="h-1.5 w-1.5 text-white" />
                   </div>
                 )}
               </div>
@@ -445,50 +436,38 @@ export function WagerCard({
           )}
         </div>
 
-        {/* Footer - Compact with all info */}
-        <div className="mt-auto pt-2 border-t border-border space-y-1.5">
-          {/* Top row: Entry amount, Potential return, Participants */}
-          <div className="flex items-center justify-between text-[9px]">
-            <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-foreground">{formattedAmount}</span>
+        {/* Footer - Responsive layout */}
+        <div className="mt-auto pt-2 sm:pt-1.5 border-t border-border/50 space-y-1.5 sm:space-y-1">
+          {/* First row: Amount, returns, participants, potential winnings, deadline */}
+          <div className="flex items-center justify-between gap-2 sm:gap-1.5 flex-wrap text-[10px] sm:text-[9px]">
+            <div className="flex items-center gap-2 sm:gap-1.5 flex-wrap">
+              <span className="font-semibold text-foreground whitespace-nowrap">{formattedAmount}</span>
               {isOpen && entriesCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                  {formatReturnMultiplier(bestReturn)}
+                <>
+                  <span className="px-1.5 py-0.5 sm:px-1 sm:py-0.5 rounded bg-primary/10 text-primary font-medium text-[9px] sm:text-[8px] whitespace-nowrap">
+                    {formatReturnMultiplier(bestReturn)}
+                  </span>
+                  <span className="flex items-center gap-1 sm:gap-0.5 px-1.5 py-0.5 sm:px-1 sm:py-0.5 rounded bg-muted text-muted-foreground whitespace-nowrap">
+                    <Users className="h-3 w-3 sm:h-2.5 sm:w-2.5" />
+                    <span className="font-medium">{entriesCount}</span>
+                  </span>
+                </>
+              )}
+              {isOpen && entriesCount > 0 && (
+                <span className="px-1.5 py-0.5 sm:px-1 sm:py-0.5 rounded bg-green-500/10 text-green-700 dark:text-green-400 text-[9px] sm:text-[8px] whitespace-nowrap">
+                  <Coins className="h-3 w-3 sm:h-2.5 sm:w-2.5 inline mr-0.5" />
+                  {formatCurrency(Math.max(returns.sideAPotential, returns.sideBPotential), currency as Currency)}
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-1.5">
-              {entriesCount > 0 && (
-                <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                  <Users className="h-2.5 w-2.5" />
-                  <span className="font-medium">{entriesCount}</span>
-                </span>
-              )}
-              {deadline && (
+            {deadline && (
+              <div className="flex-shrink-0">
                 <DeadlineDisplay 
                   deadline={deadline} 
                   size="sm"
                   showLabel={false}
-                  className="text-[9px]"
+                  className="text-[10px] sm:text-[9px]"
                 />
-              )}
-            </div>
-          </div>
-
-          {/* Bottom row: Potential winnings, Date created */}
-          <div className="flex items-center justify-between text-[8px]">
-            {isOpen && entriesCount > 0 && (
-              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-green-500/10 text-green-700 dark:text-green-400">
-                <Coins className="h-2.5 w-2.5" />
-                <span className="font-semibold">
-                  {formatCurrency(Math.max(returns.sideAPotential, returns.sideBPotential), currency as Currency)}
-                </span>
-              </div>
-            )}
-            {createdAt && (
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <Calendar className="h-2.5 w-2.5" />
-                <span>{format(new Date(createdAt), "MMM d")}</span>
               </div>
             )}
           </div>
