@@ -80,7 +80,8 @@ export function WagerCard({
   const isSettled = status === "SETTLED";
   const sideAWon = isResolved && winningSide === "a";
   const sideBWon = isResolved && winningSide === "b";
-  const userParticipated = userEntryAmount !== undefined && userEntrySide !== undefined;
+  // Check if user has participated - userEntrySide should be 'a' or 'b'
+  const userParticipated = userEntrySide === "a" || userEntrySide === "b";
   
   // Reset joining state when user participation status changes or wager status changes
   React.useEffect(() => {
@@ -326,7 +327,7 @@ export function WagerCard({
         {/* Sides - Responsive design with quick wager buttons */}
         <div className="grid grid-cols-2 gap-2 sm:gap-1.5 mb-2 sm:mb-1.5 flex-shrink-0">
           {isOpen && !userParticipated && user ? (
-            // Quick wager buttons for authenticated users - Touch-friendly on mobile
+            // Quick wager buttons for authenticated users who haven't participated - Touch-friendly on mobile
             <>
               {/* Side A (Yes) - Blue with Check icon */}
               <button
@@ -391,8 +392,58 @@ export function WagerCard({
                 <p className="font-semibold text-xs sm:text-[10px] text-orange-600 dark:text-orange-400 truncate">{sideB}</p>
               </div>
             </div>
+          ) : isOpen && userParticipated && user ? (
+            // Display for authenticated users who have participated in open wagers - Highlight their selection
+            <div className="grid grid-cols-2 gap-1.5 sm:gap-1 bg-muted/20 rounded-md p-2 sm:p-1.5 col-span-2">
+              <div className={`text-center relative rounded p-1.5 sm:p-1 transition-all ${
+                userEntrySide === "a"
+                  ? "bg-primary/10 border-2 border-primary/50 shadow-md shadow-primary/10"
+                  : "bg-blue-500/5 border border-blue-500/20"
+              }`}>
+                <div className="flex items-center justify-center gap-1 sm:gap-0.5 mb-0.5">
+                  <Check className={`h-3 w-3 sm:h-2.5 sm:w-2.5 flex-shrink-0 ${
+                    userEntrySide === "a"
+                      ? "text-primary"
+                      : "text-blue-600 dark:text-blue-400"
+                  }`} strokeWidth={3} />
+                </div>
+                <p className={`font-semibold text-xs sm:text-[10px] truncate ${
+                  userEntrySide === "a"
+                    ? "text-primary"
+                    : "text-blue-600 dark:text-blue-400"
+                }`}>{sideA}</p>
+                {userEntrySide === "a" && (
+                  <div className="absolute -top-1 -right-1 bg-primary rounded-full p-0.5 shadow-sm">
+                    <CheckCircle2 className="h-2 w-2 text-white" />
+                  </div>
+                )}
+              </div>
+              <div className={`text-center border-l border-border relative rounded p-1.5 sm:p-1 transition-all ml-[-1px] ${
+                userEntrySide === "b"
+                  ? "bg-primary/10 border-2 border-primary/50 shadow-md shadow-primary/10"
+                  : "bg-orange-500/5 border border-orange-500/20"
+              }`}>
+                <div className="flex items-center justify-center gap-1 sm:gap-0.5 mb-0.5">
+                  <X className={`h-3 w-3 sm:h-2.5 sm:w-2.5 flex-shrink-0 ${
+                    userEntrySide === "b"
+                      ? "text-primary"
+                      : "text-orange-600 dark:text-orange-400"
+                  }`} strokeWidth={3} />
+                </div>
+                <p className={`font-semibold text-xs sm:text-[10px] truncate ${
+                  userEntrySide === "b"
+                    ? "text-primary"
+                    : "text-orange-600 dark:text-orange-400"
+                }`}>{sideB}</p>
+                {userEntrySide === "b" && (
+                  <div className="absolute -top-1 -right-1 bg-primary rounded-full p-0.5 shadow-sm">
+                    <CheckCircle2 className="h-2 w-2 text-white" />
+                  </div>
+                )}
+              </div>
+            </div>
           ) : (
-            // Display for settled/resolved or if user already participated
+            // Display for settled/resolved wagers
             <div className="grid grid-cols-2 gap-1.5 sm:gap-1 bg-muted/30 rounded-md p-2 sm:p-1.5 col-span-2">
               <div className={`text-center relative rounded p-1.5 sm:p-1 transition-all ${
                 sideAWon 
