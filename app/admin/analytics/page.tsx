@@ -148,15 +148,18 @@ export default function AdminAnalyticsPage() {
       setWagers(wagersData);
 
       // Fetch wager entries (we'll need to get these from wagers or create an endpoint)
-      // For now, we'll calculate from transactions
+      // For now, we'll calculate from transactions - ensure amounts are numbers
       const entriesData: WagerEntry[] = transactionsData
         .filter(t => t.type === 'wager_join' || t.type === 'wager_entry')
-        .map(t => ({
-          id: t.id,
-          wager_id: (t as any).wager_id || '',
-          amount: Math.abs(t.amount),
-          created_at: t.created_at,
-        }));
+        .map(t => {
+          const amount = typeof t.amount === 'string' ? parseFloat(t.amount) : (t.amount || 0);
+          return {
+            id: t.id,
+            wager_id: (t as any).wager_id || '',
+            amount: Math.abs(isNaN(amount) ? 0 : amount),
+            created_at: t.created_at,
+          };
+        });
       setWagerEntries(entriesData);
 
       // Calculate daily data
@@ -185,17 +188,31 @@ export default function AdminAnalyticsPage() {
         let commissions = 0;
         resolvedWagers.forEach(wager => {
           const entries = (entriesData || []).filter(e => e.wager_id === wager.id);
-          const totalPool = entries.reduce((sum, e) => sum + e.amount, 0);
-          commissions += totalPool * (wager.fee_percentage || 0.05);
+          const totalPool = entries.reduce((sum, e) => {
+            const amount = typeof e.amount === 'number' ? e.amount : parseFloat(e.amount || '0');
+            return sum + (isNaN(amount) ? 0 : amount);
+          }, 0);
+          const feePercent = typeof wager.fee_percentage === 'number' ? wager.fee_percentage : parseFloat(wager.fee_percentage || '0.05');
+          commissions += totalPool * (isNaN(feePercent) ? 0.05 : feePercent);
         });
+
+        // Helper function to safely parse and sum amounts
+        const safeSum = (transactions: Transaction[], type: string) => {
+          return transactions
+            .filter(t => t.type === type)
+            .reduce((sum, t) => {
+              const amount = typeof t.amount === 'string' ? parseFloat(t.amount) : (t.amount || 0);
+              return sum + (isNaN(amount) ? 0 : amount);
+            }, 0);
+        };
 
         return {
           date: format(day, "MMM d"),
           fullDate: dayStr,
-          deposits: dayTransactions.filter(t => t.type === "deposit").reduce((sum, t) => sum + t.amount, 0),
-          withdrawals: Math.abs(dayTransactions.filter(t => t.type === "withdrawal").reduce((sum, t) => sum + t.amount, 0)),
-          wagerEntries: Math.abs(dayTransactions.filter(t => t.type === "wager_entry").reduce((sum, t) => sum + t.amount, 0)),
-          wagerWins: dayTransactions.filter(t => t.type === "wager_win").reduce((sum, t) => sum + t.amount, 0),
+          deposits: safeSum(dayTransactions, "deposit"),
+          withdrawals: Math.abs(safeSum(dayTransactions, "withdrawal")),
+          wagerEntries: Math.abs(safeSum(dayTransactions, "wager_entry")),
+          wagerWins: safeSum(dayTransactions, "wager_win"),
           commissions,
           transactions: dayTransactions.length,
         };
@@ -203,29 +220,59 @@ export default function AdminAnalyticsPage() {
 
       setDailyData(daily);
 
-      // Calculate financial metrics
-      const totalWagerVolume = (entriesData || []).reduce((sum, e) => sum + e.amount, 0);
+      // Calculate financial metrics - ensure all amounts are numbers
+      const totalWagerVolume = (entriesData || []).reduce((sum, e) => {
+        const amount = typeof e.amount === 'number' ? e.amount : parseFloat(e.amount || '0');
+        return sum + (isNaN(amount) ? 0 : amount);
+      }, 0);
+      
       const resolvedWagers = (wagersData || []).filter(w => w.status === "RESOLVED" || w.status === "SETTLED");
       
       let totalCommissions = 0;
       resolvedWagers.forEach(wager => {
         const entries = (entriesData || []).filter(e => e.wager_id === wager.id);
-        const totalPool = entries.reduce((sum, e) => sum + e.amount, 0);
-        totalCommissions += totalPool * (wager.fee_percentage || 0.05);
+        const totalPool = entries.reduce((sum, e) => {
+          const amount = typeof e.amount === 'number' ? e.amount : parseFloat(e.amount || '0');
+          return sum + (isNaN(amount) ? 0 : amount);
+        }, 0);
+        const feePercent = typeof wager.fee_percentage === 'number' ? wager.fee_percentage : parseFloat(wager.fee_percentage || '0.05');
+        totalCommissions += totalPool * (isNaN(feePercent) ? 0.05 : feePercent);
       });
 
-      const totalDeposits = (transactionsData || []).filter(t => t.type === "deposit").reduce((sum, t) => sum + t.amount, 0);
-      const totalWithdrawals = Math.abs((transactionsData || []).filter(t => t.type === "withdrawal").reduce((sum, t) => sum + t.amount, 0));
-      const totalWagerWins = (transactionsData || []).filter(t => t.type === "wager_win").reduce((sum, t) => sum + t.amount, 0);
-      const totalWagerRefunds = (transactionsData || []).filter(t => t.type === "wager_refund").reduce((sum, t) => sum + t.amount, 0);
+      // Helper function to safely parse and sum amounts
+      const safeSum = (transactions: Transaction[], type: string) => {
+        return transactions
+          .filter(t => t.type === type)
+          .reduce((sum, t) => {
+            const amount = typeof t.amount === 'string' ? parseFloat(t.amount) : (t.amount || 0);
+            return sum + (isNaN(amount) ? 0 : amount);
+          }, 0);
+      };
+
+      const totalDeposits = safeSum(transactionsData, "deposit");
+      const totalWithdrawals = Math.abs(safeSum(transactionsData, "withdrawal"));
+      const totalWagerWins = safeSum(transactionsData, "wager_win");
+      const totalWagerRefunds = safeSum(transactionsData, "wager_refund");
+
+      // Ensure all values are numbers
+      const commissions = Number(totalCommissions) || 0;
+      const wins = Number(totalWagerWins) || 0;
+      const refunds = Number(totalWagerRefunds) || 0;
+      const withdrawals = Number(totalWithdrawals) || 0;
+      
+      const totalPayouts = wins + refunds + withdrawals;
+      const netProfit = commissions - (wins + refunds);
 
       const metrics: FinancialMetrics = {
-        totalRevenue: totalCommissions,
-        totalCommissions,
-        totalPayouts: totalWagerWins + totalWagerRefunds + totalWithdrawals,
-        netProfit: totalCommissions - (totalWagerWins + totalWagerRefunds),
+        totalRevenue: commissions,
+        totalCommissions: commissions,
+        totalPayouts: isNaN(totalPayouts) ? 0 : totalPayouts,
+        netProfit: isNaN(netProfit) ? 0 : netProfit,
         averageCommissionRate: resolvedWagers.length > 0
-          ? resolvedWagers.reduce((sum, w) => sum + (w.fee_percentage || 0.05), 0) / resolvedWagers.length
+          ? resolvedWagers.reduce((sum, w) => {
+              const fee = typeof w.fee_percentage === 'number' ? w.fee_percentage : parseFloat(w.fee_percentage || '0.05');
+              return sum + (isNaN(fee) ? 0.05 : fee);
+            }, 0) / resolvedWagers.length
           : 0.05,
       };
 
@@ -246,12 +293,21 @@ export default function AdminAnalyticsPage() {
     }
   }, [isAdmin, fetchData]);
 
-  // Prepare chart data
+  // Prepare chart data - ensure all amounts are numbers
+  const safeSum = (transactions: Transaction[], type: string) => {
+    return transactions
+      .filter(t => t.type === type)
+      .reduce((sum, t) => {
+        const amount = typeof t.amount === 'string' ? parseFloat(t.amount) : (t.amount || 0);
+        return sum + (isNaN(amount) ? 0 : amount);
+      }, 0);
+  };
+
   const transactionTypeData = [
-    { name: "Deposits", value: financialMetrics ? transactions.filter(t => t.type === "deposit").reduce((sum, t) => sum + t.amount, 0) : 0 },
-    { name: "Withdrawals", value: financialMetrics ? Math.abs(transactions.filter(t => t.type === "withdrawal").reduce((sum, t) => sum + t.amount, 0)) : 0 },
-    { name: "Wager Entries", value: financialMetrics ? Math.abs(transactions.filter(t => t.type === "wager_entry").reduce((sum, t) => sum + t.amount, 0)) : 0 },
-    { name: "Wager Wins", value: financialMetrics ? transactions.filter(t => t.type === "wager_win").reduce((sum, t) => sum + t.amount, 0) : 0 },
+    { name: "Deposits", value: financialMetrics ? safeSum(transactions, "deposit") : 0 },
+    { name: "Withdrawals", value: financialMetrics ? Math.abs(safeSum(transactions, "withdrawal")) : 0 },
+    { name: "Wager Entries", value: financialMetrics ? Math.abs(safeSum(transactions, "wager_entry")) : 0 },
+    { name: "Wager Wins", value: financialMetrics ? safeSum(transactions, "wager_win") : 0 },
   ];
 
   const revenueData = dailyData.map(d => ({

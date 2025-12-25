@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Wager } from "@/lib/types/api";
 import { logger } from "@/lib/logger";
+import { LucideIcon } from "lucide-react";
 
 interface Stats {
   totalUsers: number;
@@ -39,6 +40,17 @@ interface Stats {
   resolvedWagers: number;
   totalTransactions: number;
   totalVolume: number;
+}
+
+interface StatCardConfig {
+  id: string;
+  title: string;
+  icon: LucideIcon;
+  value: (stats: Stats) => string | number;
+  subtitle?: (stats: Stats) => string;
+  link?: string;
+  iconColor: string;
+  iconBg: string;
 }
 
 interface Transaction {
@@ -151,6 +163,66 @@ export default function AdminPage() {
     }
   }, [admin?.id, fetchStats, fetchRecentWagers, fetchRecentTransactions]);
 
+  // Stats card configuration
+  const statsCards: StatCardConfig[] = [
+    {
+      id: 'users',
+      title: 'Total Users',
+      icon: Users,
+      value: (s) => s.totalUsers.toLocaleString(),
+      link: '/admin/users',
+      iconColor: 'text-blue-600 dark:text-blue-400',
+      iconBg: 'bg-blue-500/10 group-hover:bg-blue-500/20',
+    },
+    {
+      id: 'wagers',
+      title: 'Total Wagers',
+      icon: TrendingUp,
+      value: (s) => s.totalWagers.toLocaleString(),
+      link: '/admin/wagers',
+      iconColor: 'text-green-600 dark:text-green-400',
+      iconBg: 'bg-green-500/10 group-hover:bg-green-500/20',
+    },
+    {
+      id: 'open',
+      title: 'Open Wagers',
+      icon: Activity,
+      value: (s) => s.openWagers.toLocaleString(),
+      subtitle: () => 'Active now',
+      iconColor: 'text-orange-600 dark:text-orange-400',
+      iconBg: 'bg-orange-500/10 group-hover:bg-orange-500/20',
+    },
+    {
+      id: 'resolved',
+      title: 'Resolved',
+      icon: CheckCircle,
+      value: (s) => s.resolvedWagers.toLocaleString(),
+      subtitle: (s) => s.totalWagers > 0 
+        ? `${Math.round((s.resolvedWagers / s.totalWagers) * 100)}% completion`
+        : '0% completion',
+      iconColor: 'text-purple-600 dark:text-purple-400',
+      iconBg: 'bg-purple-500/10 group-hover:bg-purple-500/20',
+    },
+    {
+      id: 'volume',
+      title: 'Total Volume',
+      icon: DollarSign,
+      value: (s) => formatCurrency(s.totalVolume, DEFAULT_CURRENCY as Currency),
+      subtitle: () => 'All-time volume',
+      iconColor: 'text-emerald-600 dark:text-emerald-400',
+      iconBg: 'bg-emerald-500/10 group-hover:bg-emerald-500/20',
+    },
+    {
+      id: 'transactions',
+      title: 'Transactions',
+      icon: Activity,
+      value: (s) => s.totalTransactions.toLocaleString(),
+      link: '/admin/transactions',
+      iconColor: 'text-cyan-600 dark:text-cyan-400',
+      iconBg: 'bg-cyan-500/10 group-hover:bg-cyan-500/20',
+    },
+  ];
+
   return (
     <main className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 w-full">
@@ -175,109 +247,48 @@ export default function AdminPage() {
 
         {/* Stats Grid */}
         {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 mb-6">
             {[...Array(6)].map((_, i) => (
               <Card key={i} className="border border-border/80">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <div className="h-4 w-20 bg-muted animate-pulse rounded" />
-                  <div className="h-4 w-4 bg-muted animate-pulse rounded" />
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 px-2 pt-1.5">
+                  <div className="h-3 w-16 bg-muted animate-pulse rounded" />
+                  <div className="h-6 w-6 bg-muted animate-pulse rounded" />
                 </CardHeader>
-                <CardContent>
-                  <div className="h-8 w-16 bg-muted animate-pulse rounded" />
+                <CardContent className="px-2 pb-1.5 pt-0">
+                  <div className="h-6 w-14 bg-muted animate-pulse rounded" />
                 </CardContent>
               </Card>
             ))}
           </div>
         ) : stats ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-            <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Users</CardTitle>
-                <div className="h-9 w-9 rounded-lg bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
-                  <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalUsers.toLocaleString()}</div>
-                <Link href="/admin/users" className="text-xs text-muted-foreground hover:text-primary transition-colors mt-1 flex items-center gap-1 group/link">
-                  View all <ArrowUpRight className="h-3 w-3 opacity-0 group-hover/link:opacity-100 transition-opacity" />
-                </Link>
-              </CardContent>
-            </Card>
-            <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Wagers</CardTitle>
-                <div className="h-9 w-9 rounded-lg bg-green-500/10 flex items-center justify-center group-hover:bg-green-500/20 transition-colors">
-                  <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalWagers.toLocaleString()}</div>
-                <Link href="/admin/wagers" className="text-xs text-muted-foreground hover:text-primary transition-colors mt-1 flex items-center gap-1 group/link">
-                  View all <ArrowUpRight className="h-3 w-3 opacity-0 group-hover/link:opacity-100 transition-opacity" />
-                </Link>
-              </CardContent>
-            </Card>
-            <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Open Wagers</CardTitle>
-                <div className="h-9 w-9 rounded-lg bg-orange-500/10 flex items-center justify-center group-hover:bg-orange-500/20 transition-colors">
-                  <Activity className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.openWagers.toLocaleString()}</div>
-                <p className="text-xs text-muted-foreground mt-1">Active now</p>
-              </CardContent>
-            </Card>
-            <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Resolved</CardTitle>
-                <div className="h-9 w-9 rounded-lg bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors">
-                  <CheckCircle className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.resolvedWagers.toLocaleString()}</div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {stats.totalWagers > 0 
-                    ? `${Math.round((stats.resolvedWagers / stats.totalWagers) * 100)}% completion`
-                    : '0% completion'}
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Volume</CardTitle>
-                <div className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center group-hover:bg-emerald-500/20 transition-colors">
-                  <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {formatCurrency(stats.totalVolume, DEFAULT_CURRENCY as Currency)}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">All-time volume</p>
-              </CardContent>
-            </Card>
-            <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Transactions</CardTitle>
-                <div className="h-9 w-9 rounded-lg bg-cyan-500/10 flex items-center justify-center group-hover:bg-cyan-500/20 transition-colors">
-                  <Activity className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalTransactions.toLocaleString()}</div>
-                <Link href="/admin/transactions" className="text-xs text-muted-foreground hover:text-primary transition-colors mt-1 flex items-center gap-1 group/link">
-                  View all <ArrowUpRight className="h-3 w-3 opacity-0 group-hover/link:opacity-100 transition-opacity" />
-                </Link>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 mb-6">
+            {statsCards.map((card) => {
+              const Icon = card.icon;
+              return (
+                <Card key={card.id} className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 px-2 pt-1.5">
+                    <CardTitle className="text-[11px] font-medium text-muted-foreground leading-tight">{card.title}</CardTitle>
+                    <div className={`h-6 w-6 rounded-lg ${card.iconBg} flex items-center justify-center transition-colors flex-shrink-0`}>
+                      <Icon className={`h-3 w-3 ${card.iconColor}`} />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="px-2 pb-1.5 pt-0">
+                    <div className="text-lg font-bold leading-tight">{card.value(stats)}</div>
+                    {card.link ? (
+                      <Link href={card.link} className="text-[10px] text-muted-foreground hover:text-primary transition-colors flex items-center gap-0.5 group/link">
+                        View all <ArrowUpRight className="h-2 w-2 opacity-0 group-hover/link:opacity-100 transition-opacity" />
+                      </Link>
+                    ) : card.subtitle ? (
+                      <p className="text-[10px] text-muted-foreground leading-tight">{card.subtitle(stats)}</p>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         ) : null}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-6">
           {/* Recent Wagers */}
           <Card className="border border-border/80">
             <CardHeader className="pb-3">

@@ -128,15 +128,18 @@ export default function AdminReportsPage() {
       }));
       setWagers(wagersData);
 
-      // Calculate entries from transactions
+      // Calculate entries from transactions - ensure amounts are numbers
       const entriesData = data
         .filter(t => t.type === 'wager_join' || t.type === 'wager_entry')
-        .map(t => ({
-          id: t.id,
-          wager_id: (t as any).wager_id || '',
-          amount: Math.abs(t.amount),
-          created_at: t.created_at,
-        }));
+        .map(t => {
+          const amount = typeof t.amount === 'string' ? parseFloat(t.amount) : (t.amount || 0);
+          return {
+            id: t.id,
+            wager_id: (t as any).wager_id || '',
+            amount: Math.abs(isNaN(amount) ? 0 : amount),
+            created_at: t.created_at,
+          };
+        });
       setWagerEntries(entriesData);
 
       // Calculate platform commissions from resolved wagers
@@ -146,31 +149,63 @@ export default function AdminReportsPage() {
 
       resolvedWagers.forEach(wager => {
         const entries = (entriesData || []).filter(e => e.wager_id === wager.id);
-        const totalPool = entries.reduce((sum, e) => sum + e.amount, 0);
+        const totalPool = entries.reduce((sum, e) => {
+          const amount = typeof e.amount === 'number' ? e.amount : parseFloat(e.amount || '0');
+          return sum + (isNaN(amount) ? 0 : amount);
+        }, 0);
         totalWagerVolume += totalPool;
-        const commission = totalPool * (wager.fee_percentage || 0.05);
+        const feePercent = typeof wager.fee_percentage === 'number' ? wager.fee_percentage : parseFloat(wager.fee_percentage || '0.05');
+        const commission = totalPool * (isNaN(feePercent) ? 0.05 : feePercent);
         totalCommissions += commission;
       });
 
-      // Calculate analytics
-      const totalDeposits = data?.filter(t => t.type === "deposit").reduce((sum, t) => sum + t.amount, 0) || 0;
-      const totalWithdrawals = data?.filter(t => t.type === "withdrawal").reduce((sum, t) => sum + Math.abs(t.amount), 0) || 0;
-      const totalWagerEntries = data?.filter(t => t.type === "wager_entry").reduce((sum, t) => sum + Math.abs(t.amount), 0) || 0;
-      const totalWagerWins = data?.filter(t => t.type === "wager_win").reduce((sum, t) => sum + t.amount, 0) || 0;
-      const totalWagerRefunds = data?.filter(t => t.type === "wager_refund").reduce((sum, t) => sum + t.amount, 0) || 0;
+      // Calculate analytics - ensure all amounts are numbers
+      const totalDeposits = data?.filter(t => t.type === "deposit").reduce((sum, t) => {
+        const amount = typeof t.amount === 'string' ? parseFloat(t.amount) : (t.amount || 0);
+        return sum + (isNaN(amount) ? 0 : amount);
+      }, 0) || 0;
+      
+      const totalWithdrawals = data?.filter(t => t.type === "withdrawal").reduce((sum, t) => {
+        const amount = typeof t.amount === 'string' ? parseFloat(t.amount) : (t.amount || 0);
+        return sum + Math.abs(isNaN(amount) ? 0 : amount);
+      }, 0) || 0;
+      
+      const totalWagerEntries = data?.filter(t => t.type === "wager_entry").reduce((sum, t) => {
+        const amount = typeof t.amount === 'string' ? parseFloat(t.amount) : (t.amount || 0);
+        return sum + Math.abs(isNaN(amount) ? 0 : amount);
+      }, 0) || 0;
+      
+      const totalWagerWins = data?.filter(t => t.type === "wager_win").reduce((sum, t) => {
+        const amount = typeof t.amount === 'string' ? parseFloat(t.amount) : (t.amount || 0);
+        return sum + (isNaN(amount) ? 0 : amount);
+      }, 0) || 0;
+      
+      const totalWagerRefunds = data?.filter(t => t.type === "wager_refund").reduce((sum, t) => {
+        const amount = typeof t.amount === 'string' ? parseFloat(t.amount) : (t.amount || 0);
+        return sum + (isNaN(amount) ? 0 : amount);
+      }, 0) || 0;
 
+      // Ensure all values are numbers and calculate net flow safely
+      const deposits = Number(totalDeposits) || 0;
+      const withdrawals = Number(totalWithdrawals) || 0;
+      const wins = Number(totalWagerWins) || 0;
+      const refunds = Number(totalWagerRefunds) || 0;
+      const entries = Number(totalWagerEntries) || 0;
+      
+      const netFlow = (deposits + wins + refunds) - (withdrawals + entries);
+      
       const analyticsData: Analytics = {
         totalTransactions: data?.length || 0,
-        totalDeposits,
-        totalWithdrawals,
-        totalWagerEntries,
-        totalWagerWins,
-        totalWagerRefunds,
-        totalCommissions,
-        netFlow: (totalDeposits + totalWagerWins + totalWagerRefunds) - (totalWithdrawals + totalWagerEntries),
+        totalDeposits: deposits,
+        totalWithdrawals: withdrawals,
+        totalWagerEntries: entries,
+        totalWagerWins: wins,
+        totalWagerRefunds: refunds,
+        totalCommissions: Number(totalCommissions) || 0,
+        netFlow: isNaN(netFlow) ? 0 : netFlow,
         uniqueUsers: new Set(data?.map(t => t.user_id) || []).size,
-        platformRevenue: totalCommissions,
-        totalWagerVolume,
+        platformRevenue: Number(totalCommissions) || 0,
+        totalWagerVolume: Number(totalWagerVolume) || 0,
       };
 
       setAnalytics(analyticsData);
@@ -222,141 +257,141 @@ export default function AdminReportsPage() {
 
         {/* Analytics Cards */}
         {fetching && !analytics ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
             {[...Array(8)].map((_, i) => (
               <Card key={i} className="border border-border/80">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <div className="h-4 w-24 bg-muted animate-pulse rounded" />
-                  <div className="h-9 w-9 bg-muted animate-pulse rounded" />
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 px-2 pt-1.5">
+                  <div className="h-3 w-20 bg-muted animate-pulse rounded" />
+                  <div className="h-6 w-6 bg-muted animate-pulse rounded" />
                 </CardHeader>
-                <CardContent>
-                  <div className="h-8 w-20 bg-muted animate-pulse rounded" />
+                <CardContent className="px-2 pb-1.5 pt-0">
+                  <div className="h-6 w-16 bg-muted animate-pulse rounded" />
                 </CardContent>
               </Card>
             ))}
           </div>
         ) : analytics ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
             <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Transactions</CardTitle>
-                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                  <DollarSign className="h-4 w-4 text-primary" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 px-2 pt-1.5">
+                <CardTitle className="text-[11px] font-medium text-muted-foreground leading-tight">Total Transactions</CardTitle>
+                <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors flex-shrink-0">
+                  <DollarSign className="h-3 w-3 text-primary" />
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{analytics.totalTransactions.toLocaleString()}</div>
+              <CardContent className="px-2 pb-1.5 pt-0">
+                <div className="text-lg font-bold leading-tight">{analytics.totalTransactions.toLocaleString()}</div>
               </CardContent>
             </Card>
             <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Net Flow</CardTitle>
-                <div className={`h-9 w-9 rounded-lg flex items-center justify-center group-hover:opacity-80 transition-colors ${
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 px-2 pt-1.5">
+                <CardTitle className="text-[11px] font-medium text-muted-foreground leading-tight">Net Flow</CardTitle>
+                <div className={`h-6 w-6 rounded-lg flex items-center justify-center group-hover:opacity-80 transition-colors flex-shrink-0 ${
                   analytics.netFlow >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'
                 }`}>
                   {analytics.netFlow >= 0 ? (
-                    <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    <TrendingUp className="h-3 w-3 text-green-600 dark:text-green-400" />
                   ) : (
-                    <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
+                    <TrendingDown className="h-3 w-3 text-red-600 dark:text-red-400" />
                   )}
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className={`text-2xl font-bold ${analytics.netFlow >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+              <CardContent className="px-2 pb-1.5 pt-0">
+                <div className={`text-lg font-bold leading-tight ${analytics.netFlow >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                   {analytics.netFlow >= 0 ? '+' : ''}{formatCurrency(analytics.netFlow, DEFAULT_CURRENCY as Currency)}
                 </div>
               </CardContent>
             </Card>
             <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Unique Users</CardTitle>
-                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                  <Users className="h-4 w-4 text-primary" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 px-2 pt-1.5">
+                <CardTitle className="text-[11px] font-medium text-muted-foreground leading-tight">Unique Users</CardTitle>
+                <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors flex-shrink-0">
+                  <Users className="h-3 w-3 text-primary" />
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{analytics.uniqueUsers.toLocaleString()}</div>
+              <CardContent className="px-2 pb-1.5 pt-0">
+                <div className="text-lg font-bold leading-tight">{analytics.uniqueUsers.toLocaleString()}</div>
               </CardContent>
             </Card>
             <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Deposits</CardTitle>
-                <div className="h-9 w-9 rounded-lg bg-green-500/10 flex items-center justify-center group-hover:bg-green-500/20 transition-colors">
-                  <ArrowUp className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 px-2 pt-1.5">
+                <CardTitle className="text-[11px] font-medium text-muted-foreground leading-tight">Total Deposits</CardTitle>
+                <div className="h-6 w-6 rounded-lg bg-green-500/10 flex items-center justify-center group-hover:bg-green-500/20 transition-colors flex-shrink-0">
+                  <ArrowUp className="h-3 w-3 text-green-600 dark:text-green-400" />
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+              <CardContent className="px-2 pb-1.5 pt-0">
+                <div className="text-lg font-bold leading-tight text-green-600 dark:text-green-400">
                   {formatCurrency(analytics.totalDeposits, DEFAULT_CURRENCY as Currency)}
                 </div>
               </CardContent>
             </Card>
             <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Withdrawals</CardTitle>
-                <div className="h-9 w-9 rounded-lg bg-red-500/10 flex items-center justify-center group-hover:bg-red-500/20 transition-colors">
-                  <ArrowDown className="h-4 w-4 text-red-600 dark:text-red-400" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 px-2 pt-1.5">
+                <CardTitle className="text-[11px] font-medium text-muted-foreground leading-tight">Total Withdrawals</CardTitle>
+                <div className="h-6 w-6 rounded-lg bg-red-500/10 flex items-center justify-center group-hover:bg-red-500/20 transition-colors flex-shrink-0">
+                  <ArrowDown className="h-3 w-3 text-red-600 dark:text-red-400" />
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+              <CardContent className="px-2 pb-1.5 pt-0">
+                <div className="text-lg font-bold leading-tight text-red-600 dark:text-red-400">
                   {formatCurrency(analytics.totalWithdrawals, DEFAULT_CURRENCY as Currency)}
                 </div>
               </CardContent>
             </Card>
             <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Platform Revenue</CardTitle>
-                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                  <DollarSign className="h-4 w-4 text-primary" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 px-2 pt-1.5">
+                <CardTitle className="text-[11px] font-medium text-muted-foreground leading-tight">Platform Revenue</CardTitle>
+                <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors flex-shrink-0">
+                  <DollarSign className="h-3 w-3 text-primary" />
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-primary">
+              <CardContent className="px-2 pb-1.5 pt-0">
+                <div className="text-lg font-bold leading-tight text-primary">
                   {formatCurrency(analytics.platformRevenue, DEFAULT_CURRENCY as Currency)}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-[10px] text-muted-foreground leading-tight">
                   {analytics.totalWagerVolume > 0 
-                    ? `${((analytics.totalCommissions / analytics.totalWagerVolume) * 100).toFixed(2)}% commission rate`
-                    : '0% commission rate'}
+                    ? `${((analytics.totalCommissions / analytics.totalWagerVolume) * 100).toFixed(2)}% rate`
+                    : '0% rate'}
                 </p>
               </CardContent>
             </Card>
             <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Wager Volume</CardTitle>
-                <div className="h-9 w-9 rounded-lg bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
-                  <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 px-2 pt-1.5">
+                <CardTitle className="text-[11px] font-medium text-muted-foreground leading-tight">Wager Volume</CardTitle>
+                <div className="h-6 w-6 rounded-lg bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors flex-shrink-0">
+                  <TrendingUp className="h-3 w-3 text-blue-600 dark:text-blue-400" />
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              <CardContent className="px-2 pb-1.5 pt-0">
+                <div className="text-lg font-bold leading-tight text-blue-600 dark:text-blue-400">
                   {formatCurrency(analytics.totalWagerVolume, DEFAULT_CURRENCY as Currency)}
                 </div>
               </CardContent>
             </Card>
             <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Wager Payouts</CardTitle>
-                <div className="h-9 w-9 rounded-lg bg-green-500/10 flex items-center justify-center group-hover:bg-green-500/20 transition-colors">
-                  <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 px-2 pt-1.5">
+                <CardTitle className="text-[11px] font-medium text-muted-foreground leading-tight">Wager Payouts</CardTitle>
+                <div className="h-6 w-6 rounded-lg bg-green-500/10 flex items-center justify-center group-hover:bg-green-500/20 transition-colors flex-shrink-0">
+                  <TrendingUp className="h-3 w-3 text-green-600 dark:text-green-400" />
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+              <CardContent className="px-2 pb-1.5 pt-0">
+                <div className="text-lg font-bold leading-tight text-green-600 dark:text-green-400">
                   {formatCurrency(analytics.totalWagerWins, DEFAULT_CURRENCY as Currency)}
                 </div>
               </CardContent>
             </Card>
             <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Wager Refunds</CardTitle>
-                <div className="h-9 w-9 rounded-lg bg-yellow-500/10 flex items-center justify-center group-hover:bg-yellow-500/20 transition-colors">
-                  <TrendingDown className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 px-2 pt-1.5">
+                <CardTitle className="text-[11px] font-medium text-muted-foreground leading-tight">Wager Refunds</CardTitle>
+                <div className="h-6 w-6 rounded-lg bg-yellow-500/10 flex items-center justify-center group-hover:bg-yellow-500/20 transition-colors flex-shrink-0">
+                  <TrendingDown className="h-3 w-3 text-yellow-600 dark:text-yellow-400" />
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+              <CardContent className="px-2 pb-1.5 pt-0">
+                <div className="text-lg font-bold leading-tight text-yellow-600 dark:text-yellow-400">
                   {formatCurrency(analytics.totalWagerRefunds, DEFAULT_CURRENCY as Currency)}
                 </div>
               </CardContent>
@@ -367,36 +402,36 @@ export default function AdminReportsPage() {
         {/* Commission Analysis */}
         {analytics && analytics.totalCommissions > 0 && (
           <Card className="border border-border/80">
-            <CardHeader>
-              <CardTitle>Platform Commission Analysis</CardTitle>
-              <CardDescription>Detailed breakdown of platform revenue and commissions</CardDescription>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Platform Commission Analysis</CardTitle>
+              <CardDescription className="text-xs">Detailed breakdown of platform revenue and commissions</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Commission Rate</p>
-                  <p className="text-2xl font-bold text-primary">
+                <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
+                  <p className="text-xs text-muted-foreground mb-1">Commission Rate</p>
+                  <p className="text-xl font-bold text-primary">
                     {analytics.totalWagerVolume > 0 
                       ? `${((analytics.totalCommissions / analytics.totalWagerVolume) * 100).toFixed(2)}%`
                       : '5.00%'}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">Average fee percentage</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Average fee percentage</p>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Net Revenue</p>
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                <div className="p-3 rounded-lg bg-green-500/5 border border-green-500/10">
+                  <p className="text-xs text-muted-foreground mb-1">Net Revenue</p>
+                  <p className="text-xl font-bold text-green-600 dark:text-green-400">
                     {formatCurrency(analytics.platformRevenue, DEFAULT_CURRENCY as Currency)}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">Total commissions earned</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Total commissions earned</p>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Profit Margin</p>
-                  <p className="text-2xl font-bold text-primary">
+                <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
+                  <p className="text-xs text-muted-foreground mb-1">Profit Margin</p>
+                  <p className="text-xl font-bold text-primary">
                     {analytics.totalWagerVolume > 0
                       ? `${((analytics.platformRevenue / analytics.totalWagerVolume) * 100).toFixed(2)}%`
                       : '0%'}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">Revenue as % of volume</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Revenue as % of volume</p>
                 </div>
               </div>
             </CardContent>
@@ -562,8 +597,8 @@ export default function AdminReportsPage() {
                     header: "User ID",
                     accessorKey: "user_id",
                     cell: (row) => (
-                      <span className="text-xs font-mono text-muted-foreground">
-                        {row.user_id.substring(0, 8)}...
+                      <span className="text-xs font-mono text-muted-foreground" title={row.user_id}>
+                        {row.user_id.substring(0, 12)}...
                       </span>
                     ),
                   },
