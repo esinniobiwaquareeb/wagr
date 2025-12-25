@@ -36,6 +36,7 @@ export default function AdminWagersPage() {
   const [editingWager, setEditingWager] = useState<Wager | null>(null);
   const [deletingWager, setDeletingWager] = useState<Wager | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [isCreatingSystemWager, setIsCreatingSystemWager] = useState(false);
 
   const fetchWagers = useCallback(async () => {
     if (!isAdmin) return;
@@ -69,6 +70,7 @@ export default function AdminWagersPage() {
           side_b: w.side_b,
           currency: w.currency || 'NGN',
           is_public: w.is_public,
+          participantsCount: w.participantsCount || 0,
         }));
         setWagers(transformedWagers);
       } else {
@@ -348,7 +350,7 @@ export default function AdminWagersPage() {
       />
         
         {/* Actions Bar */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
           {/* Filter Tabs */}
           <div className="flex gap-2">
             <button
@@ -380,6 +382,32 @@ export default function AdminWagersPage() {
               }`}
             >
               System Generated
+            </button>
+          </div>
+
+          {/* Create Buttons */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setEditingWager(null);
+                setIsCreatingSystemWager(false);
+                setShowCreateModal(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition text-sm font-medium"
+            >
+              <Plus className="h-4 w-4" />
+              Create Wager
+            </button>
+            <button
+              onClick={() => {
+                setEditingWager(null);
+                setIsCreatingSystemWager(true);
+                setShowCreateModal(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/20 transition text-sm font-medium"
+            >
+              <Plus className="h-4 w-4" />
+              Create System Wager
             </button>
           </div>
         </div>
@@ -453,6 +481,15 @@ export default function AdminWagersPage() {
                   {typeof row.category === 'object' && row.category !== null
                     ? row.category.slug || row.category.label || "N/A"
                     : row.category_id || "N/A"}
+                </span>
+              ),
+            },
+            {
+              id: "participants",
+              header: "Participants",
+              cell: (row: any) => (
+                <span className="text-sm font-medium text-foreground">
+                  {row.participantsCount || 0}
                 </span>
               ),
             },
@@ -572,10 +609,16 @@ export default function AdminWagersPage() {
       {/* Create Wager Modal */}
       <AdminWagerModal
         open={showCreateModal}
-        onOpenChange={setShowCreateModal}
+        onOpenChange={(open) => {
+          setShowCreateModal(open);
+          if (!open) {
+            setIsCreatingSystemWager(false);
+          }
+        }}
         onSubmit={handleCreateWager}
         submitting={submitting}
         categories={categories}
+        isSystemWager={isCreatingSystemWager}
       />
 
       {/* Edit Wager Modal */}
@@ -618,6 +661,7 @@ function AdminWagerModal({
   submitting,
   wager,
   categories,
+  isSystemWager = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -629,6 +673,7 @@ function AdminWagerModal({
     slug: string;
     label: string;
   }>;
+  isSystemWager?: boolean;
 }) {
   const [formData, setFormData] = useState({
     title: "",
@@ -672,8 +717,14 @@ function AdminWagerModal({
         isPublic: true,
         isSystemGenerated: false,
       });
+    } else if (open && isSystemWager) {
+      // Set system generated flag when opening modal for system wager
+      setFormData(prev => ({
+        ...prev,
+        isSystemGenerated: true,
+      }));
     }
-  }, [wager, open]);
+  }, [wager, open, isSystemWager]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
