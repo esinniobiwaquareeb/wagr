@@ -38,6 +38,8 @@ interface QuizResultsProps {
   participant?: Participant;
   participants?: Participant[];
   responses?: Array<{
+    id?: string;
+    participant_id?: string;
     question_id: string;
     answer_id: string;
     is_correct: boolean;
@@ -51,8 +53,17 @@ interface QuizResultsProps {
         is_correct: boolean;
       }>;
     };
+    participant?: {
+      id: string;
+      user_id: string;
+      profiles?: {
+        username: string;
+        avatar_url?: string;
+      };
+    };
   }>;
   showDetails?: boolean;
+  isCreator?: boolean;
 }
 
 export function QuizResults({
@@ -61,9 +72,22 @@ export function QuizResults({
   participants = [],
   responses = [],
   showDetails = false,
+  isCreator = false,
 }: QuizResultsProps) {
   const isSettled = quiz.status === 'settled';
   const totalPossiblePoints = useMemo(() => {
+    // First, try to calculate from quiz questions (most accurate)
+    if (quiz.questions && quiz.questions.length) {
+      const sum = quiz.questions.reduce<number>((acc, question) => {
+        const points = question.points ?? 1;
+        return acc + (typeof points === 'string' ? Number(points) : points);
+      }, 0);
+      if (sum > 0) {
+        return sum;
+      }
+    }
+
+    // Fallback: calculate from responses if available
     const sumFromResponses = responses?.reduce((sum, response) => {
       const questionPoints = response.quiz_questions?.points;
       if (questionPoints !== undefined && questionPoints !== null) {
@@ -76,13 +100,7 @@ export function QuizResults({
       return sumFromResponses;
     }
 
-    if (quiz.questions && quiz.questions.length) {
-      const sum = quiz.questions.reduce<number>((acc, question) => acc + (question.points ?? 1), 0);
-      if (sum > 0) {
-        return sum;
-      }
-    }
-
+    // Last resort: use total_questions count (but this is less accurate)
     if (quiz.total_questions) {
       const numericTotal = Number(quiz.total_questions);
       if (!Number.isNaN(numericTotal) && numericTotal > 0) {
@@ -213,9 +231,9 @@ export function QuizResults({
       <Card>
         <CardContent className="p-0">
           <Tabs defaultValue={showDetails ? "answers" : "leaderboard"} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 h-12 p-1 bg-muted/50 rounded-none border-b">
-              {/* Only show Answer Summary tab if we have participant responses (showDetails=true) */}
-              {showDetails && participant && (
+            <TabsList className={`grid w-full ${(showDetails && participant) || (isCreator && responses.length > 0) ? 'grid-cols-2' : 'grid-cols-1'} h-12 p-1 bg-muted/50 rounded-none border-b`}>
+              {/* Show Answer Summary tab if we have participant responses OR if creator has responses */}
+              {((showDetails && participant) || (isCreator && responses.length > 0)) && (
                 <TabsTrigger 
                   value="answers" 
                   className="flex items-center justify-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm"
@@ -227,7 +245,7 @@ export function QuizResults({
               )}
               <TabsTrigger 
                 value="leaderboard" 
-                className={`flex items-center justify-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm ${!showDetails ? 'col-span-2' : ''}`}
+                className="flex items-center justify-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm"
               >
                 <List className="h-4 w-4" />
                 <span>Leaderboard</span>
@@ -239,71 +257,161 @@ export function QuizResults({
               </TabsTrigger>
             </TabsList>
 
-            {/* Answer Summary Tab - Only show if we have participant responses */}
-            {showDetails && participant && (
+            {/* Answer Summary Tab - Show if we have participant responses OR if creator has responses */}
+            {((showDetails && participant) || (isCreator && responses.length > 0)) && (
               <TabsContent value="answers" className="mt-0 p-6">
                 {responses && Array.isArray(responses) && responses.length > 0 ? (
-                <div className="space-y-4">
-                  {responses.map((response: any, index: number) => {
-                    // Handle nested quiz_questions structure from API
-                    const question = response.quiz_questions || (Array.isArray(response.quiz_questions) ? response.quiz_questions[0] : null);
-                    const answers = question?.quiz_answers || [];
-                    const selectedAnswer = answers.find((a: any) => a.id === response.answer_id);
-                    const correctAnswer = answers.find((a: any) => a.is_correct);
+                  <div className="space-y-6">
+                    {(() => {
+                      // If creator, group responses by participant
+                      if (isCreator) {
+                        const responsesByParticipant = responses.reduce((acc: any, response: any) => {
+                          const participantId = response.participant_id || response.participant?.id;
+                          if (!participantId) return acc;
+                          
+                          if (!acc[participantId]) {
+                            acc[participantId] = {
+                              participant: response.participant,
+                              responses: [],
+                            };
+                          }
+                          acc[participantId].responses.push(response);
+                          return acc;
+                        }, {});
 
-                    if (!question || !question.question_text) {
-                      return null;
-                    }
+                        return Object.values(responsesByParticipant).map((group: any, groupIndex: number) => {
+                          const participantName = group.participant?.profiles?.username || `Participant ${groupIndex + 1}`;
+                          const participantResponses = group.responses.sort((a: any, b: any) => {
+                            const orderA = a.quiz_questions?.order_index ?? 0;
+                            const orderB = b.quiz_questions?.order_index ?? 0;
+                            return orderA - orderB;
+                          });
 
-                    return (
-                      <div key={response.question_id || response.id || `response-${index}`} className="border rounded-lg p-4 space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <p className="font-medium text-base">Question {index + 1}</p>
-                            <p className="text-sm text-muted-foreground mt-1">{question.question_text}</p>
-                          </div>
-                          <div className="flex items-center gap-2 ml-4">
-                            {response.is_correct ? (
-                              <CheckCircle2 className="h-5 w-5 text-green-500" />
-                            ) : (
-                              <XCircle className="h-5 w-5 text-red-500" />
-                            )}
-                            <span className="text-sm font-medium">
-                              {response.points_earned || 0} / {question.points || 1} pts
-                            </span>
-                          </div>
-                        </div>
+                          return (
+                            <div key={group.participant?.id || `participant-${groupIndex}`} className="border rounded-lg p-4 space-y-4">
+                              <div className="flex items-center gap-2 pb-3 border-b">
+                                <Users className="h-4 w-4 text-muted-foreground" />
+                                <h3 className="font-semibold text-base">{participantName}</h3>
+                                <span className="text-sm text-muted-foreground">
+                                  ({participantResponses.length} {participantResponses.length === 1 ? 'answer' : 'answers'})
+                                </span>
+                              </div>
+                              <div className="space-y-4">
+                                {participantResponses.map((response: any, index: number) => {
+                                  const question = response.quiz_questions;
+                                  const answers = question?.quiz_answers || [];
+                                  const selectedAnswer = answers.find((a: any) => a.id === response.answer_id);
+                                  const correctAnswer = answers.find((a: any) => a.is_correct);
 
-                        <div className="space-y-2 pl-4 border-l-2 border-muted">
-                          <div className={`p-3 rounded-lg ${
-                            response.is_correct 
-                              ? 'bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800' 
-                              : 'bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800'
-                          }`}>
-                            <p className="text-xs font-medium text-muted-foreground mb-1">Your Answer</p>
-                            <p className="text-sm font-medium">{selectedAnswer?.answer_text || 'No answer selected'}</p>
-                          </div>
-                          {!response.is_correct && correctAnswer && (
-                            <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
-                              <p className="text-xs font-medium text-muted-foreground mb-1">Correct Answer</p>
-                              <p className="text-sm font-medium">{correctAnswer.answer_text}</p>
+                                  if (!question || !question.question_text) {
+                                    return null;
+                                  }
+
+                                  return (
+                                    <div key={response.question_id || response.id || `response-${index}`} className="border rounded-lg p-4 space-y-3 bg-muted/30">
+                                      <div className="flex items-start justify-between">
+                                        <div className="flex-1">
+                                          <p className="font-medium text-sm">Question {index + 1}</p>
+                                          <p className="text-sm text-muted-foreground mt-1">{question.question_text}</p>
+                                        </div>
+                                        <div className="flex items-center gap-2 ml-4">
+                                          {response.is_correct ? (
+                                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                                          ) : (
+                                            <XCircle className="h-5 w-5 text-red-500" />
+                                          )}
+                                          <span className="text-sm font-medium">
+                                            {response.points_earned || 0} / {question.points || 1} pts
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      <div className="space-y-2 pl-4 border-l-2 border-muted">
+                                        <div className={`p-3 rounded-lg ${
+                                          response.is_correct 
+                                            ? 'bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800' 
+                                            : 'bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800'
+                                        }`}>
+                                          <p className="text-xs font-medium text-muted-foreground mb-1">Answer</p>
+                                          <p className="text-sm font-medium">{selectedAnswer?.answer_text || 'No answer selected'}</p>
+                                        </div>
+                                        {!response.is_correct && correctAnswer && (
+                                          <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
+                                            <p className="text-xs font-medium text-muted-foreground mb-1">Correct Answer</p>
+                                            <p className="text-sm font-medium">{correctAnswer.answer_text}</p>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">
-                    {responses && responses.length === 0 
-                      ? "No answers submitted yet" 
-                      : "No answers available"}
-                  </p>
-                </div>
-              )}
+                          );
+                        });
+                      } else {
+                        // Regular participant view - show their own responses
+                        return responses.map((response: any, index: number) => {
+                          const question = response.quiz_questions || (Array.isArray(response.quiz_questions) ? response.quiz_questions[0] : null);
+                          const answers = question?.quiz_answers || [];
+                          const selectedAnswer = answers.find((a: any) => a.id === response.answer_id);
+                          const correctAnswer = answers.find((a: any) => a.is_correct);
+
+                          if (!question || !question.question_text) {
+                            return null;
+                          }
+
+                          return (
+                            <div key={response.question_id || response.id || `response-${index}`} className="border rounded-lg p-4 space-y-3">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <p className="font-medium text-base">Question {index + 1}</p>
+                                  <p className="text-sm text-muted-foreground mt-1">{question.question_text}</p>
+                                </div>
+                                <div className="flex items-center gap-2 ml-4">
+                                  {response.is_correct ? (
+                                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                                  ) : (
+                                    <XCircle className="h-5 w-5 text-red-500" />
+                                  )}
+                                  <span className="text-sm font-medium">
+                                    {response.points_earned || 0} / {question.points || 1} pts
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="space-y-2 pl-4 border-l-2 border-muted">
+                                <div className={`p-3 rounded-lg ${
+                                  response.is_correct 
+                                    ? 'bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800' 
+                                    : 'bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800'
+                                }`}>
+                                  <p className="text-xs font-medium text-muted-foreground mb-1">Your Answer</p>
+                                  <p className="text-sm font-medium">{selectedAnswer?.answer_text || 'No answer selected'}</p>
+                                </div>
+                                {!response.is_correct && correctAnswer && (
+                                  <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
+                                    <p className="text-xs font-medium text-muted-foreground mb-1">Correct Answer</p>
+                                    <p className="text-sm font-medium">{correctAnswer.answer_text}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        });
+                      }
+                    })()}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">
+                      {responses && responses.length === 0 
+                        ? "No answers submitted yet" 
+                        : "No answers available"}
+                    </p>
+                  </div>
+                )}
               </TabsContent>
             )}
             
@@ -342,9 +450,14 @@ export function QuizResults({
                             </p>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
                           <span>
-                            {totalPossiblePoints > 0 
-                              ? `${p.score ?? 0} / ${totalPossiblePoints} points`
-                              : `${p.score ?? 0} pts`}
+                            {(() => {
+                              const score = typeof p.score === 'string' ? Number(p.score) : (p.score ?? 0);
+                              const totalPoints = typeof totalPossiblePoints === 'string' ? Number(totalPossiblePoints) : totalPossiblePoints;
+                              if (totalPoints > 0) {
+                                return `${score.toFixed(2)} / ${totalPoints.toFixed(2)} points`;
+                              }
+                              return `${score.toFixed(2)} pts`;
+                            })()}
                           </span>
                           <span>
                             {(() => {
@@ -355,12 +468,14 @@ export function QuizResults({
                                   ? Number(p.percentage_score)
                                   : p.percentage_score;
                                 if (!Number.isFinite(percentage)) percentage = 0;
-                              } else if (totalPossiblePoints > 0) {
-                                // Convert score to number (TypeORM returns decimals as strings)
-                                const score = typeof p.score === 'string' ? Number(p.score) : (p.score ?? 0);
-                                percentage = (score / totalPossiblePoints) * 100;
                               } else {
-                                percentage = 0;
+                                const score = typeof p.score === 'string' ? Number(p.score) : (p.score ?? 0);
+                                const totalPoints = typeof totalPossiblePoints === 'string' ? Number(totalPossiblePoints) : totalPossiblePoints;
+                                if (totalPoints > 0) {
+                                  percentage = (score / totalPoints) * 100;
+                                } else {
+                                  percentage = 0;
+                                }
                               }
                               return `${percentage.toFixed(1)}%`;
                             })()}

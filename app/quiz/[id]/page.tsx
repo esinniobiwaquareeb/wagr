@@ -172,6 +172,10 @@ export default function QuizDetailPage() {
         if (data.data.participant) {
           setParticipant(data.data.participant);
         }
+        // Store isCreator flag if provided
+        if (data.data.isCreator !== undefined) {
+          // isCreator is already available from quiz.creator_id check
+        }
         fetchedResponsesRef.current = true;
       }
     } catch (error) {
@@ -306,15 +310,14 @@ export default function QuizDetailPage() {
   useEffect(() => {
     if (
       quiz && 
-      participant && 
-      participant.status === 'completed' && 
-      quizHasEnded && 
+      ((participant && participant.status === 'completed') || isCreator) && 
+      (quizHasEnded || isCreator) && 
       !fetchedResponsesRef.current &&
       !fetchingResponsesRef.current
     ) {
       fetchParticipantResponses();
     }
-  }, [quiz, participant, quizHasEnded, fetchParticipantResponses]);
+  }, [quiz, participant, quizHasEnded, isCreator, fetchParticipantResponses]);
   
   // Reset fetched flag when quizId changes
   useEffect(() => {
@@ -837,8 +840,9 @@ export default function QuizDetailPage() {
                           }}
                           participant={participant} // Pass current participant so they can see their position
                           participants={participantsToShow}
-                          responses={[]} // Empty for scoreboard view
+                          responses={responses} // Pass responses for creator to see answer summaries
                           showDetails={false}
+                          isCreator={isCreator} // Pass isCreator flag
                         />
                       );
                     })()}
