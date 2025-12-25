@@ -660,14 +660,16 @@ export default function QuizDetailPage() {
 
   return (
     <main className="flex-1 pb-24 lg:pb-0 w-full overflow-x-hidden">
-      <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 lg:py-8">
-        {/* Back Button */}
-        <Button variant="ghost" asChild className="mb-4">
-          <Link href="/quizzes">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Quizzes
-          </Link>
-        </Button>
+      <div className="max-w-6xl mx-auto px-3 md:px-6 py-3 md:py-6 lg:py-8">
+        {/* Back Button - Own Row */}
+        <div className="mb-3 md:mb-4">
+          <Button variant="ghost" asChild>
+            <Link href="/quizzes">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Quizzes
+            </Link>
+          </Button>
+        </div>
 
         {/* Quiz Taking Interface */}
         {takingQuiz && (

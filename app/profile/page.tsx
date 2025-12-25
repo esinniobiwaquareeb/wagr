@@ -507,11 +507,19 @@ export default function Profile() {
         variant="default"
         onConfirm={confirmLogout}
       />
-      <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 md:py-6">
+      <div className="max-w-6xl mx-auto px-3 md:px-6 py-3 md:py-6">
         {/* Header */}
         <div className="mb-4 md:mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold mb-1 md:mb-2">Profile</h1>
-          <p className="text-sm text-muted-foreground">Manage your account and preferences</p>
+          {/* Back Button - Own Row */}
+          <div className="mb-3 md:mb-4">
+            <BackButton fallbackHref="/wagers" />
+          </div>
+
+          {/* Title Row */}
+          <div className="mb-2 md:mb-3">
+            <h1 className="text-xl md:text-2xl lg:text-3xl font-bold mb-1 md:mb-2">Profile</h1>
+            <p className="text-xs md:text-sm text-muted-foreground">Manage your account and preferences</p>
+          </div>
         </div>
 
         <div className="flex flex-col lg:grid lg:grid-cols-3 gap-4 md:gap-6">

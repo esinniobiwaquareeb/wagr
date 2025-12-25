@@ -235,15 +235,16 @@ export default function NotificationsPage() {
 
   return (
     <main className="flex-1 pb-24 md:pb-0">
-      <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 md:py-6">
+      <div className="max-w-6xl mx-auto px-3 md:px-6 py-3 md:py-6">
         <div className="mb-4 md:mb-6">
+          {/* Back Button - Own Row */}
+          <div className="mb-3 md:mb-4">
+            <BackButton fallbackHref="/wagers" />
+          </div>
+
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 md:gap-4">
             <div>
-              <div className="flex items-center gap-2 md:gap-3 mb-1 md:mb-2 md:hidden">
-                <BackButton fallbackHref="/wagers" />
-                <h1 className="text-xl md:text-3xl lg:text-4xl font-bold">Notifications</h1>
-              </div>
-              <h1 className="hidden md:block text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2">Notifications</h1>
+              <h1 className="text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2">Notifications</h1>
               <p className="text-xs md:text-base text-muted-foreground">
                 {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount === 1 ? '' : 's'}` : 'All caught up!'}
               </p>

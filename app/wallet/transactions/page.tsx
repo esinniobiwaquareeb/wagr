@@ -137,14 +137,18 @@ export default function TransactionsPage() {
 
   return (
     <main className="flex-1 pb-24 md:pb-0">
-      <div className="max-w-7xl mx-auto p-3 md:p-6">
+      <div className="max-w-7xl mx-auto px-3 md:px-6 py-3 md:py-6">
         <div className="mb-4 md:mb-6">
-          <div className="flex items-center gap-2 md:gap-3 mb-1 md:mb-2 md:hidden">
+          {/* Back Button - Own Row */}
+          <div className="mb-3 md:mb-4">
             <BackButton fallbackHref="/wallet" />
-            <h1 className="text-xl md:text-3xl lg:text-4xl font-bold">Transaction History</h1>
           </div>
-          <h1 className="hidden md:block text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2">Transaction History</h1>
-          <p className="text-xs md:text-base text-muted-foreground">View all your wallet transactions</p>
+
+          {/* Title Row */}
+          <div className="mb-2 md:mb-3">
+            <h1 className="text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2">Transaction History</h1>
+            <p className="text-xs md:text-base text-muted-foreground">View all your wallet transactions</p>
+          </div>
         </div>
 
         <DataTable
