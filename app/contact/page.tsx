@@ -28,6 +28,7 @@ export default function ContactPage() {
   const [supportInfo, setSupportInfo] = useState({
     email: "support@wagr.app",
     phone: "",
+    phoneRaw: "",
     note: "",
   });
   const [loadingInfo, setLoadingInfo] = useState(true);
@@ -68,6 +69,7 @@ export default function ContactPage() {
           setSupportInfo({
             email: String(rawEmail),
             phone: formatPhone(rawPhone),
+            phoneRaw: String(rawPhone || ''),
             note: formatNote(rawNote),
           });
         }
@@ -251,9 +253,9 @@ export default function ContactPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-sm mb-1">Contact Phone</p>
-                          <a 
-                            href={`tel:${supportInfo.phone}`}
-                            className="text-sm text-primary hover:underline"
+                          <a
+                            href={`tel:${supportInfo.phoneRaw || supportInfo.phone}`}
+                            className="text-sm text-primary hover:underline break-all"
                           >
                             {supportInfo.phone}
                           </a>
