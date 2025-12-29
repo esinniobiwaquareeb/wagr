@@ -97,6 +97,7 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
         <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden lg:pt-0 pt-14 pb-20 lg:pb-0">
           <div className="flex-1">{children}</div>
         </div>
+        <Footer />
         <MobileNav />
       </div>
     );
