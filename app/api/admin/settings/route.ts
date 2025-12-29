@@ -61,6 +61,7 @@ export async function PATCH(request: NextRequest) {
 
     // Call NestJS backend to update settings
     const response = await nestjsServerFetch<{
+      success: boolean;
       message: string;
       settings: any[];
       requiresRestart?: boolean;
@@ -71,14 +72,18 @@ export async function PATCH(request: NextRequest) {
       body: JSON.stringify(body),
     });
 
-    if (!response.success || !response.data) {
+    if (!response.success) {
       throw new Error(response.error?.message || 'Failed to update settings');
     }
 
+    // nestjsServerFetch returns the backend response directly when successful
+    // The backend returns { success: true, message, settings, requiresRestart }
+    const data = (response as any).data || response;
+
     return successResponseNext({
-      message: response.data.message || 'Settings updated successfully',
-      settings: response.data.settings || [],
-      requiresRestart: response.data.requiresRestart || false,
+      message: data.message || 'Settings updated successfully',
+      settings: data.settings || [],
+      requiresRestart: data.requiresRestart || false,
     });
   } catch (error) {
     logError(error as Error);

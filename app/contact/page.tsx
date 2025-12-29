@@ -183,6 +183,7 @@ export default function ContactPage() {
               <p className="text-muted-foreground text-sm mb-6">
                 Fill out the form and we'll get back to you as soon as possible.
               </p>
+              {JSON.stringify(supportInfo)}
 
               <div className="space-y-4">
                 {loadingInfo ? (
