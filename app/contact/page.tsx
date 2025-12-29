@@ -40,12 +40,35 @@ export default function ContactPage() {
         const response = await fetch('/api/settings/public');
         if (response.ok) {
           const data = await response.json();
-          const settings = data.settings || {};
+          // API returns an envelope: { success: true, data: { settings: { ... } } }
+          const settings = (data && (data.data?.settings || data.settings)) || {};
           
+          // Normalize support values for display
+          const rawEmail = settings['support.email'] || process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@wagr.app';
+          const rawPhone = settings['support.phone'] || '';
+          const rawNote = settings['support.note'] || '';
+
+          const formatPhone = (p: any) => {
+            if (!p) return '';
+            const s = String(p).trim();
+            // keep leading + if present, remove other non-digits
+            const cleaned = s.replace(/[^\d+]/g, '');
+            // Try to format common international numbers like +2348011223344 -> +234 801 122 3344
+            const m = cleaned.match(/^(\+?\d{1,3})(\d{3})(\d{3})(\d+)$/);
+            if (m) return `${m[1]} ${m[2]} ${m[3]} ${m[4]}`;
+            // Fallback: insert space every 3 digits for readability
+            return cleaned.replace(/(\d{3})(?=\d)/g, '$1 ');
+          };
+
+          const formatNote = (n: any) => {
+            if (!n) return '';
+            return String(n).replace(/24hours/ig, '24 hours');
+          };
+
           setSupportInfo({
-            email: settings['support.email'] || process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@wagr.app',
-            phone: settings['support.phone'] || '',
-            note: settings['support.note'] || '',
+            email: String(rawEmail),
+            phone: formatPhone(rawPhone),
+            note: formatNote(rawNote),
           });
         }
       } catch (error) {
@@ -183,7 +206,6 @@ export default function ContactPage() {
               <p className="text-muted-foreground text-sm mb-6">
                 Fill out the form and we'll get back to you as soon as possible.
               </p>
-              {JSON.stringify(supportInfo)}
 
               <div className="space-y-4">
                 {loadingInfo ? (
