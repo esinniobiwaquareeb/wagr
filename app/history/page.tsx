@@ -35,7 +35,7 @@ interface WagerEntry {
   };
 }
 
-type FilterType = 'all' | 'open' | 'resolved' | 'won' | 'lost';
+type FilterType = 'all' | 'open' | 'resolved' | 'won' | 'lost' | 'refunded';
 
 export default function HistoryPage() {
   return (
@@ -219,6 +219,10 @@ function HistoryPageContent() {
         return (wager.status === 'RESOLVED' || wager.status === 'SETTLED') && wager.winning_side !== null && wager.winning_side !== entry.side;
       }
       
+      if (filter === 'refunded') {
+        return wager.status === 'REFUNDED';
+      }
+      
       return true;
     });
   }, [entries, filter]);
@@ -229,8 +233,9 @@ function HistoryPageContent() {
     const resolved = entries.filter(e => e.wager.status === 'RESOLVED' || e.wager.status === 'SETTLED').length;
     const won = entries.filter(e => (e.wager.status === 'RESOLVED' || e.wager.status === 'SETTLED') && e.wager.winning_side === e.side).length;
     const lost = entries.filter(e => (e.wager.status === 'RESOLVED' || e.wager.status === 'SETTLED') && e.wager.winning_side !== null && e.wager.winning_side !== e.side).length;
+    const refunded = entries.filter(e => e.wager.status === 'REFUNDED').length;
 
-    return { total, open, resolved, won, lost };
+    return { total, open, resolved, won, lost, refunded };
   }, [entries]);
 
   if (authLoading || loading) {
@@ -292,7 +297,7 @@ function HistoryPageContent() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 mb-6">
           <div className="bg-card border border-border rounded-lg p-3 md:p-4">
             <div className="text-xs md:text-sm text-muted-foreground mb-1">Total</div>
             <div className="text-lg md:text-2xl font-bold">{stats.total}</div>
@@ -312,6 +317,10 @@ function HistoryPageContent() {
           <div className="bg-card border border-border rounded-lg p-3 md:p-4">
             <div className="text-xs md:text-sm text-muted-foreground mb-1">Lost</div>
             <div className="text-lg md:text-2xl font-bold text-red-600">{stats.lost}</div>
+          </div>
+          <div className="bg-card border border-border rounded-lg p-3 md:p-4">
+            <div className="text-xs md:text-sm text-muted-foreground mb-1">Refunded</div>
+            <div className="text-lg md:text-2xl font-bold text-orange-600">{stats.refunded}</div>
           </div>
         </div>
 
@@ -367,6 +376,16 @@ function HistoryPageContent() {
           >
             Lost ({stats.lost})
           </button>
+          <button
+            onClick={() => setFilter('refunded')}
+            className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-medium transition ${
+              filter === 'refunded'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            }`}
+          >
+            Refunded ({stats.refunded})
+          </button>
         </div>
 
         {/* Entries List */}
@@ -401,95 +420,101 @@ function HistoryPageContent() {
                   href={`/wager/${wager.id}`}
                   className="block group"
                 >
-                  <div className="bg-card border-2 border-border rounded-xl p-4 md:p-5 hover:border-primary hover:shadow-lg transition-all cursor-pointer active:scale-[0.98] touch-manipulation h-full flex flex-col relative overflow-hidden">
+                  <div className="bg-card border border-border rounded-lg p-3 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer active:scale-[0.99] touch-manipulation h-full flex flex-col relative overflow-hidden">
                     {/* Status indicator bar */}
-                    <div className={`absolute top-0 left-0 right-0 h-1 ${
-                      wager.status === 'RESOLVED' || wager.status === 'SETTLED'
-                        ? isWon
-                          ? 'bg-green-500'
-                          : isLost
-                          ? 'bg-red-500'
-                          : 'bg-blue-500'
+                    <div className={`absolute top-0 left-0 right-0 h-0.5 ${
+                      wager.status === 'REFUNDED'
+                        ? 'bg-orange-500'
+                        : wager.status === 'RESOLVED' || wager.status === 'SETTLED'
+                        ? isWon ? 'bg-green-500' : isLost ? 'bg-red-500' : 'bg-blue-500'
                         : 'bg-green-500'
                     }`} />
 
                     {/* Header */}
-                    <div className="mb-3">
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <h3 className="font-bold text-foreground text-sm md:text-base line-clamp-2 leading-tight group-hover:text-primary transition-colors flex-1">
-                          {wager.title}
-                        </h3>
-                        {wager.status === 'RESOLVED' && (
-                          <div className="flex-shrink-0">
-                            {isWon ? (
-                              <Trophy className="h-5 w-5 text-green-600" />
-                            ) : isLost ? (
-                              <XCircle className="h-5 w-5 text-red-600" />
-                            ) : (
-                              <CheckCircle2 className="h-5 w-5 text-blue-600" />
-                            )}
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <h3 className="font-semibold text-foreground text-xs md:text-sm line-clamp-2 leading-tight group-hover:text-primary transition-colors flex-1">
+                        {wager.title}
+                      </h3>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {wager.status === 'OPEN' && (
+                          <span className="px-1.5 py-0.5 text-[8px] rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 font-medium">
+                            OPEN
+                          </span>
+                        )}
+                        {wager.status === 'REFUNDED' && (
+                          <span className="px-1.5 py-0.5 text-[8px] rounded bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 font-medium">
+                            REFUNDED
+                          </span>
+                        )}
+                        {(wager.status === 'RESOLVED' || wager.status === 'SETTLED') && (
+                          isWon ? <Trophy className="h-4 w-4 text-green-600" />
+                          : isLost ? <XCircle className="h-4 w-4 text-red-600" />
+                          : <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Compact sides */}
+                    <div className="grid grid-cols-2 gap-1.5 mb-2">
+                      <div className={`px-2 py-1.5 rounded border text-center ${
+                        entry.side === 'a'
+                          ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                          : 'border-transparent bg-muted/40'
+                      }`}>
+                        <div className={`text-[10px] font-medium truncate ${
+                          entry.side === 'a' ? 'text-primary' : 'text-muted-foreground'
+                        }`}>
+                          {wager.side_a}
+                        </div>
+                        {entry.side === 'a' && (
+                          <div className="text-[9px] font-bold text-primary">
+                            {formatCurrency(entry.amount, entryCurrency)}
                           </div>
                         )}
                       </div>
-                      {wager.status === 'OPEN' && (
-                        <span className="inline-block px-2 py-0.5 text-[9px] md:text-[10px] rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 font-semibold">
-                          OPEN
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Your Wager */}
-                    <div className="mb-3 p-3 bg-muted/50 rounded-lg">
-                      <div className="text-[9px] md:text-[10px] text-muted-foreground mb-1">Your Wager</div>
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-xs md:text-sm">{sideLabel}</span>
-                        <span className="font-bold text-sm md:text-base">
-                          {formatCurrency(entry.amount, entryCurrency)}
-                        </span>
+                      <div className={`px-2 py-1.5 rounded border text-center ${
+                        entry.side === 'b'
+                          ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                          : 'border-transparent bg-muted/40'
+                      }`}>
+                        <div className={`text-[10px] font-medium truncate ${
+                          entry.side === 'b' ? 'text-primary' : 'text-muted-foreground'
+                        }`}>
+                          {wager.side_b}
+                        </div>
+                        {entry.side === 'b' && (
+                          <div className="text-[9px] font-bold text-primary">
+                            {formatCurrency(entry.amount, entryCurrency)}
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    {/* Result (if resolved) */}
-                    {wager.status === 'RESOLVED' && (
-                      <div className={`mb-3 p-3 rounded-lg ${
-                        isWon
-                          ? 'bg-green-100 dark:bg-green-900/20'
-                          : isLost
-                          ? 'bg-red-100 dark:bg-red-900/20'
-                          : 'bg-blue-100 dark:bg-blue-900/20'
+                    {/* Result or Refund badge - inline compact */}
+                    {(wager.status === 'RESOLVED' || wager.status === 'SETTLED') && (
+                      <div className={`text-[9px] px-2 py-1 rounded mb-2 flex items-center justify-between ${
+                        isWon ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                        : isLost ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                        : 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
                       }`}>
-                        <div className="text-[9px] md:text-[10px] text-muted-foreground mb-1">
-                          {isWon ? 'Result: Won' : isLost ? 'Result: Lost' : 'Result: Resolved'}
-                        </div>
-                        <div className="text-xs md:text-sm font-semibold">
-                          Winner: {wager.winning_side === 'a' ? wager.side_a : wager.side_b}
-                        </div>
+                        <span className="font-medium">{isWon ? '🎉 Won' : isLost ? '✗ Lost' : '✓ Resolved'}</span>
+                        <span className="font-semibold truncate ml-2">Winner: {wager.winning_side === 'a' ? wager.side_a : wager.side_b}</span>
+                      </div>
+                    )}
+
+                    {wager.status === 'REFUNDED' && (
+                      <div className="text-[9px] px-2 py-1 rounded mb-2 bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 font-medium">
+                        ↩ Entry refunded
                       </div>
                     )}
 
                     {/* Footer */}
-                    <div className="mt-auto pt-3 border-t border-border space-y-2">
-                      <div className="flex items-center justify-between text-[9px] md:text-[10px] text-muted-foreground">
-                        <div className="flex items-center gap-1.5">
-                          <Clock className="h-3 w-3" />
-                          <span>
-                            {entry.amount > 0 
-                              ? `Joined ${format(new Date(entry.created_at), 'MMM d, yyyy')}`
-                              : `Created ${format(new Date(wager.created_at), 'MMM d, yyyy')}`}
-                          </span>
-                        </div>
-                        {wager.deadline && wager.status === 'OPEN' && (
-                          <DeadlineDisplay 
-                            deadline={wager.deadline} 
-                            size="sm"
-                            showLabel={false}
-                          />
-                        )}
-                      </div>
-                      {wager.status === 'RESOLVED' && wager.deadline && (
-                        <div className="text-[9px] md:text-[10px] text-muted-foreground">
-                          Resolved {format(new Date(wager.deadline), 'MMM d, yyyy')}
-                        </div>
+                    <div className="mt-auto pt-2 border-t border-border/50 flex items-center justify-between text-[9px] text-muted-foreground">
+                      <span>
+                        {format(new Date(entry.created_at), 'MMM d')}
+                      </span>
+                      {wager.deadline && wager.status === 'OPEN' && (
+                        <DeadlineDisplay deadline={wager.deadline} size="sm" showLabel={false} />
                       )}
                     </div>
                   </div>

@@ -579,14 +579,14 @@ export function generateEmailText(data: EmailTemplateData): string {
       const totalQuestionsText = data.totalQuestions || 0;
       const maxParticipantsText = data.maxParticipants || 0;
       const endDateText = data.endDate ? new Date(data.endDate).toLocaleDateString() : '';
-      const quizUrlText = data.quizUrl || `${appUrl}/quizzes`;
+      const quizUrlText = data.quizUrl || `${appUrl}/quiz`;
       const totalCostText = entryFeeText * totalQuestionsText;
       content = `Hi ${name},\n\n${quizInviterNameText} has invited you to participate in a quiz on ${appName}!\n\nQuiz: ${quizTitleText}\n${quizDescriptionText ? `Description: ${quizDescriptionText}\n` : ''}\nQuestions: ${totalQuestionsText}\nEntry Fee: ${formatCurrencyText(entryFeeText)} per question\nTotal Cost: ${formatCurrencyText(totalCostText)}\nMax Participants: ${maxParticipantsText}\n${endDateText ? `End Date: ${endDateText}\n` : ''}\nTake quiz now: ${quizUrlText}\n\nDon't have an account? Sign up for free at ${appUrl}/wagers?signup=true\n\nBest regards,\nThe ${appName} Team`;
       break;
 
     case 'quiz-settlement':
       const settlementQuizTitleText = data.quizTitle || 'a quiz';
-      const settlementQuizUrlText = data.quizUrl || `${appUrl}/quizzes`;
+      const settlementQuizUrlText = data.quizUrl || `${appUrl}/quiz`;
       const quizWonText = data.won === true;
       const quizWinningsText = data.amount || 0;
       const quizRankText = data.rank;

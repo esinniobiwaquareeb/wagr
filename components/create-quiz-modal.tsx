@@ -724,9 +724,9 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col p-0 sm:p-6">
+      <DialogContent className="!max-w-[90vw] sm:!max-w-[85vw] lg:!max-w-[1200px] max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col p-0 sm:p-6">
         <DialogHeader className="px-4 sm:px-0 pt-4 sm:pt-0">
-          <DialogTitle className="text-xl sm:text-2xl">{isEditMode ? 'Edit Quiz' : 'Create Corporate Quiz'}</DialogTitle>
+          <DialogTitle className="text-xl sm:text-2xl">{isEditMode ? 'Edit Quiz' : 'Create Quiz'}</DialogTitle>
           <DialogDescription className="text-sm sm:text-base">
             Step {currentStep} of {totalSteps}: {stepTitles[currentStep - 1]}
           </DialogDescription>

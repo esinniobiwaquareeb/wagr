@@ -228,7 +228,7 @@ export default function QuizDetailPage() {
             variant: "destructive",
           });
           setTimeout(() => {
-            router.push('/quizzes');
+            router.push('/quiz');
           }, 2000);
           return;
         }
@@ -478,7 +478,7 @@ export default function QuizDetailPage() {
         description: "The quiz has been deleted successfully.",
       });
 
-      router.push('/quizzes');
+      router.push('/quiz');
     } catch (error) {
       logger.error('Error deleting quiz', error);
       toast({
@@ -648,7 +648,7 @@ export default function QuizDetailPage() {
             <CardContent className="pt-12 pb-12 text-center">
               <p className="text-muted-foreground">Quiz not found</p>
               <Button asChild className="mt-4">
-                <Link href="/quizzes">Back to Quizzes</Link>
+                <Link href="/quiz">Back to Quizzes</Link>
               </Button>
             </CardContent>
           </Card>
@@ -664,7 +664,7 @@ export default function QuizDetailPage() {
         {/* Back Button - Own Row */}
         <div className="mb-3 md:mb-4">
           <Button variant="ghost" asChild>
-            <Link href="/quizzes">
+            <Link href="/quiz">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Quizzes
             </Link>

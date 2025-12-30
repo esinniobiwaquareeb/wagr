@@ -172,7 +172,7 @@ function QuizzesPageContent() {
                   } else {
                     params.set('status', status);
                   }
-                  router.push(`/quizzes?${params.toString()}`);
+                  router.push(`/quiz?${params.toString()}`);
                 }}
                 className="h-9 sm:h-10 text-xs sm:text-sm"
               >

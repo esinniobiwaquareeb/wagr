@@ -696,9 +696,9 @@ function TopNavContent() {
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href="/quizzes" className="flex items-center gap-2 cursor-pointer">
+                        <Link href="/quiz" className="flex items-center gap-2 cursor-pointer">
                           <BookOpen className="h-4 w-4" />
-                          <span>Quizzes</span>
+                          <span>Quiz</span>
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
@@ -954,16 +954,16 @@ function TopNavContent() {
                     <span>Platform Activity</span>
                   </Link>
                   <Link
-                    href="/quizzes"
+                    href="/quiz"
                     onClick={() => setShowMobileMenu(false)}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                      isActive("/quizzes") || pathname?.startsWith("/quiz/")
+                      isActive("/quiz") || pathname?.startsWith("/quiz/")
                         ? "bg-primary/10 text-primary"
                         : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                     }`}
                   >
                     <BookOpen className="h-4 w-4 flex-shrink-0" />
-                    <span>Quizzes</span>
+                    <span>Quiz</span>
                   </Link>
                   <Link
                     href="/notifications"
