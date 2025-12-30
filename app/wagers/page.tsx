@@ -987,30 +987,24 @@ function WagersPageContent() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {filteredWagers.map((wager) => (
-            <WagerCard
-              key={`${wager.id}-${activeTab}-${userEntries.get(wager.id)?.side || 'none'}`}
-              id={wager.id}
-              title={wager.title}
-              description={wager.description || ""}
-              sideA={wager.side_a}
-              sideB={wager.side_b}
-              amount={wager.amount}
-              status={wager.status}
-              entriesCount={wager.entries_count}
-              deadline={wager.deadline || ""}
-              currency={wager.currency}
-              category={getCategorySlug(wager.category) || undefined}
-              sideACount={wager.side_a_count || 0}
-              sideBCount={wager.side_b_count || 0}
-              sideATotal={wager.side_a_total || 0}
-              sideBTotal={wager.side_b_total || 0}
-              feePercentage={wager.fee_percentage || PLATFORM_FEE_PERCENTAGE}
-              isSystemGenerated={wager.is_system_generated || false}
-              createdAt={wager.created_at}
-              winningSide={wager.winning_side}
-              shortId={wager.short_id}
-              userEntryAmount={userEntries.get(wager.id)?.amount}
-              userEntrySide={userEntries.get(wager.id)?.side}
+              <WagerCard
+                key={wager.id}
+                id={wager.id}
+                title={wager.title}
+                sideA={wager.side_a}
+                sideB={wager.side_b}
+                amount={wager.amount}
+                status={wager.status}
+                entriesCount={wager.entries_count}
+                deadline={wager.deadline || ""}
+                currency={wager.currency}
+                category={getCategorySlug(wager.category) || undefined}
+                sideATotal={wager.side_a_total || 0}
+                sideBTotal={wager.side_b_total || 0}
+                isSystemGenerated={wager.is_system_generated || false}
+                winningSide={wager.winning_side}
+                shortId={wager.short_id}
+                userEntrySide={userEntries.get(wager.id)?.side}
               />
             ))}
           </div>

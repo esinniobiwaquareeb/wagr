@@ -45,7 +45,7 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
   ];
   const isPublicPage = pathname && publicPages.includes(pathname);
 
-  // App routes (user dashboard) - no footer, with top nav
+  // App routes (user dashboard) - with footer on desktop only
   const appRoutes = [
     "/",
     "/wagers",
@@ -75,7 +75,7 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Public pages - include top nav (large screens) and mobile nav (small screens), with footer
+  // Public pages - include top nav, mobile nav, and footer
   if (isPublicPage) {
     return (
       <div className="flex flex-col min-h-screen" suppressHydrationWarning>
@@ -89,7 +89,7 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // App routes - include top nav (large screens) and mobile nav (small screens), no footer
+  // App routes - include top nav, mobile nav, and footer (hidden on mobile via footer CSS)
   if (isAppRoute) {
     return (
       <div className="flex flex-col min-h-screen" suppressHydrationWarning>

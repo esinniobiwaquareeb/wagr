@@ -7,7 +7,7 @@ import { AuthModal } from "@/components/auth-modal";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
-import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Award, Coins, Trash2, Edit2, Share2, Crown, Star, UserPlus, MessageSquare, Activity, Loader2 } from "lucide-react";
+import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Coins, Trash2, Edit2, Share2, UserPlus, MessageSquare, Activity, Loader2, Flame, Check, X } from "lucide-react";
 import { WagerInviteDialog } from "@/components/wager-invite-dialog";
 import { BackButton } from "@/components/back-button";
 import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
@@ -32,6 +32,17 @@ interface Entry {
   amount: number;
   user_id: string;
   created_at: string;
+}
+
+// Format volume/pool display like Polymarket
+function formatVolume(amount: number): string {
+  if (amount >= 1000000) {
+    return `₦${(amount / 1000000).toFixed(1).replace(/\.0$/, '')}m`;
+  }
+  if (amount >= 1000) {
+    return `₦${(amount / 1000).toFixed(0)}k`;
+  }
+  return `₦${amount.toFixed(0)}`;
 }
 
 export default function WagerDetail() {
@@ -1067,8 +1078,6 @@ export default function WagerDetail() {
 
   // Calculate total participants from entries count (not from sideCount which might be totals)
   const totalParticipants = entries.length;
-  const sideAPercentage = totalParticipants > 0 ? (sideCount.a / totalParticipants) * 100 : 50;
-  const sideBPercentage = totalParticipants > 0 ? (sideCount.b / totalParticipants) * 100 : 50;
   
   // Calculate actual amounts wagered on each side
   const sideATotal = entries
@@ -1081,6 +1090,10 @@ export default function WagerDetail() {
   const totalPot = sideATotal + sideBTotal;
   const sideAPot = sideATotal;
   const sideBPot = sideBTotal;
+  
+  // Calculate probability percentages based on amounts (Polymarket style)
+  const sideAPercent = totalPot > 0 ? Math.round((sideATotal / totalPot) * 100) : 50;
+  const sideBPercent = totalPot > 0 ? 100 - sideAPercent : 50;
 
   // Calculate potential returns using actual amounts
   const returns = calculatePotentialReturns({
@@ -1334,551 +1347,205 @@ export default function WagerDetail() {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-3 md:px-6 py-3 md:py-4">
-        {/* Header Section - Mobile Optimized */}
-        <div className="mb-4 md:mb-6">
-          {/* Top Row: Back Button (left) + Badges & Actions (right) */}
-          <div className="flex items-center justify-between gap-2 md:gap-3 mb-3 md:mb-4 flex-wrap">
-            {/* Back Button - Left */}
-            <div className="flex-shrink-0">
-              <BackButton fallbackHref="/wagers" />
-            </div>
-
-            {/* Badges & Action Buttons - Right */}
-            <div className="flex items-center gap-1.5 md:gap-2 flex-wrap justify-end flex-1 min-w-0">
-              {/* Type Badge (Auto/User) */}
-              {wager.is_system_generated ? (
-                <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 text-primary border border-primary/20 flex-shrink-0">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  <span className="text-[10px] font-medium">Auto</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-muted text-muted-foreground flex-shrink-0">
-                  <User className="h-3.5 w-3.5" />
-                  <span className="text-[10px] font-medium">User</span>
-                </div>
-              )}
-
-              {/* Status Badge */}
-              <span
-                className={`text-[10px] px-2.5 py-1 rounded-full font-semibold flex-shrink-0 ${
-                  wager.status === "OPEN"
-                    ? "bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/30"
-                    : wager.status === "RESOLVED" || wager.status === "SETTLED"
-                      ? "bg-blue-500/20 text-blue-700 dark:text-blue-400 border border-blue-500/30"
-                      : "bg-gray-500/20 text-gray-700 dark:text-gray-400 border border-gray-500/30"
-                }`}
-              >
-                {wager.status === "SETTLED" ? "Settled" : wager.status === "RESOLVED" ? "Resolved" : wager.status}
-              </span>
-
-              {/* Share & Invite buttons - only available before deadline */}
-              {wager && !isDeadlineElapsed(wager.deadline) && (
-                <>
-                  <button
-                    onClick={handleShare}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-muted hover:bg-muted/80 text-foreground border border-border transition active:scale-[0.98] touch-manipulation text-xs font-medium flex-shrink-0"
-                    title="Copy wager link"
-                  >
-                    <Share2 className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Share</span>
-                  </button>
-                  {user && isCreator && (
-                    <button
-                      onClick={() => setShowInviteDialog(true)}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition active:scale-[0.98] touch-manipulation text-xs font-medium flex-shrink-0"
-                      title="Invite people to wager"
-                    >
-                      <UserPlus className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">Invite</span>
-                    </button>
-                  )}
-                </>
-              )}
-
-              {/* Creator Actions */}
-              {isCreator && (
-                <>
-                  {/* Edit/Delete while open, before deadline, and no other participants */}
-                  {wager.status === "OPEN" &&
-                    user &&
-                    entries.filter(e => {
-                      const entryUserId = String(e.user_id).trim();
-                      const currentUserId = String(user.id).trim();
-                      return entryUserId !== currentUserId;
-                    }).length === 0 &&
-                    !isDeadlineElapsed(wager.deadline) && (
-                      <>
-                        <button
-                          onClick={handleEdit}
-                          disabled={editing}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition active:scale-[0.98] touch-manipulation disabled:opacity-50 text-xs font-medium flex-shrink-0"
-                          title="Edit wager"
-                        >
-                          <Edit2 className="h-3.5 w-3.5" />
-                          <span className="hidden sm:inline">Edit</span>
-                        </button>
-                        <button
-                          onClick={handleDelete}
-                          disabled={deleting}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 transition active:scale-[0.98] touch-manipulation disabled:opacity-50 text-xs font-medium flex-shrink-0"
-                          title="Delete wager"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          <span className="hidden sm:inline">Delete</span>
-                        </button>
-                      </>
-                    )}
-
-                  {/* Resolve button for creators */}
-                  {canCreatorResolve && (
-                    <button
-                      onClick={handleResolve}
-                      disabled={resolving}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-400 border border-blue-500/30 transition active:scale-[0.98] touch-manipulation text-xs font-medium disabled:opacity-50 flex-shrink-0"
-                      title="Resolve wager"
-                    >
-                      <Trophy className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">Resolve</span>
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Title Row */}
-          <div className="mb-2 md:mb-3">
-            <h1 className="text-xl md:text-2xl lg:text-3xl font-bold leading-tight break-words">{wager.title}</h1>
-          </div>
-          
-          {/* Description */}
-          {wager.description && (
-            <p className="text-sm md:text-base text-muted-foreground mb-4 md:mb-6 leading-relaxed">{wager.description}</p>
-          )}
-
-          {/* Quick Stats - Mobile Optimized */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-4 md:mb-6">
-            <div className="bg-card border border-border rounded-lg p-2.5 md:p-4">
-              <div className="flex items-center gap-1.5 md:gap-2 mb-1">
-                <Users className="h-3.5 w-3.5 md:h-5 md:w-5 text-muted-foreground flex-shrink-0" />
-                <p className="text-[9px] md:text-xs text-muted-foreground truncate">Participants</p>
-              </div>
-              <p className="text-base md:text-2xl font-bold">{totalParticipants}</p>
-            </div>
-            <div className="bg-card border border-border rounded-lg p-2.5 md:p-4">
-              <div className="flex items-center gap-1.5 md:gap-2 mb-1">
-                <TrendingUp className="h-3.5 w-3.5 md:h-5 md:w-5 text-muted-foreground flex-shrink-0" />
-                <p className="text-[9px] md:text-xs text-muted-foreground truncate">Total Pot</p>
-              </div>
-              <p className="text-base md:text-2xl font-bold truncate">{formatCurrency(totalPot, (wager.currency || DEFAULT_CURRENCY) as Currency)}</p>
-            </div>
-            {isSettled && totalWon !== null ? (
-              <div className="bg-card border-2 border-green-500/30 rounded-lg p-2.5 md:p-4 bg-gradient-to-br from-green-500/10 to-green-500/5">
-                <div className="flex items-center gap-1.5 md:gap-2 mb-1">
-                  <Trophy className="h-3.5 w-3.5 md:h-5 md:w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
-                  <p className="text-[9px] md:text-xs text-green-700 dark:text-green-400 font-semibold truncate">Total Won</p>
-                </div>
-                <p className="text-base md:text-2xl font-bold text-green-600 dark:text-green-400 truncate">
-                  {formatCurrency(totalWon, (wager.currency || DEFAULT_CURRENCY) as Currency)}
-                </p>
-              </div>
-            ) : (
-              <div className="bg-card border border-border rounded-lg p-2.5 md:p-4">
-                <div className="flex items-center gap-1.5 md:gap-2 mb-1">
-                  <Award className="h-3.5 w-3.5 md:h-5 md:w-5 text-muted-foreground flex-shrink-0" />
-                  <p className="text-[9px] md:text-xs text-muted-foreground truncate">Entry Fee</p>
-                </div>
-                <p className="text-base md:text-2xl font-bold truncate">{formatCurrency(wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}</p>
-              </div>
-            )}
-            {wager.deadline ? (
-              <div className="bg-card border border-border rounded-lg p-2.5 md:p-4">
-                <DeadlineDisplay 
-                  deadline={wager.deadline} 
-                  size="sm"
-                  showLabel={true}
-                  cardFormat={true}
-                />
-              </div>
-            ) : (
-              <div className="bg-card border border-border rounded-lg p-2.5 md:p-4">
-                <div className="flex items-center gap-1.5 md:gap-2 mb-1">
-                  <Coins className="h-3.5 w-3.5 md:h-5 md:w-5 text-muted-foreground flex-shrink-0" />
-                  <p className="text-[9px] md:text-xs text-muted-foreground truncate">Platform Fee</p>
-                </div>
-                <p className="text-base md:text-2xl font-bold">{(wager.fee_percentage || defaultPlatformFee) * 100}%</p>
-                <p className="text-[8px] md:text-[10px] text-muted-foreground mt-0.5 truncate">
-                  {formatCurrency(returns.platformFee, (wager.currency || DEFAULT_CURRENCY) as Currency)}
-                </p>
-              </div>
-            )}
-          </div>
+      <div className="max-w-3xl mx-auto px-3 md:px-6 py-3 md:py-4">
+        {/* Back Button */}
+        <div className="mb-3">
+          <BackButton fallbackHref="/wagers" />
         </div>
 
-        {/* Competition Arena - VS Layout */}
-        <div className="mb-4">
-          <div className="bg-gradient-to-br from-card via-card to-card/50 border border-border rounded-xl p-4 md:p-5 shadow-sm">
-            {/* VS Header */}
-            <div className="text-center mb-3">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-full">
-                <Trophy className="h-4 w-4 text-primary" />
-                <span className="text-xs font-bold text-primary">COMPETITION</span>
+        {/* Main Card */}
+        <article className="bg-card border border-border/60 rounded-2xl overflow-hidden mb-4">
+          {/* Compact Header */}
+          <header className="px-4 md:px-5 pt-4 pb-3 border-b border-border/40">
+            <div className="flex items-center justify-between gap-2 mb-2.5">
+              <div className="flex items-center gap-1.5">
+                {wager.is_system_generated && <Sparkles className="h-3.5 w-3.5 text-amber-500" />}
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                  wager.status === "OPEN" 
+                    ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                    : "bg-blue-500/15 text-blue-600 dark:text-blue-400"
+                }`}>
+                  {wager.status === "SETTLED" ? "Settled" : wager.status === "RESOLVED" ? "Resolved" : "Active"}
+                </span>
               </div>
-            </div>
-
-            {/* Progress Bar */}
-            {totalParticipants > 0 && (
-              <div className="mb-4">
-                <div className="flex h-3 md:h-4 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="bg-primary transition-all duration-500 flex items-center justify-center"
-                    style={{ width: `${sideAPercentage}%` }}
-                  >
-                    {sideAPercentage > 15 && (
-                      <span className="text-[8px] md:text-[10px] font-bold text-primary-foreground whitespace-nowrap">
-                        {Math.round(sideAPercentage)}%
-                      </span>
-                    )}
-                  </div>
-                  <div
-                    className="bg-primary/60 transition-all duration-500 flex items-center justify-center"
-                    style={{ width: `${sideBPercentage}%` }}
-                  >
-                    {sideBPercentage > 15 && (
-                      <span className="text-[8px] md:text-[10px] font-bold text-primary-foreground whitespace-nowrap">
-                        {Math.round(sideBPercentage)}%
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Competition Sides */}
-            <div className="relative grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-              {/* VS Divider - Desktop */}
-              <div className="hidden md:flex items-center justify-center absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none">
-                <div className="bg-background border-4 border-border rounded-full p-3 md:p-4 shadow-lg">
-                  <span className="text-2xl md:text-4xl font-black text-muted-foreground">VS</span>
-                </div>
-              </div>
-
-              {/* Side A */}
-              <div className={`relative border-2 rounded-lg p-3 md:p-4 transition-all ${
-                sideCount.a > sideCount.b 
-                  ? "border-primary/50 bg-primary/5 shadow-lg shadow-primary/10" 
-                  : "border-border bg-card"
-              }`}>
-                {sideCount.a > sideCount.b && wager.status === "OPEN" && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-primary text-primary-foreground text-[10px] md:text-xs font-bold rounded-full z-20">
-                    LEADING
-                  </div>
-                )}
-                {(wager.status === "RESOLVED" || wager.status === "SETTLED") && wager.winning_side === "a" && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-green-500 text-white text-[10px] md:text-xs font-bold rounded-full flex items-center gap-1 z-20">
-                    <Trophy className="h-3 w-3" />
-                    WINNER
-                  </div>
-                )}
-                
-                <div className="text-center mb-3">
-                  <h3 className="text-base md:text-lg font-bold mb-2">{wager.side_a}</h3>
-                  <div className="flex items-center justify-center gap-2 mb-1.5">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <p className="text-xl md:text-2xl font-bold text-primary">{sideCount.a}</p>
-                    <span className="text-xs text-muted-foreground">bettors</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-1.5">
-                    {formatCurrency(sideAPot, (wager.currency || DEFAULT_CURRENCY) as Currency)} total
-                  </p>
-                  {/* Potential Return for Side A */}
-                  {wager.status === "OPEN" && sideCount.a > 0 && (
-                    <div className="bg-primary/10 border border-primary/20 rounded-lg p-2 mb-2">
-                      <div className="flex items-center justify-center gap-1 mb-0.5">
-                        <Coins className="h-3 w-3 text-primary" />
-                        <span className="text-[9px] text-muted-foreground">Potential Return</span>
-                      </div>
-                      <div className="flex items-center justify-center gap-1.5">
-                        <span className="font-bold text-primary text-xs">
-                          {formatReturnMultiplier(returns.sideAReturnMultiplier)}
-                        </span>
-                        <span className="text-[9px] text-green-600 dark:text-green-400 font-medium">
-                          {formatReturnPercentage(returns.sideAReturnPercentage)}
-                        </span>
-                      </div>
-                      <p className="text-[9px] text-muted-foreground mt-0.5">
-                        Win: {formatCurrency(returns.sideAPotential, (wager.currency || DEFAULT_CURRENCY) as Currency)}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {wager.status === "OPEN" && (
-                  <>
-                    {userEntry && userEntry.side === "a" ? (
-                      isCreator ? (
-                        <button
-                          onClick={() => {
-                            setNewSide("b");
-                            setShowChangeSideDialog(true);
-                          }}
-                          disabled={changingSide || !canBet}
-                          className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg font-bold text-sm hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation min-h-[44px]"
-                        >
-                          {changingSide ? "Changing..." : !canBet ? "Cannot Change" : `Switch to ${wager.side_b}`}
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => setShowUnjoinDialog(true)}
-                          disabled={unjoining || !canBet}
-                          className="w-full bg-destructive text-destructive-foreground py-2.5 rounded-lg font-bold text-sm hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation min-h-[44px]"
-                        >
-                          {unjoining ? "Unjoining..." : !canBet ? "Cannot Unjoin" : "Unjoin"}
-                        </button>
-                      )
-                    ) : userEntry && userEntry.side === "b" ? (
-                      isCreator ? (
-                        <button
-                          onClick={() => handleJoinClick("a")}
-                          disabled={true}
-                          className="w-full bg-muted text-muted-foreground py-2.5 rounded-lg font-bold text-sm opacity-50 cursor-not-allowed transition-all min-h-[44px]"
-                        >
-                          Already Joined
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setNewSide("a");
-                            setShowChangeSideDialog(true);
-                          }}
-                          disabled={changingSide || !canBet}
-                          className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg font-bold text-sm hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation min-h-[44px]"
-                        >
-                          {changingSide ? "Changing..." : !canBet ? "Cannot Change" : `Switch to ${wager.side_a}`}
-                        </button>
-                      )
-                    ) : (
-                      <button
-                        onClick={() => handleJoinClick("a")}
-                        disabled={joining || !canBet}
-                        className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg font-bold text-sm hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation min-h-[44px]"
-                      >
-                        {!canBet ? (isWithinCutoff ? "Too Late" : "Deadline Passed") : joining ? "Joining..." : `Join ${wager.side_a}`}
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {/* Mobile VS Divider */}
-              <div className="md:hidden flex items-center justify-center -my-2">
-                <div className="bg-background border-2 border-border rounded-full px-4 py-2 z-10">
-                  <span className="text-xl font-black text-muted-foreground">VS</span>
-                </div>
-              </div>
-
-              {/* Side B */}
-              <div className={`relative border-2 rounded-lg p-3 md:p-4 transition-all ${
-                sideCount.b > sideCount.a 
-                  ? "border-primary/50 bg-primary/5 shadow-lg shadow-primary/10" 
-                  : "border-border bg-card"
-              }`}>
-                {sideCount.b > sideCount.a && wager.status === "OPEN" && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-primary text-primary-foreground text-[10px] md:text-xs font-bold rounded-full z-20">
-                    LEADING
-                  </div>
-                )}
-                {(wager.status === "RESOLVED" || wager.status === "SETTLED") && wager.winning_side === "b" && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-green-500 text-white text-[10px] md:text-xs font-bold rounded-full flex items-center gap-1 z-20">
-                    <Trophy className="h-3 w-3" />
-                    WINNER
-                  </div>
-                )}
-                
-                <div className="text-center mb-3">
-                  <h3 className="text-base md:text-lg font-bold mb-2">{wager.side_b}</h3>
-                  <div className="flex items-center justify-center gap-2 mb-1.5">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <p className="text-xl md:text-2xl font-bold text-primary">{sideCount.b}</p>
-                    <span className="text-xs text-muted-foreground">bettors</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-1.5">
-                    {formatCurrency(sideBPot, (wager.currency || DEFAULT_CURRENCY) as Currency)} total
-                  </p>
-                  {/* Potential Return for Side B */}
-                  {wager.status === "OPEN" && sideCount.b > 0 && (
-                    <div className="bg-primary/10 border border-primary/20 rounded-lg p-2 mb-2">
-                      <div className="flex items-center justify-center gap-1 mb-0.5">
-                        <Coins className="h-3 w-3 text-primary" />
-                        <span className="text-[9px] text-muted-foreground">Potential Return</span>
-                      </div>
-                      <div className="flex items-center justify-center gap-1.5">
-                        <span className="font-bold text-primary text-xs">
-                          {formatReturnMultiplier(returns.sideBReturnMultiplier)}
-                        </span>
-                        <span className="text-[9px] text-green-600 dark:text-green-400 font-medium">
-                          {formatReturnPercentage(returns.sideBReturnPercentage)}
-                        </span>
-                      </div>
-                      <p className="text-[9px] text-muted-foreground mt-0.5">
-                        Win: {formatCurrency(returns.sideBPotential, (wager.currency || DEFAULT_CURRENCY) as Currency)}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {wager.status === "OPEN" && (
-                  <>
-                    {userEntry && userEntry.side === "b" ? (
-                      isCreator ? (
-                        <button
-                          onClick={() => {
-                            setNewSide("a");
-                            setShowChangeSideDialog(true);
-                          }}
-                          disabled={changingSide || !canBet}
-                          className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg font-bold text-sm hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation min-h-[44px]"
-                        >
-                          {changingSide ? "Changing..." : !canBet ? "Cannot Change" : `Switch to ${wager.side_a}`}
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => setShowUnjoinDialog(true)}
-                          disabled={unjoining || !canBet}
-                          className="w-full bg-destructive text-destructive-foreground py-2.5 rounded-lg font-bold text-sm hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation min-h-[44px]"
-                        >
-                          {unjoining ? "Unjoining..." : !canBet ? "Cannot Unjoin" : "Unjoin"}
-                        </button>
-                      )
-                    ) : userEntry && userEntry.side === "a" ? (
-                      isCreator ? (
-                        <button
-                          onClick={() => handleJoinClick("b")}
-                          disabled={true}
-                          className="w-full bg-muted text-muted-foreground py-2.5 rounded-lg font-bold text-sm opacity-50 cursor-not-allowed transition-all min-h-[44px]"
-                        >
-                          Already Joined
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setNewSide("b");
-                            setShowChangeSideDialog(true);
-                          }}
-                          disabled={changingSide || !canBet}
-                          className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg font-bold text-sm hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation min-h-[44px]"
-                        >
-                          {changingSide ? "Changing..." : !canBet ? "Cannot Change" : `Switch to ${wager.side_b}`}
-                        </button>
-                      )
-                    ) : (
-                      <button
-                        onClick={() => handleJoinClick("b")}
-                        disabled={joining || !canBet}
-                        className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg font-bold text-sm hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] touch-manipulation min-h-[44px]"
-                      >
-                        {!canBet ? (isWithinCutoff ? "Too Late" : "Deadline Passed") : joining ? "Joining..." : `Join ${wager.side_b}`}
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Resolved Status */}
-        {(wager.status === "RESOLVED" || wager.status === "SETTLED") && wager.winning_side && (
-          <div className="mb-4 bg-gradient-to-r from-green-500/20 to-blue-500/20 border border-green-500/30 rounded-lg p-3 md:p-4 text-center">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <Trophy className="h-4 w-4 md:h-5 md:w-5 text-green-600 dark:text-green-400" />
-              <p className="text-sm md:text-base font-bold">
-                Winner: <span className="text-primary">{wager.winning_side === "a" ? wager.side_a : wager.side_b}</span>
-              </p>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {wager.status === "SETTLED" 
-                ? totalParticipants === 0
-                  ? "This wager has been settled. No participants bet on this wager, but you can see the outcome below."
-                  : "This wager has been settled and winnings have been distributed"
-                : "This competition has been resolved"}
-            </p>
-          </div>
-        )}
-
-        {/* Tabs Section */}
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          {/* Tabs Navigation */}
-          <div className="flex border-b border-border bg-muted/30">
-            <button
-              onClick={() => setActiveTab("comments")}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-all min-h-[44px] ${
-                activeTab === "comments"
-                  ? "bg-background text-primary border-b-2 border-primary"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-              }`}
-            >
-              <MessageSquare className="h-4 w-4" />
-              <span className="hidden sm:inline">Comments</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("participants")}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-all min-h-[44px] ${
-                activeTab === "participants"
-                  ? "bg-background text-primary border-b-2 border-primary"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-              }`}
-            >
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Participants</span>
-              {totalParticipants > 0 && (
-                <span className={`px-1.5 py-0.5 rounded-full text-xs font-semibold ${
-                  activeTab === "participants"
-                    ? "bg-primary/20 text-primary"
+              {wager.deadline && wager.status === "OPEN" && (
+                <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                  deadlineStatus === 'red' 
+                    ? "bg-red-500/15 text-red-600 dark:text-red-400" 
                     : "bg-muted text-muted-foreground"
                 }`}>
-                  {totalParticipants}
+                  <Clock className="h-3 w-3" />
+                  <DeadlineDisplay deadline={wager.deadline} size="sm" showLabel={false} className="text-[10px]" />
                 </span>
               )}
-            </button>
-            <button
-              onClick={() => setActiveTab("activities")}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-all min-h-[44px] ${
-                activeTab === "activities"
-                  ? "bg-background text-primary border-b-2 border-primary"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-              }`}
-            >
-              <Activity className="h-4 w-4" />
-              <span className="hidden sm:inline">Activities</span>
-            </button>
+            </div>
+
+            {/* Title */}
+            <h1 className="text-xl md:text-2xl font-bold leading-tight mb-2">{wager.title}</h1>
+            
+            {/* Description */}
+            {wager.description && (
+              <p className="text-sm text-muted-foreground leading-relaxed">{wager.description}</p>
+            )}
+          </header>
+
+          {/* Outcomes Section */}
+          <div className="px-4 md:px-6 py-4">
+            {/* Stats row */}
+            <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground mb-3">
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1 font-medium text-foreground">
+                  <TrendingUp className="h-3.5 w-3.5" />
+                  ₦{formatVolume(totalPot)}
+                </span>
+                <span>{totalParticipants} bettors</span>
+              </div>
+              <span>{formatCurrency(wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}/bet</span>
+            </div>
+
+            {/* Compact Outcome Buttons */}
+            <div className="space-y-2">
+              {/* Option A */}
+              <button
+                onClick={() => canBet && !userEntry && handleJoinClick("a")}
+                disabled={!canBet || !!userEntry || wager.status !== "OPEN"}
+                className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition-all ${
+                  isSettled && wager.winning_side === "a"
+                    ? "bg-emerald-500/15 border-2 border-emerald-500/50"
+                    : userEntry?.side === "a"
+                    ? "bg-primary/10 border-2 border-primary/50"
+                    : canBet && !userEntry
+                    ? "bg-emerald-500/5 border border-emerald-500/25 hover:bg-emerald-500/10 hover:border-emerald-500/50"
+                    : "bg-muted/30 border border-border/50"
+                } disabled:cursor-default`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className={`font-medium truncate ${
+                    isSettled && wager.winning_side === "a" ? "text-emerald-700 dark:text-emerald-400" :
+                    userEntry?.side === "a" ? "text-primary" :
+                    "text-emerald-700 dark:text-emerald-400"
+                  }`}>{wager.side_a}</span>
+                  {isSettled && wager.winning_side === "a" && <Trophy className="h-4 w-4 text-emerald-500 flex-shrink-0" />}
+                  {userEntry?.side === "a" && <span className="text-[9px] bg-primary text-white px-1.5 py-0.5 rounded font-semibold">YOU</span>}
+                </div>
+                <span className={`text-xl font-bold tabular-nums ${
+                  isSettled && wager.winning_side === "a" ? "text-emerald-600 dark:text-emerald-400" :
+                  "text-emerald-600 dark:text-emerald-400"
+                }`}>{sideAPercent}%</span>
+              </button>
+
+              {/* Option B */}
+              <button
+                onClick={() => canBet && !userEntry && handleJoinClick("b")}
+                disabled={!canBet || !!userEntry || wager.status !== "OPEN"}
+                className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition-all ${
+                  isSettled && wager.winning_side === "b"
+                    ? "bg-emerald-500/15 border-2 border-emerald-500/50"
+                    : userEntry?.side === "b"
+                    ? "bg-primary/10 border-2 border-primary/50"
+                    : canBet && !userEntry
+                    ? "bg-rose-500/5 border border-rose-500/25 hover:bg-rose-500/10 hover:border-rose-500/50"
+                    : "bg-muted/30 border border-border/50"
+                } disabled:cursor-default`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className={`font-medium truncate ${
+                    isSettled && wager.winning_side === "b" ? "text-emerald-700 dark:text-emerald-400" :
+                    userEntry?.side === "b" ? "text-primary" :
+                    "text-rose-700 dark:text-rose-400"
+                  }`}>{wager.side_b}</span>
+                  {isSettled && wager.winning_side === "b" && <Trophy className="h-4 w-4 text-emerald-500 flex-shrink-0" />}
+                  {userEntry?.side === "b" && <span className="text-[9px] bg-primary text-white px-1.5 py-0.5 rounded font-semibold">YOU</span>}
+                </div>
+                <span className={`text-xl font-bold tabular-nums ${
+                  isSettled && wager.winning_side === "b" ? "text-emerald-600 dark:text-emerald-400" :
+                  "text-rose-600 dark:text-rose-400"
+                }`}>{sideBPercent}%</span>
+              </button>
+            </div>
+
+            {/* Warnings/Messages */}
+            {wager.status === "OPEN" && isWithinCutoff && (
+              <p className="mt-3 text-xs text-amber-600 dark:text-amber-400 text-center">Betting closes in &lt;20s</p>
+            )}
+            {isSettled && (
+              <p className="mt-3 text-xs text-emerald-600 dark:text-emerald-400 text-center">
+                {totalParticipants === 0 ? "Resolved with no participants" : "Winnings distributed"}
+              </p>
+            )}
           </div>
 
-          {/* Tab Content */}
-          <div className="p-4 md:p-6">
+          {/* Action Bar */}
+          <footer className="px-4 md:px-5 py-2.5 bg-muted/20 border-t border-border/40 flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <button onClick={handleShare} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-muted text-xs font-medium transition">
+                <Share2 className="h-3.5 w-3.5" />
+                Share
+              </button>
+              {user && isCreator && !isDeadlineElapsed(wager.deadline) && (
+                <button onClick={() => setShowInviteDialog(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-medium transition">
+                  <UserPlus className="h-3.5 w-3.5" />
+                  Invite
+                </button>
+              )}
+            </div>
+            {isCreator && (
+              <div className="flex items-center gap-1.5">
+                {wager.status === "OPEN" && user && entries.filter(e => String(e.user_id).trim() !== String(user.id).trim()).length === 0 && !isDeadlineElapsed(wager.deadline) && (
+                  <>
+                    <button onClick={handleEdit} disabled={editing} className="px-2.5 py-1.5 rounded-lg hover:bg-muted text-xs font-medium disabled:opacity-50 transition">
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </button>
+                    <button onClick={handleDelete} disabled={deleting} className="px-2.5 py-1.5 rounded-lg hover:bg-destructive/10 text-destructive text-xs font-medium disabled:opacity-50 transition">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </>
+                )}
+                {canCreatorResolve && (
+                  <button onClick={handleResolve} disabled={resolving} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 text-xs font-medium disabled:opacity-50 transition">
+                    <Trophy className="h-3.5 w-3.5" />
+                    Resolve
+                  </button>
+                )}
+              </div>
+            )}
+          </footer>
+        </article>
+
+
+        {/* Tabs */}
+        <div className="bg-card border border-border/60 rounded-2xl overflow-hidden">
+          <nav className="flex border-b border-border/40">
+            {[
+              { key: "comments", icon: MessageSquare, label: "Comments" },
+              { key: "participants", icon: Users, label: "Participants", count: totalParticipants },
+              { key: "activities", icon: Activity, label: "Activity" },
+            ].map(({ key, icon: Icon, label, count }) => (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key as typeof activeTab)}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 text-xs font-medium transition ${
+                  activeTab === key ? "text-foreground border-b-2 border-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{label}</span>
+                {count !== undefined && count > 0 && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted">{count}</span>
+                )}
+              </button>
+            ))}
+          </nav>
+          <div className="p-4">
             {activeTab === "comments" && <WagerComments wagerId={wager.id} />}
             {activeTab === "participants" && (
               <WagerParticipants
                 entries={entries}
                 userNames={userNames}
-                wager={{
-                  creator_id: wager.creator_id || undefined,
-                  status: wager.status,
-                  winning_side: wager.winning_side,
-                  side_a: wager.side_a,
-                  side_b: wager.side_b,
-                  currency: wager.currency,
-                }}
+                wager={{ creator_id: wager.creator_id || undefined, status: wager.status, winning_side: wager.winning_side, side_a: wager.side_a, side_b: wager.side_b, currency: wager.currency }}
               />
             )}
-            {activeTab === "activities" && (
-              <WagerActivities
-                wagerId={wager.id}
-                sideA={wager.side_a}
-                sideB={wager.side_b}
-              />
-            )}
+            {activeTab === "activities" && <WagerActivities wagerId={wager.id} sideA={wager.side_a} sideB={wager.side_b} />}
           </div>
         </div>
       </div>
