@@ -8,6 +8,7 @@ import { wagersApi } from "@/lib/api-client";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { isDeadlineElapsed, getTimeRemaining } from "@/lib/deadline-utils";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 interface WagerCardProps {
   id: string;
@@ -72,6 +73,8 @@ const WagerCardComponent = ({
   const { user } = useAuth();
   const { toast } = useToast();
   const [joining, setJoining] = useState<"a" | "b" | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [selectedSide, setSelectedSide] = useState<"a" | "b" | null>(null);
 
   // Memoized calculations
   const { pool, pctA, pctB, vol } = useMemo(() => {
@@ -90,7 +93,8 @@ const WagerCardComponent = ({
   const userPicked = userEntrySide === "a" || userEntrySide === "b";
   const canBet = isOpen && user && !userPicked && !isDeadlineElapsed(deadline);
 
-  const handleBet = useCallback(async (e: React.MouseEvent, side: "a" | "b") => {
+  // Handle click to show confirmation dialog
+  const handleBetClick = useCallback((e: React.MouseEvent, side: "a" | "b") => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -102,24 +106,37 @@ const WagerCardComponent = ({
       return;
     }
 
-    setJoining(side);
+    // Show confirmation dialog
+    setSelectedSide(side);
+    setShowConfirmDialog(true);
+  }, [canBet, joining, deadline, toast]);
+
+  // Confirm and execute the bet
+  const confirmBet = useCallback(async () => {
+    if (!selectedSide || joining) return;
+
+    setJoining(selectedSide);
+    setShowConfirmDialog(false);
+    
     try {
-      await wagersApi.join(id, side);
-      toast({ title: "Joined!", description: `You bet on ${side === "a" ? sideA : sideB}` });
+      await wagersApi.join(id, selectedSide);
+      toast({ title: "Joined!", description: `You bet on ${selectedSide === "a" ? sideA : sideB}` });
       window.dispatchEvent(new Event('wager-updated'));
       window.dispatchEvent(new CustomEvent('balance-updated'));
     } catch (err: any) {
       toast({ title: "Failed", description: err?.message || "Could not join.", variant: "destructive" });
     } finally {
       setJoining(null);
+      setSelectedSide(null);
     }
-  }, [canBet, joining, deadline, id, sideA, sideB, toast]);
+  }, [selectedSide, joining, id, sideA, sideB, toast]);
 
   const linkId = shortId || id;
 
   return (
-    <Link href={`/wager/${linkId}`} className="block group" prefetch={false}>
-      <article className="bg-card border border-border/60 rounded-2xl overflow-hidden hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 transition-all duration-200 h-full flex flex-col">
+    <>
+      <Link href={`/wager/${linkId}`} className="block group" prefetch={false}>
+        <article className="bg-card border border-border/60 rounded-2xl overflow-hidden hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 transition-all duration-200 h-full flex flex-col">
         {/* Compact Header */}
         <header className="px-3.5 pt-3.5 pb-2">
           <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -159,7 +176,7 @@ const WagerCardComponent = ({
           {/* Option A */}
           {canBet ? (
             <button
-              onClick={(e) => handleBet(e, "a")}
+              onClick={(e) => handleBetClick(e, "a")}
               disabled={!!joining}
               className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gradient-to-r from-emerald-500/8 to-emerald-500/4 border border-emerald-500/25 hover:border-emerald-500/50 hover:from-emerald-500/12 hover:to-emerald-500/8 transition-all disabled:opacity-50"
             >
@@ -194,7 +211,7 @@ const WagerCardComponent = ({
           {/* Option B */}
           {canBet ? (
             <button
-              onClick={(e) => handleBet(e, "b")}
+              onClick={(e) => handleBetClick(e, "b")}
               disabled={!!joining}
               className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gradient-to-r from-rose-500/8 to-rose-500/4 border border-rose-500/25 hover:border-rose-500/50 hover:from-rose-500/12 hover:to-rose-500/8 transition-all disabled:opacity-50"
             >
@@ -245,8 +262,24 @@ const WagerCardComponent = ({
             </span>
           )}
         </footer>
-      </article>
-    </Link>
+        </article>
+      </Link>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        open={showConfirmDialog}
+        onOpenChange={setShowConfirmDialog}
+        title="Confirm Your Bet"
+        description={
+          selectedSide
+            ? `You are about to bet ${formatCurrency(amount, currency as Currency)} on "${selectedSide === "a" ? sideA : sideB}" for "${title}". This amount will be deducted from your wallet. Are you sure?`
+            : "Are you sure you want to place this bet?"
+        }
+        confirmText="Place Bet"
+        cancelText="Cancel"
+        onConfirm={confirmBet}
+      />
+    </>
   );
 };
 
