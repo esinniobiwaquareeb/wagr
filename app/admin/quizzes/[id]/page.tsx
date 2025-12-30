@@ -38,18 +38,21 @@ interface QuizParticipant {
   } | null;
 }
 
+interface QuizAnswer {
+  id: string;
+  answer_text: string;
+  is_correct: boolean;
+  order_index: number;
+}
+
 interface QuizQuestion {
   id: string;
   question_text: string;
   question_type: string;
   points: number;
   order_index: number;
-  quiz_answers: Array<{
-    id: string;
-    answer_text: string;
-    is_correct: boolean;
-    order_index: number;
-  }>;
+  answers?: QuizAnswer[];
+  quiz_answers?: QuizAnswer[];
 }
 
 export default function AdminQuizDetailPage({ params }: AdminQuizDetailPageProps) {
@@ -275,25 +278,33 @@ export default function AdminQuizDetailPage({ params }: AdminQuizDetailPageProps
     {
       id: "answers",
       header: "Answers",
-      cell: (row: QuizQuestion) => (
-        <div className="space-y-1">
-          {row.quiz_answers
-            .sort((a, b) => a.order_index - b.order_index)
-            .map((answer) => (
-              <div
-                key={answer.id}
-                className={`text-xs p-1 rounded ${
-                  answer.is_correct
-                    ? "bg-green-500/10 text-green-700 dark:text-green-400 font-medium"
-                    : "bg-muted text-muted-foreground"
-                }`}
-              >
-                {answer.is_correct && "✓ "}
-                {answer.answer_text}
-              </div>
-            ))}
-        </div>
-      ),
+      cell: (row: QuizQuestion) => {
+        // Handle both 'answers' and 'quiz_answers' field names from backend
+        const answers = row.answers || row.quiz_answers || [];
+        return (
+          <div className="space-y-1">
+            {answers.length > 0 ? (
+              [...answers]
+                .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+                .map((answer) => (
+                  <div
+                    key={answer.id}
+                    className={`text-xs p-1 rounded ${
+                      answer.is_correct
+                        ? "bg-green-500/10 text-green-700 dark:text-green-400 font-medium"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {answer.is_correct && "✓ "}
+                    {answer.answer_text}
+                  </div>
+                ))
+            ) : (
+              <span className="text-xs text-muted-foreground">No answers</span>
+            )}
+          </div>
+        );
+      },
     },
   ];
 

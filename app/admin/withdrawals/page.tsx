@@ -94,52 +94,44 @@ export default function AdminWithdrawals() {
           </p>
         </div>
 
-        {/* Stats */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Withdrawals</CardTitle>
-              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                <DollarSign className="h-4 w-4 text-primary" />
+        {/* Stats - Compact */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Total</h3>
+              <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                <DollarSign className="h-3 w-3 text-primary" />
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.total.toLocaleString()}</div>
-            </CardContent>
-          </Card>
-          <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
-              <div className="h-9 w-9 rounded-lg bg-yellow-500/10 flex items-center justify-center group-hover:bg-yellow-500/20 transition-colors">
-                <Clock className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+            </div>
+            <div className="text-base font-bold">{stats.total.toLocaleString()}</div>
+          </div>
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Pending</h3>
+              <div className="h-6 w-6 rounded-md bg-yellow-500/10 flex items-center justify-center group-hover:bg-yellow-500/20 transition-colors">
+                <Clock className="h-3 w-3 text-yellow-600 dark:text-yellow-400" />
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.pending.toLocaleString()}</div>
-            </CardContent>
-          </Card>
-          <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle>
-              <div className="h-9 w-9 rounded-lg bg-green-500/10 flex items-center justify-center group-hover:bg-green-500/20 transition-colors">
-                <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+            </div>
+            <div className="text-base font-bold text-yellow-600 dark:text-yellow-400">{stats.pending.toLocaleString()}</div>
+          </div>
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Completed</h3>
+              <div className="h-6 w-6 rounded-md bg-green-500/10 flex items-center justify-center group-hover:bg-green-500/20 transition-colors">
+                <CheckCircle className="h-3 w-3 text-green-600 dark:text-green-400" />
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.completed.toLocaleString()}</div>
-            </CardContent>
-          </Card>
-          <Card className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Pending Amount</CardTitle>
-              <div className="h-9 w-9 rounded-lg bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
-                <DollarSign className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div className="text-base font-bold text-green-600 dark:text-green-400">{stats.completed.toLocaleString()}</div>
+          </div>
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Pending Amt</h3>
+              <div className="h-6 w-6 rounded-md bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
+                <DollarSign className="h-3 w-3 text-blue-600 dark:text-blue-400" />
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(stats.pendingAmount, currency)}</div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="text-base font-bold">{formatCurrency(stats.pendingAmount, currency)}</div>
+          </div>
         </div>
 
         {/* Withdrawals Table */}

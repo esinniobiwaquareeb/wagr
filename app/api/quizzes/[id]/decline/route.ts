@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server';
 import { nestjsServerFetch } from '@/lib/nestjs-server';
-import { requireAuth } from '@/lib/auth/server';
 import { logError } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 import { cookies } from 'next/headers';
@@ -14,31 +13,28 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAuth();
     const { id } = await params;
     
-    // Get token from cookies
+    // Get auth token from cookies for server-side request
     const cookieStore = await cookies();
     const token = cookieStore.get('auth_token')?.value || null;
 
     if (!token) {
-      throw new Error('Authentication required');
+      return appErrorToResponse(new Error('Authentication required'));
     }
 
-    // Call NestJS backend
-    const response = await nestjsServerFetch<{
-      message: string;
-    }>(`/quizzes/${id}/decline`, {
+    // Call NestJS backend (let backend handle auth validation)
+    const response = await nestjsServerFetch<any>(`/quizzes/${id}/decline`, {
       method: 'POST',
       token,
       requireAuth: true,
     });
 
-    if (!response.success || !response.data) {
-      throw new Error(response.error?.message || 'Failed to decline invitation');
+    if (!response.success) {
+      return appErrorToResponse(new Error(response.error?.message || 'Failed to decline invitation'));
     }
 
-    return successResponseNext(response.data);
+    return successResponseNext(response.data || { message: 'Invitation declined' });
   } catch (error) {
     logError(error as Error);
     return appErrorToResponse(error);

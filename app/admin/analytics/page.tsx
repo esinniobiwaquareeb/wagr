@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { format, startOfDay, endOfDay, subDays, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, parseISO } from "date-fns";
-import { BarChart3, TrendingUp, DollarSign, Users, Calendar, Filter } from "lucide-react";
+import { BarChart3, TrendingUp, DollarSign } from "lucide-react";
 import { useAdmin } from "@/contexts/admin-context";
 import {
   LineChart,
@@ -326,16 +326,13 @@ export default function AdminAnalyticsPage() {
           <p className="text-sm text-muted-foreground">Visual insights and trends</p>
         </div>
 
-        {/* Filters */}
-        <div className="bg-card border border-border rounded-lg p-4 mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Filter className="h-5 w-5 text-muted-foreground" />
-            <h2 className="text-lg font-semibold">Filters</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Date Range</label>
-              <div className="flex gap-2 flex-wrap">
+        {/* Filters - Compact */}
+        <div className="bg-card border border-border/60 rounded-lg p-3 mb-6">
+          <div className="flex flex-col lg:flex-row lg:items-end gap-3">
+            {/* Date Range Presets */}
+            <div className="flex-shrink-0">
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Quick Range</label>
+              <div className="flex gap-1.5">
                 {(["week", "month", "3months", "all"] as const).map((range) => (
                   <button
                     key={range}
@@ -343,28 +340,33 @@ export default function AdminAnalyticsPage() {
                       setDateRange(range);
                       setCustomDateRange(false);
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
                       dateRange === range && !customDateRange
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted text-muted-foreground hover:bg-muted/80"
                     }`}
                   >
-                    {range === "3months" ? "3 Months" : range.charAt(0).toUpperCase() + range.slice(1)}
+                    {range === "3months" ? "3M" : range.charAt(0).toUpperCase() + range.slice(1)}
                   </button>
                 ))}
               </div>
             </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Custom Range</label>
-              <div className="flex gap-2">
+
+            {/* Custom Date Range */}
+            <div className="flex-shrink-0">
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Custom Range</label>
+              <div className="flex gap-1.5">
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => {
                     setStartDate(e.target.value);
                     setCustomDateRange(true);
+                    setDateRange("all");
                   }}
-                  className="px-3 py-1.5 rounded-lg border border-border bg-background text-sm"
+                  className={`px-2.5 py-1 rounded-md border text-xs bg-background transition-colors ${
+                    customDateRange && startDate ? "border-primary bg-primary/5" : "border-border"
+                  }`}
                 />
                 <input
                   type="date"
@@ -372,12 +374,25 @@ export default function AdminAnalyticsPage() {
                   onChange={(e) => {
                     setEndDate(e.target.value);
                     setCustomDateRange(true);
+                    setDateRange("all");
                   }}
-                  className="px-3 py-1.5 rounded-lg border border-border bg-background text-sm"
+                  className={`px-2.5 py-1 rounded-md border text-xs bg-background transition-colors ${
+                    customDateRange && endDate ? "border-primary bg-primary/5" : "border-border"
+                  }`}
                 />
               </div>
             </div>
-            <div className="flex items-end">
+
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* Actions */}
+            <div className="flex items-center gap-2">
+              {(dateRange !== "all" || customDateRange) && (
+                <span className="text-[10px] text-primary bg-primary/10 px-2 py-1 rounded-full font-medium">
+                  Filters Active
+                </span>
+              )}
               <Button
                 onClick={() => {
                   setDateRange("month");
@@ -385,64 +400,66 @@ export default function AdminAnalyticsPage() {
                   setEndDate("");
                   setCustomDateRange(false);
                 }}
-                variant="outline"
+                variant="ghost"
                 size="sm"
+                disabled={dateRange === "month" && !customDateRange}
+                className="h-8 px-3 text-xs"
               >
-                Reset
+                Clear
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Financial Metrics */}
+        {/* Financial Metrics - Compact */}
         {financialMetrics && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div className="bg-card border border-border rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Revenue</p>
-                  <p className="text-2xl font-bold mt-1 text-green-600 dark:text-green-400">
-                    {formatCurrency(financialMetrics.totalRevenue, DEFAULT_CURRENCY as Currency)}
-                  </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-6">
+            <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Revenue</h3>
+                <div className="h-6 w-6 rounded-md bg-green-500/10 flex items-center justify-center group-hover:bg-green-500/20 transition-colors">
+                  <DollarSign className="h-3 w-3 text-green-600 dark:text-green-400" />
                 </div>
-                <DollarSign className="h-8 w-8 text-green-600 dark:text-green-400" />
+              </div>
+              <div className="text-base font-bold text-green-600 dark:text-green-400">
+                {formatCurrency(financialMetrics.totalRevenue, DEFAULT_CURRENCY as Currency)}
               </div>
             </div>
-            <div className="bg-card border border-border rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Platform Commissions</p>
-                  <p className="text-2xl font-bold mt-1 text-primary">
-                    {formatCurrency(financialMetrics.totalCommissions, DEFAULT_CURRENCY as Currency)}
-                  </p>
+            <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Commissions</h3>
+                <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                  <TrendingUp className="h-3 w-3 text-primary" />
                 </div>
-                <TrendingUp className="h-8 w-8 text-primary" />
+              </div>
+              <div className="text-base font-bold text-primary">
+                {formatCurrency(financialMetrics.totalCommissions, DEFAULT_CURRENCY as Currency)}
               </div>
             </div>
-            <div className="bg-card border border-border rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Payouts</p>
-                  <p className="text-2xl font-bold mt-1 text-red-600 dark:text-red-400">
-                    {formatCurrency(financialMetrics.totalPayouts, DEFAULT_CURRENCY as Currency)}
-                  </p>
+            <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Payouts</h3>
+                <div className="h-6 w-6 rounded-md bg-red-500/10 flex items-center justify-center group-hover:bg-red-500/20 transition-colors">
+                  <DollarSign className="h-3 w-3 text-red-600 dark:text-red-400" />
                 </div>
-                <DollarSign className="h-8 w-8 text-red-600 dark:text-red-400" />
+              </div>
+              <div className="text-base font-bold text-red-600 dark:text-red-400">
+                {formatCurrency(financialMetrics.totalPayouts, DEFAULT_CURRENCY as Currency)}
               </div>
             </div>
-            <div className="bg-card border border-border rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Net Profit</p>
-                  <p className={`text-2xl font-bold mt-1 ${
-                    financialMetrics.netProfit >= 0 
-                      ? 'text-green-600 dark:text-green-400' 
-                      : 'text-red-600 dark:text-red-400'
-                  }`}>
-                    {formatCurrency(financialMetrics.netProfit, DEFAULT_CURRENCY as Currency)}
-                  </p>
+            <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Net Profit</h3>
+                <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                  <BarChart3 className="h-3 w-3 text-primary" />
                 </div>
-                <BarChart3 className="h-8 w-8 text-primary" />
+              </div>
+              <div className={`text-base font-bold ${
+                financialMetrics.netProfit >= 0 
+                  ? 'text-green-600 dark:text-green-400' 
+                  : 'text-red-600 dark:text-red-400'
+              }`}>
+                {formatCurrency(financialMetrics.netProfit, DEFAULT_CURRENCY as Currency)}
               </div>
             </div>
           </div>

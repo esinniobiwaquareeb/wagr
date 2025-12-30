@@ -297,22 +297,20 @@ export default function AdminKycPage() {
           </p>
         </div>
 
-        {/* Stats */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {/* Stats - Compact */}
+        <div className="grid grid-cols-3 gap-2.5">
           {stats.map((stat) => {
             const Icon = stat.icon;
             return (
-              <Card key={stat.label} className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">{stat.label}</CardTitle>
-                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                    <Icon className={`h-4 w-4 ${stat.tone}`} />
+              <div key={stat.label} className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">{stat.label}</h3>
+                  <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                    <Icon className={`h-3 w-3 ${stat.tone}`} />
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className={`text-2xl font-bold ${stat.tone}`}>{stat.value.toLocaleString()}</div>
-                </CardContent>
-              </Card>
+                </div>
+                <div className={`text-base font-bold ${stat.tone}`}>{stat.value.toLocaleString()}</div>
+              </div>
             );
           })}
         </div>

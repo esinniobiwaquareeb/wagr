@@ -245,44 +245,48 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Stats Grid */}
+        {/* Stats Grid - Compact */}
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-6">
             {[...Array(6)].map((_, i) => (
-              <Card key={i} className="border border-border/80">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 px-2 pt-1.5">
-                  <div className="h-3 w-16 bg-muted animate-pulse rounded" />
-                  <div className="h-6 w-6 bg-muted animate-pulse rounded" />
-                </CardHeader>
-                <CardContent className="px-2 pb-1.5 pt-0">
-                  <div className="h-6 w-14 bg-muted animate-pulse rounded" />
-                </CardContent>
-              </Card>
+              <div key={i} className="bg-card border border-border/60 rounded-lg p-2">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="h-2.5 w-12 bg-muted animate-pulse rounded" />
+                  <div className="h-5 w-5 bg-muted animate-pulse rounded" />
+                </div>
+                <div className="h-5 w-10 bg-muted animate-pulse rounded" />
+              </div>
             ))}
           </div>
         ) : stats ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-6">
             {statsCards.map((card) => {
               const Icon = card.icon;
-              return (
-                <Card key={card.id} className="border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 px-2 pt-1.5">
-                    <CardTitle className="text-[11px] font-medium text-muted-foreground leading-tight">{card.title}</CardTitle>
-                    <div className={`h-6 w-6 rounded-lg ${card.iconBg} flex items-center justify-center transition-colors flex-shrink-0`}>
-                      <Icon className={`h-3 w-3 ${card.iconColor}`} />
+              const content = (
+                <>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-[10px] font-medium text-muted-foreground truncate">{card.title}</span>
+                    <div className={`h-5 w-5 rounded ${card.iconBg} flex items-center justify-center flex-shrink-0`}>
+                      <Icon className={`h-2.5 w-2.5 ${card.iconColor}`} />
                     </div>
-                  </CardHeader>
-                  <CardContent className="px-2 pb-1.5 pt-0">
-                    <div className="text-lg font-bold leading-tight">{card.value(stats)}</div>
-                    {card.link ? (
-                      <Link href={card.link} className="text-[10px] text-muted-foreground hover:text-primary transition-colors flex items-center gap-0.5 group/link">
-                        View all <ArrowUpRight className="h-2 w-2 opacity-0 group-hover/link:opacity-100 transition-opacity" />
-                      </Link>
-                    ) : card.subtitle ? (
-                      <p className="text-[10px] text-muted-foreground leading-tight">{card.subtitle(stats)}</p>
-                    ) : null}
-                  </CardContent>
-                </Card>
+                  </div>
+                  <div className="text-sm font-bold leading-tight truncate">{card.value(stats)}</div>
+                  {card.subtitle && (
+                    <p className="text-[9px] text-muted-foreground truncate mt-0.5">{card.subtitle(stats)}</p>
+                  )}
+                </>
+              );
+              
+              const className = "bg-card border border-border/60 rounded-lg p-2 hover:border-primary/40 hover:shadow-sm transition-all group block";
+              
+              return card.link ? (
+                <Link key={card.id} href={card.link} className={className}>
+                  {content}
+                </Link>
+              ) : (
+                <div key={card.id} className={className}>
+                  {content}
+                </div>
               );
             })}
           </div>

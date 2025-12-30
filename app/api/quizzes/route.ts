@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server';
 import { nestjsServerFetch } from '@/lib/nestjs-server';
-import { requireAuth, requireAdmin } from '@/lib/auth/server';
 import { logError } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 import { cookies } from 'next/headers';
@@ -11,19 +10,15 @@ import { cookies } from 'next/headers';
  */
 export async function GET(request: NextRequest) {
   try {
-    const url = new URL(request.url);
-    const scope = url.searchParams.get('scope');
-    const isAdminView = scope === 'admin';
-
-    await (isAdminView ? requireAdmin() : requireAuth());
-    
-    // Get token from cookies
+    // Get auth token from cookies for server-side request
     const cookieStore = await cookies();
     const token = cookieStore.get('auth_token')?.value || null;
 
     if (!token) {
-      throw new Error('Authentication required');
+      return appErrorToResponse(new Error('Authentication required'));
     }
+
+    const url = new URL(request.url);
 
     // Build query string - filter out invalid status values
     const validStatuses = ['draft', 'open', 'in_progress', 'completed', 'settled', 'cancelled'];
@@ -55,7 +50,7 @@ export async function GET(request: NextRequest) {
       cleanParams.set('scope', scopeParam);
     }
 
-    // Call NestJS backend to list quizzes
+    // Call NestJS backend to list quizzes (let backend handle auth validation)
     const response = await nestjsServerFetch<any>(`/quizzes?${cleanParams.toString()}`, {
       method: 'GET',
       token,
@@ -63,13 +58,10 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.success) {
-      throw new Error(response.error?.message || 'Failed to fetch quizzes');
+      return appErrorToResponse(new Error(response.error?.message || 'Failed to fetch quizzes'));
     }
 
     // Backend controller returns: { success: true, data: quizzes[], meta: pagination }
-    // nestjsServerFetch parses JSON and returns it directly
-    // So response is: { success: true, data: quizzes[], meta: pagination, error?: ... }
-    // response.data is the quizzes array, response.meta is pagination
     const quizzes = Array.isArray(response.data) ? response.data : [];
     const meta = (response as any).meta;
 
@@ -88,33 +80,33 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    await requireAuth();
     const body = await request.json();
     
-    // Get token from cookies
+    // Get auth token from cookies for server-side request
     const cookieStore = await cookies();
     const token = cookieStore.get('auth_token')?.value || null;
 
     if (!token) {
-      throw new Error('Authentication required');
+      return appErrorToResponse(new Error('Authentication required'));
     }
 
-    // Call NestJS backend to create quiz
-    const response = await nestjsServerFetch<{
-      quiz: any;
-    }>('/quizzes', {
+    // Call NestJS backend to create quiz (let backend handle auth validation)
+    const response = await nestjsServerFetch<any>('/quizzes', {
       method: 'POST',
       token,
       requireAuth: true,
       body: JSON.stringify(body),
     });
 
-    if (!response.success || !response.data) {
-      throw new Error(response.error?.message || 'Failed to create quiz');
+    if (!response.success) {
+      return appErrorToResponse(new Error(response.error?.message || 'Failed to create quiz'));
     }
 
+    // NestJS returns { success: true, data: { quiz } }
+    const quiz = response.data?.quiz || null;
+
     return successResponseNext({
-      quiz: response.data.quiz,
+      quiz,
     });
   } catch (error) {
     logError(error as Error);

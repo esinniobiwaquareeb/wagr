@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server';
 import { nestjsServerFetch } from '@/lib/nestjs-server';
-import { requireAuth } from '@/lib/auth/server';
 import { logError } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 import { cookies } from 'next/headers';
@@ -16,7 +15,7 @@ export async function GET(
   try {
     const { id } = await params;
     
-    // Get token from cookies
+    // Get auth token from cookies for server-side request
     const cookieStore = await cookies();
     const token = cookieStore.get('auth_token')?.value || null;
 
@@ -24,15 +23,7 @@ export async function GET(
       return appErrorToResponse(new Error('Authentication required to view quiz'));
     }
 
-    // Verify user is authenticated (but don't throw, just check)
-    try {
-      await requireAuth();
-    } catch (authError) {
-      // If auth verification fails, return error
-      return appErrorToResponse(new Error('Invalid or expired authentication token'));
-    }
-
-    // Call NestJS backend to get quiz
+    // Call NestJS backend to get quiz (let backend handle auth validation)
     const response = await nestjsServerFetch<any>(`/quizzes/${id}`, {
       method: 'GET',
       token,
@@ -40,13 +31,11 @@ export async function GET(
     });
 
     if (!response.success) {
-      throw new Error(response.error?.message || 'Failed to fetch quiz');
+      return appErrorToResponse(new Error(response.error?.message || 'Failed to fetch quiz'));
     }
 
-    // Backend returns: { success: true, data: { quiz: {...} } }
-    // nestjsServerFetch returns the parsed JSON, so response.data is the backend response
-    const backendResponse = response.data;
-    const quiz = backendResponse?.quiz || backendResponse?.data?.quiz || backendResponse;
+    // NestJS returns { success: true, data: { quiz } }
+    const quiz = response.data?.quiz || null;
 
     return successResponseNext({
       quiz,
@@ -66,34 +55,34 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAuth();
     const { id } = await params;
     const body = await request.json();
     
-    // Get token from cookies
+    // Get auth token from cookies for server-side request
     const cookieStore = await cookies();
     const token = cookieStore.get('auth_token')?.value || null;
 
     if (!token) {
-      throw new Error('Authentication required');
+      return appErrorToResponse(new Error('Authentication required'));
     }
 
-    // Call NestJS backend to update quiz
-    const response = await nestjsServerFetch<{
-      quiz: any;
-    }>(`/quizzes/${id}`, {
+    // Call NestJS backend to update quiz (let backend handle auth validation)
+    const response = await nestjsServerFetch<any>(`/quizzes/${id}`, {
       method: 'PATCH',
       token,
       requireAuth: true,
       body: JSON.stringify(body),
     });
 
-    if (!response.success || !response.data) {
-      throw new Error(response.error?.message || 'Failed to update quiz');
+    if (!response.success) {
+      return appErrorToResponse(new Error(response.error?.message || 'Failed to update quiz'));
     }
 
+    // NestJS returns { success: true, data: { quiz } }
+    const quiz = response.data?.quiz || null;
+
     return successResponseNext({
-      quiz: response.data.quiz,
+      quiz,
     });
   } catch (error) {
     logError(error as Error);
@@ -110,18 +99,17 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAuth();
     const { id } = await params;
     
-    // Get token from cookies
+    // Get auth token from cookies for server-side request
     const cookieStore = await cookies();
     const token = cookieStore.get('auth_token')?.value || null;
 
     if (!token) {
-      throw new Error('Authentication required');
+      return appErrorToResponse(new Error('Authentication required'));
     }
 
-    // Call NestJS backend to delete quiz
+    // Call NestJS backend to delete quiz (let backend handle auth validation)
     const response = await nestjsServerFetch(`/quizzes/${id}`, {
       method: 'DELETE',
       token,
@@ -129,7 +117,7 @@ export async function DELETE(
     });
 
     if (!response.success) {
-      throw new Error(response.error?.message || 'Failed to delete quiz');
+      return appErrorToResponse(new Error(response.error?.message || 'Failed to delete quiz'));
     }
 
     return successResponseNext({ message: 'Quiz deleted successfully' });

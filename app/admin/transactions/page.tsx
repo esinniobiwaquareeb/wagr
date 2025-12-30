@@ -3,12 +3,13 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
-import { format } from "date-fns";
-import { ArrowUp, ArrowDown, ExternalLink, Link as LinkIcon, Copy, Check, Eye } from "lucide-react";
+import { format, startOfDay, endOfDay, subDays, subMonths } from "date-fns";
+import { ArrowUp, ArrowDown, ExternalLink, Link as LinkIcon, Copy, Check, Eye, DollarSign, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { useAdmin } from "@/contexts/admin-context";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { logger } from "@/lib/logger";
 
 interface Transaction {
@@ -34,13 +35,67 @@ export default function AdminTransactionsPage() {
   const { admin, isAdmin } = useAdmin();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [copiedRef, setCopiedRef] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  
+  // Filters
+  const [dateRange, setDateRange] = useState<"today" | "week" | "month" | "all">("all");
+  const [transactionType, setTransactionType] = useState<string>("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [customDateRange, setCustomDateRange] = useState(false);
 
-  const fetchTransactions = useCallback(async (force = false) => {
+  const transactionTypes = [
+    { value: "all", label: "All Types" },
+    { value: "deposit", label: "Deposits" },
+    { value: "withdrawal", label: "Withdrawals" },
+    { value: "wager_join", label: "Wager Join" },
+    { value: "wager_win", label: "Wager Win" },
+    { value: "wager_refund", label: "Wager Refund" },
+    { value: "transfer_in", label: "Transfer In" },
+    { value: "transfer_out", label: "Transfer Out" },
+    { value: "quiz_creation", label: "Quiz Creation" },
+    { value: "quiz_refund", label: "Quiz Refund" },
+  ];
+
+  const getDateFilter = useCallback(() => {
+    const now = new Date();
+    switch (dateRange) {
+      case "today":
+        return { start: startOfDay(now).toISOString(), end: endOfDay(now).toISOString() };
+      case "week":
+        return { start: startOfDay(subDays(now, 7)).toISOString(), end: endOfDay(now).toISOString() };
+      case "month":
+        return { start: startOfDay(subMonths(now, 1)).toISOString(), end: endOfDay(now).toISOString() };
+      default:
+        return null;
+    }
+  }, [dateRange]);
+
+  const fetchTransactions = useCallback(async () => {
     if (!isAdmin) return;
 
     try {
+      setLoading(true);
       const { apiGet } = await import('@/lib/api-client');
-      const response = await apiGet<{ transactions: Transaction[] }>('/admin/transactions?limit=500');
+      
+      const params = new URLSearchParams();
+      params.set('limit', '500');
+      
+      // Apply date filter
+      const dateFilter = customDateRange && startDate && endDate
+        ? { start: startOfDay(new Date(startDate)).toISOString(), end: endOfDay(new Date(endDate)).toISOString() }
+        : getDateFilter();
+      
+      if (dateFilter) {
+        params.set('startDate', dateFilter.start);
+        params.set('endDate', dateFilter.end);
+      }
+      
+      if (transactionType !== 'all') {
+        params.set('type', transactionType);
+      }
+      
+      const response = await apiGet<{ transactions: Transaction[] }>(`/admin/transactions?${params.toString()}`);
       
       // Transform the data to match expected format
       const transformedData = (response.transactions || []).map((transaction: any) => ({
@@ -62,8 +117,10 @@ export default function AdminTransactionsPage() {
         description: "Failed to fetch transactions.",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
-  }, [isAdmin, toast]);
+  }, [isAdmin, toast, dateRange, transactionType, startDate, endDate, customDateRange, getDateFilter]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -171,6 +228,24 @@ export default function AdminTransactionsPage() {
     };
   };
 
+  // Calculate stats
+  const stats = useMemo(() => {
+    const totalDeposits = transactions
+      .filter(t => t.type === 'deposit')
+      .reduce((sum, t) => sum + Math.abs(Number(t.amount) || 0), 0);
+    const totalWithdrawals = transactions
+      .filter(t => t.type === 'withdrawal')
+      .reduce((sum, t) => sum + Math.abs(Number(t.amount) || 0), 0);
+    const totalWagerVolume = transactions
+      .filter(t => t.type === 'wager_join' || t.type === 'wager_entry')
+      .reduce((sum, t) => sum + Math.abs(Number(t.amount) || 0), 0);
+    const totalWagerWins = transactions
+      .filter(t => t.type === 'wager_win')
+      .reduce((sum, t) => sum + Math.abs(Number(t.amount) || 0), 0);
+    
+    return { totalDeposits, totalWithdrawals, totalWagerVolume, totalWagerWins, count: transactions.length };
+  }, [transactions]);
+
   // Custom filtered transactions for search that includes profile data
   // Must be called before conditional returns to follow Rules of Hooks
   const filteredTransactions = useMemo(() => {
@@ -197,6 +272,164 @@ export default function AdminTransactionsPage() {
           <p className="text-sm md:text-base text-muted-foreground">
             Monitor all financial transactions across the platform
           </p>
+        </div>
+
+        {/* Stats - Compact */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Total</h3>
+              <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                <DollarSign className="h-3 w-3 text-primary" />
+              </div>
+            </div>
+            <div className="text-base font-bold">{stats.count.toLocaleString()}</div>
+          </div>
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Deposits</h3>
+              <div className="h-6 w-6 rounded-md bg-green-500/10 flex items-center justify-center group-hover:bg-green-500/20 transition-colors">
+                <TrendingUp className="h-3 w-3 text-green-600 dark:text-green-400" />
+              </div>
+            </div>
+            <div className="text-base font-bold text-green-600 dark:text-green-400">{formatCurrency(stats.totalDeposits, DEFAULT_CURRENCY as Currency)}</div>
+          </div>
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Withdrawals</h3>
+              <div className="h-6 w-6 rounded-md bg-red-500/10 flex items-center justify-center group-hover:bg-red-500/20 transition-colors">
+                <TrendingDown className="h-3 w-3 text-red-600 dark:text-red-400" />
+              </div>
+            </div>
+            <div className="text-base font-bold text-red-600 dark:text-red-400">{formatCurrency(stats.totalWithdrawals, DEFAULT_CURRENCY as Currency)}</div>
+          </div>
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Wager Vol</h3>
+              <div className="h-6 w-6 rounded-md bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
+                <DollarSign className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+              </div>
+            </div>
+            <div className="text-base font-bold">{formatCurrency(stats.totalWagerVolume, DEFAULT_CURRENCY as Currency)}</div>
+          </div>
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Wager Wins</h3>
+              <div className="h-6 w-6 rounded-md bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors">
+                <TrendingUp className="h-3 w-3 text-purple-600 dark:text-purple-400" />
+              </div>
+            </div>
+            <div className="text-base font-bold text-purple-600 dark:text-purple-400">{formatCurrency(stats.totalWagerWins, DEFAULT_CURRENCY as Currency)}</div>
+          </div>
+        </div>
+
+        {/* Filters - Compact */}
+        <div className="bg-card border border-border/60 rounded-lg p-3">
+          <div className="flex flex-col lg:flex-row lg:items-end gap-3">
+            {/* Date Range Presets */}
+            <div className="flex-shrink-0">
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Quick Range</label>
+              <div className="flex gap-1.5">
+                {(["today", "week", "month", "all"] as const).map((range) => (
+                  <button
+                    key={range}
+                    onClick={() => {
+                      setDateRange(range);
+                      setCustomDateRange(false);
+                    }}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                      dateRange === range && !customDateRange
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    }`}
+                  >
+                    {range.charAt(0).toUpperCase() + range.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Date Range */}
+            <div className="flex-shrink-0">
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Custom Range</label>
+              <div className="flex gap-1.5">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setCustomDateRange(true);
+                    setDateRange("all");
+                  }}
+                  className={`px-2.5 py-1 rounded-md border text-xs bg-background transition-colors ${
+                    customDateRange && startDate ? "border-primary bg-primary/5" : "border-border"
+                  }`}
+                />
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    setCustomDateRange(true);
+                    setDateRange("all");
+                  }}
+                  className={`px-2.5 py-1 rounded-md border text-xs bg-background transition-colors ${
+                    customDateRange && endDate ? "border-primary bg-primary/5" : "border-border"
+                  }`}
+                />
+              </div>
+            </div>
+
+            {/* Transaction Type */}
+            <div className="flex-shrink-0">
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Type</label>
+              <select
+                value={transactionType}
+                onChange={(e) => setTransactionType(e.target.value)}
+                className={`px-2 py-1.5 rounded-md border text-xs min-w-[140px] transition-colors ${
+                  transactionType !== "all" 
+                    ? "border-primary bg-primary/5" 
+                    : "border-border bg-background"
+                } disabled:opacity-50`}
+              >
+                {transactionTypes.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* Actions */}
+            <div className="flex items-center gap-2">
+              {(dateRange !== "all" || transactionType !== "all" || customDateRange) && (
+                <span className="text-[10px] text-primary bg-primary/10 px-2 py-1 rounded-full font-medium">
+                  Filters Active
+                </span>
+              )}
+              <Button
+                onClick={() => {
+                  setDateRange("all");
+                  setTransactionType("all");
+                  setStartDate("");
+                  setEndDate("");
+                  setCustomDateRange(false);
+                }}
+                variant="ghost"
+                size="sm"
+                disabled={loading || (dateRange === "all" && transactionType === "all" && !customDateRange)}
+                className="h-8 px-3 text-xs"
+              >
+                Clear
+              </Button>
+              {loading && (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Transactions Table */}

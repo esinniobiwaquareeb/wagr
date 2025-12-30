@@ -4,10 +4,11 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY } from "@/lib/currency";
 import { format } from "date-fns";
-import { Eye, Award, Trash2, Loader2, BookOpen, Users, Trophy, Calendar } from "lucide-react";
+import { Eye, Award, Trash2, Loader2, BookOpen, Users, Trophy, Calendar, DollarSign, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataTable } from "@/components/data-table";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAdmin } from "@/contexts/admin-context";
 import { apiDelete } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -283,6 +284,16 @@ export default function AdminQuizzesPage() {
     return quizzes.filter(q => q.status === filterStatus);
   }, [quizzes, filterStatus]);
 
+  // Calculate stats
+  const stats = useMemo(() => {
+    const total = quizzes.length;
+    const draft = quizzes.filter(q => q.status === 'draft').length;
+    const open = quizzes.filter(q => q.status === 'open').length;
+    const completed = quizzes.filter(q => q.status === 'completed' || q.status === 'settled').length;
+    const totalValue = quizzes.reduce((sum, q) => sum + (Number(q.total_cost) || 0), 0);
+    return { total, draft, open, completed, totalValue };
+  }, [quizzes]);
+
   if (!isAdmin || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -292,37 +303,103 @@ export default function AdminQuizzesPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold mb-1">Quiz Management</h1>
-          <p className="text-sm text-muted-foreground">
+    <main className="min-h-screen bg-background p-4 md:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="space-y-2">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Quizzes</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
             Manage all corporate quizzes on the platform
           </p>
         </div>
-      </div>
 
-      {/* Filters */}
-      <div className="flex gap-2 mb-4">
-        {(['all', 'draft', 'open', 'completed', 'settled'] as const).map((status) => (
-          <Button
-            key={status}
-            variant={filterStatus === status ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilterStatus(status)}
-          >
-            {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
-          </Button>
-        ))}
-      </div>
+        {/* Stats - Compact */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Total</h3>
+              <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                <BookOpen className="h-3 w-3 text-primary" />
+              </div>
+            </div>
+            <div className="text-base font-bold">{stats.total.toLocaleString()}</div>
+          </div>
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Draft</h3>
+              <div className="h-6 w-6 rounded-md bg-gray-500/10 flex items-center justify-center group-hover:bg-gray-500/20 transition-colors">
+                <Calendar className="h-3 w-3 text-gray-600 dark:text-gray-400" />
+              </div>
+            </div>
+            <div className="text-base font-bold text-gray-600 dark:text-gray-400">{stats.draft.toLocaleString()}</div>
+          </div>
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Open</h3>
+              <div className="h-6 w-6 rounded-md bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
+                <Users className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+              </div>
+            </div>
+            <div className="text-base font-bold text-blue-600 dark:text-blue-400">{stats.open.toLocaleString()}</div>
+          </div>
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Completed</h3>
+              <div className="h-6 w-6 rounded-md bg-green-500/10 flex items-center justify-center group-hover:bg-green-500/20 transition-colors">
+                <CheckCircle className="h-3 w-3 text-green-600 dark:text-green-400" />
+              </div>
+            </div>
+            <div className="text-base font-bold text-green-600 dark:text-green-400">{stats.completed.toLocaleString()}</div>
+          </div>
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Total Value</h3>
+              <div className="h-6 w-6 rounded-md bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors">
+                <DollarSign className="h-3 w-3 text-purple-600 dark:text-purple-400" />
+              </div>
+            </div>
+            <div className="text-base font-bold text-purple-600 dark:text-purple-400">{formatCurrency(stats.totalValue, DEFAULT_CURRENCY)}</div>
+          </div>
+        </div>
 
-      {/* Data Table */}
-      <DataTable
-        columns={columns}
-        data={filteredQuizzes}
-        searchKeys={['title', 'description']}
-        searchPlaceholder="Search quizzes..."
-      />
+        {/* Filters */}
+        <div className="flex gap-1.5 flex-wrap">
+          {(['all', 'draft', 'open', 'completed', 'settled'] as const).map((status) => (
+            <button
+              key={status}
+              onClick={() => setFilterStatus(status)}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                filterStatus === status
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
+            >
+              {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {/* Quizzes Table */}
+        <Card className="border border-border/80">
+          <CardHeader>
+            <CardTitle>All Quizzes</CardTitle>
+            <CardDescription>View and manage quiz records</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DataTable
+              columns={columns}
+              data={filteredQuizzes}
+              searchKeys={['title', 'description']}
+              searchPlaceholder="Search quizzes..."
+              pagination
+              pageSize={20}
+              sortable
+              defaultSort={{ key: "created_at", direction: "desc" }}
+              emptyMessage="No quizzes found"
+            />
+          </CardContent>
+        </Card>
+      </div>
 
       <ConfirmDialog
         open={showDeleteDialog}
@@ -337,7 +414,7 @@ export default function AdminQuizzesPage() {
         variant="destructive"
         onConfirm={handleDeleteQuiz}
       />
-    </div>
+    </main>
   );
 }
 
