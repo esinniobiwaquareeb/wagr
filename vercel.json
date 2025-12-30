@@ -1,4 +1,17 @@
 {
-  "crons": []
+  "crons": [
+    {
+      "path": "/api/agents/settle-wagers",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/agents/settle-quizzes",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/agents/generate-wagers",
+      "schedule": "0 */6 * * *"
+    }
+  ]
 }
 
