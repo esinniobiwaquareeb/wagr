@@ -1,19 +1,15 @@
+"use client";
+
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
-import type { Metadata } from 'next';
-
-const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://wagered.app';
-
-export const metadata: Metadata = {
-  title: 'Terms & Conditions',
-  description: 'Read the Terms & Conditions for wagered.app. Understand the rules, regulations, and guidelines for using our wagering platform.',
-  openGraph: {
-    title: 'Terms & Conditions | wagered.app',
-    description: 'Read the Terms & Conditions for wagered.app',
-    url: `${siteUrl}/terms`,
-  },
-};
+import { useSettings } from "@/hooks/use-settings";
 
 export default function TermsPage() {
+  const { getSetting } = useSettings();
+  
+  // Get dynamic fee from settings
+  const wagerFeePercentage = getSetting('fees.wager_platform_fee_percentage', 0.05);
+  const wagerFeeDisplay = `${Math.round(wagerFeePercentage * 100)}%`;
+  
   return (
     <main className="flex-1 pb-24 md:pb-0">
       <div className="max-w-4xl mx-auto p-4 md:p-6">
@@ -58,7 +54,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold mb-3">4. Platform Fees</h2>
             <p className="text-muted-foreground mb-4">
-              wagered.app charges a platform fee on all wagers. The fee percentage is determined by the platform and will be clearly displayed before you place a wager. Fees are deducted from the total pool before winnings are distributed.
+              wagered.app charges a platform fee of {wagerFeeDisplay} on all wagers. This fee is clearly displayed before you place a wager and is deducted from the total pool before winnings are distributed.
             </p>
           </section>
 

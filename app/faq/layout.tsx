@@ -1,0 +1,10 @@
+export { metadata } from './metadata';
+
+export default function FAQLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return children;
+}
+

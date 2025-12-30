@@ -1,20 +1,22 @@
+"use client";
+
 import { StructuredData } from "@/components/seo/structured-data";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
-import type { Metadata } from 'next';
-
-const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://wagered.app';
-
-export const metadata: Metadata = {
-  title: 'FAQ - Frequently Asked Questions',
-  description: 'Find answers to common questions about wagered.app, including how to create wagers, how winnings are calculated, platform fees, and more.',
-  openGraph: {
-    title: 'FAQ - Frequently Asked Questions | wagered.app',
-    description: 'Find answers to common questions about wagered.app',
-    url: `${siteUrl}/faq`,
-  },
-};
+import { useSettings } from "@/hooks/use-settings";
 
 export default function FAQPage() {
+  const { getSetting, loading } = useSettings();
+  
+  // Get dynamic fee from settings (default 5%)
+  const wagerFeePercentage = getSetting('fees.wager_platform_fee_percentage', 0.05);
+  const quizFeePercentage = getSetting('fees.quiz_platform_fee_percentage', 0.1);
+  const wagerFeeDisplay = `${Math.round(wagerFeePercentage * 100)}%`;
+  const quizFeeDisplay = `${Math.round(quizFeePercentage * 100)}%`;
+  
+  // Get wager limits
+  const minWagerAmount = getSetting('wagers.min_amount', 100);
+  const maxWagerAmount = getSetting('wagers.max_amount', 1000000);
+  
   const faqs = [
     {
       question: "How do I create a wager?",
@@ -26,7 +28,7 @@ export default function FAQPage() {
     },
     {
       question: "What is the platform fee?",
-      answer: "The platform fee is 5% of the total wager pool. This fee is automatically deducted before winnings are distributed to winners.",
+      answer: `The platform fee is ${wagerFeeDisplay} of the total wager pool. This fee is automatically deducted before winnings are distributed to winners.`,
     },
     {
       question: "Can I cancel a wager I've joined?",
