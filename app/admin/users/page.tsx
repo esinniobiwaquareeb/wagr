@@ -208,7 +208,7 @@ export default function AdminUsersPage() {
         </div>
 
         {/* Stats Grid - Compact */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           {stats.map((stat) => {
             const Icon = stat.icon;
             return (

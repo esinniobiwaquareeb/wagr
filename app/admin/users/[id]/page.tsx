@@ -40,6 +40,9 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { logger } from "@/lib/logger";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2 } from "lucide-react";
 
 interface AdminUserDetailPageProps {
   params: Promise<{ id: string }>;
@@ -129,6 +132,7 @@ export default function AdminUserDetailPage({ params }: AdminUserDetailPageProps
     quizzesCreated: 0,
     quizParticipations: 0,
   });
+  const [updating, setUpdating] = useState(false);
 
   const loadUserDetails = useCallback(
     async (userId: string) => {
@@ -200,6 +204,38 @@ export default function AdminUserDetailPage({ params }: AdminUserDetailPageProps
       }
     },
     [isAdmin, toast],
+  );
+
+  const handleUpdateUser = useCallback(
+    async (updates: { email_verified?: boolean; kyc_level?: number }) => {
+      if (!isAdmin || !user) return;
+
+      setUpdating(true);
+      try {
+        const { apiPatch } = await import('@/lib/api-client');
+        const response = await apiPatch<{ message: string }>(`/admin/users/${user.id}`, updates);
+
+        if (response) {
+          toast({
+            title: "User updated",
+            description: "User information has been updated successfully.",
+          });
+          
+          // Reload user details
+          await loadUserDetails(user.id);
+        }
+      } catch (error) {
+        logger.error("Failed to update user", error);
+        toast({
+          title: "Update failed",
+          description: error instanceof Error ? error.message : "Failed to update user information.",
+          variant: "destructive",
+        });
+      } finally {
+        setUpdating(false);
+      }
+    },
+    [isAdmin, user, toast, loadUserDetails],
   );
 
   useEffect(() => {
@@ -499,12 +535,21 @@ export default function AdminUserDetailPage({ params }: AdminUserDetailPageProps
     {
       id: "score",
       header: "Score",
-      cell: (row: QuizParticipation) => (
-        <div className="flex flex-col">
-          <span className="font-semibold">{row.score || 0} points</span>
-          <span className="text-xs text-muted-foreground">{row.percentage_score?.toFixed(1) || 0}%</span>
-        </div>
-      ),
+      cell: (row: QuizParticipation) => {
+        const percentageScore = typeof row.percentage_score === 'number' 
+          ? row.percentage_score 
+          : typeof row.percentage_score === 'string' 
+            ? parseFloat(row.percentage_score) 
+            : 0;
+        return (
+          <div className="flex flex-col">
+            <span className="font-semibold">{row.score || 0} points</span>
+            <span className="text-xs text-muted-foreground">
+              {!isNaN(percentageScore) ? percentageScore.toFixed(1) : '0.0'}%
+            </span>
+          </div>
+        );
+      },
     },
     {
       id: "rank",
@@ -556,16 +601,17 @@ export default function AdminUserDetailPage({ params }: AdminUserDetailPageProps
           </div>
         </div>
 
-        {/* User Profile Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Profile Information</CardTitle>
+        {/* User Profile Card - Reorganized */}
+        <Card className="border border-border/80">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Profile Information</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-col md:flex-row gap-6">
+          <CardContent className="space-y-4">
+            {/* Avatar and Basic Info */}
+            <div className="flex items-start gap-4 pb-4 border-b border-border/50">
               <div className="flex-shrink-0">
                 {user.avatar_url ? (
-                  <div className="relative h-24 w-24 rounded-full overflow-hidden">
+                  <div className="relative h-16 w-16 rounded-full overflow-hidden border-2 border-border">
                     <Image
                       src={user.avatar_url}
                       alt={user.username || user.email || "User"}
@@ -574,184 +620,210 @@ export default function AdminUserDetailPage({ params }: AdminUserDetailPageProps
                     />
                   </div>
                 ) : (
-                  <div className="h-24 w-24 rounded-full bg-muted flex items-center justify-center">
-                    <User className="h-12 w-12 text-muted-foreground" />
+                  <div className="h-16 w-16 rounded-full bg-muted border-2 border-border flex items-center justify-center">
+                    <User className="h-8 w-8 text-muted-foreground" />
                   </div>
                 )}
               </div>
-              <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Username</p>
-                  <p className="font-semibold">{user.username || "—"}</p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-lg font-bold truncate">{user.username || "No username"}</h2>
+                  {user.is_admin && (
+                    <Badge variant="outline" className="text-xs">
+                      <Shield className="h-3 w-3 mr-1" />
+                      Admin
+                    </Badge>
+                  )}
+                  {user.is_suspended ? (
+                    <Badge variant="destructive" className="text-xs">
+                      <Ban className="h-3 w-3 mr-1" />
+                      Suspended
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-green-500/10 text-green-700 dark:text-green-400 text-xs">
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      Active
+                    </Badge>
+                  )}
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Email</p>
+                <p className="text-sm text-muted-foreground mt-1 truncate">{user.email || "—"}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Member since {user.created_at ? format(new Date(user.created_at), "MMM d, yyyy") : "—"}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground mb-1">Balance</p>
+                <p className="text-xl font-bold">{formatCurrency(user.balance || 0, currency)}</p>
+              </div>
+            </div>
+
+            {/* Verification & KYC Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Email Verification */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <p className="font-semibold">{user.email || "—"}</p>
-                    {user.email_verified ? (
-                      <Badge variant="outline" className="text-xs">
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        Verified
-                      </Badge>
-                    ) : (
-                      <Badge variant="destructive" className="text-xs">
-                        <XCircle className="h-3 w-3 mr-1" />
-                        Unverified
-                      </Badge>
-                    )}
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Email Verification</span>
                   </div>
+                  {user.email_verified ? (
+                    <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700 dark:text-green-400">
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      Verified
+                    </Badge>
+                  ) : (
+                    <Badge variant="destructive" className="text-xs">
+                      <XCircle className="h-3 w-3 mr-1" />
+                      Unverified
+                    </Badge>
+                  )}
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Balance</p>
-                  <p className="font-semibold text-lg">{formatCurrency(user.balance || 0, currency)}</p>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={user.email_verified || false}
+                    onCheckedChange={(checked) => handleUpdateUser({ email_verified: checked })}
+                    disabled={updating}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {updating ? "Updating..." : user.email_verified ? "Email is verified" : "Toggle to verify email"}
+                  </span>
+                  {updating && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">KYC Level</p>
-                  <div className="mt-1">{kycBadge}</div>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Account Status</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    {user.is_suspended ? (
-                      <Badge variant="destructive">
-                        <Ban className="h-3 w-3 mr-1" />
-                        Suspended
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="bg-green-500/10 text-green-700 dark:text-green-400">
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        Active
-                      </Badge>
-                    )}
-                    {user.is_admin && (
-                      <Badge variant="outline">
-                        <Shield className="h-3 w-3 mr-1" />
-                        Admin
-                      </Badge>
-                    )}
+              </div>
+
+              {/* KYC Level */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">KYC Level</span>
                   </div>
+                  {kycBadge}
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Member Since</p>
-                  <p className="font-semibold">
-                    {user.created_at ? format(new Date(user.created_at), "MMM d, yyyy") : "—"}
-                  </p>
-                </div>
-                {user.is_suspended && user.suspension_reason && (
-                  <div className="md:col-span-2">
-                    <p className="text-sm text-muted-foreground">Suspension Reason</p>
-                    <p className="text-sm">{user.suspension_reason}</p>
+                <Select
+                  value={String(user.kyc_level || 1)}
+                  onValueChange={(value) => handleUpdateUser({ kyc_level: parseInt(value) })}
+                  disabled={updating}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select KYC Level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">Level 1 — Email Verified</SelectItem>
+                    <SelectItem value="2">Level 2 — BVN/NIN Verified</SelectItem>
+                    <SelectItem value="3">Level 3 — Fully Verified</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Suspension Details */}
+            {user.is_suspended && user.suspension_reason && (
+              <div className="pt-3 border-t border-border/50">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-destructive mb-1">Suspension Details</p>
+                    <p className="text-sm text-foreground">{user.suspension_reason}</p>
                     {user.suspended_at && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        Suspended on: {format(new Date(user.suspended_at), "MMM d, yyyy HH:mm")}
+                        Suspended on: {format(new Date(user.suspended_at), "MMM d, yyyy 'at' HH:mm")}
                       </p>
                     )}
                   </div>
-                )}
+                </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Statistics Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Total Transactions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <Activity className="h-4 w-4 text-muted-foreground" />
-                <p className="text-2xl font-semibold">{stats.totalTransactions}</p>
+        {/* Statistics Cards - Compact */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Transactions</h3>
+              <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors flex-shrink-0">
+                <Activity className="h-3 w-3 text-primary" />
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Total Deposits</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-green-600" />
-                <p className="text-2xl font-semibold text-green-600">
-                  {formatCurrency(stats.totalDeposits, currency)}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Total Withdrawals</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <TrendingDown className="h-4 w-4 text-red-600" />
-                <p className="text-2xl font-semibold text-red-600">
-                  {formatCurrency(stats.totalWithdrawals, currency)}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Total Winnings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <Trophy className="h-4 w-4 text-yellow-600" />
-                <p className="text-2xl font-semibold text-yellow-600">
-                  {formatCurrency(stats.totalWinnings, currency)}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+            <div className="text-base font-bold leading-tight">{stats.totalTransactions.toLocaleString()}</div>
+          </div>
 
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Wagers Created</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-muted-foreground" />
-                <p className="text-2xl font-semibold">{stats.wagersCreated}</p>
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Deposits</h3>
+              <div className="h-6 w-6 rounded-md bg-green-500/10 flex items-center justify-center group-hover:bg-green-500/20 transition-colors flex-shrink-0">
+                <TrendingUp className="h-3 w-3 text-green-600 dark:text-green-400" />
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Wager Entries</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <p className="text-2xl font-semibold">{stats.wagerEntries}</p>
+            </div>
+            <div className="text-base font-bold leading-tight text-green-600 dark:text-green-400 truncate">
+              {formatCurrency(stats.totalDeposits, currency)}
+            </div>
+          </div>
+
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Withdrawals</h3>
+              <div className="h-6 w-6 rounded-md bg-red-500/10 flex items-center justify-center group-hover:bg-red-500/20 transition-colors flex-shrink-0">
+                <TrendingDown className="h-3 w-3 text-red-600 dark:text-red-400" />
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Quizzes Created</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-muted-foreground" />
-                <p className="text-2xl font-semibold">{stats.quizzesCreated}</p>
+            </div>
+            <div className="text-base font-bold leading-tight text-red-600 dark:text-red-400 truncate">
+              {formatCurrency(stats.totalWithdrawals, currency)}
+            </div>
+          </div>
+
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Winnings</h3>
+              <div className="h-6 w-6 rounded-md bg-yellow-500/10 flex items-center justify-center group-hover:bg-yellow-500/20 transition-colors flex-shrink-0">
+                <Trophy className="h-3 w-3 text-yellow-600 dark:text-yellow-400" />
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Quiz Participations</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <Award className="h-4 w-4 text-muted-foreground" />
-                <p className="text-2xl font-semibold">{stats.quizParticipations}</p>
+            </div>
+            <div className="text-base font-bold leading-tight text-yellow-600 dark:text-yellow-400 truncate">
+              {formatCurrency(stats.totalWinnings, currency)}
+            </div>
+          </div>
+
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Wagers Created</h3>
+              <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors flex-shrink-0">
+                <FileText className="h-3 w-3 text-primary" />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="text-base font-bold leading-tight">{stats.wagersCreated.toLocaleString()}</div>
+          </div>
+
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Wager Entries</h3>
+              <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors flex-shrink-0">
+                <Users className="h-3 w-3 text-primary" />
+              </div>
+            </div>
+            <div className="text-base font-bold leading-tight">{stats.wagerEntries.toLocaleString()}</div>
+          </div>
+
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Quizzes Created</h3>
+              <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors flex-shrink-0">
+                <BookOpen className="h-3 w-3 text-primary" />
+              </div>
+            </div>
+            <div className="text-base font-bold leading-tight">{stats.quizzesCreated.toLocaleString()}</div>
+          </div>
+
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Quiz Participations</h3>
+              <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors flex-shrink-0">
+                <Award className="h-3 w-3 text-primary" />
+              </div>
+            </div>
+            <div className="text-base font-bold leading-tight">{stats.quizParticipations.toLocaleString()}</div>
+          </div>
         </div>
 
         {/* Tabs for different sections */}

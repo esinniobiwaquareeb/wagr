@@ -230,12 +230,21 @@ export default function AdminQuizDetailPage({ params }: AdminQuizDetailPageProps
     {
       id: "score",
       header: "Score",
-      cell: (row: QuizParticipant) => (
-        <div className="flex flex-col">
-          <span className="font-semibold">{row.score || 0} / {quiz.total_questions * (entryFee || 0)}</span>
-          <span className="text-xs text-muted-foreground">{row.percentage_score?.toFixed(1) || 0}%</span>
-        </div>
-      ),
+      cell: (row: QuizParticipant) => {
+        const percentageScore = typeof row.percentage_score === 'number' 
+          ? row.percentage_score 
+          : typeof row.percentage_score === 'string' 
+            ? parseFloat(row.percentage_score) 
+            : 0;
+        return (
+          <div className="flex flex-col">
+            <span className="font-semibold">{row.score || 0} / {quiz.total_questions * (entryFee || 0)}</span>
+            <span className="text-xs text-muted-foreground">
+              {!isNaN(percentageScore) ? percentageScore.toFixed(1) : '0.0'}%
+            </span>
+          </div>
+        );
+      },
     },
     {
       id: "winnings",
@@ -341,55 +350,59 @@ export default function AdminQuizDetailPage({ params }: AdminQuizDetailPageProps
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Total Cost</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-semibold">{formatCurrency(totalCost, currency)}</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Base: {formatCurrency(baseCost, currency)} • Fee: {formatCurrency(platformFee, currency)}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Participants</CardTitle>
-            </CardHeader>
-            <CardContent className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <p className="text-xl font-semibold">{participants.length} / {quiz.max_participants}</p>
-                <p className="text-xs text-muted-foreground">
-                  {completedCount} completed • {startedCount} started
-                </p>
+        {/* Stats Cards - Compact */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Total Cost</h3>
+              <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors flex-shrink-0">
+                <DollarSign className="h-3 w-3 text-primary" />
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Prize Pool</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-semibold">{formatCurrency(totalPrizePool, currency)}</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {formatCurrency(totalDistributed, currency)} distributed
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Questions</CardTitle>
-            </CardHeader>
-            <CardContent className="flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <p className="text-xl font-semibold">{quiz.total_questions}</p>
-                <p className="text-xs text-muted-foreground">{formatCurrency(entryFee, currency)} per question</p>
+            </div>
+            <div className="text-base font-bold leading-tight truncate">{formatCurrency(totalCost, currency)}</div>
+            <p className="text-[9px] text-muted-foreground mt-0.5 truncate">
+              Base: {formatCurrency(baseCost, currency)} • Fee: {formatCurrency(platformFee, currency)}
+            </p>
+          </div>
+
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Participants</h3>
+              <div className="h-6 w-6 rounded-md bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors flex-shrink-0">
+                <Users className="h-3 w-3 text-blue-600 dark:text-blue-400" />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="text-base font-bold leading-tight">{participants.length} / {quiz.max_participants}</div>
+            <p className="text-[9px] text-muted-foreground mt-0.5 truncate">
+              {completedCount} completed • {startedCount} started
+            </p>
+          </div>
+
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Prize Pool</h3>
+              <div className="h-6 w-6 rounded-md bg-yellow-500/10 flex items-center justify-center group-hover:bg-yellow-500/20 transition-colors flex-shrink-0">
+                <Trophy className="h-3 w-3 text-yellow-600 dark:text-yellow-400" />
+              </div>
+            </div>
+            <div className="text-base font-bold leading-tight truncate">{formatCurrency(totalPrizePool, currency)}</div>
+            <p className="text-[9px] text-muted-foreground mt-0.5 truncate">
+              {formatCurrency(totalDistributed, currency)} distributed
+            </p>
+          </div>
+
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Questions</h3>
+              <div className="h-6 w-6 rounded-md bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors flex-shrink-0">
+                <BookOpen className="h-3 w-3 text-purple-600 dark:text-purple-400" />
+              </div>
+            </div>
+            <div className="text-base font-bold leading-tight">{quiz.total_questions}</div>
+            <p className="text-[9px] text-muted-foreground mt-0.5 truncate">
+              {formatCurrency(entryFee, currency)} per question
+            </p>
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">

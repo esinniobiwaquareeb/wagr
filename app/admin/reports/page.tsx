@@ -257,7 +257,7 @@ export default function AdminReportsPage() {
 
         {/* Analytics Cards - Compact */}
         {fetching && !analytics ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-2.5 mb-5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-5">
             {[...Array(9)].map((_, i) => (
               <div key={i} className="bg-card border border-border/60 rounded-lg p-2.5">
                 <div className="flex items-center justify-between mb-1.5">
@@ -269,7 +269,7 @@ export default function AdminReportsPage() {
             ))}
           </div>
         ) : analytics ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-2.5 mb-5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-5">
             <div className="bg-card border border-border/60 rounded-lg p-2.5 hover:border-primary/40 hover:shadow-sm transition-all">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[11px] font-medium text-muted-foreground truncate">Transactions</span>

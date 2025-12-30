@@ -76,6 +76,48 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 }
 
 /**
+ * PATCH /api/admin/users/[id]
+ * Update user email verification and/or KYC level (admin only)
+ */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await requireAdmin();
+    const { id } = await params;
+    
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || null;
+
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
+    // Parse request body
+    const body = await request.json();
+
+    // Call NestJS backend
+    const response = await nestjsServerFetch(`/admin/users/${id}`, {
+      method: 'PATCH',
+      token,
+      requireAuth: true,
+      body: JSON.stringify(body),
+    });
+
+    if (!response.success) {
+      throw new Error(response.error?.message || 'Failed to update user');
+    }
+
+    return successResponseNext(response.data || { message: 'User updated successfully' });
+  } catch (error) {
+    logError(error as Error);
+    return appErrorToResponse(error);
+  }
+}
+
+/**
  * DELETE /api/admin/users/[id]
  * Soft delete a user account (only if no activities)
  */

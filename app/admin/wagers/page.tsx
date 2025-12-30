@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { format } from "date-fns";
-import { CheckCircle, XCircle, Clock, Eye, AlertTriangle, Plus, Edit, Trash2 } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Eye, AlertTriangle, Plus, Edit, Trash2, FileText, TrendingUp, Users, DollarSign } from "lucide-react";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataTable } from "@/components/data-table";
@@ -289,6 +289,26 @@ export default function AdminWagersPage() {
     }
   };
 
+  // Calculate stats
+  const stats = useMemo(() => {
+    const filtered = filterType === "all" 
+      ? wagers 
+      : filterType === "user" 
+        ? wagers.filter(w => !w.is_system_generated)
+        : wagers.filter(w => w.is_system_generated);
+    
+    return {
+      total: filtered.length,
+      open: filtered.filter(w => w.status === "OPEN").length,
+      resolved: filtered.filter(w => w.status === "RESOLVED").length,
+      settled: filtered.filter(w => w.status === "SETTLED").length,
+      refunded: filtered.filter(w => w.status === "REFUNDED").length,
+      totalVolume: filtered.reduce((sum, w) => sum + (w.amount || 0), 0),
+      userCreated: filtered.filter(w => !w.is_system_generated).length,
+      systemGenerated: filtered.filter(w => w.is_system_generated).length,
+    };
+  }, [wagers, filterType]);
+
   return (
     <main className="min-h-screen bg-background p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -303,6 +323,90 @@ export default function AdminWagersPage() {
             </div>
           </div>
         </div>
+
+        {/* Stats Cards - Compact */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Total</h3>
+              <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors flex-shrink-0">
+                <FileText className="h-3 w-3 text-primary" />
+              </div>
+            </div>
+            <div className="text-base font-bold leading-tight">{stats.total.toLocaleString()}</div>
+          </div>
+
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Open</h3>
+              <div className="h-6 w-6 rounded-md bg-green-500/10 flex items-center justify-center group-hover:bg-green-500/20 transition-colors flex-shrink-0">
+                <Clock className="h-3 w-3 text-green-600 dark:text-green-400" />
+              </div>
+            </div>
+            <div className="text-base font-bold leading-tight text-green-600 dark:text-green-400">{stats.open.toLocaleString()}</div>
+          </div>
+
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Resolved</h3>
+              <div className="h-6 w-6 rounded-md bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors flex-shrink-0">
+                <CheckCircle className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+              </div>
+            </div>
+            <div className="text-base font-bold leading-tight text-blue-600 dark:text-blue-400">{stats.resolved.toLocaleString()}</div>
+          </div>
+
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Settled</h3>
+              <div className="h-6 w-6 rounded-md bg-green-500/10 flex items-center justify-center group-hover:bg-green-500/20 transition-colors flex-shrink-0">
+                <CheckCircle className="h-3 w-3 text-green-600 dark:text-green-400" />
+              </div>
+            </div>
+            <div className="text-base font-bold leading-tight text-green-600 dark:text-green-400">{stats.settled.toLocaleString()}</div>
+          </div>
+
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Refunded</h3>
+              <div className="h-6 w-6 rounded-md bg-yellow-500/10 flex items-center justify-center group-hover:bg-yellow-500/20 transition-colors flex-shrink-0">
+                <XCircle className="h-3 w-3 text-yellow-600 dark:text-yellow-400" />
+              </div>
+            </div>
+            <div className="text-base font-bold leading-tight text-yellow-600 dark:text-yellow-400">{stats.refunded.toLocaleString()}</div>
+          </div>
+
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Total Volume</h3>
+              <div className="h-6 w-6 rounded-md bg-emerald-500/10 flex items-center justify-center group-hover:bg-emerald-500/20 transition-colors flex-shrink-0">
+                <DollarSign className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+              </div>
+            </div>
+            <div className="text-base font-bold leading-tight truncate">{formatCurrency(stats.totalVolume, DEFAULT_CURRENCY as Currency)}</div>
+          </div>
+
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">User Created</h3>
+              <div className="h-6 w-6 rounded-md bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors flex-shrink-0">
+                <Users className="h-3 w-3 text-purple-600 dark:text-purple-400" />
+              </div>
+            </div>
+            <div className="text-base font-bold leading-tight">{stats.userCreated.toLocaleString()}</div>
+          </div>
+
+          <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">System</h3>
+              <div className="h-6 w-6 rounded-md bg-cyan-500/10 flex items-center justify-center group-hover:bg-cyan-500/20 transition-colors flex-shrink-0">
+                <TrendingUp className="h-3 w-3 text-cyan-600 dark:text-cyan-400" />
+              </div>
+            </div>
+            <div className="text-base font-bold leading-tight">{stats.systemGenerated.toLocaleString()}</div>
+          </div>
+        </div>
+
       <ConfirmDialog
         open={showResolveDialog && selectedWager !== null}
         onOpenChange={(open) => {

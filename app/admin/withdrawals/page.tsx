@@ -95,7 +95,7 @@ export default function AdminWithdrawals() {
         </div>
 
         {/* Stats - Compact */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           <div className="flex flex-col justify-between p-2.5 rounded-lg border border-border/80 hover:border-primary/50 hover:shadow-md transition-all duration-200 group">
             <div className="flex items-center justify-between mb-1">
               <h3 className="text-[11px] font-medium text-muted-foreground leading-tight">Total</h3>

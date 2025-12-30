@@ -247,7 +247,7 @@ export default function AdminPage() {
 
         {/* Stats Grid - Compact */}
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
             {[...Array(6)].map((_, i) => (
               <div key={i} className="bg-card border border-border/60 rounded-lg p-2">
                 <div className="flex items-center justify-between mb-1">
@@ -259,7 +259,7 @@ export default function AdminPage() {
             ))}
           </div>
         ) : stats ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
             {statsCards.map((card) => {
               const Icon = card.icon;
               const content = (

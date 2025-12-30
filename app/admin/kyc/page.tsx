@@ -298,7 +298,7 @@ export default function AdminKycPage() {
         </div>
 
         {/* Stats - Compact */}
-        <div className="grid grid-cols-3 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           {stats.map((stat) => {
             const Icon = stat.icon;
             return (
