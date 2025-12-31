@@ -18,12 +18,11 @@ import {
   FileText,
   Zap,
   Globe,
-  Lock,
   AlertCircle,
-  CheckCircle2,
   RefreshCw,
   Eye,
-  EyeOff
+  EyeOff,
+  Gift
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -119,6 +118,12 @@ const CATEGORY_CONFIG = {
     title: "Currency Settings",
     description: "Currency and localization settings",
     color: "text-amber-500",
+  },
+  referrals: {
+    icon: Gift,
+    title: "Referral Settings",
+    description: "Configure referral rewards and incentives",
+    color: "text-purple-500",
   },
 };
 

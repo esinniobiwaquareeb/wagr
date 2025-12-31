@@ -709,17 +709,16 @@ export default function Profile() {
             />
 
             {/* My Wagers Section */}
-            <MyWagersCard
+            {/* <MyWagersCard
               title="My Wagers"
               limit={50}
               showCreateButton={true}
               showHistoryLink={true}
               showEmptyState={true}
               onWagerCreated={() => {
-                // Refresh profile stats if needed
-                fetchProfile(true);
+                // fetchProfile(true);
               }}
-            />
+            /> */}
           </div>
 
           {/* Quick Actions Sidebar */}
