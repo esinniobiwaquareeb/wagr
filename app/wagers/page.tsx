@@ -15,6 +15,7 @@ import { wagersApi, preferencesApi, categoriesApi } from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
 import { Wager } from "@/lib/types/api";
 import { logger } from "@/lib/logger";
+import { initReferralCode, getReferralCodeFromUrl } from "@/lib/referral-utils";
 
 interface WagerWithEntries extends Wager {
   entries_count: number;
@@ -48,6 +49,35 @@ function WagersPageContent() {
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
   const [showFilters, setShowFilters] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Initialize referral code detection on page load
+  useEffect(() => {
+    initReferralCode();
+  }, []);
+
+  // Auto-open auth modal when referral code is detected and user is not logged in
+  useEffect(() => {
+    if (!authLoading && !user) {
+      const referralCode = getReferralCodeFromUrl();
+      if (referralCode) {
+        // Small delay to ensure page is loaded
+        const timer = setTimeout(() => {
+          setShowAuthModal(true);
+          // Clean up URL - remove ref parameter but keep code in localStorage
+          const urlParams = new URLSearchParams(window.location.search);
+          if (urlParams.has('ref') || urlParams.has('referral')) {
+            urlParams.delete('ref');
+            urlParams.delete('referral');
+            const newUrl = urlParams.toString() 
+              ? `${window.location.pathname}?${urlParams.toString()}`
+              : window.location.pathname;
+            router.replace(newUrl, { scroll: false });
+          }
+        }, 500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [authLoading, user, searchParams, router]);
 
   // Helper function to check if wager is expired (memoized)
   const isExpired = useCallback((wager: WagerWithEntries) => {

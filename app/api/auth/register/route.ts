@@ -6,7 +6,13 @@ import { logError } from '@/lib/error-handler';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password, username, referral_code } = body;
+    const { email, password, username, referral_code, country_code } = body;
+
+    // Get client IP address for backend geolocation fallback
+    const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+                     request.headers.get('x-real-ip') ||
+                     request.ip ||
+                     'unknown';
 
     // Call NestJS backend register endpoint
     const registerData = await nestjsPost<{
@@ -22,7 +28,14 @@ export async function POST(request: NextRequest) {
       password,
       username,
       referral_code, // Pass referral code if provided
-    }, { requireAuth: false });
+      country_code, // Pass detected country code if provided
+    }, { 
+      requireAuth: false,
+      headers: {
+        'x-forwarded-for': ipAddress,
+        'x-real-ip': ipAddress,
+      },
+    });
 
     if (!registerData) {
       throw new Error('Registration failed');

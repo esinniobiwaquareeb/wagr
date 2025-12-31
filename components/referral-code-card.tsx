@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Copy, Share2, Gift, Check, Loader2 } from "lucide-react";
+import { Copy, Share2, Gift, Check, Loader2, Twitter, Facebook, MessageCircle, Link2, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -9,6 +9,12 @@ import { referralsApi } from "@/lib/api-client";
 import { formatCurrency, DEFAULT_CURRENCY } from "@/lib/currency";
 import { logger } from "@/lib/logger";
 import Link from "next/link";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface ReferralCodeCardProps {
   /**
@@ -40,6 +46,7 @@ export function ReferralCodeCard({
   const [referralStats, setReferralStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY;
 
@@ -103,31 +110,74 @@ export function ReferralCodeCard({
     }
   };
 
-  const shareCode = () => {
-    if (!referralCode) return;
-    // Use main page with ref parameter instead of /register (which doesn't exist)
+  // Get referral link and share text
+  const getReferralLink = useCallback(() => {
+    if (!referralCode) return { url: "", text: "" };
     const shareUrl = `${window.location.origin}/wagers?ref=${referralCode}`;
-    const shareText = `Join wagered.app and get ₦500 bonus! Use my referral code: ${referralCode}`;
+    const shareText = `🎉 Join wagered.app and get ₦500 bonus! Use my referral code: ${referralCode}\n\n${shareUrl}`;
+    return { url: shareUrl, text: shareText };
+  }, [referralCode]);
 
-    if (navigator.share) {
-      navigator.share({
-        title: "Join wagered.app",
-        text: shareText,
-        url: shareUrl,
-      }).catch(() => {
-        navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
-        toast({
-          title: "Link copied!",
-          description: "Share link copied to clipboard",
-        });
-      });
-    } else {
-      navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
+  const copyReferralLink = async () => {
+    if (!referralCode) return;
+    const { url, text } = getReferralLink();
+    try {
+      await navigator.clipboard.writeText(text);
+      setLinkCopied(true);
       toast({
         title: "Link copied!",
-        description: "Share link copied to clipboard",
+        description: "Referral link copied to clipboard",
+      });
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to copy link",
+        variant: "destructive",
       });
     }
+  };
+
+  const shareNative = async () => {
+    if (!referralCode) return;
+    const { url, text } = getReferralLink();
+    
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: "Join wagered.app",
+          text: `🎉 Join wagered.app and get ₦500 bonus! Use my referral code: ${referralCode}`,
+          url: url,
+        });
+      } catch (error) {
+        // User cancelled or error occurred - fallback to copy
+        copyReferralLink();
+      }
+    } else {
+      copyReferralLink();
+    }
+  };
+
+  const shareTwitter = () => {
+    if (!referralCode) return;
+    const { url, text } = getReferralLink();
+    const twitterText = `🎉 Join wagered.app and get ₦500 bonus! Use my referral code: ${referralCode}`;
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(twitterText)}&url=${encodeURIComponent(url)}`;
+    window.open(twitterUrl, "_blank", "width=550,height=420");
+  };
+
+  const shareFacebook = () => {
+    if (!referralCode) return;
+    const { url } = getReferralLink();
+    const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+    window.open(facebookUrl, "_blank", "width=550,height=420");
+  };
+
+  const shareWhatsApp = () => {
+    if (!referralCode) return;
+    const { url, text } = getReferralLink();
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(whatsappUrl, "_blank");
   };
 
   if (variant === "compact") {
@@ -157,13 +207,49 @@ export function ReferralCodeCard({
                   <Copy className="h-4 w-4 text-muted-foreground" />
                 )}
               </button>
-              <button
-                onClick={shareCode}
-                className="p-2 hover:bg-muted rounded-lg transition active:scale-95 touch-manipulation min-h-[44px] min-w-[44px] flex items-center justify-center"
-                title="Share"
-              >
-                <Share2 className="h-4 w-4 text-muted-foreground" />
-              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="p-2 hover:bg-muted rounded-lg transition active:scale-95 touch-manipulation min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    title="Share referral link"
+                  >
+                    <Share2 className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  {typeof navigator !== 'undefined' && 'share' in navigator && (
+                    <DropdownMenuItem onClick={shareNative} className="cursor-pointer">
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Share via...
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={shareWhatsApp} className="cursor-pointer">
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    WhatsApp
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={shareTwitter} className="cursor-pointer">
+                    <Twitter className="h-4 w-4 mr-2" />
+                    Twitter
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={shareFacebook} className="cursor-pointer">
+                    <Facebook className="h-4 w-4 mr-2" />
+                    Facebook
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={copyReferralLink} className="cursor-pointer">
+                    {linkCopied ? (
+                      <>
+                        <Check className="h-4 w-4 mr-2 text-green-600" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Link2 className="h-4 w-4 mr-2" />
+                        Copy Link
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             {referralStats && showStats && (
               <div className="space-y-2 pt-2 border-t border-border">
@@ -225,19 +311,57 @@ export function ReferralCodeCard({
               <div className="flex-1 px-4 py-3 bg-muted rounded-lg font-mono text-lg font-bold">
                 {referralCode}
               </div>
-              <Button onClick={copyCode} variant="outline" size="icon">
+              <Button onClick={copyCode} variant="outline" size="icon" title="Copy code">
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </Button>
-              <Button onClick={shareCode} variant="default">
-                <Share2 className="h-4 w-4 mr-2" />
-                Share
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="default">
+                    <Share2 className="h-4 w-4 mr-2" />
+                    Share
+                    <ChevronDown className="h-3 w-3 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  {typeof navigator !== 'undefined' && 'share' in navigator && (
+                    <DropdownMenuItem onClick={shareNative} className="cursor-pointer">
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Share via...
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={shareWhatsApp} className="cursor-pointer">
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    WhatsApp
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={shareTwitter} className="cursor-pointer">
+                    <Twitter className="h-4 w-4 mr-2" />
+                    Twitter
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={shareFacebook} className="cursor-pointer">
+                    <Facebook className="h-4 w-4 mr-2" />
+                    Facebook
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={copyReferralLink} className="cursor-pointer">
+                    {linkCopied ? (
+                      <>
+                        <Check className="h-4 w-4 mr-2 text-green-600" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Link2 className="h-4 w-4 mr-2" />
+                        Copy Link
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             <div className="text-sm text-muted-foreground">
               <p>• You get ₦500 when someone signs up with your code</p>
               <p>• They also get ₦500 welcome bonus</p>
-              <p>• Share via WhatsApp, Twitter, or any platform</p>
+              <p>• Share your referral link via WhatsApp, Twitter, Facebook, or copy the link</p>
             </div>
 
             {referralStats && showStats && (

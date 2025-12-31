@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { TwoFactorVerify } from "@/components/two-factor-verify";
 import { markSessionAs2FAVerified } from "@/lib/session-2fa";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Gift } from "lucide-react";
 import { logger } from "@/lib/logger";
+import { getReferralCode, initReferralCode, clearStoredReferralCode, getReferralCodeFromUrl } from "@/lib/referral-utils";
+import { detectUserCountryCode } from "@/lib/geolocation";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -31,6 +33,28 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [verificationSuccess, setVerificationSuccess] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+
+  // Initialize referral code detection on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      initReferralCode();
+    }
+  }, []);
+
+  // Auto-switch to sign up tab when modal opens with referral code
+  const [hasReferralCode, setHasReferralCode] = useState(false);
+  useEffect(() => {
+    if (isOpen && typeof window !== 'undefined') {
+      const referralCode = getReferralCodeFromUrl() || getReferralCode();
+      if (referralCode) {
+        // Switch to sign up tab if referral code is present
+        setIsSignUp(true);
+        setHasReferralCode(true);
+      } else {
+        setHasReferralCode(false);
+      }
+    }
+  }, [isOpen]);
 
   // Check if user just verified their email
   useEffect(() => {
@@ -106,6 +130,18 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           return;
         }
 
+        // Get referral code if available
+        const referralCode = getReferralCode();
+
+        // Detect country automatically
+        let countryCode: string | undefined;
+        try {
+          countryCode = await detectUserCountryCode();
+        } catch (error) {
+          logger.warn('Failed to detect country, continuing without it', error);
+          // Continue without country code - backend will detect from IP
+        }
+
         // Register using custom auth API
         const response = await fetch('/api/auth/register', {
           method: 'POST',
@@ -116,6 +152,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             email: trimmedEmail,
             password,
             username: trimmedUsername,
+            referral_code: referralCode || undefined, // Include referral code if available
+            country_code: countryCode, // Include detected country code
           }),
         });
 
@@ -135,6 +173,11 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         setPassword("");
         setUsername("");
         setIsLoading(false);
+        
+        // Clear referral code after successful registration
+        if (referralCode) {
+          clearStoredReferralCode();
+        }
         
         // DO NOT clear auth cache or trigger auth state change
         // User is not logged in - they need to verify email and then login
@@ -564,6 +607,18 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             ✕
           </button>
         </div>
+
+        {/* Referral code indicator */}
+        {hasReferralCode && isSignUp && (
+          <div className="mb-4 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+            <div className="flex items-center gap-2 text-sm">
+              <Gift className="h-4 w-4 text-primary" />
+              <span className="text-primary font-medium">
+                🎉 You'll get ₦500 bonus when you sign up with this referral code!
+              </span>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleAuth} className="space-y-4">
           {isSignUp && (
