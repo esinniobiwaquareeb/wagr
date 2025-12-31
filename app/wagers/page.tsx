@@ -199,14 +199,23 @@ function WagersPageContent() {
       // No search query - use normal tab filtering
       // If category is selected and tab is 'all', show ALL wagers in that category (including expired/settled)
       if (activeTab === 'all' && selectedCategory) {
-        // Filter all wagers by category first
+        // Filter all wagers by category first, then sort by deadline (earliest first)
         tabWagers = allWagers.filter(wager => {
           const categorySlug = getCategorySlug(wager.category);
           return categorySlug === selectedCategory;
+        }).sort((a, b) => {
+          const deadlineA = a.deadline ? new Date(a.deadline).getTime() : Infinity;
+          const deadlineB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
+          return deadlineA - deadlineB;
         });
       } else if (activeTab === 'all') {
         // No category selected - show only active markets (open, non-expired)
-        tabWagers = [...systemWagers, ...userWagers];
+        // Combine and sort by deadline (earliest first - most urgent)
+        tabWagers = [...systemWagers, ...userWagers].sort((a, b) => {
+          const deadlineA = a.deadline ? new Date(a.deadline).getTime() : Infinity;
+          const deadlineB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
+          return deadlineA - deadlineB;
+        });
       } else if (activeTab === 'system') {
         tabWagers = systemWagers;
       } else if (activeTab === 'user') {
