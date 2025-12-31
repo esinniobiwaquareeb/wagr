@@ -1367,7 +1367,7 @@ export default function WagerDetail() {
         </div>
       )}
 
-      <div className="max-w-3xl mx-auto px-2 sm:px-4 md:px-6 py-2 sm:py-4">
+      <div className="max-w-5xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-2 sm:py-4">
         {/* Back Button */}
         <div className="mb-2 sm:mb-3">
           <BackButton fallbackHref="/wagers" />
@@ -1402,7 +1402,7 @@ export default function WagerDetail() {
             </div>
 
             {/* Title */}
-            <h1 className="text-lg sm:text-xl md:text-2xl font-bold leading-tight">{wager.title}</h1>
+            <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold leading-tight">{wager.title}</h1>
             
             {/* Description - collapsible on mobile if long */}
             {wager.description && (
@@ -1411,7 +1411,7 @@ export default function WagerDetail() {
           </header>
 
           {/* Stats Strip */}
-          <div className="px-3 sm:px-5 py-2 bg-muted/30 flex items-center justify-between text-[11px] sm:text-xs">
+          <div className="px-3 sm:px-5 md:px-6 lg:px-8 py-2 bg-muted/30 flex items-center justify-between text-[11px] sm:text-xs">
             <div className="flex items-center gap-2 sm:gap-3">
               <span className="flex items-center gap-1 font-semibold text-foreground">
                 <Coins className="h-3 w-3 text-amber-500" />
@@ -1423,7 +1423,7 @@ export default function WagerDetail() {
           </div>
 
           {/* Outcomes Section - Compact on mobile */}
-          <div className="px-3 sm:px-5 py-3 sm:py-4 space-y-2">
+          <div className="px-3 sm:px-5 md:px-6 lg:px-8 py-3 sm:py-4 space-y-2">
             {/* Option A */}
             <button
               onClick={() => canBet && !userEntry && handleJoinClick("a")}
@@ -1505,7 +1505,7 @@ export default function WagerDetail() {
 
           {/* User Position Card - Shows when user has entry */}
           {userEntry && wager.status === "OPEN" && !isDeadlineElapsed(wager.deadline) && (
-            <div className="mx-3 sm:mx-5 mb-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
+            <div className="mx-3 sm:mx-5 md:mx-6 lg:mx-8 mb-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-[11px] text-muted-foreground">Your position</p>
@@ -1549,7 +1549,7 @@ export default function WagerDetail() {
           )}
 
           {/* Action Bar - Compact */}
-          <footer className="px-3 sm:px-5 py-2 bg-muted/20 border-t border-border/30 flex items-center justify-between gap-2">
+          <footer className="px-3 sm:px-5 md:px-6 lg:px-8 py-2 bg-muted/20 border-t border-border/30 flex items-center justify-between gap-2">
             <div className="flex items-center gap-1">
               <div className="flex items-center">
                 <SocialShareButtons
@@ -1619,7 +1619,7 @@ export default function WagerDetail() {
               </button>
             ))}
           </nav>
-          <div className="p-3 sm:p-4">
+          <div className="p-3 sm:p-4 md:p-6 lg:p-8">
             {activeTab === "comments" && <WagerComments wagerId={wager.id} />}
             {activeTab === "participants" && (
               <WagerParticipants
