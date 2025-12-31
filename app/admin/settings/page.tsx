@@ -125,6 +125,12 @@ const CATEGORY_CONFIG = {
     description: "Configure referral rewards and incentives",
     color: "text-purple-500",
   },
+  gamification: {
+    icon: Zap,
+    title: "Gamification Settings",
+    description: "Configure XP, levels, achievements, challenges, and streaks",
+    color: "text-yellow-500",
+  },
 };
 
 export default function AdminSettingsPage() {
