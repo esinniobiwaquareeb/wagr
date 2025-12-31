@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef, Suspense } from "react";
-import { Home, Plus, Wallet, Trophy, User, Settings, Bell, History, LogOut, Menu, X, Search, ChevronDown, CirclePlus, Activity, BookOpen } from "lucide-react";
+import { Home, Plus, Wallet, Trophy, User, Settings, Bell, History, LogOut, Menu, X, Search, ChevronDown, CirclePlus, Activity, BookOpen, Gift, Award } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { AuthModal } from "@/components/auth-modal";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -720,6 +720,18 @@ function TopNavContent() {
                           <span>Transaction History</span>
                         </Link>
                       </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/referrals" className="flex items-center gap-2 cursor-pointer">
+                          <Gift className="h-4 w-4" />
+                          <span>Referrals</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/gamification" className="flex items-center gap-2 cursor-pointer">
+                          <Award className="h-4 w-4" />
+                          <span>Achievements</span>
+                        </Link>
+                      </DropdownMenuItem>
                       
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
@@ -917,18 +929,7 @@ function TopNavContent() {
             <div className="px-2 py-2 space-y-0.5">
               {user ? (
                 <>
-                  <Link
-                    href="/wagers"
-                    onClick={() => setShowMobileMenu(false)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                      isActive("/wagers")
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                    }`}
-                  >
-                    <Home className="h-4 w-4 flex-shrink-0" />
-                    <span>Wagers</span>
-                  </Link>
+
                   <Link
                     href="/leaderboard"
                     onClick={() => setShowMobileMenu(false)}
@@ -993,6 +994,30 @@ function TopNavContent() {
                   >
                     <Wallet className="h-4 w-4 flex-shrink-0" />
                     <span>Wallet</span>
+                  </Link>
+                  <Link
+                    href="/referrals"
+                    onClick={() => setShowMobileMenu(false)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                      isActive("/referrals")
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    }`}
+                  >
+                    <Gift className="h-4 w-4 flex-shrink-0" />
+                    <span>Referrals</span>
+                  </Link>
+                  <Link
+                    href="/gamification"
+                    onClick={() => setShowMobileMenu(false)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                      isActive("/gamification")
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    }`}
+                  >
+                    <Award className="h-4 w-4 flex-shrink-0" />
+                    <span>Achievements</span>
                   </Link>
                   
                   {/* Separator */}

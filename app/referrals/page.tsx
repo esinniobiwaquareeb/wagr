@@ -2,18 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useToast } from "@/hooks/use-toast";
-import { ReferralDashboard } from "@/components/referral-dashboard";
 import { BackButton } from "@/components/back-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Gift, TrendingUp, Users, Trophy } from "lucide-react";
+import { Gift, Trophy } from "lucide-react";
 import { referralsApi } from "@/lib/api-client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, DEFAULT_CURRENCY } from "@/lib/currency";
+import { ReferralCodeCard } from "@/components/referral-code-card";
+import { ReferralDashboard } from "@/components/referral-dashboard";
 
 export default function ReferralsPage() {
   const { user, loading: authLoading } = useAuth();
-  const { toast } = useToast();
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(true);
 
@@ -27,11 +26,10 @@ export default function ReferralsPage() {
     try {
       setLoadingLeaderboard(true);
       const response = await referralsApi.getLeaderboard(10);
-      if (response?.data?.leaderboard) {
-        setLeaderboard(response.data.leaderboard);
+      if (response?.leaderboard) {
+        setLeaderboard(response.leaderboard);
       }
     } catch (error: any) {
-      // Silently fail for leaderboard
       console.error("Error fetching leaderboard", error);
     } finally {
       setLoadingLeaderboard(false);
@@ -77,6 +75,11 @@ export default function ReferralsPage() {
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Referral Code Card */}
+        <div className="mb-6">
+          <ReferralCodeCard variant="full" showStats={true} />
         </div>
 
         {/* Referral Dashboard */}

@@ -373,15 +373,15 @@ export const categoriesApi = {
  * Referrals API
  */
 export const referralsApi = {
-  getCode: () => apiGet<{ data: { referral_code: string } }>('/referrals/code'),
+  getCode: () => apiGet<{ referral_code: string }>('/referrals/code'),
   
   use: (referralCode: string) => apiPost<{ data: { referral: any }; message: string }>('/referrals/use', { referral_code: referralCode }),
   
-  getStats: () => apiGet<{ data: any }>('/referrals/stats'),
+  getStats: () => apiGet<any>('/referrals/stats'),
   
   getLeaderboard: (limit?: number) => {
     const query = limit ? `?limit=${limit}` : '';
-    return apiGet<{ data: { leaderboard: any[] } }>(`/referrals/leaderboard${query}`);
+    return apiGet<{ leaderboard: any[] }>(`/referrals/leaderboard${query}`);
   },
 };
 
@@ -427,9 +427,9 @@ export const socialApi = {
  * Gamification API
  */
 export const gamificationApi = {
-  getStats: () => apiGet<{ data: any }>('/gamification/stats'),
+  getStats: () => apiGet<any>('/gamification/stats'),
   
-  getChallenges: () => apiGet<{ data: { challenges: any[] } }>('/gamification/challenges'),
+  getChallenges: () => apiGet<{ challenges: any[] }>('/gamification/challenges'),
 };
 
 /**

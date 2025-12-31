@@ -30,8 +30,9 @@ export default function GamificationPage() {
     try {
       setLoading(true);
       const response = await gamificationApi.getStats();
-      if (response?.data) {
-        setStats(response.data);
+      // apiGet returns response.data directly, so response is the stats object
+      if (response) {
+        setStats(response);
       }
     } catch (error: any) {
       logger.error("Error fetching gamification stats", error);

@@ -48,7 +48,6 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
   // App routes (user dashboard) - with footer on desktop only
   const appRoutes = [
     "/",
-    "/wagers",
     "/wallet",
     "/profile",
     "/create",
@@ -57,8 +56,10 @@ export function ConditionalNav({ children }: { children: React.ReactNode }) {
     "/history",
     "/activity",
     "/quiz",
+    "/referrals",
+    "/gamification",
   ];
-  const isAppRoute = pathname && (appRoutes.includes(pathname) || pathname.startsWith("/wager/") || pathname.startsWith("/quiz/"));
+  const isAppRoute = pathname && (appRoutes.includes(pathname) || pathname.startsWith("/wager/") || pathname.startsWith("/quiz/") || pathname.startsWith("/profile/"));
 
   // Hide regular navigation for admin routes (admin has its own sidebar)
   if (isAdminRoute) {

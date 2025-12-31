@@ -39,12 +39,15 @@ export default function SubscriptionsPage() {
         subscriptionsApi.getBenefits(),
       ]);
 
-      if (statusResponse?.data) {
-        setStatus(statusResponse.data);
+      // apiGet returns response.data directly
+      // getStatus returns { is_premium: boolean; subscription: any }
+      if (statusResponse) {
+        setStatus(statusResponse);
       }
 
-      if (benefitsResponse?.data) {
-        setBenefits(benefitsResponse.data);
+      // getBenefits returns the benefits object
+      if (benefitsResponse) {
+        setBenefits(benefitsResponse);
       }
     } catch (error: any) {
       logger.error("Error fetching subscription data", error);

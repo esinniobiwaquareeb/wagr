@@ -5,10 +5,14 @@ import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
-import { User, Mail, Calendar, Settings, Edit2, Save, X, ChevronRight, Shield, ShieldCheck, Trophy, Eye, EyeOff, Key, History, LogOut, Upload, Camera, Wallet as WalletIcon, Plus, TrendingUp, Users, ShieldAlert } from "lucide-react";
+import { User, Mail, Calendar, Settings, Edit2, Save, X, ChevronRight, Shield, ShieldCheck, Trophy, Eye, EyeOff, Key, History, LogOut, Upload, Camera, Wallet as WalletIcon, Plus, TrendingUp, Users, ShieldAlert, Gift } from "lucide-react";
+import { ReferralCodeCard } from "@/components/referral-code-card";
+import { MyWagersCard } from "@/components/my-wagers-card";
+import { GamificationSection } from "@/components/gamification-section";
+import { SubscriptionsSection } from "@/components/subscriptions-section";
+import Link from "next/link";
 import { BackButton } from "@/components/back-button";
 import { format } from "date-fns";
-import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { TwoFactorSetup } from "@/components/two-factor-setup";
 import { TwoFactorManage } from "@/components/two-factor-manage";
@@ -52,8 +56,6 @@ export default function Profile() {
   const [showCreateWagerModal, setShowCreateWagerModal] = useState(false);
   const [showPreferencesModal, setShowPreferencesModal] = useState(false);
   const [showKycModal, setShowKycModal] = useState(false);
-  const [myWagers, setMyWagers] = useState<any[]>([]);
-  const [loadingWagers, setLoadingWagers] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [kycSummary, setKycSummary] = useState<KycSummary | null>(null);
   const [kycLoading, setKycLoading] = useState(true);
@@ -128,47 +130,6 @@ export default function Profile() {
     }
   }, [user, fetchProfile, fetchKycSummary]);
 
-  const fetchMyWagers = useCallback(async () => {
-    if (!user) return;
-    
-    setLoadingWagers(true);
-    try {
-      // Fetch wagers created by the user
-      // my-wagers endpoint returns wagers where user is creator OR has entry
-      // Filter to only show wagers where user is the creator
-      const response = await fetch(`/api/wagers/my-wagers?limit=50`, {
-        credentials: 'include',
-        cache: 'no-store',
-      });
-
-      if (!response.ok) {
-        setMyWagers([]);
-        return;
-      }
-
-      const data = await response.json();
-      if (data.success && data.data?.wagers) {
-        // Filter to only show wagers where the user is the creator
-        const creatorWagers = data.data.wagers.filter((wager: any) => wager.isCreator === true);
-        
-        // Transform wagers to include entry counts
-        const wagersWithCounts = creatorWagers.map((wager: any) => ({
-          ...wager,
-          entries_count: wager.entryCounts?.total || 0,
-          amount: parseFloat(wager.amount || 0),
-        }));
-
-        setMyWagers(wagersWithCounts);
-      } else {
-        setMyWagers([]);
-      }
-    } catch (error) {
-      logger.error('Error fetching my wagers', error);
-      setMyWagers([]);
-    } finally {
-      setLoadingWagers(false);
-    }
-  }, [user]);
 
   const handleKycSubmit = useCallback(
     async (targetLevel: 2 | 3, payload: Record<string, any>) => {
@@ -207,9 +168,8 @@ export default function Profile() {
   useEffect(() => {
     if (user) {
       fetchProfile();
-      fetchMyWagers();
     }
-  }, [user, fetchProfile, fetchMyWagers]);
+  }, [user, fetchProfile]);
 
   // Listen for custom events to refresh profile when something changes
   useEffect(() => {
@@ -749,99 +709,17 @@ export default function Profile() {
             />
 
             {/* My Wagers Section */}
-            <div className="bg-card border border-border rounded-xl p-4 md:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold flex items-center gap-2">
-                  <Trophy className="h-4 w-4 text-primary flex-shrink-0" />
-                  <span>My Wagers</span>
-                  {myWagers.length > 0 && (
-                    <span className="text-xs text-muted-foreground font-normal">({myWagers.length})</span>
-                  )}
-                </h3>
-                <div className="flex items-center gap-2">
-                  <Link
-                    href="/history"
-                    className="p-2 hover:bg-muted rounded-lg transition active:scale-95 touch-manipulation min-h-[44px] min-w-[44px] flex items-center justify-center"
-                    title="View history"
-                  >
-                    <History className="h-4 w-4 text-muted-foreground" />
-                  </Link>
-                  <button
-                    onClick={() => setShowCreateWagerModal(true)}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition active:scale-95 touch-manipulation text-sm font-medium min-h-[44px]"
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span className="hidden sm:inline">New</span>
-                  </button>
-                </div>
-              </div>
-              
-              {loadingWagers ? (
-                <div className="text-center py-8 md:py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">Loading wagers...</p>
-                </div>
-              ) : myWagers.length === 0 ? (
-                <div className="text-center py-8 md:py-12 border-2 border-dashed border-muted rounded-xl">
-                  <div className="inline-flex items-center justify-center w-12 h-12 md:w-16 md:h-16 rounded-full bg-primary/10 mb-3 md:mb-4">
-                    <Trophy className="h-6 w-6 md:h-8 md:w-8 text-primary/60" />
-                  </div>
-                  <p className="text-sm font-medium mb-1">No wagers yet</p>
-                  <p className="text-xs text-muted-foreground mb-4 px-4">Start creating and sharing wagers with others</p>
-                  <button
-                    onClick={() => setShowCreateWagerModal(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition active:scale-95 touch-manipulation text-sm font-medium min-h-[44px]"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Create Your First Wager
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {myWagers.map((wager) => (
-                    <Link
-                      key={wager.id}
-                      href={`/wager/${wager.id}`}
-                      className="block p-3 md:p-3.5 bg-muted/30 hover:bg-muted rounded-lg transition-all active:scale-[0.98] touch-manipulation border border-transparent hover:border-border min-h-[44px]"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start gap-2 mb-1.5 flex-wrap">
-                            <h4 className="text-sm font-semibold line-clamp-2">{wager.title}</h4>
-                            <div className="flex items-center gap-1.5 flex-shrink-0">
-                              {wager.is_public ? (
-                                <div title="Public">
-                                  <Eye className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                                </div>
-                              ) : (
-                                <div title="Private">
-                                  <EyeOff className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                                </div>
-                              )}
-                              <span className={`text-xs px-1.5 py-0.5 rounded whitespace-nowrap ${
-                                wager.status === "OPEN" 
-                                  ? "bg-green-500/10 text-green-600 dark:text-green-400" 
-                                  : wager.status === "RESOLVED" || wager.status === "SETTLED"
-                                  ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                                  : "bg-gray-500/10 text-gray-600 dark:text-gray-400"
-                              }`}>
-                                {wager.status === "SETTLED" ? "Settled" : wager.status === "RESOLVED" ? "Resolved" : wager.status}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                            <span className="font-medium">{wager.entries_count} {wager.entries_count === 1 ? 'entry' : 'entries'}</span>
-                            <span>•</span>
-                            <span>{formatCurrency(wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}</span>
-                          </div>
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
+            <MyWagersCard
+              title="My Wagers"
+              limit={50}
+              showCreateButton={true}
+              showHistoryLink={true}
+              showEmptyState={true}
+              onWagerCreated={() => {
+                // Refresh profile stats if needed
+                fetchProfile(true);
+              }}
+            />
           </div>
 
           {/* Quick Actions Sidebar */}
@@ -886,6 +764,16 @@ export default function Profile() {
                   </div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 </Link>
+                <Link
+                  href="/referrals"
+                  className="flex items-center justify-between p-3 hover:bg-muted rounded-lg transition active:scale-95 touch-manipulation group min-h-[44px]"
+                >
+                  <div className="flex items-center gap-3">
+                    <Gift className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
+                    <span className="text-sm font-medium">Referrals</span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                </Link>
                 <button
                   onClick={() => setShowCreateWagerModal(true)}
                   className="w-full flex items-center justify-between p-3 hover:bg-muted rounded-lg transition active:scale-95 touch-manipulation group min-h-[44px]"
@@ -899,53 +787,15 @@ export default function Profile() {
               </div>
             </div>
 
-            {/* Stats Summary */}
-            {myWagers.length > 0 && (
-              <div className="bg-card border border-border rounded-xl p-4 md:p-5">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Your Stats</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Trophy className="h-4 w-4 text-primary flex-shrink-0" />
-                      <span className="text-sm text-muted-foreground">Wagers Created</span>
-                    </div>
-                    <span className="text-sm font-bold">{myWagers.length}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-primary flex-shrink-0" />
-                      <span className="text-sm text-muted-foreground">Total Entries</span>
-                    </div>
-                    <span className="text-sm font-bold">
-                      {myWagers.reduce((sum, w) => sum + (w.entries_count || 0), 0)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-primary flex-shrink-0" />
-                      <span className="text-sm text-muted-foreground">Open Wagers</span>
-                    </div>
-                    <span className="text-sm font-bold text-green-600 dark:text-green-400">
-                      {myWagers.filter(w => w.status === 'OPEN').length}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Referral Code Card */}
+            <ReferralCodeCard variant="compact" showStats={true} showDashboardLink={true} />
+
           </div>
         </div>
       </div>
       
       {user && (
         <>
-          <CreateWagerModal
-            open={showCreateWagerModal}
-            onOpenChange={setShowCreateWagerModal}
-            onSuccess={() => {
-              // Refresh wagers list when wager is successfully created
-              fetchMyWagers();
-            }}
-          />
           <PreferencesModal
             isOpen={showPreferencesModal}
             onClose={() => setShowPreferencesModal(false)}

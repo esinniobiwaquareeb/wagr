@@ -24,7 +24,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(response.data || response);
+    // Return in the format expected by apiGet: { data: { is_premium, subscription } }
+    return NextResponse.json({
+      success: true,
+      data: response.data || { is_premium: false, subscription: null },
+    });
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to get subscription status' },

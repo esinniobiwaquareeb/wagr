@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from "react";
-import { Home, Plus, Wallet, Trophy, User, Bell } from "lucide-react";
+import { Home, Plus, Wallet, Trophy, User, Bell, Gift } from "lucide-react";
 import { AuthModal } from "@/components/auth-modal";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CreateWagerModal } from "@/components/create-wager-modal";
