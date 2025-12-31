@@ -11,11 +11,18 @@ const NESTJS_API_BASE = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL |
 export const maxDuration = 300; // 5 minutes max
 
 export async function GET(request: NextRequest) {
-  // Verify this is called from cron job
+  // Verify this is called from Vercel Cron
+  // Vercel cron jobs send x-vercel-cron header automatically
+  const vercelCronHeader = request.headers.get("x-vercel-cron");
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
   
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  // Allow if it's a Vercel cron (has x-vercel-cron header) OR if CRON_SECRET matches
+  const isVercelCron = vercelCronHeader === "1";
+  const isValidSecret = cronSecret && authHeader === `Bearer ${cronSecret}`;
+  
+  if (!isVercelCron && !isValidSecret && cronSecret) {
+    // Only reject if CRON_SECRET is set and doesn't match (and it's not a Vercel cron)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

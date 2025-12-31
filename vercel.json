@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/agents/generate-wagers",
-      "schedule": "0 */6 * * *"
+      "schedule": "*/5 * * * *"
     }
   ]
 }

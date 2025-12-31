@@ -11,12 +11,35 @@ export const maxDuration = 300; // 5 minutes max
 
 export async function GET(request: NextRequest) {
   // Verify this is called from Vercel Cron
+  // Vercel cron jobs send x-vercel-cron header automatically
+  const vercelCronHeader = request.headers.get("x-vercel-cron");
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
   
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  // Allow if it's a Vercel cron (has x-vercel-cron header) OR if CRON_SECRET matches
+  // In local development, allow if CRON_SECRET is not set (for easier testing)
+  const isVercelCron = vercelCronHeader === "1";
+  const isValidSecret = cronSecret && authHeader === `Bearer ${cronSecret}`;
+  const isLocalDev = process.env.NODE_ENV === 'development' && !cronSecret;
+  
+  if (!isVercelCron && !isValidSecret && cronSecret) {
+    // Only reject if CRON_SECRET is set and doesn't match (and it's not a Vercel cron)
+    logger.warn('[generate-wagers] Unauthorized request', {
+      hasVercelCron: !!vercelCronHeader,
+      hasAuthHeader: !!authHeader,
+      hasCronSecret: !!cronSecret,
+    });
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  
+  if (isLocalDev) {
+    logger.info('[generate-wagers] Running in local development mode (no CRON_SECRET required)');
+  }
+  
+  logger.info('[generate-wagers] Request authenticated', {
+    isVercelCron,
+    hasCronSecret: !!cronSecret,
+  });
 
   try {
     const apiSecret = process.env.SYSTEM_WAGER_API_SECRET;
@@ -28,31 +51,57 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Call NestJS backend to generate wagers
+    // Call NestJS backend to generate wagers (using GET for Vercel cron compatibility)
+    logger.info(`[generate-wagers] Calling backend: ${NESTJS_API_BASE}/system/wagers/generate`);
+    
     const response = await fetch(`${NESTJS_API_BASE}/system/wagers/generate`, {
-      method: 'POST',
+      method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiSecret}`,
       },
     });
 
-    const data = await response.json();
+    let data: any;
+    try {
+      const text = await response.text();
+      data = text ? JSON.parse(text) : {};
+    } catch (parseError) {
+      logger.error('[generate-wagers] Failed to parse response', { 
+        status: response.status, 
+        statusText: response.statusText,
+        text: await response.text().catch(() => 'Unable to read response')
+      });
+      return NextResponse.json(
+        { 
+          error: "Failed to parse backend response",
+          message: parseError instanceof Error ? parseError.message : 'Unknown error'
+        },
+        { status: 500 }
+      );
+    }
 
     if (!response.ok) {
+      logger.error('[generate-wagers] Backend returned error', { 
+        status: response.status, 
+        data 
+      });
       return NextResponse.json(
         { 
           error: "Wager generation failed",
-          message: data.error || data.message || 'Unknown error'
+          message: data.error?.message || data.message || data.error || 'Unknown error',
+          status: response.status
         },
         { status: response.status }
       );
     }
 
+    logger.info('[generate-wagers] Generation completed successfully', { results: data.data || data });
+
     return NextResponse.json({
       success: true,
       message: "Wager generation agent completed",
       results: data.data || data,
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
     logger.error("Error in generate-wagers agent", error);
