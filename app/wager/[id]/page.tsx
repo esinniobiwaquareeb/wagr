@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
 import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Coins, Trash2, Edit2, Share2, UserPlus, MessageSquare, Activity, Loader2, Flame, Check, X } from "lucide-react";
+import { SocialShareButtons } from "@/components/social-share-buttons";
 import { WagerInviteDialog } from "@/components/wager-invite-dialog";
 import { BackButton } from "@/components/back-button";
 import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
@@ -543,7 +544,8 @@ export default function WagerDetail() {
       setSelectedSide(null);
     } catch (error) {
       logger.error("Error joining wager", error);
-      const errorMessage = error instanceof Error ? error.message : "Couldn't join the wager. Please try again.";
+      const { extractErrorMessage } = await import('@/lib/error-extractor');
+      const errorMessage = extractErrorMessage(error, "Couldn't join the wager. Please try again.");
       
       toast({
         title: "Couldn't join wager",
@@ -1549,10 +1551,14 @@ export default function WagerDetail() {
           {/* Action Bar - Compact */}
           <footer className="px-3 sm:px-5 py-2 bg-muted/20 border-t border-border/30 flex items-center justify-between gap-2">
             <div className="flex items-center gap-1">
-              <button onClick={handleShare} className="flex items-center gap-1 px-2 py-1.5 rounded-md hover:bg-muted text-[11px] sm:text-xs font-medium transition">
-                <Share2 className="h-3.5 w-3.5" />
-                <span className="hidden xs:inline">Share</span>
-              </button>
+              <div className="flex items-center">
+                <SocialShareButtons
+                  url={`/wager/${wager.short_id || wager.id}`}
+                  title={wager.title}
+                  description={`${wager.side_a} vs ${wager.side_b}`}
+                  wagerId={wager.id}
+                />
+              </div>
               {user && isCreator && !isDeadlineElapsed(wager.deadline) && (
                 <button onClick={() => setShowInviteDialog(true)} className="flex items-center gap-1 px-2 py-1.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 text-[11px] sm:text-xs font-medium transition">
                   <UserPlus className="h-3.5 w-3.5" />

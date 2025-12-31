@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef, Suspense } from "react";
 import { WagerCard } from "@/components/wager-card";
+import { TrendingWagers } from "@/components/trending-wagers";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Home as HomeIcon, Loader2, Sparkles, User, Clock, CheckCircle, Plus, Search, X, SlidersHorizontal, Flame, TrendingUp, Zap } from "lucide-react";
 import { AuthModal } from "@/components/auth-modal";
@@ -360,10 +361,11 @@ function WagersPageContent() {
       
       setAllWagers(wagersWithCounts);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const { extractErrorMessage } = await import('@/lib/error-extractor');
+      const errorMessage = extractErrorMessage(error, 'Failed to load wagers. Please try again.');
       toast({
         title: "Error",
-        description: `Failed to load wagers: ${errorMessage}`,
+        description: errorMessage,
         variant: "destructive",
       });
       setAllWagers([]);
@@ -640,6 +642,13 @@ function WagersPageContent() {
             </div>
           )}
         </div>
+
+        {/* Trending Wagers Section - Show when no filters are active */}
+        {quickFilter === 'none' && !selectedCategory && !searchQuery && activeTab === 'all' && (
+          <div className="mb-6">
+            <TrendingWagers />
+          </div>
+        )}
 
         {/* Quick Filter Tags (Polymarket-style) - Both Mobile & Desktop */}
         <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-4 scrollbar-hide -mx-1 px-1">

@@ -78,9 +78,11 @@ export default function AdminWagersPage() {
       }
     } catch (error) {
       logger.error("Error fetching wagers", error);
+      const { extractErrorMessage } = await import('@/lib/error-extractor');
+      const errorMessage = extractErrorMessage(error, "Failed to fetch wagers. Please try again.");
       toast({
         title: "Error",
-        description: "Failed to fetch wagers.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -157,9 +159,11 @@ export default function AdminWagersPage() {
       fetchWagers();
     } catch (error) {
       logger.error("Error resolving wager", error);
+      const { extractErrorMessage } = await import('@/lib/error-extractor');
+      const errorMessage = extractErrorMessage(error, "Failed to resolve wager. Please try again.");
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to resolve wager.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -180,9 +184,11 @@ export default function AdminWagersPage() {
       fetchWagers();
     } catch (error) {
       logger.error("Error creating wager", error);
+      const { extractErrorMessage } = await import('@/lib/error-extractor');
+      const errorMessage = extractErrorMessage(error, "Failed to create wager. Please try again.");
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create wager",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -204,9 +210,11 @@ export default function AdminWagersPage() {
       fetchWagers();
     } catch (error) {
       logger.error("Error updating wager", error);
+      const { extractErrorMessage } = await import('@/lib/error-extractor');
+      const errorMessage = extractErrorMessage(error, "Failed to update wager. Please try again.");
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update wager",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -228,9 +236,11 @@ export default function AdminWagersPage() {
       fetchWagers();
     } catch (error) {
       logger.error("Error deleting wager", error);
+      const { extractErrorMessage } = await import('@/lib/error-extractor');
+      const errorMessage = extractErrorMessage(error, "Failed to delete wager. Please try again.");
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete wager",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

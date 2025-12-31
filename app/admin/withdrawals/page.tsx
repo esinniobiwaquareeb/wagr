@@ -42,9 +42,11 @@ export default function AdminWithdrawals() {
       setWithdrawals(response.withdrawals || []);
     } catch (error) {
       logger.error("Error fetching withdrawals", error);
+      const { extractErrorMessage } = await import('@/lib/error-extractor');
+      const errorMessage = extractErrorMessage(error, "Failed to fetch withdrawals. Please try again.");
       toast({
         title: "Error",
-        description: "Failed to fetch withdrawals.",
+        description: errorMessage,
         variant: "destructive",
       });
     }

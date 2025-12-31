@@ -112,6 +112,7 @@ export function CreateWagerModal({ open, onOpenChange, onSuccess }: CreateWagerM
     } catch (error) {
       logger.error('Error fetching balance', error);
       setUserBalance(0);
+      // Silently fail - balance will show as 0
     }
   }, [user]);
 

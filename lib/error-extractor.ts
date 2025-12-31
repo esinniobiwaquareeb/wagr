@@ -15,7 +15,27 @@ export interface ErrorResponse {
 /**
  * Extract a user-friendly error message from various error formats
  * Always returns a non-empty string (uses fallback if needed)
+ * Maps technical errors to user-friendly messages
  */
+const ERROR_MESSAGE_MAP: Record<string, string> = {
+  'Network request failed': "Connection issue. Check your internet and try again.",
+  'Failed to fetch': "Can't connect to server. Please check your connection.",
+  'fetch failed': "Network error. Please try again.",
+  'ECONNREFUSED': "Server is unavailable. Please try again later.",
+  'timeout': "Request took too long. Please try again.",
+  'UNAUTHORIZED': "Please log in to continue.",
+  'FORBIDDEN': "You don't have permission to do this.",
+  'NOT_FOUND': "The requested item was not found.",
+  'VALIDATION_ERROR': "Please check your input and try again.",
+  'INSUFFICIENT_BALANCE': "You don't have enough balance for this action.",
+  'WAGER_EXPIRED': "This wager has expired.",
+  'ALREADY_JOINED': "You've already joined this wager.",
+  'ACCOUNT_SUSPENDED': "Your account has been suspended. Please contact support.",
+  'ACCOUNT_DELETED': "This account has been deleted.",
+  'EMAIL_NOT_VERIFIED': "Please verify your email address.",
+  'RATE_LIMIT_EXCEEDED': "Too many requests. Please wait a moment and try again.",
+};
+
 export function extractErrorMessage(
   error: unknown,
   fallback: string = "Something went wrong. Please try again."
@@ -28,41 +48,69 @@ export function extractErrorMessage(
     return safeFallback;
   }
 
+  let rawMessage = '';
+
   // Handle string errors
   if (typeof error === 'string') {
-    const trimmed = error.trim();
-    return trimmed || safeFallback;
+    rawMessage = error.trim();
   }
-
   // Handle Error instances
-  if (error instanceof Error) {
-    const message = error.message?.trim();
-    return message || safeFallback;
+  else if (error instanceof Error) {
+    rawMessage = error.message?.trim() || '';
+    // Check for error code
+    const errorCode = (error as any).code;
+    if (errorCode && ERROR_MESSAGE_MAP[errorCode]) {
+      return ERROR_MESSAGE_MAP[errorCode];
+    }
   }
-
   // Handle objects with error property (API responses)
-  if (typeof error === 'object') {
-    const errorObj = error as ErrorResponse | { message?: string; error?: any };
+  else if (typeof error === 'object') {
+    const errorObj = error as ErrorResponse | { message?: string; error?: any; code?: string };
+    
+    // Check for error code first
+    if ('code' in errorObj && errorObj.code && typeof errorObj.code === 'string' && ERROR_MESSAGE_MAP[errorObj.code]) {
+      return ERROR_MESSAGE_MAP[errorObj.code];
+    }
     
     // Check for nested error.message (API format: { error: { message: "..." } })
     if (errorObj.error) {
       if (typeof errorObj.error === 'string') {
-        const trimmed = errorObj.error.trim();
-        return trimmed || safeFallback;
-      }
-      if (typeof errorObj.error === 'object' && errorObj.error !== null) {
-        const nestedError = errorObj.error as { message?: string };
+        rawMessage = errorObj.error.trim();
+      } else if (typeof errorObj.error === 'object' && errorObj.error !== null) {
+        const nestedError = errorObj.error as { message?: string; code?: string };
+        if (nestedError.code && ERROR_MESSAGE_MAP[nestedError.code]) {
+          return ERROR_MESSAGE_MAP[nestedError.code];
+        }
         if (nestedError.message) {
-          const message = nestedError.message.trim();
-          return message || safeFallback;
+          rawMessage = nestedError.message.trim();
         }
       }
     }
     
     // Check for top-level message
-    if (errorObj.message) {
-      const message = String(errorObj.message).trim();
-      return message || safeFallback;
+    if (!rawMessage && errorObj.message) {
+      rawMessage = String(errorObj.message).trim();
+    }
+  }
+
+  // If we have a raw message, check if it needs mapping
+  if (rawMessage) {
+    // Check exact match first
+    if (ERROR_MESSAGE_MAP[rawMessage]) {
+      return ERROR_MESSAGE_MAP[rawMessage];
+    }
+    
+    // Check for partial matches (case-insensitive)
+    const upperMessage = rawMessage.toUpperCase();
+    for (const [key, value] of Object.entries(ERROR_MESSAGE_MAP)) {
+      if (upperMessage.includes(key.toUpperCase())) {
+        return value;
+      }
+    }
+    
+    // Return the raw message if it's user-friendly
+    if (rawMessage.length > 0 && !rawMessage.includes('Error:') && !rawMessage.includes('TypeError')) {
+      return rawMessage;
     }
   }
 
@@ -71,6 +119,12 @@ export function extractErrorMessage(
     const stringified = String(error);
     if (stringified && stringified !== '[object Object]') {
       const trimmed = stringified.trim();
+      // Check if it's a technical error that needs mapping
+      for (const [key, value] of Object.entries(ERROR_MESSAGE_MAP)) {
+        if (trimmed.toUpperCase().includes(key.toUpperCase())) {
+          return value;
+        }
+      }
       return trimmed || safeFallback;
     }
   } catch {

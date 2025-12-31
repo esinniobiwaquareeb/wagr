@@ -8,16 +8,23 @@ import { ApiResponse } from './api-response';
 const API_BASE = '/api';
 
 /**
- * Generic API fetch function with error handling
+ * Generic API fetch function with error handling and retry logic
  * Supports smart caching - GET requests can be cached, mutations always bypass cache
  */
 async function apiFetch<T>(
   endpoint: string,
-  options?: RequestInit & { cache?: RequestCache; forceRefresh?: boolean }
+  options?: RequestInit & { 
+    cache?: RequestCache; 
+    forceRefresh?: boolean;
+    retries?: number;
+    retryDelay?: number;
+  }
 ): Promise<ApiResponse<T>> {
   const method = options?.method || 'GET';
   const forceRefresh = options?.forceRefresh || false;
   const isMutation = method !== 'GET';
+  const maxRetries = options?.retries ?? (isMutation ? 0 : 2); // Don't retry mutations by default
+  const retryDelay = options?.retryDelay ?? 1000; // 1 second default
   
   // Only add timestamp for mutations or when force refresh is requested
   let urlString = `${API_BASE}${endpoint}`;
@@ -38,26 +45,90 @@ async function apiFetch<T>(
     headers['Expires'] = '0';
   }
   
-  const response = await fetch(urlString, {
-    ...options,
-    credentials: 'include',
-    cache: (isMutation || forceRefresh) ? 'no-store' : (options?.cache || 'default'),
-    headers,
-  });
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(urlString, {
+        ...options,
+        credentials: 'include',
+        cache: (isMutation || forceRefresh) ? 'no-store' : (options?.cache || 'default'),
+        headers,
+      });
 
-  const data = await response.json();
+      // Handle non-JSON responses
+      let data: any;
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(text || `HTTP ${response.status}: ${response.statusText}`);
+      }
 
-  if (!response.ok) {
-    // If account is suspended or deleted, trigger logout
-    if (data.error?.code === 'ACCOUNT_SUSPENDED' || data.error?.code === 'ACCOUNT_DELETED') {
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('auth-state-changed'));
+      if (!response.ok) {
+        // Don't retry on client errors (4xx) except 429 (rate limit)
+        if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+          // If account is suspended or deleted, trigger logout
+          if (data.error?.code === 'ACCOUNT_SUSPENDED' || data.error?.code === 'ACCOUNT_DELETED') {
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new Event('auth-state-changed'));
+            }
+          }
+          throw new Error(data.error?.message || data.message || 'API request failed');
+        }
+        
+        // Retry on server errors (5xx) or rate limits (429)
+        if (attempt < maxRetries && (response.status >= 500 || response.status === 429)) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay * (attempt + 1)));
+          continue;
+        }
+        
+        // If account is suspended or deleted, trigger logout
+        if (data.error?.code === 'ACCOUNT_SUSPENDED' || data.error?.code === 'ACCOUNT_DELETED') {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('auth-state-changed'));
+          }
+        }
+        throw new Error(data.error?.message || data.message || 'API request failed');
+      }
+
+      return data;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      
+      // Don't retry on network errors for mutations
+      if (isMutation && attempt < maxRetries) {
+        // Only retry network errors for mutations
+        const isNetworkError = lastError.message.includes('fetch') || 
+                              lastError.message.includes('network') ||
+                              lastError.message.includes('Failed to fetch');
+        if (isNetworkError) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay * (attempt + 1)));
+          continue;
+        }
+      }
+      
+      // Retry on network errors for GET requests
+      if (!isMutation && attempt < maxRetries) {
+        const isNetworkError = lastError.message.includes('fetch') || 
+                              lastError.message.includes('network') ||
+                              lastError.message.includes('Failed to fetch');
+        if (isNetworkError) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay * (attempt + 1)));
+          continue;
+        }
+      }
+      
+      // If we've exhausted retries or it's not a retryable error, throw
+      if (attempt === maxRetries) {
+        throw lastError;
       }
     }
-    throw new Error(data.error?.message || 'API request failed');
   }
-
-  return data;
+  
+  // Fallback (should never reach here)
+  throw lastError || new Error('API request failed');
 }
 
 /**
@@ -148,6 +219,15 @@ export const wagersApi = {
   join: (id: string, side: 'a' | 'b') => apiPost<{ wager: any; message: string }>(`/wagers/${id}/join`, { side }),
   
   delete: (id: string) => apiDelete<{ message: string }>(`/wagers/${id}`),
+  
+  getTrending: (limit?: number, forceRefresh = false) => {
+    const queryParams = new URLSearchParams();
+    if (limit) queryParams.set('limit', limit.toString());
+    const query = queryParams.toString();
+    // Backend returns { success: true, data: [...], meta: {...} }
+    // apiGet extracts response.data, so we get the array directly
+    return apiGet<any[]>(`/wagers/trending${query ? `?${query}` : ''}`, forceRefresh);
+  },
 };
 
 /**
@@ -287,5 +367,81 @@ export const categoriesApi = {
       usage_count: number;
     }> }>(`/categories${query}`);
   },
+};
+
+/**
+ * Referrals API
+ */
+export const referralsApi = {
+  getCode: () => apiGet<{ data: { referral_code: string } }>('/referrals/code'),
+  
+  use: (referralCode: string) => apiPost<{ data: { referral: any }; message: string }>('/referrals/use', { referral_code: referralCode }),
+  
+  getStats: () => apiGet<{ data: any }>('/referrals/stats'),
+  
+  getLeaderboard: (limit?: number) => {
+    const query = limit ? `?limit=${limit}` : '';
+    return apiGet<{ data: { leaderboard: any[] } }>(`/referrals/leaderboard${query}`);
+  },
+};
+
+/**
+ * Social API
+ */
+export const socialApi = {
+  follow: (userId: string) => apiPost<{ data: { follow: any }; message: string }>(`/social/follow/${userId}`),
+  
+  unfollow: (userId: string) => apiDelete<{ message: string }>(`/social/follow/${userId}`),
+  
+  isFollowing: (userId: string) => apiGet<{ data: { is_following: boolean } }>(`/social/follow/${userId}`),
+  
+  getFollowers: (userId: string, limit?: number, offset?: number) => {
+    const params = new URLSearchParams();
+    if (limit) params.set('limit', limit.toString());
+    if (offset) params.set('offset', offset.toString());
+    const query = params.toString();
+    return apiGet<{ data: { followers: any[]; total: number } }>(`/social/followers/${userId}${query ? `?${query}` : ''}`);
+  },
+  
+  getFollowing: (userId: string, limit?: number, offset?: number) => {
+    const params = new URLSearchParams();
+    if (limit) params.set('limit', limit.toString());
+    if (offset) params.set('offset', offset.toString());
+    const query = params.toString();
+    return apiGet<{ data: { following: any[]; total: number } }>(`/social/following/${userId}${query ? `?${query}` : ''}`);
+  },
+  
+  getProfile: (userId: string) => apiGet<{ data: { profile: any } }>(`/social/profile/${userId}`),
+  
+  getActivityFeed: (filter?: 'all' | 'following', limit?: number, offset?: number) => {
+    const params = new URLSearchParams();
+    if (filter) params.set('filter', filter);
+    if (limit) params.set('limit', limit.toString());
+    if (offset) params.set('offset', offset.toString());
+    const query = params.toString();
+    return apiGet<{ data: { activities: any[]; total: number } }>(`/social/activity-feed${query ? `?${query}` : ''}`);
+  },
+};
+
+/**
+ * Gamification API
+ */
+export const gamificationApi = {
+  getStats: () => apiGet<{ data: any }>('/gamification/stats'),
+  
+  getChallenges: () => apiGet<{ data: { challenges: any[] } }>('/gamification/challenges'),
+};
+
+/**
+ * Subscriptions API
+ */
+export const subscriptionsApi = {
+  getStatus: () => apiGet<{ data: { is_premium: boolean; subscription: any } }>('/subscriptions/status'),
+  
+  getBenefits: () => apiGet<{ data: any }>('/subscriptions/benefits'),
+  
+  subscribe: (paymentReference?: string) => apiPost<{ data: { subscription: any }; message: string }>('/subscriptions/subscribe', { payment_reference: paymentReference }),
+  
+  cancel: () => apiDelete<{ message: string }>('/subscriptions/cancel'),
 };
 

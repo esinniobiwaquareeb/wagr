@@ -66,9 +66,11 @@ export default function AdminUsersPage() {
       setUsers(response.users || []);
     } catch (error) {
       logger.error("Error fetching users", error);
+      const { extractErrorMessage } = await import('@/lib/error-extractor');
+      const errorMessage = extractErrorMessage(error, "Failed to fetch users. Please try again.");
       toast({
         title: "Error",
-        description: "Failed to fetch users.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -99,9 +101,11 @@ export default function AdminUsersPage() {
       setSuspensionReason("");
     } catch (error) {
       logger.error("Error updating user status", error);
+      const { extractErrorMessage } = await import('@/lib/error-extractor');
+      const errorMessage = extractErrorMessage(error, "Failed to update user status. Please try again.");
       toast({
         title: "Error",
-        description: "Failed to update user status.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -154,9 +158,11 @@ export default function AdminUsersPage() {
       setSelectedUser(null);
     } catch (error: any) {
       logger.error("Error deleting user", error);
+      const { extractErrorMessage } = await import('@/lib/error-extractor');
+      const errorMessage = extractErrorMessage(error, "Failed to delete user account. Please try again.");
       toast({
         title: "Error",
-        description: error?.message || "Failed to delete user account.",
+        description: errorMessage,
         variant: "destructive",
       });
     }

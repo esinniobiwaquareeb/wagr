@@ -261,8 +261,8 @@ export function DataTable<T extends Record<string, any>>({
 
       {/* Table */}
       <div className="bg-card border border-border/80 rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table>
+        <div className="overflow-x-auto -mx-1 sm:mx-0">
+          <Table className="min-w-full">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 {columns.map((column) => (
@@ -270,7 +270,9 @@ export function DataTable<T extends Record<string, any>>({
                     key={column.id}
                     className={cn(
                       "font-semibold",
-                      column.sortable !== false && sortable && column.accessorKey ? "cursor-pointer hover:bg-muted/50 transition-colors" : ""
+                      column.sortable !== false && sortable && column.accessorKey ? "cursor-pointer hover:bg-muted/50 transition-colors" : "",
+                      "whitespace-nowrap", // Prevent text wrapping in headers
+                      "text-xs sm:text-sm" // Smaller text on mobile
                     )}
                     onClick={() => {
                       if ((column.sortable !== false && sortable) && column.accessorKey) {
@@ -278,8 +280,8 @@ export function DataTable<T extends Record<string, any>>({
                       }
                     }}
                   >
-                    <div className="flex items-center gap-1.5">
-                      {column.header}
+                    <div className="flex items-center gap-1 sm:gap-1.5">
+                      <span className="truncate">{column.header}</span>
                       {getSortIcon(column)}
                     </div>
                   </TableHead>
@@ -290,7 +292,7 @@ export function DataTable<T extends Record<string, any>>({
               {paginatedData.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={columns.length} className="text-center py-12">
-                    <div className="flex flex-col items-center gap-3">
+                    <div className="flex flex-col items-center gap-3 px-4">
                       <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
                         <Inbox className="h-6 w-6 text-muted-foreground" />
                       </div>
@@ -309,7 +311,14 @@ export function DataTable<T extends Record<string, any>>({
                 paginatedData.map((row, index) => (
                   <TableRow key={index} className="hover:bg-muted/50 transition-colors">
                     {columns.map((column) => (
-                      <TableCell key={column.id} className="py-3">
+                      <TableCell 
+                        key={column.id} 
+                        className={cn(
+                          "py-3",
+                          "text-xs sm:text-sm", // Smaller text on mobile
+                          "whitespace-nowrap" // Prevent wrapping in cells
+                        )}
+                      >
                         {column.cell ? column.cell(row) : column.accessorKey ? String(row[column.accessorKey] ?? "") : ""}
                       </TableCell>
                     ))}

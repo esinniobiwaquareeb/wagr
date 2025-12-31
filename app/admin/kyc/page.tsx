@@ -69,9 +69,11 @@ export default function AdminKycPage() {
         setSummary(response.summary || { pending: 0, verified: 0, rejected: 0 });
       } catch (error) {
         logger.error("Error fetching KYC submissions", error);
+        const { extractErrorMessage } = await import('@/lib/error-extractor');
+        const errorMessage = extractErrorMessage(error, "Failed to fetch KYC submissions. Please try again.");
         toast({
           title: "Error",
-          description: "Failed to fetch KYC submissions.",
+          description: errorMessage,
           variant: "destructive",
         });
       } finally {
@@ -134,9 +136,11 @@ export default function AdminKycPage() {
       fetchSubmissions(activeFilter);
     } catch (error: any) {
       logger.error("Error updating KYC submission", error);
+      const { extractErrorMessage } = await import('@/lib/error-extractor');
+      const errorMessage = extractErrorMessage(error, "Failed to update submission. Please try again.");
       toast({
         title: "Error",
-        description: error?.message || "Failed to update submission.",
+        description: errorMessage,
         variant: "destructive",
       });
       setProcessingDecision(false);
