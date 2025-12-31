@@ -139,15 +139,13 @@ export default function TransactionsPage() {
     <main className="flex-1 pb-24 md:pb-0">
       <div className="max-w-7xl mx-auto px-3 md:px-6 py-3 md:py-6">
         <div className="mb-4 md:mb-6">
-          {/* Back Button - Own Row */}
-          <div className="mb-3 md:mb-4">
-            <BackButton fallbackHref="/wallet" />
-          </div>
-
-          {/* Title Row */}
-          <div className="mb-2 md:mb-3">
-            <h1 className="text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2">Transaction History</h1>
-            <p className="text-xs md:text-base text-muted-foreground">View all your wallet transactions</p>
+          {/* Header with integrated back button */}
+          <div className="flex items-start gap-3 mb-2 md:mb-3">
+            <BackButton position="inline" fallbackHref="/wallet" className="mt-1" />
+            <div className="flex-1">
+              <h1 className="text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2">Transaction History</h1>
+              <p className="text-xs md:text-base text-muted-foreground">View all your wallet transactions</p>
+            </div>
           </div>
         </div>
 

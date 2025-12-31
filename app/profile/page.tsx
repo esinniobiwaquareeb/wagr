@@ -468,17 +468,14 @@ export default function Profile() {
         onConfirm={confirmLogout}
       />
       <div className="max-w-6xl mx-auto px-3 md:px-6 py-3 md:py-6">
-        {/* Header */}
+        {/* Header with integrated back button */}
         <div className="mb-4 md:mb-6">
-          {/* Back Button - Own Row */}
-          <div className="mb-3 md:mb-4">
-            <BackButton fallbackHref="/wagers" />
-          </div>
-
-          {/* Title Row */}
-          <div className="mb-2 md:mb-3">
-            <h1 className="text-xl md:text-2xl lg:text-3xl font-bold mb-1 md:mb-2">Profile</h1>
-            <p className="text-xs md:text-sm text-muted-foreground">Manage your account and preferences</p>
+          <div className="flex items-start gap-3 mb-2 md:mb-3">
+            <BackButton position="inline" fallbackHref="/wagers" className="mt-1" />
+            <div className="flex-1">
+              <h1 className="text-xl md:text-2xl lg:text-3xl font-bold mb-1 md:mb-2">Profile</h1>
+              <p className="text-xs md:text-sm text-muted-foreground">Manage your account and preferences</p>
+            </div>
           </div>
         </div>
 

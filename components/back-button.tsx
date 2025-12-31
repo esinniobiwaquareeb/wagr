@@ -10,8 +10,9 @@ interface BackButtonProps {
   fallbackHref?: string;
   label?: string;
   className?: string;
-  variant?: "default" | "ghost" | "outline";
+  variant?: "default" | "ghost" | "outline" | "floating";
   size?: "default" | "sm" | "lg" | "icon";
+  position?: "inline" | "floating" | "standalone";
 }
 
 export function BackButton({ 
@@ -19,7 +20,8 @@ export function BackButton({
   label = "Back",
   className = "",
   variant = "ghost",
-  size = "sm"
+  size = "sm",
+  position = "inline"
 }: BackButtonProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -49,6 +51,34 @@ export function BackButton({
     return null;
   }
 
+  // Floating variant - compact icon button that overlays content
+  if (position === "floating" || variant === "floating") {
+    return (
+      <button
+        onClick={handleBack}
+        className={`fixed top-4 left-4 z-50 flex items-center justify-center w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm border border-border/50 shadow-lg hover:bg-background hover:shadow-xl transition-all hover:scale-105 active:scale-95 ${className}`}
+        aria-label={label}
+      >
+        <ArrowLeft className="h-4 w-4" />
+      </button>
+    );
+  }
+
+  // Inline variant - compact button that fits in header
+  if (position === "inline") {
+    return (
+      <button
+        onClick={handleBack}
+        className={`inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors ${className}`}
+        aria-label={label}
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">{label}</span>
+      </button>
+    );
+  }
+
+  // Standalone variant - original button style
   return (
     <Button
       onClick={handleBack}

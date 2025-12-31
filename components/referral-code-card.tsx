@@ -105,7 +105,8 @@ export function ReferralCodeCard({
 
   const shareCode = () => {
     if (!referralCode) return;
-    const shareUrl = `${window.location.origin}/register?ref=${referralCode}`;
+    // Use main page with ref parameter instead of /register (which doesn't exist)
+    const shareUrl = `${window.location.origin}/wagers?ref=${referralCode}`;
     const shareText = `Join wagered.app and get ₦500 bonus! Use my referral code: ${referralCode}`;
 
     if (navigator.share) {

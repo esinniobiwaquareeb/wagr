@@ -6,7 +6,7 @@ import { logError } from '@/lib/error-handler';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password, username } = body;
+    const { email, password, username, referral_code } = body;
 
     // Call NestJS backend register endpoint
     const registerData = await nestjsPost<{
@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
       email,
       password,
       username,
+      referral_code, // Pass referral code if provided
     }, { requireAuth: false });
 
     if (!registerData) {

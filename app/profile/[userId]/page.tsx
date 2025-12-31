@@ -152,7 +152,10 @@ export default function PublicProfilePage() {
   return (
     <main className="flex-1 pb-24 md:pb-0">
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 md:py-6">
-        <BackButton />
+        {/* Back button integrated into header */}
+        <div className="mb-4">
+          <BackButton position="inline" />
+        </div>
 
         {/* Profile Header */}
         <Card className="mb-6">

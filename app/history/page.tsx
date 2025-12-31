@@ -280,19 +280,16 @@ function HistoryPageContent() {
       )}
 
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 md:py-6">
-        {/* Header */}
+        {/* Header with integrated back button */}
         <div className="mb-6 md:mb-8">
-          {/* Back Button - Own Row */}
-          <div className="mb-3 md:mb-4">
-            <BackButton fallbackHref="/wagers" />
-          </div>
-
-          {/* Title Row */}
-          <div className="mb-2 md:mb-3">
-            <h1 className="text-xl md:text-2xl lg:text-3xl font-bold mb-1 md:mb-2">Wager History</h1>
-            <p className="text-muted-foreground text-xs md:text-sm">
-              View all wagers you've participated in
-            </p>
+          <div className="flex items-start gap-3 mb-2 md:mb-3">
+            <BackButton position="inline" fallbackHref="/wagers" className="mt-1" />
+            <div className="flex-1">
+              <h1 className="text-xl md:text-2xl lg:text-3xl font-bold mb-1 md:mb-2">Wager History</h1>
+              <p className="text-muted-foreground text-xs md:text-sm">
+                View all wagers you've participated in
+              </p>
+            </div>
           </div>
         </div>
 

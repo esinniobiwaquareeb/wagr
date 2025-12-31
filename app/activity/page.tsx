@@ -111,16 +111,15 @@ export default function ActivityPage() {
   return (
     <main className="flex-1 pb-24 md:pb-0">
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 md:py-6">
-        <BackButton />
-
-        {/* Header */}
+        {/* Header with integrated back button */}
         <div className="mb-4 md:mb-6">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-1">
+              <BackButton position="inline" />
               <div className="p-2 bg-primary/10 rounded-lg">
                 <Activity className="h-5 w-5 md:h-6 md:w-6 text-primary" />
               </div>
-              <div>
+              <div className="flex-1">
                 <h1 className="text-2xl md:text-3xl font-bold">Activity Feed</h1>
                 <p className="text-sm text-muted-foreground mt-0.5">
                   {filter === "following" ? "Activities from users you follow" : "All platform activities"}

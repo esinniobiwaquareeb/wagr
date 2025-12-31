@@ -109,14 +109,12 @@ export default function Leaderboard() {
     <main className="flex-1 pb-24 md:pb-0">
       <div className="max-w-6xl mx-auto px-3 md:px-6 py-3 md:py-6">
         <div className="mb-4 md:mb-6">
-          {/* Back Button - Own Row */}
-          <div className="mb-3 md:mb-4">
-            <BackButton fallbackHref="/wagers" />
-          </div>
-
-          {/* Title and Sort Row */}
+          {/* Header with integrated back button */}
           <div className="flex items-center justify-between gap-3 md:gap-4 mb-2 md:mb-3">
-            <h1 className="text-xl md:text-3xl lg:text-4xl font-bold">Leaderboard</h1>
+            <div className="flex items-center gap-3 flex-1">
+              <BackButton position="inline" fallbackHref="/wagers" />
+              <h1 className="text-xl md:text-3xl lg:text-4xl font-bold">Leaderboard</h1>
+            </div>
             <Select value={sortBy} onValueChange={(value) => setSortBy(value as "balance" | "wins" | "win_rate" | "winnings")}>
               <SelectTrigger className="w-[140px] md:w-[180px]">
                 <SelectValue>
