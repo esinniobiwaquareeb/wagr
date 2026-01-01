@@ -11,6 +11,7 @@ import {
   Trophy,
   CheckCircle2,
   Loader2,
+  Link
 } from "lucide-react";
 import { logger } from "@/lib/logger";
 
@@ -99,25 +100,33 @@ export function WagerActivities({ wagerId, sideA, sideB }: WagerActivitiesProps)
   const getActivityText = (activity: Activity) => {
     const username = activity.profiles?.username || "Someone";
     const sideName = (side: string) => (side === "a" ? sideA : sideB);
+    const userProfileLink = activity.user_id ? `/profile/${activity.user_id}` : null;
+    const UsernameLink = userProfileLink ? (
+      <Link href={userProfileLink} className="font-semibold hover:text-primary hover:underline">
+        {username}
+      </Link>
+    ) : (
+      <span className="font-semibold">{username}</span>
+    );
 
     switch (activity.activity_type) {
       case "joined":
         return (
           <span>
-            <span className="font-semibold">{username}</span> joined{" "}
+            {UsernameLink} joined{" "}
             <span className="font-semibold text-primary">{sideName(activity.activity_data.side)}</span>
           </span>
         );
       case "left":
         return (
           <span>
-            <span className="font-semibold">{username}</span> left the wager
+            {UsernameLink} left the wager
           </span>
         );
       case "switched_side":
         return (
           <span>
-            <span className="font-semibold">{username}</span> switched from{" "}
+            {UsernameLink} switched from{" "}
             <span className="font-semibold">{sideName(activity.activity_data.from_side)}</span> to{" "}
             <span className="font-semibold text-primary">{sideName(activity.activity_data.to_side)}</span>
           </span>
@@ -125,14 +134,14 @@ export function WagerActivities({ wagerId, sideA, sideB }: WagerActivitiesProps)
       case "comment":
         return (
           <span>
-            <span className="font-semibold">{username}</span>{" "}
+            {UsernameLink}{" "}
             {activity.activity_data.is_reply ? "replied to a comment" : "commented"}
           </span>
         );
       case "wager_created":
         return (
           <span>
-            <span className="font-semibold">{username}</span> created this wager
+            {UsernameLink} created this wager
           </span>
         );
       case "wager_resolved":

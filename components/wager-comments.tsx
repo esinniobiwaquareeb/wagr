@@ -8,6 +8,7 @@ import { MessageSquare, Send, Reply, MoreVertical, Edit2, Trash2, Loader2 } from
 import { format } from "date-fns";
 import { formatDistanceToNow } from "date-fns";
 import { logger } from "@/lib/logger";
+import Link from "next/link";
 
 interface Comment {
   id: string;
@@ -292,9 +293,12 @@ export function WagerComments({ wagerId }: WagerCommentsProps) {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate">
+                    <Link
+                      href={`/profile/${comment.user_id}`}
+                      className="text-sm font-semibold truncate hover:text-primary hover:underline block"
+                    >
                       {comment.profiles?.username || "Anonymous"}
-                    </p>
+                    </Link>
                     <p className="text-xs text-muted-foreground">
                       {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
                     </p>

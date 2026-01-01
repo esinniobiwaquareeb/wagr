@@ -10,6 +10,8 @@ import { ReferralCodeCard } from "@/components/referral-code-card";
 import { MyWagersCard } from "@/components/my-wagers-card";
 import { GamificationSection } from "@/components/gamification-section";
 import { SubscriptionsSection } from "@/components/subscriptions-section";
+import { UserAchievementBadges } from "@/components/user-achievement-badges";
+import { gamificationApi } from "@/lib/api-client";
 import Link from "next/link";
 import { BackButton } from "@/components/back-button";
 import { format } from "date-fns";
@@ -61,6 +63,7 @@ export default function Profile() {
   const [kycLoading, setKycLoading] = useState(true);
   const [levelDialog, setLevelDialog] = useState<2 | 3 | null>(null);
   const [submittingLevel, setSubmittingLevel] = useState<2 | 3 | null>(null);
+  const [achievements, setAchievements] = useState<any[]>([]);
   const { toast } = useToast();
   const currency = DEFAULT_CURRENCY as Currency;
 
@@ -123,12 +126,26 @@ export default function Profile() {
     }, 1000); // Debounce by 1 second
   }, [fetchProfile, fetchKycSummary]);
 
+  const fetchAchievements = useCallback(async () => {
+    if (!user) return;
+    try {
+      const response = await gamificationApi.getStats();
+      if (response?.data?.achievements) {
+        setAchievements(response.data.achievements);
+      }
+    } catch (error) {
+      // Silently fail - achievements are optional
+      logger.debug("Failed to fetch achievements", error);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (user) {
       fetchProfile();
       fetchKycSummary();
+      fetchAchievements();
     }
-  }, [user, fetchProfile, fetchKycSummary]);
+  }, [user, fetchProfile, fetchKycSummary, fetchAchievements]);
 
 
   const handleKycSubmit = useCallback(
@@ -530,14 +547,21 @@ export default function Profile() {
                         />
                       ) : (
                         <>
-                          <h2 className="text-lg md:text-xl font-bold truncate">
-                            {profile.username || "User"}
-                          </h2>
-                          {kycSummary && (
-                            <Badge variant={kycSummary.badgeVariant} className="text-[11px]">
-                              {kycSummary.currentLabel}
-                            </Badge>
-                          )}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h2 className="text-lg md:text-xl font-bold truncate">
+                              {profile.username || "User"}
+                            </h2>
+                            <UserAchievementBadges 
+                              achievements={achievements} 
+                              maxDisplay={3}
+                              size="sm"
+                            />
+                            {kycSummary && (
+                              <Badge variant={kycSummary.badgeVariant} className="text-[11px]">
+                                {kycSummary.currentLabel}
+                              </Badge>
+                            )}
+                          </div>
                           <button
                             onClick={() => {
                               const currentUsername = profile.username || "";

@@ -3,9 +3,11 @@
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Lock, CheckCircle2 } from "lucide-react";
+import { achievementIcons } from "@/components/achievement-icons";
 
 interface AchievementBadgeProps {
-  icon: string;
+  icon?: string;
+  type?: string;
   title: string;
   description?: string;
   requirement?: string;
@@ -19,6 +21,7 @@ interface AchievementBadgeProps {
 
 export function AchievementBadge({
   icon,
+  type,
   title,
   description,
   requirement,
@@ -32,10 +35,13 @@ export function AchievementBadge({
   const progressPercentage = target > 0 ? Math.min(100, Math.round((progress / target) * 100)) : 0;
   
   const sizeClasses = {
-    sm: "h-10 w-10 text-base",
-    md: "h-14 w-14 text-xl",
-    lg: "h-20 w-20 text-3xl",
+    sm: "h-8 w-8",
+    md: "h-12 w-12",
+    lg: "h-16 w-16",
   };
+
+  // Get SVG icon component if type is provided, otherwise use emoji
+  const IconComponent = type ? achievementIcons[type] : null;
 
   const tooltipContent = (
     <div className="space-y-1">
@@ -68,15 +74,24 @@ export function AchievementBadge({
               "border-2 shadow-lg hover:scale-110 active:scale-95",
               sizeClasses[size],
               unlocked
-                ? "bg-gradient-to-br from-yellow-400/20 to-yellow-600/20 border-yellow-500/50 text-yellow-500 hover:border-yellow-400 hover:shadow-yellow-500/20"
-                : "bg-muted/50 border-border/50 text-muted-foreground/50 hover:border-muted-foreground/50 grayscale",
+                ? "bg-gradient-to-br from-yellow-400/20 via-amber-400/20 to-yellow-600/20 border-yellow-500/60 text-yellow-600 hover:border-yellow-400 hover:shadow-yellow-500/30 hover:shadow-xl"
+                : "bg-muted/30 border-border/40 text-muted-foreground/40 hover:border-muted-foreground/60 grayscale opacity-60",
               className
             )}
           >
-            {/* Icon */}
-            <span className={cn("leading-none", unlocked ? "" : "opacity-50")}>
-              {icon}
-            </span>
+            {/* Icon - SVG or Emoji */}
+            {IconComponent ? (
+              <div className={cn(
+                "w-full h-full p-2 flex items-center justify-center",
+                unlocked ? "opacity-100" : "opacity-40 grayscale"
+              )}>
+                <IconComponent className="w-full h-full" />
+              </div>
+            ) : (
+              <span className={cn("leading-none text-2xl", unlocked ? "" : "opacity-50")}>
+                {icon || "🏆"}
+              </span>
+            )}
 
             {/* Unlocked indicator */}
             {unlocked && (

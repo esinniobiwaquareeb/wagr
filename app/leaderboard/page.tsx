@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { leaderboardApi } from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
 import { maskUsername } from "@/lib/utils";
+import Link from "next/link";
 import {
   Select,
   SelectContent,
@@ -160,9 +161,12 @@ export default function Leaderboard() {
                     <div className="flex-shrink-0 w-6 flex items-center justify-center">
                       {getRankIcon(user.rank)}
                     </div>
-                    <h3 className="font-semibold text-sm truncate">
+                    <Link
+                      href={`/profile/${user.id}`}
+                      className="font-semibold text-sm truncate hover:text-primary hover:underline block"
+                    >
                       {maskUsername(user.username)}
-                    </h3>
+                    </Link>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-[10px]">
                     {sortBy === "balance" ? (
@@ -225,9 +229,12 @@ export default function Leaderboard() {
                   
                   {/* Username */}
                   <div className="flex-shrink-0 w-48 lg:w-64">
-                    <h3 className="font-semibold text-base lg:text-lg truncate">
+                    <Link
+                      href={`/profile/${user.id}`}
+                      className="font-semibold text-base lg:text-lg truncate hover:text-primary hover:underline block"
+                    >
                       {maskUsername(user.username)}
-                    </h3>
+                    </Link>
                   </div>
                   
                   {sortBy === "balance" ? (

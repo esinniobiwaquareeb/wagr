@@ -377,7 +377,8 @@ export default function GamificationPage() {
                 {achievements.map((achievement: any) => (
                   <div key={achievement.type} className="flex flex-col items-center gap-2">
                     <AchievementBadge
-                      icon={achievement.icon || "🏆"}
+                      type={achievement.type}
+                      icon={achievement.icon}
                       title={achievement.title}
                       description={achievement.description}
                       requirement={achievement.requirement}

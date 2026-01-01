@@ -3,6 +3,7 @@
 import { Users, Crown, Trophy } from "lucide-react";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { maskUsername } from "@/lib/utils";
+import Link from "next/link";
 
 interface Entry {
   id: string;
@@ -63,9 +64,12 @@ export function WagerParticipants({ entries, userNames, wager }: WagerParticipan
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-medium text-foreground truncate">
+                  <Link
+                    href={`/profile/${entry.user_id}`}
+                    className="text-sm font-medium text-foreground truncate hover:text-primary hover:underline"
+                  >
                     {maskUsername(userNames[entry.user_id] || `User ${entry.user_id.slice(0, 8)}`)}
-                  </span>
+                  </Link>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     {isCreator && (
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-700 dark:text-blue-400 text-xs font-semibold">

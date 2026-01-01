@@ -155,16 +155,25 @@ export function PlatformActivities() {
     const wager = activity.wagers;
     const wagerTitle = wager?.title || "a wager";
     const wagerLink = wager ? `/wager/${wager.short_id || wager.id}` : "#";
+    const userProfileLink = activity.user_id ? `/profile/${activity.user_id}` : null;
     const sideName = (side: string) => {
       if (!wager) return side;
       return side === "a" ? wager.side_a : wager.side_b;
     };
+    
+    const UsernameLink = userProfileLink ? (
+      <Link href={userProfileLink} className="font-semibold hover:text-primary hover:underline">
+        {username}
+      </Link>
+    ) : (
+      <span className="font-semibold">{username}</span>
+    );
 
     switch (activity.activity_type) {
       case "joined":
         return (
           <span>
-            <span className="font-semibold">{username}</span> joined{" "}
+            {UsernameLink} joined{" "}
             <Link href={wagerLink} className="font-semibold text-primary hover:underline">
               {wagerTitle}
             </Link>{" "}
@@ -174,7 +183,7 @@ export function PlatformActivities() {
       case "left":
         return (
           <span>
-            <span className="font-semibold">{username}</span> left{" "}
+            {UsernameLink} left{" "}
             <Link href={wagerLink} className="font-semibold text-primary hover:underline">
               {wagerTitle}
             </Link>
@@ -183,7 +192,7 @@ export function PlatformActivities() {
       case "switched_side":
         return (
           <span>
-            <span className="font-semibold">{username}</span> switched sides in{" "}
+            {UsernameLink} switched sides in{" "}
             <Link href={wagerLink} className="font-semibold text-primary hover:underline">
               {wagerTitle}
             </Link>{" "}
@@ -194,7 +203,7 @@ export function PlatformActivities() {
       case "comment":
         return (
           <span>
-            <span className="font-semibold">{username}</span>{" "}
+            {UsernameLink}{" "}
             {activity.activity_data.is_reply ? "replied to a comment on" : "commented on"}{" "}
             <Link href={wagerLink} className="font-semibold text-primary hover:underline">
               {wagerTitle}

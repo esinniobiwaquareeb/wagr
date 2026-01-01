@@ -15,6 +15,8 @@ import { formatCurrency, DEFAULT_CURRENCY } from "@/lib/currency";
 import { format } from "date-fns";
 import { extractErrorMessage } from "@/lib/error-extractor";
 import { logger } from "@/lib/logger";
+import { UserAchievementBadges } from "@/components/user-achievement-badges";
+import { gamificationApi } from "@/lib/api-client";
 
 export default function PublicProfilePage() {
   const params = useParams();
@@ -27,6 +29,7 @@ export default function PublicProfilePage() {
   const [following, setFollowing] = useState(false);
   const [checkingFollow, setCheckingFollow] = useState(true);
   const [togglingFollow, setTogglingFollow] = useState(false);
+  const [achievements, setAchievements] = useState<any[]>([]);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -34,6 +37,20 @@ export default function PublicProfilePage() {
       const response = await socialApi.getProfile(userId);
       if (response?.data?.profile) {
         setProfile(response.data.profile);
+      }
+      
+      // Fetch achievements for this user (if viewing own profile or if API supports it)
+      // For now, we'll try to fetch if it's the current user
+      if (currentUser?.id === userId) {
+        try {
+          const statsResponse = await gamificationApi.getStats();
+          if (statsResponse?.data?.achievements) {
+            setAchievements(statsResponse.data.achievements);
+          }
+        } catch (error) {
+          // Silently fail - achievements are optional
+          logger.debug("Failed to fetch achievements", error);
+        }
       }
     } catch (error: any) {
       logger.error("Error fetching profile", error);
@@ -46,7 +63,7 @@ export default function PublicProfilePage() {
     } finally {
       setLoading(false);
     }
-  }, [userId, toast]);
+  }, [userId, toast, currentUser]);
 
   const checkFollowStatus = useCallback(async () => {
     if (!currentUser || currentUser.id === userId) {
@@ -176,10 +193,15 @@ export default function PublicProfilePage() {
               </div>
 
               <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex items-center gap-3 mb-2 flex-wrap">
                   <h1 className="text-2xl md:text-3xl font-bold">
                     {profile.username || profile.email || "User"}
                   </h1>
+                  <UserAchievementBadges 
+                    achievements={achievements} 
+                    maxDisplay={4}
+                    size="sm"
+                  />
                   {profile.stats?.win_rate > 0 && (
                     <Badge variant="secondary" className="text-xs">
                       {profile.stats.win_rate.toFixed(1)}% Win Rate

@@ -39,7 +39,7 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      message: response.data?.message || 'Reward claimed successfully',
+      message: (response.data as any)?.message || 'Reward claimed successfully',
     });
   } catch (error: any) {
     logError(error);
