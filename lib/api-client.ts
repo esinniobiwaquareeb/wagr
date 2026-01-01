@@ -430,6 +430,8 @@ export const gamificationApi = {
   getStats: () => apiGet<any>('/gamification/stats'),
   
   getChallenges: () => apiGet<{ challenges: any[] }>('/gamification/challenges'),
+  
+  claimReward: (challengeId: string) => apiPost<{ message: string }>(`/gamification/challenges/${challengeId}/claim`),
 };
 
 /**
