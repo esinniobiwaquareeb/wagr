@@ -1395,7 +1395,6 @@ export default function WagerDetail() {
                 <div className={`flex items-center gap-1 text-[11px] font-medium ${
                   deadlineStatus === 'red' ? "text-red-600 dark:text-red-400" : "text-muted-foreground"
                 }`}>
-                  <Clock className="h-3 w-3" />
                   <DeadlineDisplay deadline={wager.deadline} size="sm" showLabel={false} className="text-[11px]" />
                 </div>
               )}
