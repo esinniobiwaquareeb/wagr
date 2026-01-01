@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { BackButton } from "@/components/back-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Activity, Users, Trophy, TrendingUp, MessageSquare, Sparkles, Loader2 } from "lucide-react";
@@ -115,10 +114,6 @@ export default function ActivityPage() {
         <div className="mb-4 md:mb-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3 flex-1">
-              <BackButton position="inline" />
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Activity className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-              </div>
               <div className="flex-1">
                 <h1 className="text-2xl md:text-3xl font-bold">Activity Feed</h1>
                 <p className="text-sm text-muted-foreground mt-0.5">

@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from "@/hooks/use-auth";
 import { formatDistanceToNow, format } from "date-fns";
 import { Bell, Check, CheckCheck, Trash2, ExternalLink } from "lucide-react";
-import { BackButton } from "@/components/back-button";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
@@ -239,7 +238,6 @@ export default function NotificationsPage() {
         <div className="mb-4 md:mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 md:gap-4">
             <div className="flex items-start gap-3 flex-1">
-              <BackButton position="inline" fallbackHref="/wagers" className="mt-1" />
               <div className="flex-1">
                 <h1 className="text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2">Notifications</h1>
                 <p className="text-xs md:text-base text-muted-foreground">

@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { BackButton } from "@/components/back-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -160,7 +159,6 @@ export default function SubscriptionsPage() {
         {/* Header with integrated back button */}
         <div className="mb-6">
           <div className="flex items-start gap-3 mb-2">
-            <BackButton position="inline" className="mt-1" />
             <div className="flex items-center gap-3 flex-1">
               <div className="p-2 bg-primary/10 rounded-lg">
                 <Crown className="h-5 w-5 md:h-6 md:w-6 text-primary" />

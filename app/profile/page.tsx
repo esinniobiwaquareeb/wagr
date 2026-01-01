@@ -13,7 +13,6 @@ import { SubscriptionsSection } from "@/components/subscriptions-section";
 import { UserAchievementBadges } from "@/components/user-achievement-badges";
 import { gamificationApi } from "@/lib/api-client";
 import Link from "next/link";
-import { BackButton } from "@/components/back-button";
 import { format } from "date-fns";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { TwoFactorSetup } from "@/components/two-factor-setup";
@@ -488,7 +487,6 @@ export default function Profile() {
         {/* Header with integrated back button */}
         <div className="mb-4 md:mb-6">
           <div className="flex items-start gap-3 mb-2 md:mb-3">
-            <BackButton position="inline" fallbackHref="/wagers" className="mt-1" />
             <div className="flex-1">
               <h1 className="text-xl md:text-2xl lg:text-3xl font-bold mb-1 md:mb-2">Profile</h1>
               <p className="text-xs md:text-sm text-muted-foreground">Manage your account and preferences</p>

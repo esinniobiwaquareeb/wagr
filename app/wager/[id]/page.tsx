@@ -10,7 +10,6 @@ import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
 import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Coins, Trash2, Edit2, Share2, UserPlus, MessageSquare, Activity, Loader2, Flame, Check, X } from "lucide-react";
 import { SocialShareButtons } from "@/components/social-share-buttons";
 import { WagerInviteDialog } from "@/components/wager-invite-dialog";
-import { BackButton } from "@/components/back-button";
 import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -1369,9 +1368,6 @@ export default function WagerDetail() {
 
       <div className="max-w-5xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-2 sm:py-4">
         {/* Back Button */}
-        <div className="mb-2 sm:mb-3">
-          <BackButton fallbackHref="/wagers" />
-        </div>
 
         {/* Main Card - Compact Mobile Design */}
         <article className="bg-card border border-border/50 rounded-xl sm:rounded-2xl overflow-hidden mb-3 sm:mb-4">

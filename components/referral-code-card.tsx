@@ -307,21 +307,22 @@ export function ReferralCodeCard({
           </div>
         ) : referralCode ? (
           <>
-            <div className="flex items-center gap-2">
-              <div className="flex-1 px-4 py-3 bg-muted rounded-lg font-mono text-lg font-bold">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="flex-1 px-3 sm:px-4 py-2 sm:py-3 bg-muted rounded-lg font-mono text-sm sm:text-lg font-bold break-all sm:break-normal overflow-x-auto">
                 {referralCode}
               </div>
-              <Button onClick={copyCode} variant="outline" size="icon" title="Copy code">
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="default">
-                    <Share2 className="h-4 w-4 mr-2" />
-                    Share
-                    <ChevronDown className="h-3 w-3 ml-1" />
-                  </Button>
-                </DropdownMenuTrigger>
+              <div className="flex items-center gap-2">
+                <Button onClick={copyCode} variant="outline" size="icon" title="Copy code" className="flex-shrink-0">
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="default" className="flex-shrink-0">
+                      <Share2 className="h-4 w-4 mr-1 sm:mr-2" />
+                      <span className="hidden sm:inline">Share</span>
+                      <ChevronDown className="h-3 w-3 ml-1 hidden sm:inline" />
+                    </Button>
+                  </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
                   {typeof navigator !== 'undefined' && 'share' in navigator && (
                     <DropdownMenuItem onClick={shareNative} className="cursor-pointer">
@@ -356,28 +357,29 @@ export function ReferralCodeCard({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              </div>
             </div>
 
-            <div className="text-sm text-muted-foreground">
+            <div className="text-xs sm:text-sm text-muted-foreground space-y-1">
               <p>• You get ₦500 when someone signs up with your code</p>
               <p>• They also get ₦500 welcome bonus</p>
               <p>• Share your referral link via WhatsApp, Twitter, Facebook, or copy the link</p>
             </div>
 
             {referralStats && showStats && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-border">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 pt-3 md:pt-4 border-t border-border">
                 <div className="text-center">
-                  <div className="text-2xl font-bold">{referralStats.total_referrals || 0}</div>
+                  <div className="text-xl md:text-2xl font-bold">{referralStats.total_referrals || 0}</div>
                   <div className="text-xs text-muted-foreground mt-1">Total Referrals</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  <div className="text-lg md:text-2xl font-bold text-green-600 dark:text-green-400 break-all">
                     {formatCurrency(referralStats.total_earnings || 0, currency)}
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">Total Earnings</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-sm font-mono font-bold">{referralCode}</div>
+                  <div className="text-xs sm:text-sm font-mono font-bold break-all">{referralCode}</div>
                   <div className="text-xs text-muted-foreground mt-1">Your Code</div>
                 </div>
               </div>

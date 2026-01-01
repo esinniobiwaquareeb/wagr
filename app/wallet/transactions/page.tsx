@@ -8,7 +8,6 @@ import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency"
 import { format } from "date-fns";
 import { ArrowUp, ArrowDown, ArrowLeft } from "lucide-react";
 import { DataTable } from "@/components/data-table";
-import { BackButton } from "@/components/back-button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface Transaction {
@@ -141,7 +140,6 @@ export default function TransactionsPage() {
         <div className="mb-4 md:mb-6">
           {/* Header with integrated back button */}
           <div className="flex items-start gap-3 mb-2 md:mb-3">
-            <BackButton position="inline" fallbackHref="/wallet" className="mt-1" />
             <div className="flex-1">
               <h1 className="text-xl md:text-3xl lg:text-4xl font-bold mb-1 md:mb-2">Transaction History</h1>
               <p className="text-xs md:text-base text-muted-foreground">View all your wallet transactions</p>

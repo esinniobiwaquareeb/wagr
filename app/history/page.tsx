@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback, useRef, Suspense, useMemo } from "rea
 import { useRouter } from "next/navigation";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { History, Trophy, XCircle, Clock, Filter, CheckCircle2, Loader2 } from "lucide-react";
-import { BackButton } from "@/components/back-button";
 import Link from "next/link";
 import { AuthModal } from "@/components/auth-modal";
 import { useAuth } from "@/hooks/use-auth";
@@ -283,7 +282,6 @@ function HistoryPageContent() {
         {/* Header with integrated back button */}
         <div className="mb-6 md:mb-8">
           <div className="flex items-start gap-3 mb-2 md:mb-3">
-            <BackButton position="inline" fallbackHref="/wagers" className="mt-1" />
             <div className="flex-1">
               <h1 className="text-xl md:text-2xl lg:text-3xl font-bold mb-1 md:mb-2">Wager History</h1>
               <p className="text-muted-foreground text-xs md:text-sm">

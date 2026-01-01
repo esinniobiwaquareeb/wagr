@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Trophy, Medal, Award, Users, Target, Zap } from "lucide-react";
-import { BackButton } from "@/components/back-button";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { Skeleton } from "@/components/ui/skeleton";
 import { leaderboardApi } from "@/lib/api-client";
@@ -113,7 +112,6 @@ export default function Leaderboard() {
           {/* Header with integrated back button */}
           <div className="flex items-center justify-between gap-3 md:gap-4 mb-2 md:mb-3">
             <div className="flex items-center gap-3 flex-1">
-              <BackButton position="inline" fallbackHref="/wagers" />
               <h1 className="text-xl md:text-3xl lg:text-4xl font-bold">Leaderboard</h1>
             </div>
             <Select value={sortBy} onValueChange={(value) => setSortBy(value as "balance" | "wins" | "win_rate" | "winnings")}>

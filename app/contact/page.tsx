@@ -6,7 +6,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Mail, Send, Phone, MessageSquare, User, AtSign, FileText, Loader2 } from "lucide-react";
 import { StructuredData } from "@/components/seo/structured-data";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
-import { BackButton } from "@/components/back-button";
 import { contactPageSchema } from "./metadata";
 import { logger } from "@/lib/logger";
 

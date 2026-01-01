@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { socialApi } from "@/lib/api-client";
-import { BackButton } from "@/components/back-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -178,9 +177,6 @@ export default function PublicProfilePage() {
     <main className="flex-1 pb-24 md:pb-0">
       <div className="max-w-6xl mx-auto px-3 md:px-6 py-3 md:py-6">
         {/* Back button */}
-        <div className="mb-6">
-          <BackButton position="inline" />
-        </div>
 
         {/* Hero Profile Section */}
         <Card className="mb-4 md:mb-6 border shadow-sm">

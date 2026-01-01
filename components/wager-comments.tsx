@@ -22,6 +22,7 @@ interface Comment {
     username: string | null;
     avatar_url: string | null;
   };
+  is_following?: boolean;
   replies?: Comment[];
 }
 
@@ -54,6 +55,22 @@ export function WagerComments({ wagerId }: WagerCommentsProps) {
       // API client returns { comments: [...] } directly
       const commentsData = response.comments || [];
 
+      // Initialize follow status from comments data
+      const initialFollowStatus: Record<string, boolean> = {};
+      commentsData.forEach((comment: Comment) => {
+        if (comment.user_id && comment.is_following !== undefined) {
+          initialFollowStatus[comment.user_id] = comment.is_following;
+          checkedUsersRef.current.add(comment.user_id);
+        }
+        comment.replies?.forEach((reply: Comment) => {
+          if (reply.user_id && reply.is_following !== undefined) {
+            initialFollowStatus[reply.user_id] = reply.is_following;
+            checkedUsersRef.current.add(reply.user_id);
+          }
+        });
+      });
+
+      setFollowingStatus(prev => ({ ...prev, ...initialFollowStatus }));
       setComments(commentsData);
     } catch (error) {
       logger.error("Error fetching comments", error);
@@ -118,33 +135,69 @@ export function WagerComments({ wagerId }: WagerCommentsProps) {
     try {
       const isFollowing = followingStatus[userId];
       if (isFollowing) {
-        await socialApi.unfollow(userId);
-        setFollowingStatus(prev => ({ ...prev, [userId]: false }));
-        toast({
-          title: "Unfollowed",
-          description: `You've unfollowed ${username}`,
-        });
+        // Unfollow
+        try {
+          await socialApi.unfollow(userId);
+          // Update state immediately - user is no longer following
+          setFollowingStatus(prev => ({ ...prev, [userId]: false }));
+          checkedUsersRef.current.add(userId);
+          toast({
+            title: "Unfollowed",
+            description: `You've unfollowed ${username}`,
+          });
+        } catch (unfollowError: any) {
+          // If error, refresh status from backend
+          checkedUsersRef.current.delete(userId);
+          await checkFollowStatus(userId);
+          throw unfollowError;
+        }
       } else {
-        await socialApi.follow(userId);
-        setFollowingStatus(prev => ({ ...prev, [userId]: true }));
-        toast({
-          title: "Following",
-          description: `You're now following ${username}`,
-        });
+        // Follow
+        try {
+          await socialApi.follow(userId);
+          // Update state immediately - user is now following
+          setFollowingStatus(prev => ({ ...prev, [userId]: true }));
+          checkedUsersRef.current.add(userId);
+          toast({
+            title: "Following",
+            description: `You're now following ${username}`,
+          });
+        } catch (followError: any) {
+          // Handle "Already following" error gracefully
+          const errorMessage = followError?.message || '';
+          const isAlreadyFollowing = 
+            errorMessage.toLowerCase().includes("already following") || 
+            followError?.response?.status === 400;
+          
+          if (isAlreadyFollowing) {
+            // User is already following, just update the UI state
+            setFollowingStatus(prev => ({ ...prev, [userId]: true }));
+            checkedUsersRef.current.add(userId);
+            // Don't show error toast - this is not really an error
+            return;
+          }
+          
+          // For other errors, refresh status from backend and throw
+          checkedUsersRef.current.delete(userId);
+          await checkFollowStatus(userId);
+          throw followError;
+        }
       }
     } catch (error: any) {
       logger.error("Error toggling follow", error);
+      const errorMessage = error?.message || error?.response?.data?.message || "Failed to update follow status";
       toast({
         title: "Error",
-        description: "Failed to update follow status",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
       setTogglingFollow(prev => ({ ...prev, [userId]: false }));
     }
-  }, [user, followingStatus, toast, togglingFollow]);
+  }, [user, followingStatus, toast, togglingFollow, checkFollowStatus]);
 
-  // Check follow status for all unique comment authors
+  // Follow status is now included in comments response from backend
+  // Only check follow status for users that don't have it in the response (fallback)
   useEffect(() => {
     if (!user || comments.length === 0) {
       return;
@@ -152,17 +205,18 @@ export function WagerComments({ wagerId }: WagerCommentsProps) {
 
     const uniqueUserIds = new Set<string>();
     comments.forEach(comment => {
-      if (comment.user_id && comment.user_id !== user.id) {
+      // Only check if follow status is not provided in the response
+      if (comment.user_id && comment.user_id !== user.id && comment.is_following === undefined) {
         uniqueUserIds.add(comment.user_id);
       }
       comment.replies?.forEach(reply => {
-        if (reply.user_id && reply.user_id !== user.id) {
+        if (reply.user_id && reply.user_id !== user.id && reply.is_following === undefined) {
           uniqueUserIds.add(reply.user_id);
         }
       });
     });
 
-    // Only check users we haven't checked yet
+    // Only check users we haven't checked yet and don't have follow status from backend
     uniqueUserIds.forEach(userId => {
       if (!checkedUsersRef.current.has(userId) && !checkingFollow[userId]) {
         checkFollowStatus(userId);
@@ -368,9 +422,12 @@ export function WagerComments({ wagerId }: WagerCommentsProps) {
           </div>
         ) : (
           comments.map((comment) => (
-            <div key={comment.id} className="bg-card border border-border rounded-lg p-2.5">
-              <div className="flex items-start gap-2">
-                <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <div key={comment.id} className="bg-card border border-border rounded-lg p-3">
+              <div className="flex items-start gap-3">
+                <Link
+                  href={`/profile/${comment.profiles?.username || comment.user_id}`}
+                  className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 hover:opacity-80 transition-opacity"
+                >
                   {comment.profiles?.avatar_url ? (
                     <img
                       src={comment.profiles.avatar_url}
@@ -382,25 +439,23 @@ export function WagerComments({ wagerId }: WagerCommentsProps) {
                       {(comment.profiles?.username || "U")[0].toUpperCase()}
                     </span>
                   )}
-                </div>
+                </Link>
                 <div className="flex-1 min-w-0">
                   {/* Header with username, timestamp, and actions */}
                   <div className="flex items-start justify-between gap-2 mb-1">
-                    <div className="flex-1 min-w-0 overflow-hidden">
-                      <div className="flex items-center gap-1.5 flex-nowrap">
-                        <span className="text-sm font-semibold leading-tight flex-shrink-0">
-                          <Link
-                            href={`/profile/${comment.profiles?.username || comment.user_id}`}
-                            className="hover:text-primary transition-colors"
-                          >
-                            {comment.profiles?.username || "Anonymous"}
-                          </Link>
-                        </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Link
+                          href={`/profile/${comment.profiles?.username || comment.user_id}`}
+                          className="text-sm font-semibold hover:text-primary transition-colors leading-tight"
+                        >
+                          {comment.profiles?.username || "Anonymous"}
+                        </Link>
                         {user && user.id !== comment.user_id && (
                           <button
                             onClick={() => toggleFollow(comment.user_id, comment.profiles?.username || "Anonymous")}
                             disabled={togglingFollow[comment.user_id] || checkingFollow[comment.user_id]}
-                            className="text-xs text-primary hover:text-primary/80 transition-colors disabled:opacity-50 flex items-center gap-0.5 whitespace-nowrap flex-shrink-0"
+                            className="text-xs px-2 py-0.5 rounded-md border border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50 transition-colors disabled:opacity-50 flex items-center gap-1 whitespace-nowrap"
                             title={followingStatus[comment.user_id] ? "Unfollow" : "Follow"}
                           >
                             {togglingFollow[comment.user_id] ? (
