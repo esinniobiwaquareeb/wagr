@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Trophy, Target, Flame, Award, Star, Zap, Gift, CheckCircle2, Circle, TrendingUp, Sparkles, ArrowRight, Medal, Crown } from "lucide-react";
+import { AchievementBadge } from "@/components/achievement-badge";
 import { gamificationApi } from "@/lib/api-client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, DEFAULT_CURRENCY } from "@/lib/currency";
@@ -192,8 +193,12 @@ export default function GamificationPage() {
                 <Award className="h-4 w-4 text-yellow-500" />
                 <span className="text-xs text-muted-foreground">Unlocked</span>
               </div>
-              <div className="text-2xl font-bold">{achievements.length}</div>
-              <div className="text-xs text-muted-foreground">Achievements</div>
+              <div className="text-2xl font-bold">
+                {achievements.filter((a: any) => a.unlocked).length}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                of {achievements.length} Achievements
+              </div>
             </CardContent>
           </Card>
           
@@ -350,55 +355,87 @@ export default function GamificationPage() {
 
         {/* Achievements & Streaks Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Achievements */}
-          {achievements.length > 0 && (
-            <Card>
-              <CardHeader className="pb-4">
+          {/* Achievements - Show ALL achievements (locked and unlocked) */}
+          <Card>
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
                     <Award className="h-5 w-5 text-yellow-500" />
                   </div>
                   <div>
                     <CardTitle className="text-xl">Achievements</CardTitle>
-                    <CardDescription>{achievements.length} unlocked</CardDescription>
+                    <CardDescription>
+                      {achievements.filter((a: any) => a.unlocked).length} of {achievements.length} unlocked
+                    </CardDescription>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {achievements.map((achievement: any) => (
-                    <div
-                      key={achievement.id}
-                      className="group p-4 rounded-xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/50 hover:border-primary/50 hover:shadow-md transition-all"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="text-3xl flex-shrink-0 transform group-hover:scale-110 transition-transform">
-                          {achievement.icon || "🏆"}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-sm mb-1 line-clamp-1">
-                            {achievement.title}
-                          </h4>
-                          {achievement.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
-                              {achievement.description}
-                            </p>
-                          )}
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(achievement.unlocked_at).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric'
-                            })}
-                          </div>
-                        </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-4 gap-4">
+                {achievements.map((achievement: any) => (
+                  <div key={achievement.type} className="flex flex-col items-center gap-2">
+                    <AchievementBadge
+                      icon={achievement.icon || "🏆"}
+                      title={achievement.title}
+                      description={achievement.description}
+                      requirement={achievement.requirement}
+                      unlocked={achievement.unlocked}
+                      progress={achievement.progress}
+                      target={achievement.target}
+                      size="md"
+                      showProgress={!achievement.unlocked}
+                    />
+                    {achievement.unlocked && achievement.unlocked_at && (
+                      <div className="text-[10px] text-muted-foreground text-center">
+                        {new Date(achievement.unlocked_at).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                        })}
                       </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              
+              {/* Progress Summary */}
+              {achievements.length > 0 && (
+                <div className="mt-6 pt-6 border-t border-border/50">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                    <div>
+                      <div className="text-2xl font-bold text-yellow-500">
+                        {achievements.filter((a: any) => a.unlocked).length}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Unlocked</div>
                     </div>
-                  ))}
+                    <div>
+                      <div className="text-2xl font-bold text-muted-foreground">
+                        {achievements.filter((a: any) => !a.unlocked).length}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Locked</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-primary">
+                        {Math.round(
+                          (achievements.filter((a: any) => a.unlocked).length / achievements.length) * 100
+                        )}%
+                      </div>
+                      <div className="text-xs text-muted-foreground">Complete</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-green-500">
+                        {achievements
+                          .filter((a: any) => !a.unlocked && a.progress_percentage > 0)
+                          .length}
+                      </div>
+                      <div className="text-xs text-muted-foreground">In Progress</div>
+                    </div>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              )}
+            </CardContent>
+          </Card>
 
           {/* Streaks */}
           {streaks.length > 0 && (
@@ -472,7 +509,7 @@ export default function GamificationPage() {
         </div>
 
         {/* Empty States */}
-        {challenges.length === 0 && achievements.length === 0 && streaks.length === 0 && (
+        {challenges.length === 0 && (!achievements || achievements.length === 0) && streaks.length === 0 && (
           <Card className="border-dashed">
             <CardContent className="p-12 text-center">
               <div className="p-4 rounded-full bg-muted w-fit mx-auto mb-4">
