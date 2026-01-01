@@ -100,9 +100,9 @@ export function WagerActivities({ wagerId, sideA, sideB }: WagerActivitiesProps)
   const getActivityText = (activity: Activity) => {
     const username = activity.profiles?.username || "Someone";
     const sideName = (side: string) => (side === "a" ? sideA : sideB);
-    const userProfileLink = activity.user_id ? `/profile/${activity.user_id}` : null;
+    const userProfileLink = activity.user_id ? `/profile/${activity.profiles?.username || activity.user_id}` : null;
     const UsernameLink = userProfileLink ? (
-      <Link href={userProfileLink} className="font-semibold hover:text-primary hover:underline">
+      <Link href={userProfileLink} className="font-semibold hover:text-primary hover:underline inline-block">
         {username}
       </Link>
     ) : (

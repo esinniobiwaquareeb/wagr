@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { commentsApi } from "@/lib/api-client";
-import { MessageSquare, Send, Reply, MoreVertical, Edit2, Trash2, Loader2 } from "lucide-react";
+import { commentsApi, socialApi } from "@/lib/api-client";
+import { MessageSquare, Send, Reply, MoreVertical, Edit2, Trash2, Loader2, UserPlus, UserMinus } from "lucide-react";
 import { format } from "date-fns";
 import { formatDistanceToNow } from "date-fns";
 import { logger } from "@/lib/logger";
@@ -41,6 +41,10 @@ export function WagerComments({ wagerId }: WagerCommentsProps) {
   const [replyContent, setReplyContent] = useState<Record<string, string>>({});
   const [editContent, setEditContent] = useState<Record<string, string>>({});
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [followingStatus, setFollowingStatus] = useState<Record<string, boolean>>({});
+  const [togglingFollow, setTogglingFollow] = useState<Record<string, boolean>>({});
+  const [checkingFollow, setCheckingFollow] = useState<Record<string, boolean>>({});
+  const checkedUsersRef = useRef<Set<string>>(new Set());
   const commentsEndRef = useRef<HTMLDivElement>(null);
 
   const fetchComments = useCallback(async () => {
@@ -76,6 +80,95 @@ export function WagerComments({ wagerId }: WagerCommentsProps) {
   const scrollToBottom = () => {
     commentsEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
+  const checkFollowStatus = useCallback(async (userId: string) => {
+    if (!user || user.id === userId) {
+      return;
+    }
+
+    if (checkingFollow[userId] || checkedUsersRef.current.has(userId)) {
+      return;
+    }
+
+    checkedUsersRef.current.add(userId);
+    setCheckingFollow(prev => ({ ...prev, [userId]: true }));
+    try {
+      const response = await socialApi.isFollowing(userId);
+      if (response?.data) {
+        setFollowingStatus(prev => ({ ...prev, [userId]: response.data.is_following }));
+      }
+    } catch (error) {
+      logger.error("Error checking follow status", error);
+      checkedUsersRef.current.delete(userId);
+    } finally {
+      setCheckingFollow(prev => ({ ...prev, [userId]: false }));
+    }
+  }, [user]);
+
+  const toggleFollow = useCallback(async (userId: string, username: string) => {
+    if (!user || user.id === userId) {
+      return;
+    }
+
+    if (togglingFollow[userId]) {
+      return;
+    }
+
+    setTogglingFollow(prev => ({ ...prev, [userId]: true }));
+    try {
+      const isFollowing = followingStatus[userId];
+      if (isFollowing) {
+        await socialApi.unfollow(userId);
+        setFollowingStatus(prev => ({ ...prev, [userId]: false }));
+        toast({
+          title: "Unfollowed",
+          description: `You've unfollowed ${username}`,
+        });
+      } else {
+        await socialApi.follow(userId);
+        setFollowingStatus(prev => ({ ...prev, [userId]: true }));
+        toast({
+          title: "Following",
+          description: `You're now following ${username}`,
+        });
+      }
+    } catch (error: any) {
+      logger.error("Error toggling follow", error);
+      toast({
+        title: "Error",
+        description: "Failed to update follow status",
+        variant: "destructive",
+      });
+    } finally {
+      setTogglingFollow(prev => ({ ...prev, [userId]: false }));
+    }
+  }, [user, followingStatus, toast, togglingFollow]);
+
+  // Check follow status for all unique comment authors
+  useEffect(() => {
+    if (!user || comments.length === 0) {
+      return;
+    }
+
+    const uniqueUserIds = new Set<string>();
+    comments.forEach(comment => {
+      if (comment.user_id && comment.user_id !== user.id) {
+        uniqueUserIds.add(comment.user_id);
+      }
+      comment.replies?.forEach(reply => {
+        if (reply.user_id && reply.user_id !== user.id) {
+          uniqueUserIds.add(reply.user_id);
+        }
+      });
+    });
+
+    // Only check users we haven't checked yet
+    uniqueUserIds.forEach(userId => {
+      if (!checkedUsersRef.current.has(userId) && !checkingFollow[userId]) {
+        checkFollowStatus(userId);
+      }
+    });
+  }, [comments, user, checkFollowStatus]);
 
   const handleSubmitComment = async () => {
     if (!user) {
@@ -275,109 +368,150 @@ export function WagerComments({ wagerId }: WagerCommentsProps) {
           </div>
         ) : (
           comments.map((comment) => (
-            <div key={comment.id} className="bg-card border border-border rounded-lg p-3">
-              {/* Comment Header */}
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    {comment.profiles?.avatar_url ? (
-                      <img
-                        src={comment.profiles.avatar_url}
-                        alt={comment.profiles.username || "User"}
-                        className="w-full h-full rounded-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-xs font-bold text-primary">
-                        {(comment.profiles?.username || "U")[0].toUpperCase()}
-                      </span>
+            <div key={comment.id} className="bg-card border border-border rounded-lg p-2.5">
+              <div className="flex items-start gap-2">
+                <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  {comment.profiles?.avatar_url ? (
+                    <img
+                      src={comment.profiles.avatar_url}
+                      alt={comment.profiles.username || "User"}
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-xs font-bold text-primary">
+                      {(comment.profiles?.username || "U")[0].toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  {/* Header with username, timestamp, and actions */}
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="flex items-center gap-1.5 flex-nowrap">
+                        <span className="text-sm font-semibold leading-tight flex-shrink-0">
+                          <Link
+                            href={`/profile/${comment.profiles?.username || comment.user_id}`}
+                            className="hover:text-primary transition-colors"
+                          >
+                            {comment.profiles?.username || "Anonymous"}
+                          </Link>
+                        </span>
+                        {user && user.id !== comment.user_id && (
+                          <button
+                            onClick={() => toggleFollow(comment.user_id, comment.profiles?.username || "Anonymous")}
+                            disabled={togglingFollow[comment.user_id] || checkingFollow[comment.user_id]}
+                            className="text-xs text-primary hover:text-primary/80 transition-colors disabled:opacity-50 flex items-center gap-0.5 whitespace-nowrap flex-shrink-0"
+                            title={followingStatus[comment.user_id] ? "Unfollow" : "Follow"}
+                          >
+                            {togglingFollow[comment.user_id] ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : followingStatus[comment.user_id] ? (
+                              <>
+                                <UserMinus className="h-3 w-3" />
+                                <span>Following</span>
+                              </>
+                            ) : (
+                              <>
+                                <UserPlus className="h-3 w-3" />
+                                <span>Follow</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground leading-tight mt-0.5">
+                        {(() => {
+                          try {
+                            const date = new Date(comment.created_at);
+                            if (isNaN(date.getTime())) {
+                              return 'just now';
+                            }
+                            return formatDistanceToNow(date, { 
+                              addSuffix: true,
+                              includeSeconds: false
+                            });
+                          } catch (error) {
+                            return 'just now';
+                          }
+                        })()}
+                      </div>
+                    </div>
+                    {user?.id === comment.user_id && (
+                      <div className="flex items-center gap-0.5">
+                        <button
+                          onClick={() => {
+                            setEditingId(comment.id);
+                            setEditContent({ ...editContent, [comment.id]: comment.content });
+                          }}
+                          className="p-1 hover:bg-muted rounded transition active:scale-95 touch-manipulation"
+                          title="Edit"
+                        >
+                          <Edit2 className="h-3.5 w-3.5 text-muted-foreground" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(comment.id)}
+                          disabled={deletingId === comment.id}
+                          className="p-1 hover:bg-muted rounded transition active:scale-95 touch-manipulation"
+                          title="Delete"
+                        >
+                          {deletingId === comment.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                          ) : (
+                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                          )}
+                        </button>
+                      </div>
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <Link
-                      href={`/profile/${comment.user_id}`}
-                      className="text-sm font-semibold truncate hover:text-primary hover:underline block"
-                    >
-                      {comment.profiles?.username || "Anonymous"}
-                    </Link>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
-                    </p>
-                  </div>
-                </div>
-                {user?.id === comment.user_id && (
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => {
-                        setEditingId(comment.id);
-                        setEditContent({ ...editContent, [comment.id]: comment.content });
-                      }}
-                      className="p-1.5 hover:bg-muted rounded transition active:scale-95 touch-manipulation"
-                      title="Edit"
-                    >
-                      <Edit2 className="h-3.5 w-3.5 text-muted-foreground" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(comment.id)}
-                      disabled={deletingId === comment.id}
-                      className="p-1.5 hover:bg-muted rounded transition active:scale-95 touch-manipulation"
-                      title="Delete"
-                    >
-                      {deletingId === comment.id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                      ) : (
-                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+
+                  {/* Comment Content */}
+                  {editingId === comment.id ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={editContent[comment.id] || comment.content}
+                        onChange={(e) =>
+                          setEditContent({ ...editContent, [comment.id]: e.target.value })
+                        }
+                        rows={3}
+                        className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleEdit(comment.id)}
+                          disabled={submitting}
+                          className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50 transition text-sm font-medium"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingId(null);
+                            setEditContent({ ...editContent, [comment.id]: "" });
+                          }}
+                          className="px-3 py-1.5 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition text-sm font-medium"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-sm text-foreground mb-1 whitespace-pre-wrap break-words">
+                        {comment.content}
+                      </p>
+                      {user && (
+                        <button
+                          onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
+                          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition -ml-1"
+                        >
+                          <Reply className="h-3.5 w-3.5" />
+                          {replyingTo === comment.id ? "Cancel" : "Reply"}
+                        </button>
                       )}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Comment Content */}
-              {editingId === comment.id ? (
-                <div className="space-y-2">
-                  <textarea
-                    value={editContent[comment.id] || comment.content}
-                    onChange={(e) =>
-                      setEditContent({ ...editContent, [comment.id]: e.target.value })
-                    }
-                    rows={3}
-                    className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-                  />
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleEdit(comment.id)}
-                      disabled={submitting}
-                      className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50 transition text-sm font-medium"
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={() => {
-                        setEditingId(null);
-                        setEditContent({ ...editContent, [comment.id]: "" });
-                      }}
-                      className="px-3 py-1.5 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition text-sm font-medium"
-                    >
-                      Cancel
-                    </button>
-                  </div>
+                    </>
+                  )}
                 </div>
-              ) : (
-                <p className="text-sm text-foreground mb-2 whitespace-pre-wrap break-words">
-                  {comment.content}
-                </p>
-              )}
-
-              {/* Reply Button */}
-              {!editingId && user && (
-                <button
-                  onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
-                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition mb-2"
-                >
-                  <Reply className="h-3.5 w-3.5" />
-                  {replyingTo === comment.id ? "Cancel" : "Reply"}
-                </button>
-              )}
+              </div>
 
               {/* Reply Input */}
               {replyingTo === comment.id && user && (
@@ -437,7 +571,20 @@ export function WagerComments({ wagerId }: WagerCommentsProps) {
                               {reply.profiles?.username || "Anonymous"}
                             </p>
                             <p className="text-[10px] text-muted-foreground">
-                              {formatDistanceToNow(new Date(reply.created_at), { addSuffix: true })}
+                              {(() => {
+                                try {
+                                  const date = new Date(reply.created_at);
+                                  if (isNaN(date.getTime())) {
+                                    return 'just now';
+                                  }
+                                  return formatDistanceToNow(date, { 
+                                    addSuffix: true,
+                                    includeSeconds: false
+                                  });
+                                } catch (error) {
+                                  return 'just now';
+                                }
+                              })()}
                             </p>
                           </div>
                         </div>

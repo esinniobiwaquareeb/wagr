@@ -155,14 +155,14 @@ export function PlatformActivities() {
     const wager = activity.wagers;
     const wagerTitle = wager?.title || "a wager";
     const wagerLink = wager ? `/wager/${wager.short_id || wager.id}` : "#";
-    const userProfileLink = activity.user_id ? `/profile/${activity.user_id}` : null;
+    const userProfileLink = activity.user_id ? `/profile/${activity.profiles?.username || activity.user_id}` : null;
     const sideName = (side: string) => {
       if (!wager) return side;
       return side === "a" ? wager.side_a : wager.side_b;
     };
     
     const UsernameLink = userProfileLink ? (
-      <Link href={userProfileLink} className="font-semibold hover:text-primary hover:underline">
+      <Link href={userProfileLink} className="font-semibold hover:text-primary hover:underline inline-block">
         {username}
       </Link>
     ) : (

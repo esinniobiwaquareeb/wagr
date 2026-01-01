@@ -162,8 +162,8 @@ export default function Leaderboard() {
                       {getRankIcon(user.rank)}
                     </div>
                     <Link
-                      href={`/profile/${user.id}`}
-                      className="font-semibold text-sm truncate hover:text-primary hover:underline block"
+                      href={`/profile/${user.username || user.id}`}
+                      className="font-semibold text-sm truncate hover:text-primary hover:underline inline-block"
                     >
                       {maskUsername(user.username)}
                     </Link>
@@ -230,8 +230,8 @@ export default function Leaderboard() {
                   {/* Username */}
                   <div className="flex-shrink-0 w-48 lg:w-64">
                     <Link
-                      href={`/profile/${user.id}`}
-                      className="font-semibold text-base lg:text-lg truncate hover:text-primary hover:underline block"
+                      href={`/profile/${user.username || user.id}`}
+                      className="font-semibold text-base lg:text-lg truncate hover:text-primary hover:underline inline-block"
                     >
                       {maskUsername(user.username)}
                     </Link>

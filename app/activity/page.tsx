@@ -175,8 +175,8 @@ export default function ActivityPage() {
                           <div className="flex items-center gap-2 mb-1">
                             {activity.user && (
                               <button
-                                onClick={() => router.push(`/profile/${activity.user.id}`)}
-                                className="font-medium hover:underline"
+                                onClick={() => router.push(`/profile/${activity.user.username || activity.user.id}`)}
+                                className="font-medium hover:underline inline-block"
                               >
                                 {activity.user.username || activity.user.email || "User"}
                               </button>

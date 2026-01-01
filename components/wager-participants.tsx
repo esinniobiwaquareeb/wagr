@@ -65,8 +65,8 @@ export function WagerParticipants({ entries, userNames, wager }: WagerParticipan
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <Link
-                    href={`/profile/${entry.user_id}`}
-                    className="text-sm font-medium text-foreground truncate hover:text-primary hover:underline"
+                    href={`/profile/${userNames[entry.user_id] || entry.user_id}`}
+                    className="text-sm font-medium text-foreground truncate hover:text-primary hover:underline inline-block"
                   >
                     {maskUsername(userNames[entry.user_id] || `User ${entry.user_id.slice(0, 8)}`)}
                   </Link>

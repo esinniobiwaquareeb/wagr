@@ -29,7 +29,35 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(response.data || response);
+    // nestjsServerFetch returns the full response object from backend
+    // Backend returns: { success: true, data: { profile: {...} } }
+    // nestjsServerFetch returns the whole backend response: { success: true, data: { profile: {...} } }
+    // So response.data is { profile: {...} }
+    
+    // Ensure we always return { success: true, data: { profile: {...} } }
+    const profileData = response.data;
+    
+    // If profileData has a profile property, use it directly
+    if (profileData && typeof profileData === 'object' && 'profile' in profileData) {
+      return NextResponse.json({
+        success: true,
+        data: profileData,
+      });
+    }
+    
+    // If profileData is the profile object itself, wrap it
+    if (profileData && typeof profileData === 'object' && 'id' in profileData) {
+      return NextResponse.json({
+        success: true,
+        data: { profile: profileData },
+      });
+    }
+    
+    // Fallback: wrap whatever we got
+    return NextResponse.json({
+      success: true,
+      data: { profile: profileData },
+    });
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to get profile' },
