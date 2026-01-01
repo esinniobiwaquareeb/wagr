@@ -581,36 +581,57 @@ function WagersPageContent() {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 lg:py-8">
-        {/* Mobile Header */}
-        <div className="lg:hidden mb-4">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h1 className="text-xl font-bold text-foreground">Markets</h1>
-              <p className="text-xs text-muted-foreground">
-                {filteredWagers.length} {filteredWagers.length === 1 ? 'wager' : 'wagers'} available
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 lg:py-6">
+        {/* Mobile Header - Sticky on scroll */}
+        <div className="lg:hidden mb-4 space-y-3">
+          {/* Top Bar: Title, Count, Actions */}
+          <div className="flex items-center justify-between">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl font-bold text-foreground truncate">Markets</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {filteredWagers.length} {filteredWagers.length === 1 ? 'market' : 'markets'}
               </p>
             </div>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                showFilters || selectedCategory || searchQuery
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground'
-              }`}
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-              {(selectedCategory || searchQuery) && (
-                <span className="bg-primary-foreground/20 px-1.5 py-0.5 rounded text-xs">
-                  {[selectedCategory, searchQuery].filter(Boolean).length}
-                </span>
-              )}
-            </button>
+            <div className="flex items-center gap-2 ml-3">
+              {/* Create Button - Mobile */}
+              <button
+                onClick={() => {
+                  if (!user) {
+                    setShowAuthModal(true);
+                  } else {
+                    setShowCreateModal(true);
+                  }
+                }}
+                className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary text-primary-foreground shadow-sm hover:opacity-90 transition-all active:scale-95 touch-manipulation"
+                aria-label="Create market"
+              >
+                <Plus className="h-5 w-5" />
+              </button>
+              {/* Filter Toggle */}
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`flex items-center justify-center w-10 h-10 rounded-lg text-sm font-medium transition-all ${
+                  showFilters || selectedCategory || searchQuery
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground'
+                }`}
+                aria-label="Toggle filters"
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+                {(selectedCategory || searchQuery) && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-background flex items-center justify-center">
+                    <span className="text-[8px] font-bold text-white">
+                      {[selectedCategory, searchQuery].filter(Boolean).length}
+                    </span>
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
 
-          {/* Mobile Search & Filters (collapsible) */}
+          {/* Mobile Search - Always visible when filters are open */}
           {showFilters && (
-            <div className="space-y-3 mb-4 p-3 bg-muted/30 rounded-xl border border-border/50">
+            <div className="space-y-3 p-3 bg-card border border-border rounded-xl shadow-sm">
               {/* Search Input */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -624,7 +645,8 @@ function WagersPageContent() {
                 {localSearchQuery && (
                   <button
                     onClick={() => handleSearchChange('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-full"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-full transition-colors"
+                    aria-label="Clear search"
                   >
                     <X className="h-4 w-4 text-muted-foreground" />
                   </button>
@@ -633,41 +655,73 @@ function WagersPageContent() {
               
               {/* Category Pills */}
               {allCategories.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => handleCategoryChange(null)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                      !selectedCategory
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                    }`}
-                  >
-                    All
-                  </button>
-                  {allCategories.map((cat) => (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Categories</p>
+                  <div className="flex flex-wrap gap-2">
                     <button
-                      key={cat}
-                      onClick={() => handleCategoryChange(cat)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all capitalize ${
-                        selectedCategory === cat
-                          ? 'bg-primary text-primary-foreground'
+                      onClick={() => handleCategoryChange(null)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                        !selectedCategory
+                          ? 'bg-primary text-primary-foreground shadow-sm'
                           : 'bg-muted text-muted-foreground hover:bg-muted/80'
                       }`}
                     >
-                      {cat}
+                      All
                     </button>
-                  ))}
+                    {allCategories.map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => handleCategoryChange(cat)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all capitalize ${
+                          selectedCategory === cat
+                            ? 'bg-primary text-primary-foreground shadow-sm'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {/* Clear Filters */}
+              {/* Active Filters & Clear */}
               {(selectedCategory || searchQuery) && (
-                <button
-                  onClick={clearFilters}
-                  className="text-xs text-primary hover:underline"
-                >
-                  Clear all filters
-                </button>
+                <div className="flex items-center justify-between pt-2 border-t border-border">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {selectedCategory && (
+                      <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                        <span className="capitalize">{selectedCategory}</span>
+                        <button 
+                          onClick={() => handleCategoryChange(null)}
+                          className="hover:bg-primary/20 rounded-full p-0.5 -mr-1"
+                          aria-label="Remove category filter"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    )}
+                    {searchQuery && (
+                      <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium">
+                        <Search className="h-3 w-3" />
+                        <span className="max-w-[120px] truncate">"{searchQuery}"</span>
+                        <button 
+                          onClick={() => handleSearchChange('')}
+                          className="hover:bg-muted/80 rounded-full p-0.5 -mr-1"
+                          aria-label="Clear search"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={clearFilters}
+                    className="text-xs text-primary hover:underline font-medium"
+                  >
+                    Clear all
+                  </button>
+                </div>
               )}
             </div>
           )}
@@ -675,12 +729,12 @@ function WagersPageContent() {
 
         {/* Trending Wagers Section - Show when no filters are active */}
         {quickFilter === 'none' && !selectedCategory && !searchQuery && activeTab === 'all' && (
-          <div className="mb-6">
+          <div className="mb-6 lg:mb-8">
             <TrendingWagers />
           </div>
         )}
 
-        {/* Quick Filter Tags (Polymarket-style) - Both Mobile & Desktop */}
+        {/* Quick Filter Tags - Improved styling */}
         <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-4 scrollbar-hide -mx-1 px-1">
           <button
             onClick={() => handleQuickFilterChange('none')}
@@ -738,7 +792,7 @@ function WagersPageContent() {
           </button>
         </div>
 
-        {/* Mobile: Tab Navigation - Now with 5 tabs including All */}
+        {/* Mobile: Tab Navigation - Improved spacing and hierarchy */}
         <div className="lg:hidden flex items-center gap-1.5 overflow-x-auto pb-2 mb-4 scrollbar-hide -mx-1 px-1">
           <button
             onClick={() => handleTabChange('all')}
@@ -809,60 +863,81 @@ function WagersPageContent() {
           </button>
         </div>
 
-        {/* Desktop: Sleek Tab Navigation with Stats */}
+        {/* Desktop: Header with Search and Actions */}
         <div className="hidden lg:block mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-bold mb-1">Active Markets</h1>
+              <h1 className="text-2xl lg:text-3xl font-bold mb-1">Active Markets</h1>
               <p className="text-sm text-muted-foreground">
-                {filteredWagers.length} {filteredWagers.length === 1 ? 'wager' : 'wagers'} available
+                {filteredWagers.length} {filteredWagers.length === 1 ? 'market' : 'markets'} available
               </p>
             </div>
             <div className="flex items-center gap-3">
               {/* Desktop Search */}
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                 <input
                   type="text"
                   placeholder="Search markets..."
                   value={localSearchQuery}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  className="w-64 pl-10 pr-10 py-2 bg-muted/50 border border-border rounded-lg text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:bg-background transition-all"
+                  className="w-72 pl-10 pr-10 py-2.5 bg-muted/50 border border-border rounded-lg text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:bg-background focus:border-primary/50 transition-all"
                 />
                 {localSearchQuery && (
                   <button
                     onClick={() => handleSearchChange('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 hover:bg-muted rounded-full"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-full transition-colors"
+                    aria-label="Clear search"
                   >
                     <X className="h-3.5 w-3.5 text-muted-foreground" />
                   </button>
                 )}
               </div>
+              {/* Desktop Category Filter */}
+              {allCategories.length > 0 && (
+                <div className="relative">
+                  <select
+                    value={selectedCategory || ''}
+                    onChange={(e) => handleCategoryChange(e.target.value || null)}
+                    className="appearance-none pl-4 pr-8 py-2.5 bg-muted/50 border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:bg-background focus:border-primary/50 transition-all cursor-pointer min-w-[140px]"
+                  >
+                    <option value="">All Categories</option>
+                    {allCategories.map((cat) => (
+                      <option key={cat} value={cat} className="capitalize">
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                  <SlidersHorizontal className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                </div>
+              )}
               <button
                 onClick={() => {
-                if (!user) {
-                  setShowAuthModal(true);
-                } else {
-                  setShowCreateModal(true);
-                }
+                  if (!user) {
+                    setShowAuthModal(true);
+                  } else {
+                    setShowCreateModal(true);
+                  }
                 }}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 hover:shadow-md transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 shadow-sm"
               >
-              <Plus className="h-4 w-4" />
-              <span>Create Market</span>
+                <Plus className="h-4 w-4" />
+                <span>Create Market</span>
               </button>
             </div>
-        </div>
+          </div>
 
           {/* Active filters indicator for desktop */}
           {(selectedCategory || searchQuery) && (
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
+              <span className="text-xs font-medium text-muted-foreground">Active filters:</span>
               {selectedCategory && (
                 <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
                   <span className="capitalize">{selectedCategory}</span>
                   <button 
                     onClick={() => handleCategoryChange(null)}
-                    className="hover:bg-primary/20 rounded-full p-0.5"
+                    className="hover:bg-primary/20 rounded-full p-0.5 transition-colors"
+                    aria-label="Remove category filter"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -874,7 +949,8 @@ function WagersPageContent() {
                   <span>"{searchQuery}"</span>
                   <button 
                     onClick={() => handleSearchChange('')}
-                    className="hover:bg-muted/80 rounded-full p-0.5"
+                    className="hover:bg-muted/80 rounded-full p-0.5 transition-colors"
+                    aria-label="Clear search"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -882,15 +958,15 @@ function WagersPageContent() {
               )}
               <button
                 onClick={clearFilters}
-                className="text-xs text-muted-foreground hover:text-foreground"
+                className="text-xs text-primary hover:underline font-medium ml-auto"
               >
-                Clear all
+                Clear all filters
               </button>
             </div>
           )}
 
-          {/* Sleek Tab Bar */}
-          <div className="flex items-center gap-1 bg-muted/30 backdrop-blur-sm rounded-xl p-1 border border-border/50">
+          {/* Sleek Tab Bar - Improved styling */}
+          <div className="flex items-center gap-1 bg-muted/30 backdrop-blur-sm rounded-xl p-1.5 border border-border/50 shadow-sm">
             <button
               onClick={() => handleTabChange('all')}
               className={`relative flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all min-h-[44px] group ${
@@ -992,15 +1068,15 @@ function WagersPageContent() {
           </div>
         </div>
 
-        {/* Wager Grid */}
+        {/* Wager Grid - Improved spacing and responsive breakpoints */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-card border border-border rounded-lg p-4 lg:p-5">
-                <Skeleton className="h-6 w-3/4 mb-2" />
-                <Skeleton className="h-4 w-full mb-3" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-5">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="bg-card border border-border rounded-xl p-4 lg:p-5 shadow-sm">
+                <Skeleton className="h-6 w-3/4 mb-3" />
+                <Skeleton className="h-4 w-full mb-2" />
                 <Skeleton className="h-4 w-2/3 mb-4" />
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <Skeleton className="h-4 w-20" />
                   <Skeleton className="h-4 w-24" />
                 </div>
@@ -1008,32 +1084,46 @@ function WagersPageContent() {
             ))}
           </div>
         ) : filteredWagers.length === 0 ? (
-          <div className="text-center py-20 lg:py-24 bg-card border border-border rounded-xl lg:rounded-2xl">
+          <div className="text-center py-16 lg:py-20 bg-card border border-border rounded-xl lg:rounded-2xl shadow-sm">
             <div className="max-w-md mx-auto px-4">
               <div className="h-20 w-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
                 <HomeIcon className="h-10 w-10 text-primary" />
               </div>
-              <h3 className="text-xl lg:text-2xl font-bold mb-3">No wagers found</h3>
+              <h3 className="text-xl lg:text-2xl font-bold mb-3">No markets found</h3>
               <p className="text-sm lg:text-base text-muted-foreground mb-6">
-                {searchQuery ? "Try a different search term" : "Be the first to create a market!"}
+                {searchQuery 
+                  ? "Try a different search term or clear your filters" 
+                  : selectedCategory
+                  ? `No markets found in "${selectedCategory}" category`
+                  : "Be the first to create a market!"}
               </p>
-              <button
-                onClick={() => {
-                  if (!user) {
-                    setShowAuthModal(true);
-                  } else {
-                    setShowCreateModal(true);
-                  }
-                }}
-                className="inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-lg font-medium hover:opacity-90 transition-all active:scale-95 touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px] shadow-sm hover:shadow-md"
-              >
-                <span className="text-lg">+</span>
-                <span>Create Market</span>
-              </button>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                {(searchQuery || selectedCategory) && (
+                  <button
+                    onClick={clearFilters}
+                    className="inline-flex items-center justify-center gap-2 bg-muted text-foreground px-6 py-3 rounded-lg font-medium hover:bg-muted/80 transition-all active:scale-95 touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px]"
+                  >
+                    Clear Filters
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    if (!user) {
+                      setShowAuthModal(true);
+                    } else {
+                      setShowCreateModal(true);
+                    }
+                  }}
+                  className="inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-lg font-medium hover:opacity-90 transition-all active:scale-95 touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px] shadow-sm hover:shadow-md"
+                >
+                  <Plus className="h-5 w-5" />
+                  <span>Create Market</span>
+                </button>
+              </div>
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-5">
             {filteredWagers.map((wager) => (
               <WagerCard
                 key={wager.id}

@@ -48,14 +48,15 @@ function getCountryFromTimezone(): { countryCode: string; countryName: string } 
     };
 
     if (timezoneToCountry[timezone]) {
-      return timezoneToCountry[timezone];
+      const country = timezoneToCountry[timezone];
+      return { countryCode: country.code, countryName: country.name };
     }
 
     // Try to extract from timezone string
     if (timezone.startsWith('Africa/')) {
       const city = timezone.replace('Africa/', '');
       // Return a generic African country code if we can't determine
-      return { code: 'NG', name: 'Nigeria' }; // Default to Nigeria for African timezones
+      return { countryCode: 'NG', countryName: 'Nigeria' }; // Default to Nigeria for African timezones
     }
   } catch (error) {
     console.error('Error getting country from timezone:', error);
@@ -101,7 +102,7 @@ function getCountryFromLanguage(): { countryCode: string; countryName: string } 
       };
 
       if (countryNames[countryCode]) {
-        return { code: countryCode, name: countryNames[countryCode] };
+        return { countryCode, countryName: countryNames[countryCode] };
       }
     }
   } catch (error) {

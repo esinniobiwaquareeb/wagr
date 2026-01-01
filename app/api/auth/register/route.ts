@@ -11,10 +11,10 @@ export async function POST(request: NextRequest) {
     // Get client IP address for backend geolocation fallback
     const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
                      request.headers.get('x-real-ip') ||
-                     request.ip ||
                      'unknown';
 
     // Call NestJS backend register endpoint
+    // Note: IP address is passed via headers in the request, backend will extract it
     const registerData = await nestjsPost<{
       message: string;
       user: {
@@ -31,10 +31,6 @@ export async function POST(request: NextRequest) {
       country_code, // Pass detected country code if provided
     }, { 
       requireAuth: false,
-      headers: {
-        'x-forwarded-for': ipAddress,
-        'x-real-ip': ipAddress,
-      },
     });
 
     if (!registerData) {
