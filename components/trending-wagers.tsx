@@ -57,7 +57,20 @@ export function TrendingWagers() {
       setLoading(true);
       // apiGet extracts response.data, so we get the array directly
       const wagersData = await wagersApi.getTrending(10);
-      setWagers(Array.isArray(wagersData) ? wagersData : []);
+      
+      // Handle both array and object with data property
+      let wagersArray: TrendingWager[] = [];
+      if (Array.isArray(wagersData)) {
+        wagersArray = wagersData;
+      } else if (wagersData && typeof wagersData === 'object') {
+        const dataObj = wagersData as any;
+        if ('data' in dataObj && Array.isArray(dataObj.data)) {
+          wagersArray = dataObj.data;
+        }
+      }
+      
+      logger.debug("Trending wagers fetched", { count: wagersArray.length, firstWager: wagersArray[0]?.title });
+      setWagers(wagersArray);
     } catch (error) {
       logger.error("Failed to fetch trending wagers", error);
       setWagers([]);

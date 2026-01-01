@@ -17,11 +17,17 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(response.data || response);
+    // Backend returns { success: true, data: [...], meta: {...} }
+    // apiGet expects { data: ... }, so return in that format
+    return NextResponse.json({
+      success: true,
+      data: response.data || [],
+      meta: (response as any).meta,
+    });
   } catch (error: any) {
     console.error('Error fetching trending wagers:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch trending wagers', message: error.message },
+      { success: false, error: 'Failed to fetch trending wagers', message: error.message },
       { status: 500 },
     );
   }
