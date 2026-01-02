@@ -30,6 +30,7 @@ export async function nestjsServerFetch<T>(
   options?: RequestInit & { 
     token?: string | null;
     requireAuth?: boolean;
+    signal?: AbortSignal;
   }
 ): Promise<{ success: boolean; data?: T; error?: any }> {
   const method = options?.method || 'GET';
