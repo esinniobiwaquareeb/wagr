@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { nestjsServerFetch } from '@/lib/nestjs-server';
 import { cookies } from 'next/headers';
+import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
+import { logError } from '@/lib/error-handler';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,6 +12,10 @@ export async function POST(request: NextRequest) {
     // Get token from cookies
     const cookieStore = await cookies();
     const token = cookieStore.get('auth_token')?.value || null;
+
+    if (!token) {
+      throw new Error('Authentication required');
+    }
 
     const response = await nestjsServerFetch('/subscriptions/initialize-payment', {
       method: 'POST',
@@ -22,19 +28,14 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({ provider: provider || 'paystack' }),
     });
 
-    if (!response.success) {
-      return NextResponse.json(
-        { success: false, error: response.error?.message || 'Failed to initialize subscription payment' },
-        { status: 500 },
-      );
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'Failed to initialize subscription payment');
     }
 
-    return NextResponse.json(response.data || response);
-  } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: error.message || 'Failed to initialize subscription payment' },
-      { status: 500 },
-    );
+    return successResponseNext(response.data);
+  } catch (error) {
+    logError(error as Error);
+    return appErrorToResponse(error);
   }
 }
 
