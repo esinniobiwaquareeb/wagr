@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -19,6 +20,7 @@ interface ConfirmDialogProps {
   cancelText?: string;
   variant?: "default" | "destructive";
   onConfirm: () => void | Promise<void>;
+  loading?: boolean;
 }
 
 export function ConfirmDialog({
@@ -30,8 +32,11 @@ export function ConfirmDialog({
   cancelText = "Cancel",
   variant = "default",
   onConfirm,
+  loading = false,
 }: ConfirmDialogProps) {
   const handleConfirm = async () => {
+    if (loading) return; // Prevent action if already loading
+    
     try {
       // Call onConfirm - if it's async, wait for it
       const result = onConfirm();
@@ -62,14 +67,23 @@ export function ConfirmDialog({
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
+            disabled={loading}
           >
             {cancelText}
           </Button>
           <Button
             variant={variant}
             onClick={handleConfirm}
+            disabled={loading}
           >
-            {confirmText}
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                {confirmText}...
+              </>
+            ) : (
+              confirmText
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

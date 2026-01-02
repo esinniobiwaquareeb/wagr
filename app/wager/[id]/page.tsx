@@ -1146,6 +1146,7 @@ export default function WagerDetail() {
         cancelText="Cancel"
         variant="destructive"
         onConfirm={confirmDelete}
+        loading={deleting}
       />
 
       <ConfirmDialog
@@ -1160,6 +1161,7 @@ export default function WagerDetail() {
         confirmText="Join"
         cancelText="Cancel"
         onConfirm={confirmJoin}
+        loading={joining}
       />
 
       <ConfirmDialog
@@ -1175,6 +1177,7 @@ export default function WagerDetail() {
         cancelText="Cancel"
         variant="destructive"
         onConfirm={handleUnjoin}
+        loading={unjoining}
       />
 
       <ConfirmDialog
@@ -1189,6 +1192,7 @@ export default function WagerDetail() {
         confirmText="Change Side"
         cancelText="Cancel"
         onConfirm={handleChangeSide}
+        loading={changingSide}
       />
 
       {/* Resolve Dialog with Side Selection */}
@@ -1357,9 +1361,16 @@ export default function WagerDetail() {
               <button
                 onClick={confirmEdit}
                 disabled={editing}
-                className="flex-1 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition disabled:opacity-50"
+                className="flex-1 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {editing ? "Updating..." : "Update Wager"}
+                {editing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  "Update Wager"
+                )}
               </button>
             </div>
           </div>
@@ -1429,7 +1440,7 @@ export default function WagerDetail() {
             {/* Option A */}
             <button
               onClick={() => canBet && !userEntry && handleJoinClick("a")}
-              disabled={!canBet || !!userEntry || wager.status !== "OPEN"}
+              disabled={!canBet || !!userEntry || wager.status !== "OPEN" || joining}
               className={`w-full flex items-center justify-between px-3 py-2.5 sm:py-3 rounded-lg sm:rounded-xl transition-all ${
                 isSettled && wager.winning_side === "a"
                   ? "bg-emerald-500/15 border-2 border-emerald-500/40 ring-1 ring-emerald-500/20"
@@ -1438,10 +1449,14 @@ export default function WagerDetail() {
                   : canBet && !userEntry
                   ? "bg-emerald-500/5 border border-emerald-500/20 hover:bg-emerald-500/10 hover:border-emerald-500/40 active:scale-[0.98]"
                   : "bg-muted/20 border border-border/40"
-              } disabled:cursor-default`}
+              } disabled:cursor-default disabled:opacity-50`}
             >
               <div className="flex items-center gap-2 min-w-0 flex-1">
-                {isSettled && wager.winning_side === "a" && <Trophy className="h-4 w-4 text-emerald-500 flex-shrink-0" />}
+                {joining && selectedSide === "a" ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-emerald-600 flex-shrink-0" />
+                ) : isSettled && wager.winning_side === "a" ? (
+                  <Trophy className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                ) : null}
                 <span className={`font-medium truncate text-sm sm:text-base ${
                   isSettled && wager.winning_side === "a" ? "text-emerald-700 dark:text-emerald-400" :
                   userEntry?.side === "a" ? "text-primary" :
@@ -1463,7 +1478,7 @@ export default function WagerDetail() {
             {/* Option B */}
             <button
               onClick={() => canBet && !userEntry && handleJoinClick("b")}
-              disabled={!canBet || !!userEntry || wager.status !== "OPEN"}
+              disabled={!canBet || !!userEntry || wager.status !== "OPEN" || joining}
               className={`w-full flex items-center justify-between px-3 py-2.5 sm:py-3 rounded-lg sm:rounded-xl transition-all ${
                 isSettled && wager.winning_side === "b"
                   ? "bg-emerald-500/15 border-2 border-emerald-500/40 ring-1 ring-emerald-500/20"
@@ -1472,10 +1487,14 @@ export default function WagerDetail() {
                   : canBet && !userEntry
                   ? "bg-rose-500/5 border border-rose-500/20 hover:bg-rose-500/10 hover:border-rose-500/40 active:scale-[0.98]"
                   : "bg-muted/20 border border-border/40"
-              } disabled:cursor-default`}
+              } disabled:cursor-default disabled:opacity-50`}
             >
               <div className="flex items-center gap-2 min-w-0 flex-1">
-                {isSettled && wager.winning_side === "b" && <Trophy className="h-4 w-4 text-emerald-500 flex-shrink-0" />}
+                {joining && selectedSide === "b" ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-rose-600 flex-shrink-0" />
+                ) : isSettled && wager.winning_side === "b" ? (
+                  <Trophy className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                ) : null}
                 <span className={`font-medium truncate text-sm sm:text-base ${
                   isSettled && wager.winning_side === "b" ? "text-emerald-700 dark:text-emerald-400" :
                   userEntry?.side === "b" ? "text-primary" :
@@ -1594,17 +1613,26 @@ export default function WagerDetail() {
                 {wager.status === "OPEN" && user && entries.filter(e => String(e.user_id).trim() !== String(user.id).trim()).length === 0 && !isDeadlineElapsed(wager.deadline) && (
                   <>
                     <button onClick={handleEdit} disabled={editing} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-50 transition">
-                      <Edit2 className="h-3.5 w-3.5" />
+                      {editing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Edit2 className="h-3.5 w-3.5" />}
                     </button>
                     <button onClick={handleDelete} disabled={deleting} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive disabled:opacity-50 transition">
-                      <Trash2 className="h-3.5 w-3.5" />
+                      {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                     </button>
                   </>
                 )}
                 {canCreatorResolve && (
                   <button onClick={handleResolve} disabled={resolving} className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-blue-500 text-white hover:bg-blue-600 text-[11px] sm:text-xs font-medium disabled:opacity-50 transition">
-                    <Trophy className="h-3.5 w-3.5" />
-                    <span>Resolve</span>
+                    {resolving ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span>Resolving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trophy className="h-3.5 w-3.5" />
+                        <span>Resolve</span>
+                      </>
+                    )}
                   </button>
                 )}
               </div>
