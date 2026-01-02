@@ -7,7 +7,7 @@ import { AuthModal } from "@/components/auth-modal";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
-import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Coins, Trash2, Edit2, Share2, UserPlus, MessageSquare, Activity, Loader2, Flame, Check, X } from "lucide-react";
+import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Coins, Trash2, Edit2, Share2, UserPlus, MessageSquare, Activity, Loader2, Flame, Check, X, ArrowLeft } from "lucide-react";
 import { SocialShareButtons } from "@/components/social-share-buttons";
 import { WagerInviteDialog } from "@/components/wager-invite-dialog";
 import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
@@ -1122,11 +1122,11 @@ export default function WagerDetail() {
     feePercentage: wager.fee_percentage || defaultPlatformFee,
   });
 
-  // Check if wager is settled (for display logic)
-  const isSettled = wager.status === "SETTLED";
+  // Check if wager is settled or resolved (for display logic)
+  const isSettled = wager.status === "SETTLED" || wager.status === "RESOLVED";
 
   return (
-    <main className="flex-1 pb-24 md:pb-0">
+    <main className=" flex-1 pb-24 md:pb-0">
       <AuthModal
         isOpen={showAuthModal}
         onClose={() => {
@@ -1366,9 +1366,16 @@ export default function WagerDetail() {
         </div>
       )}
 
-      <div className="max-w-5xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-2 sm:py-4">
-        {/* Back Button */}
+      {/* Floating Back Button - Doesn't take space */}
+      <button
+        onClick={() => router.back()}
+        className="fixed top-4 left-4 z-50 flex items-center justify-center w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm border border-border/50 shadow-lg hover:bg-background hover:shadow-xl transition-all hover:scale-105 active:scale-95 md:top-6 md:left-6"
+        aria-label="Back"
+      >
+        <ArrowLeft className="h-4 w-4" />
+      </button>
 
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-2 sm:py-4">
         {/* Main Card - Compact Mobile Design */}
         <article className="bg-card border border-border/50 rounded-xl sm:rounded-2xl overflow-hidden mb-3 sm:mb-4">
           {/* Header - Tighter on mobile */}
@@ -1492,9 +1499,30 @@ export default function WagerDetail() {
               <p className="text-[11px] text-amber-600 dark:text-amber-400 text-center font-medium py-1">⚡ Betting closes in &lt;20s</p>
             )}
             {isSettled && (
-              <p className="text-[11px] text-emerald-600 dark:text-emerald-400 text-center py-1">
-                ✓ {totalParticipants === 0 ? "Resolved with no participants" : "Winnings distributed"}
-              </p>
+              <>
+                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 text-center py-1">
+                  ✓ {totalParticipants === 0 ? "Resolved with no participants" : "Winnings distributed"}
+                </p>
+                {/* Result Badge - Shows winner and user result */}
+                <div className={`text-[11px] px-3 py-2 rounded mb-2 flex items-center justify-between ${
+                  userEntry && wager.winning_side && userEntry.side === wager.winning_side
+                    ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                    : userEntry && wager.winning_side && userEntry.side !== wager.winning_side
+                    ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                    : 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
+                }`}>
+                  <span className="font-medium">
+                    {userEntry && wager.winning_side && userEntry.side === wager.winning_side 
+                      ? '🎉 Won' 
+                      : userEntry && wager.winning_side && userEntry.side !== wager.winning_side 
+                      ? '✗ Lost' 
+                      : '✓ Resolved'}
+                  </span>
+                  <span className="font-semibold truncate ml-2">
+                    Winner: {wager.winning_side === 'a' ? wager.side_a : wager.side_b}
+                  </span>
+                </div>
+              </>
             )}
           </div>
 

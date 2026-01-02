@@ -107,7 +107,7 @@ export default function Leaderboard() {
 
   return (
     <main className="flex-1 pb-24 md:pb-0">
-      <div className="max-w-6xl mx-auto px-3 md:px-6 py-3 md:py-6">
+      <div className="max-w-7xl mx-auto px-3 md:px-6 py-3 md:py-6">
         <div className="mb-4 md:mb-6">
           {/* Header with integrated back button */}
           <div className="flex items-center justify-between gap-3 md:gap-4 mb-2 md:mb-3">

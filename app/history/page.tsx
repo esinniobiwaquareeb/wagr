@@ -47,7 +47,7 @@ export default function HistoryPage() {
 function HistoryPageSkeleton() {
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 md:py-6">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6">
         <div className="animate-pulse space-y-4">
           <div className="h-8 bg-muted rounded w-48" />
           <div className="h-12 bg-muted rounded" />
@@ -278,7 +278,7 @@ function HistoryPageContent() {
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 md:py-6">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6">
         {/* Header with integrated back button */}
         <div className="mb-6 md:mb-8">
           <div className="flex items-start gap-3 mb-2 md:mb-3">

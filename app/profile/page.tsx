@@ -483,7 +483,7 @@ export default function Profile() {
         variant="default"
         onConfirm={confirmLogout}
       />
-      <div className="max-w-6xl mx-auto px-3 md:px-6 py-3 md:py-6">
+      <div className="max-w-7xl mx-auto px-3 md:px-6 py-3 md:py-6">
         {/* Header with integrated back button */}
         <div className="mb-4 md:mb-6">
           <div className="flex items-start gap-3 mb-2 md:mb-3">

@@ -98,15 +98,13 @@ export default function GamificationPage() {
 
   return (
     <main className="flex-1 pb-24 md:pb-0 overflow-x-hidden">
-      <div className="max-w-6xl mx-auto px-3 md:px-6 py-3 md:py-6 w-full">
+      <div className="max-w-7xl mx-auto px-3 md:px-6 py-3 md:py-6 w-full">
         {/* Header */}
         <div className="mb-4 md:mb-6">
-          <div className="flex items-center gap-2 md:gap-3 mb-2">
-              <h1 className="text-xl md:text-2xl font-bold">Gamification Hub</h1>
-              <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
-                Track your progress, complete challenges, and unlock achievements
-              </p>
-          </div>
+          <h1 className="text-xl md:text-2xl font-bold mb-1">Gamification Hub</h1>
+          <p className="text-sm text-muted-foreground">
+            Track your progress, complete challenges, and unlock achievements
+          </p>
         </div>
 
         {/* Level Card - Hero Section */}
