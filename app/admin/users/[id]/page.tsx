@@ -307,7 +307,7 @@ export default function AdminUserDetailPage({ params }: AdminUserDetailPageProps
       id: "amount",
       header: "Amount",
       cell: (row: Transaction) => {
-        const isPositive = ["deposit", "transfer_in", "wager_win", "wager_refund", "quiz_win", "quiz_refund"].includes(row.type);
+        const isPositive = ["deposit", "transfer_in", "wager_win", "wager_refund", "quiz_win", "quiz_refund", "challenge_reward", "streak_reward"].includes(row.type);
         return (
           <span className={`font-semibold ${isPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
             {isPositive ? "+" : "-"}

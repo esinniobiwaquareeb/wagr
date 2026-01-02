@@ -232,7 +232,7 @@ export default function AdminReportsPage() {
   };
 
   const isPositive = (type: string) => {
-    return ["deposit", "wager_win", "wager_refund"].includes(type);
+    return ["deposit", "wager_win", "wager_refund", "transfer_in", "challenge_reward", "streak_reward"].includes(type);
   };
 
   const transactionTypes = [

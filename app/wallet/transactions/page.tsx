@@ -101,12 +101,14 @@ export default function TransactionsPage() {
       'wager_win': 'Wager Win',
       'wager_refund': 'Wager Refund',
       'wager_edit': 'Wager Edited',
+      'challenge_reward': 'Challenge Reward',
+      'streak_reward': 'Streak Reward',
     };
     return labels[type] || type.split("_").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
   };
 
   const isPositive = (type: string) => {
-    return ["deposit", "wager_win", "wager_refund", "transfer_in"].includes(type);
+    return ["deposit", "wager_win", "wager_refund", "transfer_in", "challenge_reward", "streak_reward"].includes(type);
   };
 
   if (authLoading || loading) {

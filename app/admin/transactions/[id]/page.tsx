@@ -127,7 +127,7 @@ export default function AdminTransactionDetailPage({ params }: AdminTransactionD
   };
 
   const isPositive = (type: string) => {
-    return ["deposit", "wager_win", "wager_refund", "quiz_refund", "transfer_in"].includes(type);
+    return ["deposit", "wager_win", "wager_refund", "quiz_refund", "transfer_in", "challenge_reward", "streak_reward"].includes(type);
   };
 
   const parseReference = (reference: string | null, type: string) => {

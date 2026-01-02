@@ -64,6 +64,8 @@ export function TransactionHistory({ transactions, currency }: TransactionHistor
                   <p className="font-semibold capitalize text-foreground text-sm sm:text-base mb-1">
                     {trans.type === 'transfer_out' ? 'Transfer Sent' : 
                      trans.type === 'transfer_in' ? 'Transfer Received' :
+                     trans.type === 'challenge_reward' ? 'Challenge Reward' :
+                     trans.type === 'streak_reward' ? 'Streak Reward' :
                      trans.type.replace(/_/g, " ")}
                   </p>
                   {trans.description ? (
