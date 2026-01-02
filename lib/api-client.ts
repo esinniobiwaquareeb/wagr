@@ -442,6 +442,8 @@ export const subscriptionsApi = {
   
   getBenefits: () => apiGet<{ data: any }>('/subscriptions/benefits'),
   
+  initializePayment: (provider?: 'paystack' | 'stripe') => apiPost<{ authorization_url?: string; checkout_url?: string; reference: string; provider: string; amount: number }>('/subscriptions/initialize-payment', { provider: provider || 'paystack' }),
+  
   subscribe: (paymentReference?: string) => apiPost<{ data: { subscription: any }; message: string }>('/subscriptions/subscribe', { payment_reference: paymentReference }),
   
   cancel: () => apiDelete<{ message: string }>('/subscriptions/cancel'),

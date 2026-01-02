@@ -793,12 +793,12 @@ export default function Profile() {
                   <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 </Link>
                 <button
-                  onClick={() => setShowCreateWagerModal(true)}
+                  onClick={() => router.push("/subscriptions")}
                   className="w-full flex items-center justify-between p-3 hover:bg-muted rounded-lg transition active:scale-95 touch-manipulation group min-h-[44px]"
                 >
                   <div className="flex items-center gap-3">
                     <Plus className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
-                    <span className="text-sm font-medium">Create Wager</span>
+                    <span className="text-sm font-medium">Subscription</span>
                   </div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 </button>

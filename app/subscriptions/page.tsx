@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,10 +14,11 @@ import { formatCurrency, DEFAULT_CURRENCY } from "@/lib/currency";
 import { extractErrorMessage } from "@/lib/error-extractor";
 import { logger } from "@/lib/logger";
 
-export default function SubscriptionsPage() {
+function SubscriptionsContent() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [status, setStatus] = useState<any>(null);
   const [benefits, setBenefits] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -29,6 +30,20 @@ export default function SubscriptionsPage() {
       fetchData();
     }
   }, [authLoading, user]);
+
+  // Check for success message from payment redirect
+  useEffect(() => {
+    const success = searchParams?.get('success');
+    if (success === 'true') {
+      toast({
+        title: "Subscription Successful!",
+        description: "You've successfully subscribed to Premium. Enjoy your benefits!",
+      });
+      // Remove success param from URL
+      router.replace('/subscriptions');
+      fetchData();
+    }
+  }, [searchParams, router, toast]);
 
   const fetchData = async () => {
     try {
@@ -74,33 +89,26 @@ export default function SubscriptionsPage() {
 
     setSubscribing(true);
     try {
-      // In a real implementation, you would integrate with payment gateway here
-      // For now, we'll just show a message
-      toast({
-        title: "Subscription",
-        description: "Payment integration coming soon. For now, contact support to upgrade.",
-        variant: "default",
-      });
+      // Initialize subscription payment
+      const response = await subscriptionsApi.initializePayment('paystack');
       
-      // Uncomment when payment is integrated:
-      // const response = await subscriptionsApi.subscribe();
-      // if (response?.data) {
-      //   setStatus(response.data);
-      //   toast({
-      //     title: "Success!",
-      //     description: "You've successfully subscribed to Premium",
-      //   });
-      //   fetchData();
-      // }
+      if (response?.authorization_url) {
+        // Redirect to Paystack payment page
+        window.location.href = response.authorization_url;
+      } else if (response?.checkout_url) {
+        // Redirect to Stripe checkout page
+        window.location.href = response.checkout_url;
+      } else {
+        throw new Error('No payment URL received');
+      }
     } catch (error: any) {
-      logger.error("Error subscribing", error);
-      const errorMessage = extractErrorMessage(error, "Failed to subscribe");
+      logger.error("Error initializing subscription payment", error);
+      const errorMessage = extractErrorMessage(error, "Failed to initialize subscription payment");
       toast({
         title: "Error",
         description: errorMessage,
         variant: "destructive",
       });
-    } finally {
       setSubscribing(false);
     }
   };
@@ -160,9 +168,6 @@ export default function SubscriptionsPage() {
         <div className="mb-6">
           <div className="flex items-start gap-3 mb-2">
             <div className="flex items-center gap-3 flex-1">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Crown className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-              </div>
               <div className="flex-1">
                 <h1 className="text-2xl md:text-3xl font-bold">Subscriptions</h1>
                 <p className="text-sm text-muted-foreground mt-0.5">
@@ -313,6 +318,21 @@ export default function SubscriptionsPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function SubscriptionsPage() {
+  return (
+    <Suspense fallback={
+      <main className="flex-1 pb-24 md:pb-0">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 md:py-6">
+          <Skeleton className="h-10 w-32 mb-6" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </main>
+    }>
+      <SubscriptionsContent />
+    </Suspense>
   );
 }
 
