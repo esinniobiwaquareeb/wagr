@@ -432,6 +432,9 @@ export const gamificationApi = {
   getChallenges: () => apiGet<{ challenges: any[] }>('/gamification/challenges'),
   
   claimReward: (challengeId: string) => apiPost<{ message: string }>(`/gamification/challenges/${challengeId}/claim`),
+  
+  claimStreakReward: (streakType: 'login' | 'activity', milestoneDays: number) => 
+    apiPost<{ message: string }>(`/gamification/streaks/${streakType}/claim`, { milestone_days: milestoneDays }),
 };
 
 /**

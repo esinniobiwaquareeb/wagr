@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Trophy, Target, Flame, Award, Star, Zap, Gift, CheckCircle2, Circle, TrendingUp, Sparkles, ArrowRight, Medal, Crown } from "lucide-react";
 import { AchievementBadge } from "@/components/achievement-badge";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { gamificationApi } from "@/lib/api-client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, DEFAULT_CURRENCY } from "@/lib/currency";
@@ -21,6 +22,16 @@ export default function GamificationPage() {
   const { toast } = useToast();
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [claimDialogOpen, setClaimDialogOpen] = useState(false);
+  const [claimingReward, setClaimingReward] = useState<{
+    type: 'challenge' | 'streak';
+    id?: string;
+    streakType?: 'login' | 'activity';
+    milestoneDays?: number;
+    amount: number;
+    title: string;
+  } | null>(null);
+  const [claiming, setClaiming] = useState(false);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -45,6 +56,45 @@ export default function GamificationPage() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleClaimReward = async () => {
+    if (!claimingReward || claiming) return;
+
+    setClaiming(true);
+    try {
+      if (claimingReward.type === 'challenge' && claimingReward.id) {
+        await gamificationApi.claimReward(claimingReward.id);
+      } else if (claimingReward.type === 'streak' && claimingReward.streakType && claimingReward.milestoneDays) {
+        await gamificationApi.claimStreakReward(claimingReward.streakType, claimingReward.milestoneDays);
+      }
+
+      toast({
+        title: "Reward Claimed!",
+        description: `You earned ${formatCurrency(claimingReward.amount, DEFAULT_CURRENCY)}`,
+      });
+
+      // Dispatch balance update event to refresh top nav
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('balance-updated'));
+      }
+
+      // Refresh stats to update UI
+      await fetchStats();
+      
+      setClaimDialogOpen(false);
+      setClaimingReward(null);
+    } catch (error: any) {
+      logger.error("Failed to claim reward", error);
+      const errorMessage = extractErrorMessage(error, "Failed to claim reward");
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setClaiming(false);
     }
   };
 
@@ -304,24 +354,14 @@ export default function GamificationPage() {
                           <Button
                             size="sm"
                             className="w-full bg-green-500 hover:bg-green-600 text-white"
-                            onClick={async () => {
-                              try {
-                                await gamificationApi.claimReward(challenge.id);
-                                toast({
-                                  title: "Reward Claimed!",
-                                  description: `You earned ${formatCurrency(challenge.reward_amount, DEFAULT_CURRENCY)}`,
-                                });
-                                // Refresh stats to update UI
-                                await fetchStats();
-                              } catch (error: any) {
-                                logger.error("Failed to claim reward", error);
-                                const errorMessage = extractErrorMessage(error, "Failed to claim reward");
-                                toast({
-                                  title: "Error",
-                                  description: errorMessage,
-                                  variant: "destructive",
-                                });
-                              }
+                            onClick={() => {
+                              setClaimingReward({
+                                type: 'challenge',
+                                id: challenge.id,
+                                amount: challenge.reward_amount,
+                                title: challenge.title,
+                              });
+                              setClaimDialogOpen(true);
                             }}
                           >
                             <Gift className="h-4 w-4 mr-2" />
@@ -454,6 +494,8 @@ export default function GamificationPage() {
                       wager: "Activity"
                     };
                     const label = streakTypeLabels[streak.type] || streak.type;
+                    const claimableMilestones = streak.claimable_milestones || [];
+                    const hasClaimableRewards = claimableMilestones.length > 0;
 
                     return (
                       <div
@@ -462,39 +504,76 @@ export default function GamificationPage() {
                           "p-4 rounded-xl border transition-all",
                           isActive
                             ? "bg-gradient-to-br from-orange-50 to-orange-100/50 dark:from-orange-950/20 dark:to-orange-900/10 border-orange-500/30"
-                            : "bg-muted/50 border-border/50"
+                            : "bg-muted/50 border-border/50",
+                          hasClaimableRewards && "border-green-500/50 bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/20 dark:to-green-900/10"
                         )}
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
-                            <div className={cn(
-                              "p-1.5 md:p-2 rounded-lg flex-shrink-0",
-                              isActive ? "bg-orange-500/20" : "bg-muted"
-                            )}>
-                              <Flame className={cn(
-                                "h-4 w-4 md:h-5 md:w-5",
-                                isActive ? "text-orange-500" : "text-muted-foreground"
-                              )} />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="font-semibold capitalize text-sm md:text-base">{label} Streak</div>
-                              <div className="text-xs md:text-sm text-muted-foreground">
-                                <span>Current: {streak.current} days</span>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+                              <div className={cn(
+                                "p-1.5 md:p-2 rounded-lg flex-shrink-0",
+                                isActive ? "bg-orange-500/20" : "bg-muted"
+                              )}>
+                                <Flame className={cn(
+                                  "h-4 w-4 md:h-5 md:w-5",
+                                  isActive ? "text-orange-500" : "text-muted-foreground"
+                                )} />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="font-semibold capitalize text-sm md:text-base">{label} Streak</div>
+                                <div className="text-xs md:text-sm text-muted-foreground">
+                                  <span>Current: {streak.current} days</span>
+                                  {streak.longest > streak.current && (
+                                    <span className="hidden sm:inline ml-2">• Best: {streak.longest} days</span>
+                                  )}
+                                </div>
                                 {streak.longest > streak.current && (
-                                  <span className="hidden sm:inline ml-2">• Best: {streak.longest} days</span>
+                                  <div className="text-xs text-muted-foreground sm:hidden mt-0.5">
+                                    Best: {streak.longest} days
+                                  </div>
                                 )}
                               </div>
-                              {streak.longest > streak.current && (
-                                <div className="text-xs text-muted-foreground sm:hidden mt-0.5">
-                                  Best: {streak.longest} days
-                                </div>
-                              )}
                             </div>
+                            {isActive && (
+                              <Badge className="bg-orange-500 text-white border-0 text-xs md:text-sm px-2 md:px-3 py-1 flex-shrink-0">
+                                {streak.current} 🔥
+                              </Badge>
+                            )}
                           </div>
-                          {isActive && (
-                            <Badge className="bg-orange-500 text-white border-0 text-xs md:text-sm px-2 md:px-3 py-1 flex-shrink-0">
-                              {streak.current} 🔥
-                            </Badge>
+                          
+                          {hasClaimableRewards && (
+                            <div className="space-y-2 pt-2 border-t border-border/50">
+                              {claimableMilestones.map((milestone: any) => (
+                                <div key={milestone.days} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-green-500/10 border border-green-500/20">
+                                  <div className="flex-1">
+                                    <div className="text-xs font-medium text-green-700 dark:text-green-400">
+                                      {milestone.days}-Day Milestone Reward
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {formatCurrency(milestone.reward, DEFAULT_CURRENCY)}
+                                    </div>
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    className="bg-green-500 hover:bg-green-600 text-white text-xs h-7 px-3"
+                                    onClick={() => {
+                                      setClaimingReward({
+                                        type: 'streak',
+                                        streakType: streak.type === 'wager' ? 'activity' : 'login',
+                                        milestoneDays: milestone.days,
+                                        amount: milestone.reward,
+                                        title: `${milestone.days}-Day ${label} Streak Reward`,
+                                      });
+                                      setClaimDialogOpen(true);
+                                    }}
+                                  >
+                                    <Gift className="h-3 w-3 mr-1" />
+                                    Claim
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -527,6 +606,35 @@ export default function GamificationPage() {
           </Card>
         )}
       </div>
+
+      {/* Claim Reward Confirmation Dialog */}
+      <ConfirmDialog
+        open={claimDialogOpen}
+        onOpenChange={setClaimDialogOpen}
+        title="Claim Reward"
+        description={
+          claimingReward ? (
+            <div className="space-y-2">
+              <p>
+                Are you sure you want to claim your reward for <strong>{claimingReward.title}</strong>?
+              </p>
+              <p className="font-semibold text-lg text-green-600 dark:text-green-400">
+                {formatCurrency(claimingReward.amount, DEFAULT_CURRENCY)}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                This amount will be added to your wallet balance.
+              </p>
+            </div>
+          ) : (
+            "Claim this reward?"
+          )
+        }
+        confirmText="Claim Reward"
+        cancelText="Cancel"
+        variant="default"
+        onConfirm={handleClaimReward}
+        loading={claiming}
+      />
     </main>
   );
 }
