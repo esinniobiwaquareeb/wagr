@@ -72,7 +72,6 @@ export function TrendingWagers() {
         }
       }
       
-      logger.debug("Trending wagers fetched", { count: wagersArray.length, firstWager: wagersArray[0]?.title });
       setWagers(wagersArray);
     } catch (error) {
       logger.error("Failed to fetch trending wagers", error);
@@ -166,7 +165,7 @@ export function TrendingWagers() {
 
   return (
     <Card>
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-3">
           <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
@@ -198,7 +197,7 @@ export function TrendingWagers() {
           )}
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0">
         <div
           ref={scrollContainerRef}
           className="flex gap-3 md:gap-4 overflow-x-auto pb-2 scrollbar-hide -mx-1 px-1 scroll-smooth"
