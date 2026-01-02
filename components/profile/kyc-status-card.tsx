@@ -85,7 +85,11 @@ export function KycStatusCard({
             </div>
           </div>
           {nextLevel && nextLevel.level <= 3 && (
-            <Button size="sm" onClick={() => onStartUpgrade(nextLevel.level as 2 | 3)}>
+            <Button 
+              size="sm" 
+              onClick={() => onStartUpgrade(nextLevel.level as 2 | 3)}
+              disabled={nextLevel.status === 'pending' || summary.levels.some(l => l.status === 'pending' && l.level < nextLevel.level)}
+            >
               Upgrade to L{nextLevel.level}
             </Button>
           )}
@@ -133,8 +137,12 @@ export function KycStatusCard({
                   variant="outline"
                   className="w-full mt-1 text-xs"
                   onClick={() => onStartUpgrade(level.level as 2 | 3)}
+                  disabled={
+                    level.status === 'pending' || 
+                    summary.levels.some(l => l.status === 'pending' && l.level < level.level)
+                  }
                 >
-                  Start upgrade
+                  {level.status === 'pending' ? 'Pending review' : 'Start upgrade'}
                 </Button>
               )}
             </div>

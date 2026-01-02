@@ -31,7 +31,7 @@ export function KycModal({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="!max-w-[90vw] sm:!max-w-[85vw] lg:!max-w-[1200px] max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>KYC Verification</DialogTitle>
           </DialogHeader>
