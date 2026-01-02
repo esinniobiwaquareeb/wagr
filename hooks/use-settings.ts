@@ -192,6 +192,13 @@ export function useSettings() {
     };
   }, [getSetting]);
 
+  const getReferralRewards = useCallback(() => {
+    return {
+      referrerReward: getSetting('referrals.referrer_reward', 500) as number,
+      refereeReward: getSetting('referrals.referee_reward', 500) as number,
+    };
+  }, [getSetting]);
+
   const refetch = useCallback(async () => {
     setLoading(true);
     try {
@@ -216,6 +223,7 @@ export function useSettings() {
     getPaymentLimits,
     getBillsLimits,
     getKycLimits,
+    getReferralRewards,
     refetch,
   };
 }

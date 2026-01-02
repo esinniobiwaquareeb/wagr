@@ -9,6 +9,8 @@ import { Eye, EyeOff, Gift } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { getReferralCode, initReferralCode, clearStoredReferralCode, getReferralCodeFromUrl } from "@/lib/referral-utils";
 import { detectUserCountryCode } from "@/lib/geolocation";
+import { useSettings } from "@/hooks/use-settings";
+import { formatCurrency, DEFAULT_CURRENCY } from "@/lib/currency";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -33,6 +35,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [verificationSuccess, setVerificationSuccess] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const { getReferralRewards } = useSettings();
+  const { refereeReward } = getReferralRewards();
+  const currency = DEFAULT_CURRENCY;
 
   // Initialize referral code detection on mount
   useEffect(() => {
@@ -614,7 +619,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             <div className="flex items-center gap-2 text-sm">
               <Gift className="h-4 w-4 text-primary" />
               <span className="text-primary font-medium">
-                🎉 You'll get ₦500 bonus when you sign up with this referral code!
+                🎉 You'll get {formatCurrency(refereeReward, currency)} bonus when you sign up with this referral code!
               </span>
             </div>
           </div>

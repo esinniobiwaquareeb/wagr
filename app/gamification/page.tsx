@@ -359,7 +359,7 @@ export default function GamificationPage() {
             <CardContent>
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-4 gap-2 md:gap-3">
                 {achievements.map((achievement: any) => (
-                  <div key={achievement.type} className="flex flex-col items-center gap-2">
+                  <div key={achievement.type} className="flex flex-col items-center gap-1.5 md:gap-2">
                     <AchievementBadge
                       type={achievement.type}
                       icon={achievement.icon}
@@ -372,14 +372,22 @@ export default function GamificationPage() {
                       size="md"
                       showProgress={!achievement.unlocked}
                     />
-                    {achievement.unlocked && achievement.unlocked_at && (
-                      <div className="text-[10px] text-muted-foreground text-center">
-                        {new Date(achievement.unlocked_at).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                        })}
+                    <div className="text-center w-full">
+                      <div className={cn(
+                        "text-[10px] md:text-xs font-medium leading-tight px-1",
+                        achievement.unlocked ? "text-foreground" : "text-muted-foreground"
+                      )}>
+                        {achievement.title}
                       </div>
-                    )}
+                      {achievement.unlocked && achievement.unlocked_at && (
+                        <div className="text-[9px] text-muted-foreground mt-0.5">
+                          {new Date(achievement.unlocked_at).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

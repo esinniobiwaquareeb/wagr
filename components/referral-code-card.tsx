@@ -9,6 +9,7 @@ import { referralsApi } from "@/lib/api-client";
 import { formatCurrency, DEFAULT_CURRENCY } from "@/lib/currency";
 import { logger } from "@/lib/logger";
 import Link from "next/link";
+import { useSettings } from "@/hooks/use-settings";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,6 +49,8 @@ export function ReferralCodeCard({
   const [copied, setCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const { toast } = useToast();
+  const { getReferralRewards } = useSettings();
+  const { referrerReward, refereeReward } = getReferralRewards();
   const currency = DEFAULT_CURRENCY;
 
   const fetchReferralData = useCallback(async () => {
@@ -114,9 +117,10 @@ export function ReferralCodeCard({
   const getReferralLink = useCallback(() => {
     if (!referralCode) return { url: "", text: "" };
     const shareUrl = `${window.location.origin}/wagers?ref=${referralCode}`;
-    const shareText = `🎉 Join wagered.app and get ₦500 bonus! Use my referral code: ${referralCode}\n\n${shareUrl}`;
+    const bonusText = formatCurrency(refereeReward, currency);
+    const shareText = `🎉 Join wagered.app and get ${bonusText} bonus! Use my referral code: ${referralCode}\n\n${shareUrl}`;
     return { url: shareUrl, text: shareText };
-  }, [referralCode]);
+  }, [referralCode, refereeReward, currency]);
 
   const copyReferralLink = async () => {
     if (!referralCode) return;
@@ -144,9 +148,10 @@ export function ReferralCodeCard({
     
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
+        const bonusText = formatCurrency(refereeReward, currency);
         await navigator.share({
           title: "Join wagered.app",
-          text: `🎉 Join wagered.app and get ₦500 bonus! Use my referral code: ${referralCode}`,
+          text: `🎉 Join wagered.app and get ${bonusText} bonus! Use my referral code: ${referralCode}`,
           url: url,
         });
       } catch (error) {
@@ -160,8 +165,9 @@ export function ReferralCodeCard({
 
   const shareTwitter = () => {
     if (!referralCode) return;
-    const { url, text } = getReferralLink();
-    const twitterText = `🎉 Join wagered.app and get ₦500 bonus! Use my referral code: ${referralCode}`;
+    const { url } = getReferralLink();
+    const bonusText = formatCurrency(refereeReward, currency);
+    const twitterText = `🎉 Join wagered.app and get ${bonusText} bonus! Use my referral code: ${referralCode}`;
     const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(twitterText)}&url=${encodeURIComponent(url)}`;
     window.open(twitterUrl, "_blank", "width=550,height=420");
   };
@@ -296,7 +302,7 @@ export function ReferralCodeCard({
       <CardHeader>
         <CardTitle>Your Referral Code</CardTitle>
         <CardDescription>
-          Share your code and earn ₦500 for each friend who signs up!
+          Share your code and earn {formatCurrency(referrerReward, currency)} for each friend who signs up!
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -361,8 +367,8 @@ export function ReferralCodeCard({
             </div>
 
             <div className="text-xs sm:text-sm text-muted-foreground space-y-1">
-              <p>• You get ₦500 when someone signs up with your code</p>
-              <p>• They also get ₦500 welcome bonus</p>
+              <p>• You get {formatCurrency(referrerReward, currency)} when someone signs up with your code</p>
+              <p>• They also get {formatCurrency(refereeReward, currency)} welcome bonus</p>
               <p>• Share your referral link via WhatsApp, Twitter, Facebook, or copy the link</p>
             </div>
 
