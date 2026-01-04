@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from 'next/navigation';
-import { BarChart3, Home, Users, CreditCard, Settings, Shield, ShieldCheck, LogOut, Wallet, FileText, BookOpen, ChevronRight } from "lucide-react";
+import { BarChart3, Home, Users, CreditCard, Settings, Shield, ShieldCheck, LogOut, Wallet, FileText, BookOpen, ChevronRight, Mail } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useState } from "react";
 import { adminLogout } from "@/lib/auth/client";
@@ -57,6 +57,7 @@ export function AdminSidebar() {
     { href: "/admin/kyc", icon: ShieldCheck, label: "KYC Reviews" },
     { href: "/admin/reports", icon: FileText, label: "Reports" },
     { href: "/admin/analytics", icon: BarChart3, label: "Analytics" },
+    { href: "/admin/email-templates", icon: Mail, label: "Email Templates" },
     { href: "/admin/settings", icon: Settings, label: "Settings" },
   ];
 

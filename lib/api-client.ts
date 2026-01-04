@@ -452,3 +452,22 @@ export const subscriptionsApi = {
   cancel: () => apiDelete<{ message: string }>('/subscriptions/cancel'),
 };
 
+/**
+ * Admin Email Templates API
+ */
+export const adminEmailTemplatesApi = {
+  getAll: () => apiGet<{ templates: any[] }>('/admin/email-templates'),
+  
+  getById: (id: string) => apiGet<{ template: any }>(`/admin/email-templates/${id}`),
+  
+  getByType: (type: string) => apiGet<{ template: any }>(`/admin/email-templates/type/${type}`),
+  
+  create: (data: any) => apiPost<{ template: any; message: string }>('/admin/email-templates', data),
+  
+  update: (id: string, data: any) => apiPatch<{ template: any; message: string }>(`/admin/email-templates/${id}`, data),
+  
+  delete: (id: string) => apiDelete<{ success: boolean; message: string }>(`/admin/email-templates/${id}`),
+  
+  test: (email: string, templateId: string, customData?: Record<string, any>) => apiPost<{ success: boolean; message: string }>('/admin/email-templates/test', { email, templateId, customData }),
+};
+
