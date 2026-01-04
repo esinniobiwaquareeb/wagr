@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { nestjsServerFetch } from '@/lib/nestjs-server';
+import { requireAdmin } from '@/lib/auth/server';
 import { cookies } from 'next/headers';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 import { logError } from '@/lib/error-handler';
 
+/**
+ * POST /api/admin/email-templates/test
+ * Test email template by sending a test email
+ */
 export async function POST(request: NextRequest) {
   try {
+    await requireAdmin();
+    
     const body = await request.json();
     const { email, templateId, customData } = body;
 
@@ -18,13 +25,10 @@ export async function POST(request: NextRequest) {
 
     // Get token from cookies
     const cookieStore = await cookies();
-    const token = cookieStore.get('admin_token')?.value || null;
+    const token = cookieStore.get('auth_token')?.value || null;
 
     if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      throw new Error('Authentication required');
     }
 
     const response = await nestjsServerFetch('/admin/email-templates/test', {
@@ -38,7 +42,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({ email, templateId, customData }),
     });
 
-    if (!response.success) {
+    if (!response.success || !response.data) {
       throw new Error(response.error?.message || 'Failed to send test email');
     }
 
