@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
-import { ArrowLeft, Clock, CheckCircle2, Users, AlertTriangle, ExternalLink, Trophy } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle2, Users, AlertTriangle, ExternalLink, Trophy, DollarSign, TrendingUp, TrendingDown, Award } from "lucide-react";
 import { useAdmin } from "@/contexts/admin-context";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
@@ -31,6 +31,23 @@ interface WagerEntry {
     email: string | null;
     avatar_url?: string | null;
   } | null;
+  winnings?: number;
+  isWinner?: boolean;
+}
+
+interface WagerTransaction {
+  id: string;
+  user_id: string;
+  type: string;
+  amount: number;
+  reference: string;
+  description: string;
+  created_at: string;
+  user?: {
+    id: string;
+    username: string | null;
+    email: string | null;
+  } | null;
 }
 
 export default function AdminWagerDetailPage({ params }: AdminWagerDetailPageProps) {
@@ -47,6 +64,11 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
   const [sideASum, setSideASum] = useState(0);
   const [sideBSum, setSideBSum] = useState(0);
   const [totalParticipants, setTotalParticipants] = useState(0);
+  const [transactions, setTransactions] = useState<WagerTransaction[]>([]);
+  const [platformFee, setPlatformFee] = useState(0);
+  const [winningsPool, setWinningsPool] = useState(0);
+  const [totalWinnings, setTotalWinnings] = useState(0);
+  const [settledAt, setSettledAt] = useState<string | null>(null);
 
   const loadDetails = useCallback(
     async (wagerId: string) => {
@@ -64,9 +86,22 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
         const wagerData = response.wager;
         setWager(wagerData);
 
-        // Extract entries from wager data - ensure it's always an array
-        const entriesData = wagerData.entries;
-        const entriesArray = Array.isArray(entriesData) ? entriesData : [];
+        // Extract entries from wager data - entries can be an object with sideA/sideB or a flat array
+        let entriesArray: any[] = [];
+        
+        if (wagerData.entries) {
+          if (Array.isArray(wagerData.entries)) {
+            // If it's already an array, use it directly
+            entriesArray = wagerData.entries;
+          } else if (wagerData.entries.sideA || wagerData.entries.sideB) {
+            // If it's an object with sideA/sideB, combine them
+            entriesArray = [
+              ...(Array.isArray(wagerData.entries.sideA) ? wagerData.entries.sideA : []),
+              ...(Array.isArray(wagerData.entries.sideB) ? wagerData.entries.sideB : []),
+            ];
+          }
+        }
+        
         const entriesWithFallback = entriesArray.map((entry: any) => ({
           ...entry,
           user: entry.user || null,
@@ -84,6 +119,72 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
             .filter((entry: any) => (entry.side || "").toLowerCase() === "b")
             .reduce((sum: number, entry: any) => sum + Number(entry.amount || 0), 0),
         );
+
+        // Fetch transactions related to this wager
+        // Fetch wager_win and wager_refund transactions, then filter by reference
+        try {
+          const [winTransactionsResponse, refundTransactionsResponse] = await Promise.all([
+            apiGet<{ transactions: WagerTransaction[] }>(`/admin/transactions?type=wager_win&limit=1000`).catch(() => ({ transactions: [] })),
+            apiGet<{ transactions: WagerTransaction[] }>(`/admin/transactions?type=wager_refund&limit=1000`).catch(() => ({ transactions: [] })),
+          ]);
+          
+          const allTransactions = [
+            ...(winTransactionsResponse.transactions || []),
+            ...(refundTransactionsResponse.transactions || []),
+          ];
+          
+          const wagerTransactions = allTransactions.filter(
+            (tx: any) => tx.reference?.includes(`wager:${wagerId}:`)
+          );
+          
+          setTransactions(wagerTransactions);
+
+          // Calculate settlement statistics
+          const winTransactions = wagerTransactions.filter(
+            (tx: any) => tx.type === 'wager_win'
+          );
+          const totalWinningsAmount = winTransactions.reduce(
+            (sum: number, tx: any) => sum + Number(tx.amount || 0),
+            0
+          );
+          setTotalWinnings(totalWinningsAmount);
+
+          // Calculate platform fee and winnings pool
+          const totalPoolAmount = sideASum + sideBSum;
+          const feePercentage = Number(wagerData.fee_percentage || 0.05);
+          const calculatedPlatformFee = totalPoolAmount * feePercentage;
+          const calculatedWinningsPool = totalPoolAmount - calculatedPlatformFee;
+          setPlatformFee(calculatedPlatformFee);
+          setWinningsPool(calculatedWinningsPool);
+
+          // Get settlement date from the latest transaction
+          if (winTransactions.length > 0 || wagerTransactions.some((tx: any) => tx.type === 'wager_refund')) {
+            const latestTx = wagerTransactions.sort(
+              (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            )[0];
+            setSettledAt(latestTx.created_at);
+          }
+
+          // Enrich entries with winnings data
+          const entriesWithWinnings = entriesWithFallback.map((entry: any) => {
+            const userWinTx = winTransactions.find(
+              (tx: any) => tx.user_id === entry.user_id
+            );
+            const isWinner = userWinTx !== undefined && wagerData.winning_side && 
+                             entry.side?.toLowerCase() === wagerData.winning_side.toLowerCase();
+            
+            return {
+              ...entry,
+              winnings: userWinTx ? Number(userWinTx.amount) : 0,
+              isWinner,
+            };
+          });
+
+          setEntries(entriesWithWinnings);
+        } catch (txError) {
+          // If transactions endpoint fails, continue without transaction data
+          logger.warn("Failed to load transactions", txError);
+        }
       } catch (error) {
         logger.error("Failed to load wager", error);
         toast({
@@ -178,7 +279,7 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
   }
 
   const currency = (wager.currency || DEFAULT_CURRENCY) as Currency;
-  const totalPool = Number(wager.amount || 0);
+  const totalPool = sideASum + sideBSum;
 
   const statusBadge = (() => {
     switch (wager.status) {
@@ -209,13 +310,21 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
     }
   })();
 
+  const isSettled = wager.status === "SETTLED" || wager.status === "RESOLVED";
+  const winningSide = wager.winning_side?.toLowerCase();
+
   const participantColumns = [
     {
       id: "participant",
       header: "Participant",
       cell: (row: WagerEntry) => (
         <div className="flex flex-col text-sm">
-          <span className="font-medium">{row.user?.username ? `@${row.user.username}` : row.user_id}</span>
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{row.user?.username ? `@${row.user.username}` : row.user_id}</span>
+            {isSettled && row.isWinner && (
+              <Award className="h-4 w-4 text-yellow-500" />
+            )}
+          </div>
           {row.user?.email && <span className="text-xs text-muted-foreground">{row.user.email}</span>}
         </div>
       ),
@@ -223,17 +332,47 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
     {
       id: "side",
       header: "Side",
-      cell: (row: WagerEntry) => (
-        <Badge variant="outline" className="text-xs uppercase">
-          {row.side}
-        </Badge>
-      ),
+      cell: (row: WagerEntry) => {
+        const isWinningSide = isSettled && winningSide && row.side?.toLowerCase() === winningSide;
+        return (
+          <Badge 
+            variant={isWinningSide ? "default" : "outline"} 
+            className={`text-xs uppercase ${isWinningSide ? "bg-green-500/20 text-green-700 dark:text-green-400" : ""}`}
+          >
+            {row.side}
+          </Badge>
+        );
+      },
     },
     {
       id: "amount",
-      header: "Amount",
-      cell: (row: WagerEntry) => <span className="text-sm font-semibold">{formatCurrency(row.amount || 0, currency)}</span>,
+      header: "Entry Amount",
+      cell: (row: WagerEntry) => (
+        <span className="text-sm font-semibold">{formatCurrency(row.amount || 0, currency)}</span>
+      ),
     },
+    ...(isSettled ? [{
+      id: "winnings",
+      header: "Winnings",
+      cell: (row: WagerEntry) => {
+        if (row.isWinner && row.winnings) {
+          return (
+            <div className="flex items-center gap-1 text-sm font-semibold text-green-600 dark:text-green-400">
+              <TrendingUp className="h-4 w-4" />
+              {formatCurrency(row.winnings, currency)}
+            </div>
+          );
+        } else if (isSettled && !row.isWinner) {
+          return (
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <TrendingDown className="h-4 w-4" />
+              <span>—</span>
+            </div>
+          );
+        }
+        return <span className="text-sm text-muted-foreground">—</span>;
+      },
+    }] : []),
     {
       id: "joined",
       header: "Joined",
@@ -318,13 +457,18 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-muted-foreground">Total Pool</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-semibold">{formatCurrency(totalPool, currency)}</p>
+              {isSettled && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {totalParticipants} participant{totalParticipants !== 1 ? 's' : ''}
+                </p>
+              )}
             </CardContent>
           </Card>
           <Card>
@@ -336,67 +480,137 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
               <div>
                 <p className="text-xl font-semibold">{totalParticipants}</p>
                 <p className="text-xs text-muted-foreground">
-                  {wager.status === "SETTLED" || wager.status === "RESOLVED" ? "Settled" : "Active"}
+                  {isSettled ? "Settled" : "Active"}
                 </p>
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Side Totals</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm flex justify-between">
-                <span>Side A</span>
-                <span className="font-medium">{formatCurrency(sideASum, currency)}</span>
-              </p>
-              <p className="text-sm flex justify-between">
-                <span>Side B</span>
-                <span className="font-medium">{formatCurrency(sideBSum, currency)}</span>
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Winning Side</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-lg font-semibold">
-                {wager.winning_side ? wager.winning_side.toUpperCase() : "Not set"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {wager.status === "OPEN" ? "Wager still active" : "Wager resolved"}
-              </p>
-              {wager.status === "OPEN" && !wager.winning_side && !wager.is_system_generated && (
-                <div className="flex gap-2 mt-3">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleResolveClick("a")}
-                    disabled={resolving}
-                    className="flex-1"
-                  >
-                    <Trophy className="h-3 w-3 mr-1" />
-                    Side A
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleResolveClick("b")}
-                    disabled={resolving}
-                    className="flex-1"
-                  >
-                    <Trophy className="h-3 w-3 mr-1" />
-                    Side B
-                  </Button>
-                </div>
-              )}
-              {resolving && (
-                <p className="text-xs text-muted-foreground mt-2">Settling wager...</p>
-              )}
-            </CardContent>
-          </Card>
+          {isSettled ? (
+            <>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm text-muted-foreground flex items-center gap-1">
+                    <DollarSign className="h-3.5 w-3.5" />
+                    Platform Fee
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-semibold">{formatCurrency(platformFee, currency)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {((wager.fee_percentage || 0.05) * 100).toFixed(1)}% of pool
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm text-muted-foreground flex items-center gap-1">
+                    <Trophy className="h-3.5 w-3.5" />
+                    Winnings Pool
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-semibold text-green-600 dark:text-green-400">
+                    {formatCurrency(winningsPool, currency)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Distributed: {formatCurrency(totalWinnings, currency)}
+                  </p>
+                </CardContent>
+              </Card>
+            </>
+          ) : (
+            <>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm text-muted-foreground">Side Totals</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm flex justify-between">
+                    <span>Side A</span>
+                    <span className="font-medium">{formatCurrency(sideASum, currency)}</span>
+                  </p>
+                  <p className="text-sm flex justify-between">
+                    <span>Side B</span>
+                    <span className="font-medium">{formatCurrency(sideBSum, currency)}</span>
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm text-muted-foreground">Winning Side</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-lg font-semibold">
+                    {wager.winning_side ? wager.winning_side.toUpperCase() : "Not set"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {wager.status === "OPEN" ? "Wager still active" : "Wager resolved"}
+                  </p>
+                  {wager.status === "OPEN" && !wager.winning_side && !wager.is_system_generated && (
+                    <div className="flex gap-2 mt-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleResolveClick("a")}
+                        disabled={resolving}
+                        className="flex-1"
+                      >
+                        <Trophy className="h-3 w-3 mr-1" />
+                        Side A
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleResolveClick("b")}
+                        disabled={resolving}
+                        className="flex-1"
+                      >
+                        <Trophy className="h-3 w-3 mr-1" />
+                        Side B
+                      </Button>
+                    </div>
+                  )}
+                  {resolving && (
+                    <p className="text-xs text-muted-foreground mt-2">Settling wager...</p>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
+
+        {isSettled && (
+          <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                Settlement Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3 md:grid-cols-3 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Winning Side</p>
+                  <p className="font-semibold text-lg mt-1">
+                    {wager.winning_side?.toUpperCase()}: {wager.winning_side?.toLowerCase() === 'a' ? wager.side_a : wager.side_b}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Total Winnings Distributed</p>
+                  <p className="font-semibold text-lg text-green-600 dark:text-green-400 mt-1">
+                    {formatCurrency(totalWinnings, currency)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Settled At</p>
+                  <p className="font-semibold mt-1">
+                    {settledAt ? format(new Date(settledAt), "MMM d, yyyy 'at' HH:mm") : "—"}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid gap-4 md:grid-cols-2">
           <Card>
