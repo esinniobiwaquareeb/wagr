@@ -1,5 +1,7 @@
 import { StructuredData } from "@/components/seo/structured-data";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Info } from "lucide-react";
 import { aboutPageSchema, metadata } from "./metadata";
 
 export { metadata };

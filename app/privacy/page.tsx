@@ -1,4 +1,6 @@
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Info } from "lucide-react";
 import type { Metadata } from 'next';
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://wagered.app';
@@ -21,6 +23,14 @@ export default function PrivacyPage() {
         <h1 className="text-3xl md:text-4xl font-bold mb-4">Privacy Policy</h1>
         <p className="text-sm text-muted-foreground mb-8">Last updated: {new Date().toLocaleDateString()}</p>
 
+        <Alert className="mb-8 border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800">
+          <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <AlertTitle className="text-blue-900 dark:text-blue-100">Your Privacy Matters</AlertTitle>
+          <AlertDescription className="text-blue-800 dark:text-blue-200 mt-2">
+            We are committed to protecting your privacy and personal information. This policy explains how we collect, use, and safeguard your data on our prediction market and trading platform.
+          </AlertDescription>
+        </Alert>
+
         <div className="prose prose-sm dark:prose-invert max-w-none space-y-6">
           <section>
             <h2 className="text-xl font-semibold mb-3">1. Introduction</h2>
@@ -35,11 +45,12 @@ export default function PrivacyPage() {
               We collect information that you provide directly to us, including:
             </p>
             <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
-              <li>Account information (email address, username)</li>
-              <li>Profile information (avatar, preferences)</li>
-              <li>Wager participation data</li>
-              <li>Transaction history</li>
+              <li>Account information (email address, username, password - encrypted)</li>
+              <li>Profile information (avatar, bio, preferences, KYC verification data)</li>
+              <li>Prediction market participation data (positions taken, outcomes)</li>
+              <li>Transaction history (deposits, withdrawals, market transactions)</li>
               <li>Communication data when you contact us</li>
+              <li>Device and browser information for security purposes</li>
             </ul>
             <p className="text-muted-foreground mt-4 mb-4">
               We also automatically collect certain information when you use our service:
@@ -124,9 +135,30 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mb-3">10. Contact Us</h2>
+            <h2 className="text-xl font-semibold mb-3">10. Data Retention</h2>
             <p className="text-muted-foreground mb-4">
-              If you have any questions about this Privacy Policy, please contact us through our contact page.
+              We retain your personal information for as long as necessary to provide our services, comply with legal obligations, resolve disputes, and enforce our agreements. When you delete your account, we will delete or anonymize your personal information, except where we are required to retain it for legal or regulatory purposes.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-semibold mb-3">11. International Data Transfers</h2>
+            <p className="text-muted-foreground mb-4">
+              Your information may be transferred to and processed in countries other than your country of residence. These countries may have data protection laws that differ from those in your country. We take appropriate safeguards to ensure your personal information receives an adequate level of protection.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-semibold mb-3">12. Third-Party Services</h2>
+            <p className="text-muted-foreground mb-4">
+              Our platform may contain links to third-party websites or services. We are not responsible for the privacy practices of these third parties. We encourage you to read the privacy policies of any third-party services you access.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-semibold mb-3">13. Contact Us</h2>
+            <p className="text-muted-foreground mb-4">
+              If you have any questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us through our <a href="/contact" className="text-primary hover:underline">contact page</a> or visit our <a href="/help" className="text-primary hover:underline">Help Center</a>.
             </p>
           </section>
         </div>
