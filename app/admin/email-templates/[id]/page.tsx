@@ -128,9 +128,51 @@ export default function AdminEmailTemplateEditPage() {
       setLoading(true);
       const response = await adminEmailTemplatesApi.getById(id);
       if (response?.template) {
+        // Reconstruct variables: if name is missing, extract it from description
+        // Seed script stores variables as: { description: "{{name}} - description", example, required }
+        const processedVariables = (response.template.variables || [])
+          .map((v: any) => {
+            if (v.name && typeof v.name === 'string' && v.name.trim() !== '') {
+              return v; // Already has valid name
+            }
+            // Extract name from description if it follows the pattern "{{name}} - description"
+            const match = v.description?.match(/^(\{\{[^}]+\}\})\s*-\s*(.+)$/);
+            if (match) {
+              return {
+                name: match[1], // e.g., "{{recipientName}}"
+                description: match[2], // The actual description
+                example: v.example || '',
+                required: v.required !== undefined ? v.required : false,
+              };
+            }
+            // If no match, try to find a variable pattern at the start
+            const varMatch = v.description?.match(/^(\{\{[^}]+\}\})/);
+            if (varMatch) {
+              return {
+                name: varMatch[1],
+                description: v.description?.replace(/^\{\{[^}]+\}\}\s*-\s*/, '') || v.description || '',
+                example: v.example || '',
+                required: v.required !== undefined ? v.required : false,
+              };
+            }
+            // Try to find variable pattern anywhere in description
+            const anyVarMatch = v.description?.match(/(\{\{[^}]+\}\})/);
+            if (anyVarMatch) {
+              return {
+                name: anyVarMatch[1],
+                description: v.description || '',
+                example: v.example || '',
+                required: v.required !== undefined ? v.required : false,
+              };
+            }
+            // If we can't extract a name, return null to filter it out
+            return null;
+          })
+          .filter((v: any) => v !== null && v.name && typeof v.name === 'string' && v.name.trim() !== '');
+
         setTemplate({
           ...response.template,
-          variables: response.template.variables || [],
+          variables: processedVariables,
           images: response.template.images || [],
         });
       }
@@ -152,24 +194,133 @@ export default function AdminEmailTemplateEditPage() {
     try {
       setSaving(true);
 
-      const templateData = {
-        type: template.type,
-        subject: template.subject,
-        html_content: template.html_content,
-        text_content: template.text_content || null,
-        variables: template.variables && template.variables.length > 0 ? template.variables : null,
-        images: template.images && template.images.length > 0 ? template.images : null,
-        is_active: template.is_active,
-        description: template.description || null,
-      };
+      // Strictly filter out variables with empty or invalid fields
+      // Only include variables that have ALL required fields with valid values
+      const validVariables = (template.variables || [])
+        .filter((v: any) => {
+          // Must have name as non-empty string
+          if (!v || typeof v.name !== 'string' || v.name.trim() === '') {
+            return false;
+          }
+          // Must have description as non-empty string
+          if (!v.description || typeof v.description !== 'string' || v.description.trim() === '') {
+            return false;
+          }
+          // Must have example (can be empty string, but must exist)
+          if (v.example === undefined || v.example === null) {
+            return false;
+          }
+          return true;
+        });
+
+      // Filter out images with empty URLs
+      const validImages = (template.images || []).filter(
+        (img: any) => img && img.url && typeof img.url === 'string' && img.url.trim() !== ""
+      );
 
       if (isNew) {
+        const templateData: any = {
+          type: template.type,
+          subject: template.subject,
+          html_content: template.html_content,
+          is_active: template.is_active,
+        };
+
+        // Only include optional fields if they have values
+        if (template.text_content) {
+          templateData.text_content = template.text_content;
+        }
+        if (validVariables.length > 0) {
+          templateData.variables = validVariables;
+        }
+        if (validImages.length > 0) {
+          templateData.images = validImages;
+        }
+        if (template.description) {
+          templateData.description = template.description;
+        }
+
         await adminEmailTemplatesApi.create(templateData);
         toast({
           title: "Success",
           description: "Email template created successfully",
         });
       } else {
+        // For updates, exclude 'type' as it's immutable
+        // Build templateData explicitly without type
+        const templateData: any = {};
+        
+        // Required fields - only include if they exist
+        if (template.subject !== undefined && template.subject !== null) {
+          templateData.subject = template.subject;
+        }
+        if (template.html_content !== undefined && template.html_content !== null) {
+          templateData.html_content = template.html_content;
+        }
+        if (template.is_active !== undefined && template.is_active !== null) {
+          templateData.is_active = template.is_active;
+        }
+
+        // Optional fields - only include if they have values
+        if (template.text_content !== null && template.text_content !== undefined && template.text_content !== '') {
+          templateData.text_content = template.text_content;
+        }
+        
+        // Only send variables if there are valid ones with non-empty names
+        // Triple-check: ensure all variables have valid names
+        if (validVariables.length > 0) {
+          const finalVariables = validVariables.filter((v: any) => {
+            return v && 
+                   v.name && 
+                   typeof v.name === 'string' && 
+                   v.name.trim() !== '' &&
+                   v.description &&
+                   typeof v.description === 'string' &&
+                   v.description.trim() !== '' &&
+                   v.example !== undefined &&
+                   v.example !== null;
+          });
+          
+          // Only add if we have valid variables after final check
+          if (finalVariables.length > 0) {
+            templateData.variables = finalVariables;
+          }
+        }
+        
+        // Only send images if there are valid ones
+        if (validImages.length > 0) {
+          templateData.images = validImages;
+        }
+        
+        if (template.description !== null && template.description !== undefined) {
+          templateData.description = template.description;
+        }
+
+        // Explicitly ensure type is NOT included (multiple safeguards)
+        delete templateData.type;
+        if ('type' in templateData) {
+          delete templateData.type;
+        }
+
+        // Final validation: ensure no variables with empty names are sent
+        if (templateData.variables) {
+          const hasInvalidVariables = templateData.variables.some((v: any) => 
+            !v || !v.name || typeof v.name !== 'string' || v.name.trim() === ''
+          );
+          if (hasInvalidVariables) {
+            // Remove variables entirely if any are invalid
+            delete templateData.variables;
+          }
+        }
+
+        // Debug logging (remove in production)
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[Email Template Update] Payload:', JSON.stringify(templateData, null, 2));
+          if (templateData.variables) {
+            console.log('[Email Template Update] Variables:', templateData.variables.map((v: any) => ({ name: v.name, hasName: !!v.name })));
+          }
+        }
+
         await adminEmailTemplatesApi.update(id, templateData);
         toast({
           title: "Success",
