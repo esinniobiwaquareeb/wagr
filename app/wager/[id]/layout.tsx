@@ -187,7 +187,7 @@ export async function generateMetadata({
     }
     
     // Enhanced description with stats
-    const statsDescription = `${description} • ${poolSize} pool • ${totalParticipants} ${totalParticipants === 1 ? 'bettor' : 'bettors'} • ${entryAmount}/bet`;
+    const statsDescription = `${description} • ${poolSize} pool • ${totalParticipants} ${totalParticipants === 1 ? 'participant' : 'participants'} • ${entryAmount}/wager`;
     
     // Build title - root layout has template '%s | wagered.app', so just return the wager title
     const pageTitle = wagerData.title;
@@ -201,7 +201,7 @@ export async function generateMetadata({
     const statusText = wagerData.status === 'OPEN' ? 'Live' : wagerData.status === 'SETTLED' ? 'Settled' : 'Resolved';
     
     // Build Open Graph description
-    const ogDescription = `${wagerData.side_a} vs ${wagerData.side_b} • ${poolSize} pool • ${totalParticipants} ${totalParticipants === 1 ? 'bettor' : 'bettors'} • ${entryAmount} per bet • ${statusText}`;
+    const ogDescription = `${wagerData.side_a} vs ${wagerData.side_b} • ${poolSize} pool • ${totalParticipants} ${totalParticipants === 1 ? 'participant' : 'participants'} • ${entryAmount} per wager • ${statusText}`;
     
     // Use short_id if available for cleaner URLs
     const shareId = wagerData.short_id || wagerData.id;
@@ -220,7 +220,7 @@ export async function generateMetadata({
       description: statsDescription,
       keywords: [
         'wager',
-        'bet',
+        'wager',
         'prediction',
         'market',
         categoryLabel.toLowerCase(),
@@ -228,7 +228,7 @@ export async function generateMetadata({
         wagerData.side_b.toLowerCase(),
         'wagered.app',
         'prediction market',
-        'betting',
+        'wagering',
       ].filter(Boolean).join(', '),
       openGraph: {
         title: wagerData.title,

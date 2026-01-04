@@ -285,7 +285,7 @@ BEGIN
           VALUES (
             entry_record.user_id,
             'wager_resolved',
-            'Oops, you lost this bet 😔',
+            'Oops, you lost this wager 😔',
             'Unfortunately, you lost the wager "' || NEW.title || '". Better luck next time!',
             '/wager/' || NEW.id,
             jsonb_build_object(

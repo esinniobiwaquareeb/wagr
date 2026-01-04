@@ -68,7 +68,7 @@ const features = [
   {
     icon: TrendingUp,
     title: "Trending Wagers",
-    description: "Discover the hottest wagers based on volume and activity. See what everyone's betting on!",
+    description: "Discover the hottest wagers based on volume and activity. See what everyone's wagering on!",
     color: "text-orange-600 dark:text-orange-400",
     bgColor: "bg-orange-50 dark:bg-orange-950/20",
   },

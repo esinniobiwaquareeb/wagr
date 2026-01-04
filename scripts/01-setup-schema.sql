@@ -77,6 +77,6 @@ end; $$;
 -- Seed some system wagers
 insert into wagers (title, description, amount, side_a, side_b, deadline, status, fee_percentage)
 values 
-  ('Will it rain tomorrow?', 'Bet on whether it will rain in your city', 100, 'Yes', 'No', now() + interval '1 day', 'OPEN', 0.01),
+  ('Will it rain tomorrow?', 'Wager on whether it will rain in your city', 100, 'Yes', 'No', now() + interval '1 day', 'OPEN', 0.01),
   ('Bitcoin over $50k by month end?', 'Cryptocurrency price prediction', 500, 'Yes', 'No', now() + interval '15 days', 'OPEN', 0.01),
   ('Who wins the playoff game?', 'Sports prediction for upcoming game', 250, 'Team A', 'Team B', now() + interval '3 days', 'OPEN', 0.01);

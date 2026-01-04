@@ -2,8 +2,8 @@
 
 export interface WagerCalculationParams {
   entryAmount: number; // The amount the user is wagering
-  sideATotal: number; // Total amount bet on side A (sum of all entries)
-  sideBTotal: number; // Total amount bet on side B (sum of all entries)
+  sideATotal: number; // Total amount wagered on side A (sum of all entries)
+  sideBTotal: number; // Total amount wagered on side B (sum of all entries)
   feePercentage: number;
 }
 
@@ -47,7 +47,7 @@ export function calculatePotentialReturns(params: WagerCalculationParams): Poten
     };
   }
 
-  // Calculate total pool (sum of all bets on both sides)
+  // Calculate total pool (sum of all wagers on both sides)
   const totalPool = sideATotal + sideBTotal;
 
   // Calculate platform fee
@@ -59,14 +59,14 @@ export function calculatePotentialReturns(params: WagerCalculationParams): Poten
   // Calculate potential winnings for each side
   // If user joins side A and wins: (entryAmount / (sideATotal + entryAmount)) * winningsPool
   // If user joins side B and wins: (entryAmount / (sideBTotal + entryAmount)) * winningsPool
-  // Note: We add entryAmount to the side total because the user's bet will be included
+  // Note: We add entryAmount to the side total because the user's wager will be included
   const sideAPotential = sideATotal + safeEntryAmount > 0
     ? (safeEntryAmount / (sideATotal + safeEntryAmount)) * (winningsPool + safeEntryAmount)
-    : safeEntryAmount; // If no one on side A yet, user gets their bet back
+    : safeEntryAmount; // If no one on side A yet, user gets their wager back
 
   const sideBPotential = sideBTotal + safeEntryAmount > 0
     ? (safeEntryAmount / (sideBTotal + safeEntryAmount)) * (winningsPool + safeEntryAmount)
-    : safeEntryAmount; // If no one on side B yet, user gets their bet back
+    : safeEntryAmount; // If no one on side B yet, user gets their wager back
 
   // Calculate return multipliers (how much you get back per unit invested)
   const sideAReturnMultiplier = sideAPotential / safeEntryAmount;
@@ -77,9 +77,9 @@ export function calculatePotentialReturns(params: WagerCalculationParams): Poten
   const sideBReturnPercentage = ((sideBPotential - safeEntryAmount) / safeEntryAmount) * 100;
 
   return {
-    totalPool: totalPool + safeEntryAmount, // Include user's bet in total
-    platformFee: (totalPool + safeEntryAmount) * feePercentage, // Recalculate with user's bet
-    winningsPool: (totalPool + safeEntryAmount) * (1 - feePercentage), // Recalculate with user's bet
+    totalPool: totalPool + safeEntryAmount, // Include user's wager in total
+    platformFee: (totalPool + safeEntryAmount) * feePercentage, // Recalculate with user's wager
+    winningsPool: (totalPool + safeEntryAmount) * (1 - feePercentage), // Recalculate with user's wager
     sideAPotential,
     sideBPotential,
     sideAReturnMultiplier,

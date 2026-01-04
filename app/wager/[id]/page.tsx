@@ -261,7 +261,7 @@ export default function WagerDetail() {
     return entries.find(entry => entry.user_id === user.id) || null;
   }, [user, entries]);
   
-  // Check if betting is allowed (not within 20 seconds cutoff and deadline hasn't passed)
+  // Check if wagering is allowed (not within 20 seconds cutoff and deadline hasn't passed)
   const canBet = useMemo(() => {
     if (!wager || wager.status !== "OPEN") return false;
     if (isDeadlineElapsed(wager.deadline)) return false;
@@ -462,7 +462,7 @@ export default function WagerDetail() {
       if (wager.status !== "OPEN") {
         toast({
           title: "This wager is closed",
-          description: "Bets are no longer being accepted for this wager.",
+          description: "Wagers are no longer being accepted for this wager.",
           variant: "destructive",
         });
         setShowJoinDialog(false);
@@ -485,7 +485,7 @@ export default function WagerDetail() {
       if (timeRemaining > 0 && timeRemaining <= 20000) {
         toast({
           title: "Too late to wager",
-          description: "You cannot place bets within 20 seconds of the deadline.",
+          description: "You cannot join wagers within 20 seconds of the deadline.",
           variant: "destructive",
         });
         setShowJoinDialog(false);
@@ -788,7 +788,7 @@ export default function WagerDetail() {
     if (otherUserEntries.length > 0) {
       toast({
         title: "Cannot delete",
-        description: "This wager cannot be deleted because other users have placed bets on it.",
+        description: "This wager cannot be deleted because other users have joined it.",
         variant: "destructive",
       });
       return;
@@ -924,7 +924,7 @@ export default function WagerDetail() {
     if (otherUserEntries.length > 0) {
       toast({
         title: "Cannot edit",
-        description: "This wager cannot be edited because other users have placed bets on it.",
+        description: "This wager cannot be edited because other users have joined it.",
         variant: "destructive",
       });
       return;
@@ -1430,9 +1430,9 @@ export default function WagerDetail() {
                 <Coins className="h-3 w-3 text-amber-500" />
                 {formatVolume(totalPot)} pool
               </span>
-              <span className="text-muted-foreground">{totalParticipants} {totalParticipants === 1 ? 'bettor' : 'bettors'}</span>
+              <span className="text-muted-foreground">{totalParticipants} {totalParticipants === 1 ? 'participant' : 'participants'}</span>
             </div>
-            <span className="font-medium">{formatCurrency(wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}/bet</span>
+            <span className="font-medium">{formatCurrency(wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}/wager</span>
           </div>
 
           {/* Outcomes Section - Compact on mobile */}
@@ -1515,7 +1515,7 @@ export default function WagerDetail() {
 
             {/* Status Messages */}
             {wager.status === "OPEN" && isWithinCutoff && (
-              <p className="text-[11px] text-amber-600 dark:text-amber-400 text-center font-medium py-1">⚡ Betting closes in &lt;20s</p>
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 text-center font-medium py-1">⚡ Wagering closes in &lt;20s</p>
             )}
             {isSettled && (
               <>
@@ -1646,7 +1646,7 @@ export default function WagerDetail() {
           <nav className="flex border-b border-border/30">
             {[
               { key: "comments", icon: MessageSquare, label: "Chat", fullLabel: "Comments" },
-              { key: "participants", icon: Users, label: "Bets", fullLabel: "Participants", count: totalParticipants },
+              { key: "participants", icon: Users, label: "Wagers", fullLabel: "Participants", count: totalParticipants },
               { key: "activities", icon: Activity, label: "Log", fullLabel: "Activity" },
             ].map(({ key, icon: Icon, label, fullLabel, count }) => (
               <button

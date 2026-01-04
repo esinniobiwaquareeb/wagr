@@ -32,7 +32,7 @@ BEGIN
         JOIN auth.users u ON u.id = we.user_id
         WHERE we.wager_id = NEW.id
       LOOP
-        -- Get the amount they bet
+        -- Get the amount they wagered
         SELECT COALESCE(SUM(amount), 0) INTO user_loss_amount
         FROM wager_entries
         WHERE wager_id = NEW.id AND user_id = entry_record.user_id;

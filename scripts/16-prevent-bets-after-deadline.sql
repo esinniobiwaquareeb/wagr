@@ -1,7 +1,7 @@
--- Prevent bets after deadline - Database-level validation
+-- Prevent wagers after deadline - Database-level validation
 -- This adds a check constraint and trigger to prevent entries after deadline
 
--- Add a function to check if wager is still accepting bets
+-- Add a function to check if wager is still accepting entries
 CREATE OR REPLACE FUNCTION can_accept_bets(wager_id_param uuid)
 RETURNS boolean LANGUAGE plpgsql AS $$
 DECLARE
@@ -33,9 +33,9 @@ END; $$;
 CREATE OR REPLACE FUNCTION validate_wager_entry()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN
-  -- Check if wager can still accept bets
+  -- Check if wager can still accept entries
   IF NOT can_accept_bets(NEW.wager_id) THEN
-    RAISE EXCEPTION 'Cannot place bet: Wager deadline has passed or wager is closed';
+    RAISE EXCEPTION 'Cannot join wager: Wager deadline has passed or wager is closed';
   END IF;
 
   RETURN NEW;

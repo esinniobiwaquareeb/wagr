@@ -492,7 +492,7 @@ BEGIN
           VALUES (
             entry_record.user_id,
             'wager_resolved',
-            'Oops, you lost this bet 😔',
+            'Oops, you lost this wager 😔',
             'Unfortunately, you lost the wager "' || NEW.title || '". Better luck next time!',
             '/wager/' || NEW.id,
             jsonb_build_object(
@@ -1077,7 +1077,7 @@ BEGIN
           VALUES (
             entry_record.user_id,
             'wager_resolved',
-            'Oops, you lost this bet 😔',
+            'Oops, you lost this wager 😔',
             'Unfortunately, you lost the wager "' || NEW.title || '". Better luck next time!',
             '/wager/' || NEW.id,
             jsonb_build_object(
@@ -1179,7 +1179,7 @@ CREATE TRIGGER trigger_update_push_subscription_updated_at
 -- <<< END wagr/scripts/16-create-push-subscriptions-table.sql
 
 -- >>> BEGIN wagr/scripts/16-prevent-bets-after-deadline.sql
--- Prevent bets after deadline - Database-level validation
+-- Prevent wagers after deadline - Database-level validation
 -- This adds a check constraint and trigger to prevent entries after deadline
 
 -- Add a function to check if wager is still accepting bets
@@ -1214,9 +1214,9 @@ END; $$;
 CREATE OR REPLACE FUNCTION validate_wager_entry()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN
-  -- Check if wager can still accept bets
+  -- Check if wager can still accept entries
   IF NOT can_accept_bets(NEW.wager_id) THEN
-    RAISE EXCEPTION 'Cannot place bet: Wager deadline has passed or wager is closed';
+    RAISE EXCEPTION 'Cannot join wager: Wager deadline has passed or wager is closed';
   END IF;
 
   RETURN NEW;
@@ -1659,7 +1659,7 @@ BEGIN
                 VALUES (
                   entry_record.user_id,
                   ''wager_resolved'',
-                  ''Oops, you lost this bet 😔'',
+                  ''Oops, you lost this wager 😔'',
                   ''Unfortunately, you lost the wager "'' || NEW.title || ''". Better luck next time!'',
                   ''/wager/'' || NEW.id,
                   jsonb_build_object(
@@ -1933,7 +1933,7 @@ BEGIN
           VALUES (
             entry_record.user_id,
             'wager_resolved',
-            'Oops, you lost this bet 😔',
+            'Oops, you lost this wager 😔',
             'Unfortunately, you lost the wager "' || NEW.title || '". Better luck next time!',
             '/wager/' || NEW.id,
             jsonb_build_object(

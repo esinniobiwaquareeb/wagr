@@ -91,27 +91,27 @@ const WagerCardComponent = ({
   const isOpen = status === "OPEN";
   const isSettled = status === "SETTLED" || status === "RESOLVED";
   const userPicked = userEntrySide === "a" || userEntrySide === "b";
-  const canBet = isOpen && user && !userPicked && !isDeadlineElapsed(deadline);
+  const canJoin = isOpen && user && !userPicked && !isDeadlineElapsed(deadline);
 
   // Handle click to show confirmation dialog
-  const handleBetClick = useCallback((e: React.MouseEvent, side: "a" | "b") => {
+  const handleJoinClick = useCallback((e: React.MouseEvent, side: "a" | "b") => {
     e.preventDefault();
     e.stopPropagation();
 
-    if (!canBet || joining) return;
+    if (!canJoin || joining) return;
 
     const remaining = getTimeRemaining(deadline);
     if (remaining > 0 && remaining <= 20000) {
-      toast({ title: "Too late", description: "Cannot bet within 20s of deadline.", variant: "destructive" });
+      toast({ title: "Too late", description: "Cannot join wager within 20s of deadline.", variant: "destructive" });
       return;
     }
 
     // Show confirmation dialog
     setSelectedSide(side);
     setShowConfirmDialog(true);
-  }, [canBet, joining, deadline, toast]);
+  }, [canJoin, joining, deadline, toast]);
 
-  // Confirm and execute the bet
+  // Confirm and execute the wager
   const confirmBet = useCallback(async () => {
     if (!selectedSide || joining) return;
 
@@ -120,7 +120,7 @@ const WagerCardComponent = ({
     
     try {
       await wagersApi.join(id, selectedSide);
-      toast({ title: "Joined!", description: `You bet on ${selectedSide === "a" ? sideA : sideB}` });
+      toast({ title: "Joined!", description: `You joined ${selectedSide === "a" ? sideA : sideB}` });
       window.dispatchEvent(new Event('wager-updated'));
       window.dispatchEvent(new CustomEvent('balance-updated'));
     } catch (err: any) {
@@ -174,9 +174,9 @@ const WagerCardComponent = ({
         {/* Outcomes - Ultra Compact */}
         <div className="px-3.5 py-2.5 flex-1 space-y-1.5">
           {/* Option A */}
-          {canBet ? (
+          {canJoin ? (
             <button
-              onClick={(e) => handleBetClick(e, "a")}
+              onClick={(e) => handleJoinClick(e, "a")}
               disabled={!!joining}
               className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gradient-to-r from-emerald-500/8 to-emerald-500/4 border border-emerald-500/25 hover:border-emerald-500/50 hover:from-emerald-500/12 hover:to-emerald-500/8 transition-all disabled:opacity-50"
             >
@@ -209,9 +209,9 @@ const WagerCardComponent = ({
           )}
 
           {/* Option B */}
-          {canBet ? (
+          {canJoin ? (
             <button
-              onClick={(e) => handleBetClick(e, "b")}
+              onClick={(e) => handleJoinClick(e, "b")}
               disabled={!!joining}
               className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gradient-to-r from-rose-500/8 to-rose-500/4 border border-rose-500/25 hover:border-rose-500/50 hover:from-rose-500/12 hover:to-rose-500/8 transition-all disabled:opacity-50"
             >
@@ -252,7 +252,7 @@ const WagerCardComponent = ({
               ₦{vol}
             </span>
             <span className="opacity-60">
-              {formatCurrency(amount, currency as Currency)}/bet
+              {formatCurrency(amount, currency as Currency)}/wager
             </span>
           </div>
           {entriesCount > 0 && (
@@ -269,13 +269,13 @@ const WagerCardComponent = ({
       <ConfirmDialog
         open={showConfirmDialog}
         onOpenChange={setShowConfirmDialog}
-        title="Confirm Your Bet"
+        title="Confirm Your Wager"
         description={
           selectedSide
-            ? `You are about to bet ${formatCurrency(amount, currency as Currency)} on "${selectedSide === "a" ? sideA : sideB}" for "${title}". This amount will be deducted from your wallet. Are you sure?`
-            : "Are you sure you want to place this bet?"
+            ? `You are about to join this wager with ${formatCurrency(amount, currency as Currency)} on "${selectedSide === "a" ? sideA : sideB}" for "${title}". This amount will be deducted from your wallet. Are you sure?`
+            : "Are you sure you want to join this wager?"
         }
-        confirmText="Place Bet"
+        confirmText="Join Wager"
         cancelText="Cancel"
         onConfirm={confirmBet}
       />

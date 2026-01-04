@@ -143,7 +143,7 @@ export function sendWagerSettlementEmail(
     },
     subject: won 
       ? `🎉 You won ${amount} on "${wagerTitle}"!` 
-      : `😔 Oops, you lost the bet on "${wagerTitle}"`,
+      : `😔 Oops, you lost the wager on "${wagerTitle}"`,
   });
 }
 

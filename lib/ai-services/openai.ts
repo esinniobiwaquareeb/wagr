@@ -27,7 +27,7 @@ export async function analyzeNews(articles: NewsArticle[]): Promise<WagerSuggest
   // Get top 5 trending articles
   const trendingArticles = articles.slice(0, 5);
 
-  const prompt = `You are a wager platform analyst. Analyze these recent news articles and create clear, understandable wagers that users can bet on.
+  const prompt = `You are a wager platform analyst. Analyze these recent news articles and create clear, understandable wagers that users can join.
 
 News Articles:
 ${trendingArticles.map((a, i) => `${i + 1}. ${a.title}\n   ${a.description || ''}`).join('\n\n')}
