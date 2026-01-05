@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useGamificationEnabled } from "@/hooks/use-gamification-enabled";
 import { Trophy, Star, Flame, Target, Award, Loader2 } from "lucide-react";
 import { gamificationApi } from "@/lib/api-client";
 import { logger } from "@/lib/logger";
@@ -11,14 +12,17 @@ import { Badge } from "@/components/ui/badge";
 
 export function GamificationSection() {
   const { user } = useAuth();
+  const gamificationEnabled = useGamificationEnabled();
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
+    if (user && gamificationEnabled) {
       fetchStats();
+    } else if (!gamificationEnabled) {
+      setLoading(false);
     }
-  }, [user]);
+  }, [user, gamificationEnabled]);
 
   const fetchStats = async () => {
     try {
@@ -35,7 +39,7 @@ export function GamificationSection() {
     }
   };
 
-  if (!user) return null;
+  if (!user || !gamificationEnabled) return null;
 
   if (loading) {
     return (

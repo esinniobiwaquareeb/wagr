@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { useGamificationEnabled } from "@/hooks/use-gamification-enabled";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
 
 export default function GamificationPage() {
   const { user, loading: authLoading } = useAuth();
+  const gamificationEnabled = useGamificationEnabled();
   const { toast } = useToast();
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -34,10 +36,12 @@ export default function GamificationPage() {
   const [claiming, setClaiming] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && user) {
+    if (!authLoading && user && gamificationEnabled) {
       fetchStats();
+    } else if (!gamificationEnabled) {
+      setLoading(false);
     }
-  }, [authLoading, user]);
+  }, [authLoading, user, gamificationEnabled]);
 
   const fetchStats = async () => {
     try {
@@ -120,6 +124,18 @@ export default function GamificationPage() {
           <Trophy className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
           <h2 className="text-xl font-semibold mb-2">Sign in to view your progress</h2>
           <p className="text-muted-foreground">Log in to see your achievements, challenges, and streaks</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!gamificationEnabled) {
+    return (
+      <main className="flex-1 pb-24 md:pb-0">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 py-12 text-center">
+          <Trophy className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+          <h2 className="text-xl font-semibold mb-2">Gamification is currently disabled</h2>
+          <p className="text-muted-foreground">Gamification features are temporarily unavailable. Please check back later.</p>
         </div>
       </main>
     );

@@ -220,6 +220,8 @@ export const wagersApi = {
   
   delete: (id: string) => apiDelete<{ message: string }>(`/wagers/${id}`),
   
+  share: (id: string) => apiPost<{ message: string }>(`/wagers/${id}/share`, {}),
+  
   getTrending: (limit?: number, forceRefresh = false) => {
     const queryParams = new URLSearchParams();
     if (limit) queryParams.set('limit', limit.toString());

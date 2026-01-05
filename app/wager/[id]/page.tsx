@@ -1045,6 +1045,16 @@ export default function WagerDetail() {
     const wagerUrl = `${window.location.origin}/wager/${shareId}`;
     
     try {
+      // Call the share API endpoint to track for gamification rewards
+      if (user) {
+        try {
+          await wagersApi.share(shareId);
+        } catch (apiError) {
+          // Log but don't block sharing if API call fails
+          logger.warn('Failed to track wager share', apiError);
+        }
+      }
+
       await navigator.clipboard.writeText(wagerUrl);
       toast({
         title: "Link copied!",

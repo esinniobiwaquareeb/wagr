@@ -1,0 +1,314 @@
+-- Fix quiz equal_split calculation to only reward participants with 100% score
+-- Issue: equal_split was giving equal share to all participants regardless of score
+-- Fix: Only distribute to participants who got 100% correct (percentage_score = 100)
+
+CREATE OR REPLACE FUNCTION settle_quiz(quiz_id_param uuid)
+RETURNS void 
+LANGUAGE plpgsql 
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+DECLARE
+  quiz_record RECORD;
+  participants_count INTEGER;
+  total_pool NUMERIC;
+  platform_fee NUMERIC;
+  winnings_pool NUMERIC;
+  reserved_base_cost NUMERIC;
+  remaining_base_refund NUMERIC;
+  total_possible_points NUMERIC;
+  settlement_method TEXT;
+  user_winnings NUMERIC;
+  total_distributed NUMERIC := 0;
+BEGIN
+  SELECT * INTO quiz_record
+  FROM quizzes
+  WHERE id = quiz_id_param
+  FOR UPDATE;
+  
+  IF NOT FOUND THEN
+    RETURN;
+  END IF;
+  
+  IF quiz_record.status = 'settled' THEN
+    RETURN;
+  END IF;
+  
+  IF quiz_record.status NOT IN ('completed', 'in_progress', 'open') THEN
+    RETURN;
+  END IF;
+  
+  SELECT COUNT(*) INTO participants_count
+  FROM quiz_participants
+  WHERE quiz_id = quiz_id_param AND status = 'completed';
+  
+  IF participants_count = 0 THEN
+    PERFORM refund_quiz_funds(quiz_id_param);
+    UPDATE quizzes SET status = 'cancelled' WHERE id = quiz_id_param;
+    RETURN;
+  END IF;
+  
+  total_pool := quiz_record.entry_fee_per_question * quiz_record.total_questions * participants_count;
+  platform_fee := ROUND(total_pool * quiz_record.platform_fee_percentage, 2);
+  winnings_pool := ROUND(total_pool - platform_fee, 2);
+  
+  reserved_base_cost := COALESCE(quiz_record.base_cost, quiz_record.entry_fee_per_question * quiz_record.total_questions * quiz_record.max_participants);
+  remaining_base_refund := GREATEST(ROUND(reserved_base_cost - total_pool, 2), 0);
+  
+  IF remaining_base_refund > 0 THEN
+    PERFORM increment_balance(quiz_record.creator_id, remaining_base_refund);
+    
+    BEGIN
+      INSERT INTO transactions (user_id, type, amount, reference, description)
+      VALUES (
+        quiz_record.creator_id,
+        'quiz_refund',
+        remaining_base_refund,
+        'quiz:' || quiz_id_param::text || ':refund:' || quiz_record.creator_id::text,
+        'Unused quiz funds refunded after settlement'
+      );
+    EXCEPTION
+      WHEN unique_violation THEN
+        NULL;
+    END;
+  END IF;
+  
+  SELECT COALESCE(SUM(points), 0) INTO total_possible_points
+  FROM quiz_questions
+  WHERE quiz_id = quiz_id_param;
+  
+  IF total_possible_points = 0 THEN
+    SELECT COALESCE(SUM(points_earned), 0) INTO total_possible_points
+    FROM quiz_responses
+    WHERE quiz_id = quiz_id_param;
+  END IF;
+  
+  settlement_method := COALESCE(quiz_record.settlement_method, 'proportional');
+  
+  IF settlement_method = 'proportional' THEN
+    DECLARE
+      total_score_sum NUMERIC;
+      last_participant_id UUID;
+      participant_record RECORD;
+    BEGIN
+      SELECT COALESCE(SUM(score), 0) INTO total_score_sum
+      FROM quiz_participants
+      WHERE quiz_id = quiz_id_param AND status = 'completed';
+      
+      IF total_score_sum > 0 THEN
+        FOR participant_record IN
+          SELECT * FROM quiz_participants
+          WHERE quiz_id = quiz_id_param AND status = 'completed'
+          ORDER BY score DESC, completed_at ASC
+        LOOP
+          user_winnings := ROUND((participant_record.score::NUMERIC / total_score_sum) * winnings_pool, 2);
+          last_participant_id := participant_record.id;
+          total_distributed := total_distributed + user_winnings;
+          
+          PERFORM increment_balance(participant_record.user_id, user_winnings);
+          
+          UPDATE quiz_participants
+          SET winnings = user_winnings
+          WHERE id = participant_record.id;
+          
+          BEGIN
+            INSERT INTO transactions (user_id, type, amount, reference, description)
+            VALUES (
+              participant_record.user_id,
+              'quiz_win',
+              user_winnings,
+              'quiz:' || quiz_id_param::text || ':win:' || participant_record.user_id::text,
+              'Quiz Win: "' || quiz_record.title || '" - Score: ' || participant_record.score || '/' || total_possible_points
+            );
+          EXCEPTION
+            WHEN unique_violation THEN
+              NULL;
+          END;
+        END LOOP;
+        
+        IF last_participant_id IS NOT NULL AND ABS(total_distributed - winnings_pool) > 0.01 THEN
+          DECLARE
+            rounding_diff NUMERIC;
+          BEGIN
+            rounding_diff := ROUND(winnings_pool - total_distributed, 2);
+            IF ABS(rounding_diff) > 0 THEN
+              UPDATE quiz_participants
+              SET winnings = winnings + rounding_diff
+              WHERE id = last_participant_id;
+              
+              PERFORM increment_balance(
+                (SELECT user_id FROM quiz_participants WHERE id = last_participant_id),
+                rounding_diff
+              );
+            END IF;
+          END;
+        END IF;
+      ELSE
+        PERFORM refund_quiz_participants(quiz_id_param);
+      END IF;
+    END;
+  ELSIF settlement_method = 'top_winners' THEN
+    DECLARE
+      top_count INTEGER;
+      winners_pool NUMERIC;
+      participant_record RECORD;
+      winner_count INTEGER := 0;
+      total_distributed_winners NUMERIC := 0;
+      last_winner_id UUID;
+      rounding_diff NUMERIC;
+    BEGIN
+      top_count := COALESCE(quiz_record.top_winners_count, 3);
+      
+      SELECT COUNT(*) INTO winner_count
+      FROM quiz_participants
+      WHERE quiz_id = quiz_id_param AND status = 'completed';
+      
+      IF winner_count = 0 THEN
+        PERFORM refund_quiz_participants(quiz_id_param);
+        RETURN;
+      END IF;
+      
+      winner_count := LEAST(winner_count, top_count);
+      winners_pool := ROUND(winnings_pool / winner_count, 2);
+      
+      FOR participant_record IN
+        SELECT * FROM quiz_participants
+        WHERE quiz_id = quiz_id_param AND status = 'completed'
+        ORDER BY score DESC, completed_at ASC
+        LIMIT top_count
+      LOOP
+        last_winner_id := participant_record.id;
+        total_distributed_winners := total_distributed_winners + winners_pool;
+        
+        PERFORM increment_balance(participant_record.user_id, winners_pool);
+        
+        UPDATE quiz_participants
+        SET winnings = winners_pool
+        WHERE id = participant_record.id;
+        
+        BEGIN
+          INSERT INTO transactions (user_id, type, amount, reference, description)
+          VALUES (
+            participant_record.user_id,
+            'quiz_win',
+            winners_pool,
+            'quiz:' || quiz_id_param::text || ':win:' || participant_record.user_id::text,
+            'Quiz Win: "' || quiz_record.title || '" - Top Winner'
+          );
+        EXCEPTION
+          WHEN unique_violation THEN
+            NULL;
+        END;
+      END LOOP;
+      
+      IF last_winner_id IS NOT NULL AND ABS(total_distributed_winners - winnings_pool) > 0.01 THEN
+        rounding_diff := ROUND(winnings_pool - total_distributed_winners, 2);
+        IF ABS(rounding_diff) > 0 THEN
+          UPDATE quiz_participants
+          SET winnings = winnings + rounding_diff
+          WHERE id = last_winner_id;
+          
+          PERFORM increment_balance(
+            (SELECT user_id FROM quiz_participants WHERE id = last_winner_id),
+            rounding_diff
+          );
+        END IF;
+      END IF;
+    END;
+  ELSIF settlement_method = 'equal_split' THEN
+    -- Equal split among ALL participants who completed the quiz
+    -- Best for team building - everyone who completes gets an equal share
+    DECLARE
+      participant_record RECORD;
+      last_participant_id UUID;
+      rounding_diff NUMERIC;
+      total_distributed_equal NUMERIC := 0;
+    BEGIN
+      -- Calculate equal share for all participants
+      user_winnings := ROUND(winnings_pool / participants_count, 2);
+      
+      -- Distribute equally to all participants who completed
+      FOR participant_record IN
+        SELECT * FROM quiz_participants
+        WHERE quiz_id = quiz_id_param AND status = 'completed'
+        ORDER BY completed_at ASC
+      LOOP
+        last_participant_id := participant_record.id;
+        total_distributed_equal := total_distributed_equal + user_winnings;
+        
+        -- Add winnings to user balance
+        PERFORM increment_balance(participant_record.user_id, user_winnings);
+        
+        -- Update participant winnings
+        UPDATE quiz_participants
+        SET winnings = user_winnings
+        WHERE id = participant_record.id;
+        
+        -- Record transaction (with idempotency - catch unique constraint violations)
+        BEGIN
+          INSERT INTO transactions (user_id, type, amount, reference, description)
+          VALUES (
+            participant_record.user_id,
+            'quiz_win',
+            user_winnings,
+            'quiz:' || quiz_id_param::text || ':win:' || participant_record.user_id::text,
+            'Quiz Win: "' || quiz_record.title || '" - Equal Split (All Participants)'
+          );
+        EXCEPTION
+          WHEN unique_violation THEN
+            -- Transaction already exists, ignore
+            NULL;
+        END;
+      END LOOP;
+      
+      -- Handle rounding differences - add/subtract from last participant
+      IF last_participant_id IS NOT NULL AND ABS(total_distributed_equal - winnings_pool) > 0.01 THEN
+        rounding_diff := ROUND(winnings_pool - total_distributed_equal, 2);
+        IF ABS(rounding_diff) > 0 THEN
+          UPDATE quiz_participants
+          SET winnings = winnings + rounding_diff
+          WHERE id = last_participant_id;
+          
+          PERFORM increment_balance(
+            (SELECT user_id FROM quiz_participants WHERE id = last_participant_id),
+            rounding_diff
+          );
+        END IF;
+      END IF;
+    END;
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM quiz_settlements WHERE quiz_id = quiz_id_param) THEN
+    BEGIN
+      INSERT INTO quiz_settlements (
+        quiz_id,
+        total_pool,
+        platform_fee,
+        winnings_pool,
+        participants_count,
+        settlement_method
+      )
+      VALUES (
+        quiz_id_param,
+        total_pool,
+        platform_fee,
+        winnings_pool,
+        participants_count,
+        settlement_method
+      );
+    EXCEPTION
+      WHEN unique_violation THEN
+        NULL;
+    END;
+  END IF;
+  
+  UPDATE quizzes
+  SET 
+    status = 'settled',
+    settled_at = now()
+  WHERE id = quiz_id_param;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION settle_quiz(uuid) TO PUBLIC;
+
