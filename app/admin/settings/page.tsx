@@ -504,37 +504,42 @@ export default function AdminSettingsPage() {
 
       {/* Settings Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
-          <TabsList className="flex lg:flex-col w-full lg:max-w-xs gap-3 h-auto p-3 bg-card border rounded-xl shadow-sm overflow-x-auto lg:sticky lg:top-24">
-            {availableTabs.map((category) => {
-              const config = CATEGORY_CONFIG[category as keyof typeof CATEGORY_CONFIG];
-              const Icon = config?.icon || Settings;
-              const count = groupedSettings[category]?.length || 0;
-              
-              return (
-                <TabsTrigger
-                  key={category}
-                  value={category}
-                  className="w-full flex items-center gap-3 p-3 border rounded-lg text-left transition hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary"
-                >
-                  <Icon className={`h-5 w-5 shrink-0 ${config?.color || ''}`} />
-                  <div className="flex-1">
-                    <div className="font-medium text-sm">{config?.title || category}</div>
-                    <div className="text-xs opacity-70">{count} settings</div>
-                  </div>
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
+        <div className="flex flex-col gap-6">
+          {/* Horizontal Tabs List - Scrollable Container */}
+          <div className="w-full overflow-x-auto -mx-6 px-6 pb-2">
+            <div className="inline-block min-w-full">
+              <TabsList className="!inline-flex !flex-row !w-auto gap-2 h-auto p-2 bg-card border rounded-xl shadow-sm">
+                {availableTabs.map((category) => {
+                  const config = CATEGORY_CONFIG[category as keyof typeof CATEGORY_CONFIG];
+                  const Icon = config?.icon || Settings;
+                  const count = groupedSettings[category]?.length || 0;
+                  
+                  return (
+                    <TabsTrigger
+                      key={category}
+                      value={category}
+                      className="!flex !items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 border rounded-lg transition hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary whitespace-nowrap !flex-shrink-0"
+                    >
+                      <Icon className={`h-4 w-4 shrink-0 ${config?.color || ''}`} />
+                      <div className="flex flex-col items-start">
+                        <div className="font-medium text-xs sm:text-sm">{config?.title || category}</div>
+                        <div className="text-[10px] sm:text-xs opacity-70">{count} settings</div>
+                      </div>
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+            </div>
+          </div>
 
-          <div className="flex-1 w-full">
-            {/* Tab Contents */}
+          {/* Tab Contents */}
+          <div className="w-full">
             {availableTabs.map((category) => {
               const config = CATEGORY_CONFIG[category as keyof typeof CATEGORY_CONFIG];
               const categorySettings = groupedSettings[category] || [];
 
               return (
-                <TabsContent key={category} value={category} className="mt-6 lg:mt-0">
+                <TabsContent key={category} value={category} className="mt-0">
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
