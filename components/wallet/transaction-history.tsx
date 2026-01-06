@@ -66,6 +66,9 @@ export function TransactionHistory({ transactions, currency }: TransactionHistor
                      trans.type === 'transfer_in' ? 'Transfer Received' :
                      trans.type === 'challenge_reward' ? 'Challenge Reward' :
                      trans.type === 'streak_reward' ? 'Streak Reward' :
+                     trans.type === 'quiz_refund' ? 'Quiz Refund' :
+                     trans.type === 'quiz_win' ? 'Quiz Win' :
+                     trans.type === 'quiz_join' ? 'Quiz Joined' :
                      trans.type.replace(/_/g, " ")}
                   </p>
                   {trans.description ? (
@@ -85,12 +88,18 @@ export function TransactionHistory({ transactions, currency }: TransactionHistor
                 </div>
                 <p
                   className={`font-bold text-sm sm:text-base whitespace-nowrap flex-shrink-0 ${
-                    trans.amount > 0
+                    (() => {
+                      const positiveTypes = ["deposit", "wager_win", "wager_refund", "quiz_win", "quiz_refund", "transfer_in", "challenge_reward", "streak_reward"];
+                      return positiveTypes.includes(trans.type) || trans.amount > 0;
+                    })()
                       ? "text-green-600 dark:text-green-400"
                       : "text-red-600 dark:text-red-400"
                   }`}
                 >
-                  {trans.amount > 0 ? "+" : ""}
+                  {(() => {
+                    const positiveTypes = ["deposit", "wager_win", "wager_refund", "quiz_win", "quiz_refund", "transfer_in", "challenge_reward", "streak_reward"];
+                    return positiveTypes.includes(trans.type) || trans.amount > 0;
+                  })() ? "+" : ""}
                   {formatCurrency(Math.abs(trans.amount), currency)}
                 </p>
               </Link>

@@ -101,6 +101,9 @@ export default function TransactionsPage() {
       'wager_win': 'Wager Win',
       'wager_refund': 'Wager Refund',
       'wager_edit': 'Wager Edited',
+      'quiz_join': 'Quiz Joined',
+      'quiz_win': 'Quiz Win',
+      'quiz_refund': 'Quiz Refund',
       'challenge_reward': 'Challenge Reward',
       'streak_reward': 'Streak Reward',
     };
@@ -108,7 +111,7 @@ export default function TransactionsPage() {
   };
 
   const isPositive = (type: string) => {
-    return ["deposit", "wager_win", "wager_refund", "transfer_in", "challenge_reward", "streak_reward"].includes(type);
+    return ["deposit", "wager_win", "wager_refund", "quiz_win", "quiz_refund", "transfer_in", "challenge_reward", "streak_reward"].includes(type);
   };
 
   if (authLoading || loading) {
