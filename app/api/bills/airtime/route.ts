@@ -14,7 +14,6 @@ import {
   normalizePhoneNumber,
   isValidNigerianPhoneNumber,
 } from '@/lib/bills/networks';
-import { getBillsProvider } from '@/lib/bills/providers';
 
 interface AirtimeRequestBody {
   category: 'airtime';
@@ -72,17 +71,9 @@ export async function POST(request: NextRequest) {
       throw new AppError(ErrorCode.INVALID_INPUT, 'The requested bills provider is not enabled.');
     }
 
-    const provider = getBillsProvider(providerKey, billsSettings);
-    if (!provider || !provider.supports.airtime) {
-      logError(
-        new Error('Bills provider not configured'),
-        { providerKey },
-      );
-      throw new AppError(
-        ErrorCode.NOT_IMPLEMENTED,
-        'Selected bills provider is not available right now.',
-      );
-    }
+    // Note: We don't validate provider configuration here because provider credentials
+    // are admin-only settings. The backend will validate and handle provider configuration.
+    // We only check if the provider is enabled in the settings.
 
     const amount = Number(body.amount);
     if (Number.isNaN(amount) || amount <= 0) {

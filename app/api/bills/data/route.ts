@@ -13,7 +13,6 @@ import {
   normalizePhoneNumber,
   isValidNigerianPhoneNumber,
 } from '@/lib/bills/networks';
-import { getBillsProvider } from '@/lib/bills/providers';
 import { getPlanFromLocalCatalog } from '@/lib/bills/local-plan-loader';
 
 interface DataRequestBody {
@@ -70,14 +69,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const provider = getBillsProvider(providerKey, billsSettings);
-    if (!provider || !provider.supports.data || !provider.purchaseData) {
-      logError(new Error('Bills provider not configured for data'), { providerKey });
-      throw new AppError(
-        ErrorCode.NOT_IMPLEMENTED,
-        'Selected bills provider is not available right now.',
-      );
-    }
+    // Note: We don't validate provider configuration here because provider credentials
+    // are admin-only settings. The backend will validate and handle provider configuration.
+    // We only check if the provider is enabled in the settings.
 
     const normalizedPhone = normalizePhoneNumber(body.phoneNumber);
     if (!isValidNigerianPhoneNumber(normalizedPhone)) {

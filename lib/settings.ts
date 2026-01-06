@@ -17,17 +17,68 @@ export interface PlatformSetting {
   requires_restart: boolean;
 }
 
+// Cache for public settings on server-side to avoid repeated calls
+let publicSettingsCache: { settings: Record<string, any>; timestamp: number } | null = null;
+const PUBLIC_SETTINGS_CACHE_TTL = 60000; // 1 minute
+
 /**
- * Get a setting value by key (server-side only)
+ * Get a setting value by key (works on both client and server)
  * @param key Setting key (e.g., 'payments.enabled')
  * @param defaultValue Default value if setting not found
  * @returns Setting value or default
  */
 export async function getSetting<T = any>(key: string, defaultValue?: T): Promise<T> {
   try {
-    const { apiGet } = await import('@/lib/api-client');
-    const data = await apiGet<{ setting: { value: any } }>(`/settings/${encodeURIComponent(key)}`);
-    return (data as any)?.setting?.value as T ?? defaultValue as T;
+    // Check if we're on the server side
+    if (typeof window === 'undefined') {
+      // Server-side: use nestjsServerFetch
+      const { nestjsServerFetch } = await import('@/lib/nestjs-server');
+      
+      // First, try to get from public settings (cached)
+      const now = Date.now();
+      if (!publicSettingsCache || (now - publicSettingsCache.timestamp) > PUBLIC_SETTINGS_CACHE_TTL) {
+        const publicResponse = await nestjsServerFetch<{ settings: Record<string, any> }>('/admin/settings/public', {
+          method: 'GET',
+          requireAuth: false,
+        });
+        
+        if (publicResponse.success && publicResponse.data?.settings) {
+          publicSettingsCache = {
+            settings: publicResponse.data.settings,
+            timestamp: now,
+          };
+        }
+      }
+      
+      // Check if setting exists in public settings cache
+      if (publicSettingsCache?.settings?.[key] !== undefined) {
+        return publicSettingsCache.settings[key] as T;
+      }
+      
+      // If not in public settings, try admin endpoint (for admin-only settings)
+      const { cookies } = await import('next/headers');
+      const cookieStore = await cookies();
+      const token = cookieStore.get('admin_auth_token')?.value || cookieStore.get('auth_token')?.value || null;
+      
+      if (token) {
+        const response = await nestjsServerFetch<{ setting: { value: any } }>(`/admin/settings/${encodeURIComponent(key)}`, {
+          method: 'GET',
+          token,
+          requireAuth: false, // Backend guards will still check admin access
+        });
+        
+        if (response.success && response.data?.setting) {
+          return response.data.setting.value as T;
+        }
+      }
+      
+      return defaultValue as T;
+    } else {
+      // Client-side: use apiGet
+      const { apiGet } = await import('@/lib/api-client');
+      const data = await apiGet<{ setting: { value: any } }>(`/settings/${encodeURIComponent(key)}`);
+      return (data as any)?.setting?.value as T ?? defaultValue as T;
+    }
   } catch (error) {
     logger.error(`Error fetching setting ${key}`, error);
     return defaultValue as T;
