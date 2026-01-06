@@ -48,25 +48,38 @@ export function AdminSidebar() {
   };
 
   const navItems = [
-    { href: "/admin", icon: BarChart3, label: "Dashboard" },
-    { href: "/admin/users", icon: Users, label: "Users" },
-    { href: "/admin/wagers", icon: Home, label: "Wagers" },
-    { href: "/admin/quizzes", icon: BookOpen, label: "Quizzes" },
-    { href: "/admin/transactions", icon: CreditCard, label: "Transactions" },
-    { href: "/admin/withdrawals", icon: Wallet, label: "Withdrawals" },
-    { href: "/admin/kyc", icon: ShieldCheck, label: "KYC Reviews" },
-    { href: "/admin/reports", icon: FileText, label: "Reports" },
-    { href: "/admin/analytics", icon: BarChart3, label: "Analytics" },
-    { href: "/admin/email-templates", icon: Mail, label: "Email Templates" },
-    { href: "/admin/settings", icon: Settings, label: "Settings" },
+    { href: "/admin", icon: BarChart3, label: "Dashboard", permission: null },
+    { href: "/admin/users", icon: Users, label: "Users", permission: 'manage_users' },
+    { href: "/admin/wagers", icon: Home, label: "Wagers", permission: 'manage_wagers' },
+    { href: "/admin/quizzes", icon: BookOpen, label: "Quizzes", permission: 'manage_quizzes' },
+    { href: "/admin/transactions", icon: CreditCard, label: "Transactions", permission: 'view_transactions' },
+    { href: "/admin/withdrawals", icon: Wallet, label: "Withdrawals", permission: 'manage_withdrawals' },
+    { href: "/admin/kyc", icon: ShieldCheck, label: "KYC Reviews", permission: 'manage_kyc' },
+    { href: "/admin/reports", icon: FileText, label: "Reports", permission: 'view_reports' },
+    { href: "/admin/analytics", icon: BarChart3, label: "Analytics", permission: 'view_analytics' },
+    { href: "/admin/email-templates", icon: Mail, label: "Email Templates", permission: 'manage_email_templates' },
+    { href: "/admin/admins", icon: Shield, label: "Admins", permission: 'manage_admins' },
+    { href: "/admin/settings", icon: Settings, label: "Settings", permission: 'manage_settings' },
   ];
+
+  // Filter nav items based on permissions
+  const filteredNavItems = admin
+    ? navItems.filter((item) => {
+        // Super admin has access to everything
+        if (admin.role === 'super_admin') return true;
+        // If no permission required, allow access
+        if (!item.permission) return true;
+        // Check if admin has the required permission
+        return admin.permissions?.includes(item.permission);
+      })
+    : navItems;
 
   return (
     <>
       {/* Mobile Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-lg border-t border-border md:hidden z-50 safe-area-inset-bottom shadow-lg">
         <div className="flex justify-around items-center h-16 px-1">
-          {navItems.slice(0, 5).map((item) => {
+          {filteredNavItems.slice(0, 5).map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
             return (
@@ -106,24 +119,9 @@ export function AdminSidebar() {
 
       {/* Desktop Sidebar */}
       <nav className="hidden md:flex md:flex-col md:w-64 md:border-r md:border-border md:bg-card/50 md:backdrop-blur-sm md:p-4 md:gap-1 md:sticky md:top-0 md:h-screen md:overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-border">
-          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Shield className="h-5 w-5 text-primary" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold truncate">Admin Center</p>
-            {admin && (
-              <p className="text-xs text-muted-foreground truncate">
-                {admin.username || admin.email || 'Admin'}
-              </p>
-            )}
-          </div>
-        </div>
-        
         {/* Navigation Items */}
         <div className="flex-1 space-y-1">
-          {navItems.map((item) => {
+          {filteredNavItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
             return (
@@ -159,15 +157,6 @@ export function AdminSidebar() {
             <Home className="h-5 w-5" />
             <span className="text-sm font-medium">Back to App</span>
           </Link>
-          {admin && (
-            <button
-              onClick={handleLogoutClick}
-              className="flex items-center gap-3 py-2.5 px-3 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors w-full text-left"
-            >
-              <LogOut className="h-5 w-5" />
-              <span className="text-sm font-medium">Logout</span>
-            </button>
-          )}
         </div>
       </nav>
       

@@ -3,6 +3,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { AdminSidebar } from "@/components/admin-sidebar";
+import { AdminTopNav } from "@/components/admin-top-nav";
 import { Toaster } from "@/components/ui/toaster";
 import { AdminProvider, useAdmin } from "@/contexts/admin-context";
 
@@ -25,6 +26,7 @@ function AdminLayoutContent({ children }: { children: ReactNode }) {
         <div className="flex flex-col md:flex-row flex-1">
           <AdminSidebar />
           <div className="flex-1 md:ml-0 flex flex-col min-h-screen overflow-x-hidden">
+            <AdminTopNav />
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
@@ -61,6 +63,7 @@ function AdminLayoutContent({ children }: { children: ReactNode }) {
       <div className="flex flex-col md:flex-row flex-1">
         {!isLoginPage && <AdminSidebar />}
         <div className="flex-1 md:ml-0 flex flex-col min-h-screen overflow-x-hidden">
+          {!isLoginPage && <AdminTopNav />}
           <div className="flex-1">{children}</div>
         </div>
       </div>

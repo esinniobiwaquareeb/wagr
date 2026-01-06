@@ -24,7 +24,9 @@ export interface AdminAuthUser {
   username: string | null;
   full_name: string | null;
   role: string;
+  permissions: string[];
   is_active: boolean;
+  two_factor_enabled?: boolean;
 }
 /**
  * Get current user from API with deduplication (no caching)

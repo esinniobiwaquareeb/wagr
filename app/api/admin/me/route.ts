@@ -31,9 +31,11 @@ export async function GET(request: NextRequest) {
         username: string | null;
         full_name: string | null;
         role: string;
+        permissions: string[];
         is_active: boolean;
         is_admin: boolean;
         type: string;
+        two_factor_enabled?: boolean;
       };
     }>('/admin/me', {
       method: 'GET',
@@ -41,7 +43,7 @@ export async function GET(request: NextRequest) {
       requireAuth: true,
     });
 
-    if (!response.success || !response.data) {
+    if (!response.success || !response.data?.admin) {
       return successResponseNext({ admin: null });
     }
 

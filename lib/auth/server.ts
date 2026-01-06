@@ -133,3 +133,8 @@ export async function requireAdmin(): Promise<AdminAuthUser> {
   };
 }
 
+/**
+ * Alias for requireAdmin (for consistency)
+ */
+export const requireAdminAuth = requireAdmin;
+

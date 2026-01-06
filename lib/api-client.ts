@@ -473,3 +473,29 @@ export const adminEmailTemplatesApi = {
   test: (email: string, templateId: string, customData?: Record<string, any>) => apiPost<{ success: boolean; message: string }>('/admin/email-templates/test', { email, templateId, customData }),
 };
 
+/**
+ * Admin Management API
+ */
+export const adminManagementApi = {
+  getAll: () => apiGet<{ admins: any[] }>('/api/admin/admins'),
+  
+  getById: (id: string) => apiGet<{ admin: any }>(`/api/admin/admins/${id}`),
+  
+  create: (data: any) => apiPost<{ admin: any }>('/api/admin/admins', data),
+  
+  update: (id: string, data: any) => apiPatch<{ admin: any }>(`/api/admin/admins/${id}`, data),
+  
+  delete: (id: string) => apiDelete<{ success: boolean; message: string }>(`/api/admin/admins/${id}`),
+};
+
+/**
+ * Admin 2FA API
+ */
+export const admin2FAApi = {
+  setup: () => apiPost<{ secret: string; qrCode: string; backupCodes: string[] }>('/api/admin/2fa/setup', {}),
+  
+  verify: (code: string, isBackupCode?: boolean) => apiPost<{ success: boolean; message: string }>('/api/admin/2fa/verify', { code, isBackupCode }),
+  
+  disable: (code: string) => apiPost<{ success: boolean; message: string }>('/api/admin/2fa/disable', { code }),
+};
+
