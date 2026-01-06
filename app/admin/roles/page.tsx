@@ -1,17 +1,49 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Users, CheckCircle2, XCircle, Info, Lock } from "lucide-react";
+import { 
+  Shield, 
+  Users, 
+  CheckCircle2, 
+  XCircle, 
+  Info, 
+  Lock, 
+  Search,
+  Filter,
+  RefreshCw,
+  Sparkles,
+  AlertCircle,
+  Loader2,
+  HelpCircle,
+  Settings2,
+  UserCheck,
+  UserX
+} from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useAdmin } from "@/contexts/admin-context";
 import { adminManagementApi } from "@/lib/api-client";
-import { ADMIN_ROLES, ADMIN_PERMISSIONS, type AdminPermissionDefinition } from "@/lib/admin-permissions";
+import { ADMIN_ROLES, ADMIN_PERMISSIONS, type AdminPermissionDefinition, type AdminRole } from "@/lib/admin-permissions";
 import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 interface Admin {
   id: string;
@@ -29,6 +61,10 @@ export default function AdminRolesPage() {
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingAdminId, setUpdatingAdminId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [resetTargetAdmin, setResetTargetAdmin] = useState<Admin | null>(null);
 
   const canManageAdmins =
     currentAdmin?.role === "super_admin" || currentAdmin?.permissions?.includes("manage_admins");
@@ -56,9 +92,58 @@ export default function AdminRolesPage() {
     fetchAdmins();
   }, [fetchAdmins]);
 
+  // Filter and search admins
+  const filteredAdmins = useMemo(() => {
+    let filtered = admins;
+
+    // Filter by role
+    if (roleFilter !== "all") {
+      filtered = filtered.filter((admin) => admin.role === roleFilter || (!admin.role && roleFilter === "unassigned"));
+    }
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (admin) =>
+          admin.email.toLowerCase().includes(query) ||
+          admin.username?.toLowerCase().includes(query) ||
+          admin.full_name?.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  }, [admins, roleFilter, searchQuery]);
+
+  // Group admins by role
+  const adminsByRole = useMemo(() => {
+    return filteredAdmins.reduce((acc, admin) => {
+      const roleKey = admin.role || "unassigned";
+      if (!acc[roleKey]) acc[roleKey] = [];
+      acc[roleKey].push(admin);
+      return acc;
+    }, {} as Record<string, Admin[]>);
+  }, [filteredAdmins]);
+
+  // Calculate permission stats
+  const permissionStats = useMemo(() => {
+    const stats: Record<string, { count: number; percentage: number }> = {};
+    const activeAdmins = admins.filter((a) => a.is_active);
+    const totalActive = activeAdmins.length || 1;
+
+    ADMIN_PERMISSIONS.forEach((perm) => {
+      const count = activeAdmins.filter((admin) => admin.permissions.includes(perm.id)).length;
+      stats[perm.id] = {
+        count,
+        percentage: Math.round((count / totalActive) * 100),
+      };
+    });
+
+    return stats;
+  }, [admins]);
+
   const handleTogglePermission = async (admin: Admin, permissionId: string) => {
     if (!canManageAdmins) return;
-    // Prevent editing your own permissions from this screen to avoid lockout
     if (admin.id === currentAdmin?.id) {
       toast({
         title: "Not allowed",
@@ -93,7 +178,7 @@ export default function AdminRolesPage() {
 
       toast({
         title: "Updated",
-        description: `Permissions updated for ${admin.email}`,
+        description: `${hasPermission ? "Removed" : "Granted"} ${ADMIN_PERMISSIONS.find((p) => p.id === permissionId)?.label} for ${admin.email}`,
       });
     } catch (error) {
       logger.error("Error updating admin permissions", error);
@@ -107,6 +192,64 @@ export default function AdminRolesPage() {
     }
   };
 
+  const handleApplyRoleDefaults = async (admin: Admin) => {
+    if (!canManageAdmins || admin.id === currentAdmin?.id) return;
+
+    const role = admin.role as AdminRole;
+    if (!role || !ADMIN_ROLES.find((r) => r.id === role)) {
+      toast({
+        title: "Error",
+        description: "Admin must have a valid role to apply defaults",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setUpdatingAdminId(admin.id);
+      const defaultPermissions = ADMIN_PERMISSIONS.filter((p) =>
+        p.defaultRoles.includes(role)
+      ).map((p) => p.id);
+
+      await adminManagementApi.update(admin.id, {
+        permissions: defaultPermissions,
+      });
+
+      setAdmins((prev) =>
+        prev.map((a) =>
+          a.id === admin.id
+            ? {
+                ...a,
+                permissions: defaultPermissions,
+              }
+            : a
+        )
+      );
+
+      toast({
+        title: "Applied defaults",
+        description: `Applied default permissions for ${role} role to ${admin.email}`,
+      });
+    } catch (error) {
+      logger.error("Error applying role defaults", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to apply defaults",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingAdminId(null);
+    }
+  };
+
+  const handleResetPermissions = async () => {
+    if (!resetTargetAdmin) return;
+
+    await handleApplyRoleDefaults(resetTargetAdmin);
+    setShowResetDialog(false);
+    setResetTargetAdmin(null);
+  };
+
   const getRoleColor = (role: string | null) => {
     switch (role) {
       case "super_admin":
@@ -118,6 +261,18 @@ export default function AdminRolesPage() {
       default:
         return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
     }
+  };
+
+  const hasCustomPermissions = (admin: Admin) => {
+    const role = admin.role as AdminRole;
+    if (!role) return true;
+    const defaultPerms = ADMIN_PERMISSIONS.filter((p) => p.defaultRoles.includes(role)).map((p) => p.id);
+    const currentPerms = admin.permissions || [];
+    return (
+      currentPerms.length !== defaultPerms.length ||
+      !defaultPerms.every((p) => currentPerms.includes(p)) ||
+      !currentPerms.every((p) => defaultPerms.includes(p))
+    );
   };
 
   if (!canManageAdmins) {
@@ -138,191 +293,375 @@ export default function AdminRolesPage() {
     );
   }
 
-  const adminsByRole: Record<string, Admin[]> = admins.reduce((acc, admin) => {
-    const roleKey = admin.role || "unassigned";
-    if (!acc[roleKey]) acc[roleKey] = [];
-    acc[roleKey].push(admin);
-    return acc;
-  }, {} as Record<string, Admin[]>);
-
   return (
     <div className="container mx-auto p-4 md:p-6 space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      {/* Header */}
+      <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
             <Shield className="h-6 w-6" />
             Roles & Permissions
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Manage what each admin can do on the platform.
+            Manage what each admin can do on the platform. Fine-tune permissions for granular access control.
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
-          <Info className="h-4 w-4" />
-          <span>Use this page to fine-tune permissions across all admin accounts.</span>
+
+        {/* Search and Filter */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search admins by email, name, or username..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Filter by role" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Roles</SelectItem>
+              {ADMIN_ROLES.map((role) => (
+                <SelectItem key={role.id} value={role.id}>
+                  {role.label}
+                </SelectItem>
+              ))}
+              <SelectItem value="unassigned">No Role</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={fetchAdmins}
+            disabled={loading}
+            title="Refresh"
+          >
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+          </Button>
         </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Admins</p>
+                <p className="text-2xl font-bold">{admins.length}</p>
+              </div>
+              <Users className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              {admins.filter((a) => a.is_active).length} active
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Super Admins</p>
+                <p className="text-2xl font-bold">
+                  {admins.filter((a) => a.role === "super_admin").length}
+                </p>
+              </div>
+              <Shield className="h-8 w-8 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">With Custom Perms</p>
+                <p className="text-2xl font-bold">
+                  {admins.filter(hasCustomPermissions).length}
+                </p>
+              </div>
+              <Settings2 className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Filtered Results</p>
+                <p className="text-2xl font-bold">{filteredAdmins.length}</p>
+              </div>
+              <Filter className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Role overview */}
       <div className="grid gap-4 md:grid-cols-3">
-        {ADMIN_ROLES.map((role) => (
-          <Card key={role.id}>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2">
-                <Badge className={cn("px-2 py-0.5 text-xs", getRoleColor(role.id))}>
-                  {role.label}
-                </Badge>
-              </CardTitle>
-              <CardDescription>{role.description}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">Default permissions</p>
-              <div className="flex flex-wrap gap-1.5">
-                {ADMIN_PERMISSIONS.filter((p) => p.defaultRoles.includes(role.id)).map(
-                  (perm) => (
-                    <Badge
-                      key={perm.id}
-                      variant="outline"
-                      className="text-[11px] font-normal px-1.5 py-0.5"
-                    >
-                      {perm.label}
-                    </Badge>
-                  )
-                )}
-                {ADMIN_PERMISSIONS.filter((p) => p.defaultRoles.includes(role.id)).length ===
-                  0 && (
-                  <span className="text-xs text-muted-foreground">No defaults</span>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Actual permissions are set per admin below.
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+        {ADMIN_ROLES.map((role) => {
+          const roleAdmins = admins.filter((a) => a.role === role.id);
+          const defaultPerms = ADMIN_PERMISSIONS.filter((p) => p.defaultRoles.includes(role.id));
+          return (
+            <Card key={role.id} className="relative">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center justify-between">
+                  <Badge className={cn("px-2 py-0.5 text-xs", getRoleColor(role.id))}>
+                    {role.label}
+                  </Badge>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {roleAdmins.length} admin{roleAdmins.length !== 1 ? "s" : ""}
+                  </span>
+                </CardTitle>
+                <CardDescription className="text-xs">{role.description}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Default permissions</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {defaultPerms.length > 0 ? (
+                    defaultPerms.map((perm) => (
+                      <Tooltip key={perm.id}>
+                        <TooltipTrigger asChild>
+                          <Badge
+                            variant="outline"
+                            className="text-[11px] font-normal px-1.5 py-0.5 cursor-help"
+                          >
+                            {perm.label}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs max-w-xs">{perm.description}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))
+                  ) : (
+                    <span className="text-xs text-muted-foreground">No defaults</span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Permissions matrix */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Admin Permissions Matrix
-          </CardTitle>
-          <CardDescription>
-            Toggle permissions per admin. Super admins can change other admins but not themselves
-            here.
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Admin Permissions Matrix
+              </CardTitle>
+              <CardDescription className="mt-1">
+                Toggle permissions per admin. Click permission headers for descriptions.
+              </CardDescription>
+            </div>
+            {filteredAdmins.length !== admins.length && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchQuery("");
+                  setRoleFilter("all");
+                }}
+              >
+                Clear filters
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {loading ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              Loading admins...
+            <div className="py-12 text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">Loading admins...</p>
             </div>
-          ) : admins.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              No admins found. Create an admin first from the Admins page.
+          ) : filteredAdmins.length === 0 ? (
+            <div className="py-12 text-center space-y-3">
+              <AlertCircle className="h-10 w-10 text-muted-foreground mx-auto" />
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {searchQuery || roleFilter !== "all"
+                    ? "No admins match your filters"
+                    : "No admins found"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {searchQuery || roleFilter !== "all"
+                    ? "Try adjusting your search or filter criteria"
+                    : "Create an admin first from the Admins page"}
+                </p>
+              </div>
             </div>
           ) : (
-            <div className="min-w-[720px] space-y-4">
-              {Object.entries(adminsByRole).map(([roleKey, roleAdmins]) => (
-                <div key={roleKey} className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Badge className={cn("px-2 py-0.5 text-xs", getRoleColor(roleKey))}>
-                      {roleKey === "unassigned"
-                        ? "No role"
-                        : roleKey.replace("_", " ").toUpperCase()}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {roleAdmins.length} admin{roleAdmins.length !== 1 ? "s" : ""}
-                    </span>
-                  </div>
-                  <div className="border border-border/70 rounded-lg overflow-hidden">
-                    <div className="grid grid-cols-[minmax(160px,0.2fr),repeat(auto-fit,minmax(140px,0.2fr))] bg-muted/60 text-xs font-medium">
-                      <div className="px-3 py-2 border-r border-border/60 flex items-center gap-1">
-                        <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span>Admin</span>
+            <div className="min-w-[800px] space-y-6">
+                {Object.entries(adminsByRole).map(([roleKey, roleAdmins]) => (
+                  <div key={roleKey} className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge className={cn("px-2 py-0.5 text-xs", getRoleColor(roleKey))}>
+                          {roleKey === "unassigned"
+                            ? "No role"
+                            : roleKey.replace("_", " ").toUpperCase()}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {roleAdmins.length} admin{roleAdmins.length !== 1 ? "s" : ""}
+                        </span>
                       </div>
-                      {ADMIN_PERMISSIONS.map((perm) => (
-                        <div
-                          key={perm.id}
-                          className="px-3 py-2 border-r border-border/60 flex items-center gap-1"
-                        >
-                          <span className="truncate">{perm.label}</span>
-                        </div>
-                      ))}
                     </div>
-                    <div className="divide-y divide-border/60">
-                      {roleAdmins.map((admin) => (
-                        <div
-                          key={admin.id}
-                          className={cn(
-                            "grid grid-cols-[minmax(160px,0.2fr),repeat(auto-fit,minmax(140px,0.2fr))] text-xs",
-                            !admin.is_active && "opacity-60"
-                          )}
-                        >
-                          <div className="px-3 py-2 border-r border-border/60 flex flex-col gap-0.5">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-medium truncate">
-                                {admin.full_name || admin.username || admin.email}
-                              </span>
-                              {admin.id === currentAdmin?.id && (
-                                <Badge
-                                  variant="outline"
-                                  className="text-[10px] px-1 py-0 border-dashed"
-                                >
-                                  You
-                                </Badge>
-                              )}
-                            </div>
-                            <span className="text-[11px] text-muted-foreground truncate">
-                              {admin.email}
-                            </span>
-                            <div className="flex items-center gap-1 mt-0.5">
-                              {admin.is_active ? (
-                                <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
-                              ) : (
-                                <XCircle className="h-3.5 w-3.5 text-red-600" />
-                              )}
-                              <span className="text-[10px] text-muted-foreground">
-                                {admin.is_active ? "Active" : "Inactive"}
-                              </span>
-                            </div>
+                    <div className="border border-border/70 rounded-lg overflow-hidden shadow-sm">
+                      {/* Header row */}
+                      <div className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
+                        <div className="grid grid-cols-[minmax(200px,1fr),repeat(auto-fit,minmax(120px,0.8fr))] text-xs font-medium">
+                          <div className="px-4 py-3 border-r border-border/60 flex items-center gap-2 bg-card/50">
+                            <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>Admin</span>
                           </div>
-                          {ADMIN_PERMISSIONS.map((perm) => {
-                            const checked = admin.permissions.includes(perm.id);
-                            const disabled =
-                              updatingAdminId === admin.id || admin.id === currentAdmin?.id;
-                            return (
-                              <div
-                                key={perm.id}
-                                onClick={() => !disabled && handleTogglePermission(admin, perm.id)}
-                                className={cn(
-                                  "px-3 py-2 border-r border-border/60 flex items-center justify-center",
-                                  !disabled && "hover:bg-muted/60 transition-colors cursor-pointer",
-                                  disabled && "cursor-not-allowed opacity-60"
-                                )}
-                              >
-                                <Checkbox
-                                  checked={checked}
-                                  onCheckedChange={() => !disabled && handleTogglePermission(admin, perm.id)}
-                                  disabled={disabled}
-                                />
-                              </div>
-                            );
-                          })}
+                          {ADMIN_PERMISSIONS.map((perm) => (
+                            <Tooltip key={perm.id}>
+                              <TooltipTrigger asChild>
+                                <div className="px-3 py-3 border-r border-border/60 flex items-center justify-center gap-2 cursor-help hover:bg-muted/40 transition-colors group">
+                                  <span className="truncate text-center">{perm.label}</span>
+                                  <HelpCircle className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom" className="max-w-xs">
+                                <p className="font-medium mb-1">{perm.label}</p>
+                                <p className="text-xs">{perm.description}</p>
+                                <div className="mt-2 pt-2 border-t border-border/50">
+                                  <p className="text-xs text-muted-foreground">
+                                    {permissionStats[perm.id]?.count || 0} of {admins.filter((a) => a.is_active).length} active admins ({permissionStats[perm.id]?.percentage || 0}%)
+                                  </p>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          ))}
                         </div>
-                      ))}
+                      </div>
+                      {/* Admin rows */}
+                      <div className="divide-y divide-border/60 bg-card">
+                        {roleAdmins.map((admin) => {
+                          const isUpdating = updatingAdminId === admin.id;
+                          const isCurrentUser = admin.id === currentAdmin?.id;
+                          const hasCustom = hasCustomPermissions(admin);
+                          const disabled = isUpdating || isCurrentUser;
+
+                          return (
+                            <div
+                              key={admin.id}
+                              className={cn(
+                                "grid grid-cols-[minmax(200px,1fr),repeat(auto-fit,minmax(120px,0.8fr))] text-xs transition-colors",
+                                !admin.is_active && "opacity-50",
+                                isUpdating && "opacity-70"
+                              )}
+                            >
+                              <div className="px-4 py-3 border-r border-border/60 flex flex-col gap-1.5 bg-card/30">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium truncate">
+                                    {admin.full_name || admin.username || admin.email}
+                                  </span>
+                                  {isCurrentUser && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] px-1 py-0 border-dashed"
+                                    >
+                                      You
+                                    </Badge>
+                                  )}
+                                  {hasCustom && !isCurrentUser && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Sparkles className="h-3 w-3 text-blue-600" />
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p className="text-xs">Custom permissions (differs from role defaults)</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                  {isUpdating && (
+                                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                                  )}
+                                </div>
+                                <span className="text-[11px] text-muted-foreground truncate">
+                                  {admin.email}
+                                </span>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  {admin.is_active ? (
+                                    <>
+                                      <CheckCircle2 className="h-3 w-3 text-green-600" />
+                                      <span className="text-[10px] text-green-600">Active</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <XCircle className="h-3 w-3 text-red-600" />
+                                      <span className="text-[10px] text-red-600">Inactive</span>
+                                    </>
+                                  )}
+                                  {hasCustom && !isCurrentUser && admin.role && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-5 px-2 text-[10px] ml-auto"
+                                      onClick={() => handleApplyRoleDefaults(admin)}
+                                      disabled={isUpdating}
+                                      title="Apply role defaults"
+                                    >
+                                      <RefreshCw className="h-3 w-3 mr-1" />
+                                      Reset
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                              {ADMIN_PERMISSIONS.map((perm) => {
+                                const checked = admin.permissions.includes(perm.id);
+                                return (
+                                  <div
+                                    key={perm.id}
+                                    onClick={() => !disabled && handleTogglePermission(admin, perm.id)}
+                                    className={cn(
+                                      "px-3 py-3 border-r border-border/60 flex items-center justify-center",
+                                      !disabled && "hover:bg-muted/60 transition-colors cursor-pointer",
+                                      disabled && "cursor-not-allowed opacity-60",
+                                      checked && !disabled && "bg-primary/5"
+                                    )}
+                                  >
+                                    <Checkbox
+                                      checked={checked}
+                                      onCheckedChange={() => !disabled && handleTogglePermission(admin, perm.id)}
+                                      disabled={disabled}
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={showResetDialog}
+        onOpenChange={setShowResetDialog}
+        title="Reset Permissions"
+        description={
+          resetTargetAdmin
+            ? `Reset ${resetTargetAdmin.email}'s permissions to the default permissions for their role (${resetTargetAdmin.role})?`
+            : ""
+        }
+        confirmText="Reset"
+        cancelText="Cancel"
+        variant="default"
+        onConfirm={handleResetPermissions}
+      />
     </div>
   );
 }
-
-
