@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { nestjsServerFetch } from '@/lib/nestjs-server';
 import { requireAuth } from '@/lib/auth/server';
-import { logError } from '@/lib/error-handler';
+import { logError, AppError, ErrorCode } from '@/lib/error-handler';
 import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 import { cookies } from 'next/headers';
 
@@ -47,7 +47,38 @@ export async function POST(request: NextRequest) {
     });
 
     if (!response.success || !response.data) {
-      throw new Error(response.error?.message || 'Failed to transfer funds');
+      // Map backend error codes to frontend error codes
+      const backendError = response.error;
+      if (backendError) {
+        let errorCode: ErrorCode = ErrorCode.INTERNAL_ERROR;
+        const backendCode = backendError.code || '';
+        const statusCode = backendError.statusCode || 500;
+
+        // Map backend exception names to frontend error codes
+        if (backendCode.includes('ForbiddenException') || statusCode === 403) {
+          errorCode = ErrorCode.FORBIDDEN;
+        } else if (backendCode.includes('BadRequestException') || statusCode === 400) {
+          if (backendError.message?.toLowerCase().includes('insufficient balance')) {
+            errorCode = ErrorCode.INSUFFICIENT_BALANCE;
+          } else if (backendError.message?.toLowerCase().includes('not found')) {
+            errorCode = ErrorCode.NOT_FOUND;
+          } else {
+            errorCode = ErrorCode.VALIDATION_ERROR;
+          }
+        } else if (backendCode.includes('NotFoundException') || statusCode === 404) {
+          errorCode = ErrorCode.NOT_FOUND;
+        } else if (backendCode.includes('UnauthorizedException') || statusCode === 401) {
+          errorCode = ErrorCode.UNAUTHORIZED;
+        }
+
+        throw new AppError(
+          errorCode,
+          backendError.message || 'Failed to transfer funds',
+          backendError.details,
+          statusCode
+        );
+      }
+      throw new AppError(ErrorCode.INTERNAL_ERROR, 'Failed to transfer funds');
     }
 
     const data = response.data as any;

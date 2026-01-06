@@ -223,13 +223,17 @@ function WalletContent() {
             });
           }
         } else if (data.error) {
-          const errorText = typeof data.error === 'string' ? data.error : String(data.error || '');
+          // Extract error message from error object
+          const errorMessage = typeof data.error === 'string' 
+            ? data.error 
+            : (data.error?.message || String(data.error || ''));
+          
           // Only show error toast for non-account-related errors
           // Invalid account numbers are expected and shouldn't show error toasts
-          if (errorText && !errorText.toLowerCase().includes('account') && !errorText.toLowerCase().includes('resolve') && !errorText.toLowerCase().includes('not found')) {
+          if (errorMessage && !errorMessage.toLowerCase().includes('account') && !errorMessage.toLowerCase().includes('resolve') && !errorMessage.toLowerCase().includes('not found')) {
             toast({
               title: "Verification failed",
-              description: errorText || 'Could not verify account. Please check the details and try again.',
+              description: errorMessage || 'Could not verify account. Please check the details and try again.',
               variant: "destructive",
             });
           }
@@ -239,8 +243,8 @@ function WalletContent() {
         return;
       }
       
-      if (data.success && data.accountName) {
-        setAccountName(data.accountName);
+      if (data.success && data.data?.accountName) {
+        setAccountName(data.data.accountName);
         // Remember this successful verification
         lastVerifiedRef.current = { accountNumber, bankCode };
       } else {

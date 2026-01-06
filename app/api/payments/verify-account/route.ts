@@ -39,7 +39,40 @@ export async function POST(request: NextRequest) {
     });
 
     if (!response.success || !response.data) {
-      throw new Error(response.error?.message || 'Failed to verify account');
+      // Map backend error codes to frontend error codes
+      const backendError = response.error;
+      if (backendError) {
+        let errorCode: ErrorCode = ErrorCode.EXTERNAL_SERVICE_ERROR;
+        const backendCode = backendError.code || '';
+        const statusCode = backendError.statusCode || 500;
+        const errorMessage = backendError.message || 'Failed to verify account';
+
+        // Map backend exception names to frontend error codes
+        if (backendCode.includes('BadRequestException') || statusCode === 400) {
+          // Check for specific error messages
+          if (errorMessage.toLowerCase().includes('limit') || errorMessage.toLowerCase().includes('exceeded')) {
+            errorCode = ErrorCode.RATE_LIMIT_EXCEEDED;
+          } else if (errorMessage.toLowerCase().includes('not found') || errorMessage.toLowerCase().includes('invalid')) {
+            errorCode = ErrorCode.VALIDATION_ERROR;
+          } else {
+            errorCode = ErrorCode.VALIDATION_ERROR;
+          }
+        } else if (backendCode.includes('NotFoundException') || statusCode === 404) {
+          errorCode = ErrorCode.NOT_FOUND;
+        } else if (backendCode.includes('UnauthorizedException') || statusCode === 401) {
+          errorCode = ErrorCode.UNAUTHORIZED;
+        } else if (statusCode === 429) {
+          errorCode = ErrorCode.RATE_LIMIT_EXCEEDED;
+        }
+
+        throw new AppError(
+          errorCode,
+          errorMessage,
+          backendError.details,
+          statusCode
+        );
+      }
+      throw new AppError(ErrorCode.EXTERNAL_SERVICE_ERROR, 'Failed to verify account');
     }
 
     return successResponseNext({
