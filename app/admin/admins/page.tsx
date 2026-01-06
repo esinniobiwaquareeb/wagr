@@ -32,6 +32,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { logger } from "@/lib/logger";
 import { cn } from "@/lib/utils";
 
+import { ADMIN_PERMISSIONS } from "@/lib/admin-permissions";
+
 interface Admin {
   id: string;
   email: string;
@@ -46,19 +48,7 @@ interface Admin {
   last_login_at: string | null;
 }
 
-const PERMISSIONS = [
-  { id: 'manage_users', label: 'Manage Users' },
-  { id: 'manage_wagers', label: 'Manage Wagers' },
-  { id: 'manage_quizzes', label: 'Manage Quizzes' },
-  { id: 'manage_withdrawals', label: 'Manage Withdrawals' },
-  { id: 'manage_kyc', label: 'Manage KYC' },
-  { id: 'manage_settings', label: 'Manage Settings' },
-  { id: 'manage_admins', label: 'Manage Admins' },
-  { id: 'view_transactions', label: 'View Transactions' },
-  { id: 'view_reports', label: 'View Reports' },
-  { id: 'view_analytics', label: 'View Analytics' },
-  { id: 'manage_email_templates', label: 'Manage Email Templates' },
-];
+const PERMISSIONS = ADMIN_PERMISSIONS.map((p) => ({ id: p.id, label: p.label }));
 
 export default function AdminAdminsPage() {
   const { toast } = useToast();
@@ -264,10 +254,10 @@ export default function AdminAdminsPage() {
       id: "email",
       header: "Email",
       accessorKey: "email",
-      cell: ({ row }: any) => (
+      cell: (row: Admin) => (
         <div className="flex items-center gap-2">
           <Mail className="h-4 w-4 text-muted-foreground" />
-          <span className="font-medium">{row.original.email}</span>
+          <span className="font-medium">{row.email}</span>
         </div>
       ),
     },
@@ -275,10 +265,10 @@ export default function AdminAdminsPage() {
       id: "name",
       header: "Name",
       accessorKey: "full_name",
-      cell: ({ row }: any) => (
+      cell: (row: Admin) => (
         <div className="flex items-center gap-2">
           <User className="h-4 w-4 text-muted-foreground" />
-          <span>{row.original.full_name || row.original.username || "N/A"}</span>
+          <span>{row.full_name || row.username || "N/A"}</span>
         </div>
       ),
     },
@@ -286,9 +276,9 @@ export default function AdminAdminsPage() {
       id: "role",
       header: "Role",
       accessorKey: "role",
-      cell: ({ row }: any) => (
-        <Badge className={cn(getRoleBadgeColor(row.original.role))}>
-          {row.original.role || "N/A"}
+      cell: (row: Admin) => (
+        <Badge className={cn(getRoleBadgeColor(row.role))}>
+          {row.role || "N/A"}
         </Badge>
       ),
     },
@@ -296,9 +286,9 @@ export default function AdminAdminsPage() {
       id: "status",
       header: "Status",
       accessorKey: "is_active",
-      cell: ({ row }: any) => (
+      cell: (row: Admin) => (
         <div className="flex items-center gap-2">
-          {row.original.is_active ? (
+          {row.is_active ? (
             <>
               <CheckCircle className="h-4 w-4 text-green-600" />
               <span className="text-green-600">Active</span>
@@ -316,8 +306,8 @@ export default function AdminAdminsPage() {
       id: "2fa",
       header: "2FA",
       accessorKey: "two_factor_enabled",
-      cell: ({ row }: any) => (
-        row.original.two_factor_enabled ? (
+      cell: (row: Admin) => (
+        row.two_factor_enabled ? (
           <Badge variant="outline" className="text-green-600 border-green-600">
             <ShieldCheck className="h-3 w-3 mr-1" />
             Enabled
@@ -333,9 +323,9 @@ export default function AdminAdminsPage() {
       id: "permissions",
       header: "Permissions",
       accessorKey: "permissions",
-      cell: ({ row }: any) => (
+      cell: (row: Admin) => (
         <span className="text-sm text-muted-foreground">
-          {row.original.permissions?.length || 0} permission(s)
+          {row.permissions?.length || 0} permission(s)
         </span>
       ),
     },
@@ -343,11 +333,11 @@ export default function AdminAdminsPage() {
       id: "last_login",
       header: "Last Login",
       accessorKey: "last_login_at",
-      cell: ({ row }: any) => (
-        row.original.last_login_at ? (
+      cell: (row: Admin) => (
+        row.last_login_at ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Calendar className="h-4 w-4" />
-            {format(new Date(row.original.last_login_at), "MMM d, yyyy")}
+            {format(new Date(row.last_login_at), "MMM d, yyyy")}
           </div>
         ) : (
           <span className="text-sm text-muted-foreground">Never</span>
@@ -357,8 +347,8 @@ export default function AdminAdminsPage() {
     {
       id: "actions",
       header: "Actions",
-      cell: ({ row }: any) => {
-        const admin = row.original;
+      cell: (row: Admin) => {
+        const admin = row;
         const isCurrentAdmin = admin.id === currentAdmin?.id;
         
         return (
