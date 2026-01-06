@@ -724,7 +724,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!max-w-[90vw] sm:!max-w-[85vw] lg:!max-w-[1200px] max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col p-0 sm:p-6">
+      <DialogContent className="!max-w-[95vw] sm:!max-w-[90vw] lg:!max-w-[1200px] max-h-[98vh] sm:max-h-[95vh] overflow-hidden flex flex-col p-0 sm:p-6">
         <DialogHeader className="px-4 sm:px-0 pt-4 sm:pt-0">
           <DialogTitle className="text-xl sm:text-2xl">{isEditMode ? 'Edit Quiz' : 'Create Quiz'}</DialogTitle>
           <DialogDescription className="text-sm sm:text-base">
@@ -742,7 +742,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
         </div>
 
         {/* Step Indicators */}
-        <div className="flex items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 border-b px-4 sm:px-0 gap-2">
+        <div className="flex items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 border-b px-4 sm:px-0 gap-1 sm:gap-2">
           {stepTitles.map((title, index) => {
             const stepNum = index + 1;
             const isActive = stepNum === currentStep;
@@ -750,12 +750,12 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
             return (
               <div
                 key={stepNum}
-                className={`flex flex-col items-center flex-1 ${
+                className={`flex flex-col items-center flex-1 min-w-0 ${
                   isActive ? 'text-primary' : isCompleted ? 'text-muted-foreground' : 'text-muted-foreground/50'
                 }`}
               >
                 <div
-                  className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border-2 transition-all ${
+                  className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border-2 transition-all flex-shrink-0 ${
                     isActive
                       ? 'border-primary bg-primary text-primary-foreground shadow-md'
                       : isCompleted
@@ -769,14 +769,14 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
                     <span className="text-sm sm:text-base font-semibold">{stepNum}</span>
                   )}
                 </div>
-                <span className="text-[10px] sm:text-xs mt-1.5 text-center line-clamp-2">{title}</span>
+                <span className="text-[9px] sm:text-xs mt-1.5 text-center line-clamp-2 px-0.5">{title}</span>
               </div>
             );
           })}
         </div>
 
         {/* Step Content */}
-        <div className="flex-1 overflow-y-auto pr-1 sm:pr-2 px-4 sm:px-0">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden pr-1 sm:pr-2 px-4 sm:px-0 pb-4">
           <form onSubmit={(e) => { e.preventDefault(); handleNext(); }} className="space-y-4 sm:space-y-6">
             {/* Step 1: Basic Info & Settings */}
             {currentStep === 1 && (
@@ -812,7 +812,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="entryFee" className="text-sm sm:text-base font-semibold mb-2 block">
                       Entry Fee per Question (₦) <span className="text-red-500">*</span>
@@ -962,7 +962,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
                       type="datetime-local"
                       value={formData.startDate}
                       onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                      className="text-sm sm:text-base h-10 sm:h-11"
+                      className="text-sm sm:text-base h-11 sm:h-11 touch-manipulation"
                       min={new Date().toISOString().slice(0, 16)}
                     />
                     {formData.startDate && (
@@ -982,7 +982,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
                       value={formData.endDate}
                       required
                       onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                      className="text-sm sm:text-base h-10 sm:h-11"
+                      className="text-sm sm:text-base h-11 sm:h-11 touch-manipulation"
                       min={formData.startDate || new Date().toISOString().slice(0, 16)}
                     />
                     {formData.endDate && (
@@ -1289,13 +1289,13 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
         </div>
 
         {/* Navigation */}
-        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 pt-4 border-t mt-4 px-4 sm:px-0">
-          <div className="flex gap-2 order-2 sm:order-1">
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 pt-4 border-t mt-4 px-4 sm:px-0 sticky bottom-0 bg-background z-10">
+          <div className="flex gap-2 order-2 sm:order-1 w-full sm:w-auto">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="flex-1 sm:flex-none h-10 sm:h-11 text-sm sm:text-base"
+              className="flex-1 sm:flex-none h-11 sm:h-11 text-sm sm:text-base touch-manipulation"
             >
               Cancel
             </Button>
@@ -1304,7 +1304,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
               variant="ghost"
               onClick={handlePrevious}
               disabled={currentStep === 1}
-              className="flex-1 sm:flex-none h-10 sm:h-11 text-sm sm:text-base"
+              className="flex-1 sm:flex-none h-11 sm:h-11 text-sm sm:text-base touch-manipulation"
             >
               <ChevronLeft className="h-4 w-4 mr-1 sm:mr-2" />
               <span className="hidden sm:inline">Previous</span>
@@ -1316,7 +1316,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
             <Button
               type="button"
               onClick={handleNext}
-              className="min-w-[120px] sm:min-w-[140px] h-10 sm:h-11 text-sm sm:text-base order-1 sm:order-2"
+              className="w-full sm:min-w-[140px] h-11 sm:h-11 text-sm sm:text-base order-1 sm:order-2 touch-manipulation"
             >
               Next
               <ChevronRight className="h-4 w-4 ml-1 sm:ml-2" />
@@ -1326,7 +1326,7 @@ export function CreateQuizModal({ open, onOpenChange, onSuccess, quizId, initial
               type="button"
               onClick={handleSubmit}
               disabled={submitting || cost === 0 || (shouldValidateBalance && userBalance !== null && userBalance < cost)}
-              className="min-w-full sm:min-w-[200px] h-10 sm:h-11 text-sm sm:text-base order-1 sm:order-2"
+              className="w-full sm:min-w-[200px] h-11 sm:h-11 text-sm sm:text-base order-1 sm:order-2 touch-manipulation"
             >
               {submitting ? (
                 <>
