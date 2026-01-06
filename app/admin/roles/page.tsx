@@ -514,18 +514,18 @@ export default function AdminRolesPage() {
                     </div>
                     <div className="border border-border/70 rounded-lg overflow-hidden shadow-sm">
                       {/* Header row */}
-                      <div className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
-                        <div className="grid grid-cols-[minmax(200px,1fr),repeat(auto-fit,minmax(120px,0.8fr))] text-xs font-medium">
+                      <div className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm border-b border-border/60">
+                        <div className="grid" style={{ gridTemplateColumns: `minmax(220px, 1fr) repeat(${ADMIN_PERMISSIONS.length}, minmax(140px, 1fr))` }}>
                           <div className="px-4 py-3 border-r border-border/60 flex items-center gap-2 bg-card/50">
-                            <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span>Admin</span>
+                            <Lock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                            <span className="font-medium">Admin</span>
                           </div>
                           {ADMIN_PERMISSIONS.map((perm) => (
                             <Tooltip key={perm.id}>
                               <TooltipTrigger asChild>
-                                <div className="px-3 py-3 border-r border-border/60 flex items-center justify-center gap-2 cursor-help hover:bg-muted/40 transition-colors group">
-                                  <span className="truncate text-center">{perm.label}</span>
-                                  <HelpCircle className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                                <div className="px-2 py-3 border-r border-border/60 flex flex-col items-center justify-center gap-1 cursor-help hover:bg-muted/40 transition-colors group">
+                                  <span className="text-xs font-medium text-center leading-tight px-1 break-words">{perm.label}</span>
+                                  <HelpCircle className="h-3 w-3 text-muted-foreground opacity-40 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                                 </div>
                               </TooltipTrigger>
                               <TooltipContent side="bottom" className="max-w-xs">
@@ -553,23 +553,38 @@ export default function AdminRolesPage() {
                             <div
                               key={admin.id}
                               className={cn(
-                                "grid grid-cols-[minmax(200px,1fr),repeat(auto-fit,minmax(120px,0.8fr))] text-xs transition-colors",
+                                "grid text-xs transition-colors relative",
                                 !admin.is_active && "opacity-50",
-                                isUpdating && "opacity-70"
+                                isUpdating && "opacity-70",
+                                isCurrentUser && "bg-muted/20"
                               )}
+                              style={{ gridTemplateColumns: `minmax(220px, 1fr) repeat(${ADMIN_PERMISSIONS.length}, minmax(140px, 1fr))` }}
                             >
-                              <div className="px-4 py-3 border-r border-border/60 flex flex-col gap-1.5 bg-card/30">
+                              {isCurrentUser && (
+                                <div className="absolute inset-0 pointer-events-none border-2 border-dashed border-primary/20 rounded" />
+                              )}
+                              <div className={cn(
+                                "px-4 py-3 border-r border-border/60 flex flex-col gap-1.5 bg-card/30",
+                                isCurrentUser && "bg-primary/5"
+                              )}>
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium truncate">
                                     {admin.full_name || admin.username || admin.email}
                                   </span>
                                   {isCurrentUser && (
-                                    <Badge
-                                      variant="outline"
-                                      className="text-[10px] px-1 py-0 border-dashed"
-                                    >
-                                      You
-                                    </Badge>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Badge
+                                          variant="outline"
+                                          className="text-[10px] px-1.5 py-0 border-primary/30 bg-primary/10 text-primary cursor-help"
+                                        >
+                                          You
+                                        </Badge>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p className="text-xs">You cannot edit your own permissions here to prevent accidental lockout. Use the Account Settings page to manage your account.</p>
+                                      </TooltipContent>
+                                    </Tooltip>
                                   )}
                                   {hasCustom && !isCurrentUser && (
                                     <Tooltip>
@@ -613,27 +628,52 @@ export default function AdminRolesPage() {
                                       Reset
                                     </Button>
                                   )}
+                                  {isCurrentUser && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Info className="h-3 w-3 text-muted-foreground ml-auto" />
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p className="text-xs">View-only: Edit your permissions from Account Settings</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
                                 </div>
                               </div>
                               {ADMIN_PERMISSIONS.map((perm) => {
                                 const checked = admin.permissions.includes(perm.id);
                                 return (
-                                  <div
-                                    key={perm.id}
-                                    onClick={() => !disabled && handleTogglePermission(admin, perm.id)}
-                                    className={cn(
-                                      "px-3 py-3 border-r border-border/60 flex items-center justify-center",
-                                      !disabled && "hover:bg-muted/60 transition-colors cursor-pointer",
-                                      disabled && "cursor-not-allowed opacity-60",
-                                      checked && !disabled && "bg-primary/5"
+                                  <Tooltip key={perm.id}>
+                                    <TooltipTrigger asChild>
+                                      <div
+                                        onClick={() => !disabled && handleTogglePermission(admin, perm.id)}
+                                        className={cn(
+                                          "px-3 py-3 border-r border-border/60 flex items-center justify-center relative group",
+                                          !disabled && "hover:bg-muted/60 transition-colors cursor-pointer",
+                                          disabled && "cursor-not-allowed",
+                                          checked && !disabled && "bg-primary/5",
+                                          checked && disabled && "bg-primary/5",
+                                          isCurrentUser && "bg-muted/10"
+                                        )}
+                                      >
+                                        <Checkbox
+                                          checked={checked}
+                                          onCheckedChange={() => !disabled && handleTogglePermission(admin, perm.id)}
+                                          disabled={disabled}
+                                        />
+                                        {isCurrentUser && (
+                                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                            <Lock className="h-3 w-3 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                          </div>
+                                        )}
+                                      </div>
+                                    </TooltipTrigger>
+                                    {isCurrentUser && (
+                                      <TooltipContent>
+                                        <p className="text-xs">View-only: Cannot edit your own permissions here to prevent lockout</p>
+                                      </TooltipContent>
                                     )}
-                                  >
-                                    <Checkbox
-                                      checked={checked}
-                                      onCheckedChange={() => !disabled && handleTogglePermission(admin, perm.id)}
-                                      disabled={disabled}
-                                    />
-                                  </div>
+                                  </Tooltip>
                                 );
                               })}
                             </div>
