@@ -70,11 +70,9 @@ export default function AdminAccountPage() {
   const handleSetup2FA = async () => {
     try {
       setLoading(true);
-      const response = await admin2FAApi.setup();
-      if (response.success && response.data) {
-        setTwoFactorData(response.data);
-        setShow2FASetup(true);
-      }
+      const data = await admin2FAApi.setup();
+      setTwoFactorData(data);
+      setShow2FASetup(true);
     } catch (error) {
       logger.error("Error setting up 2FA", error);
       toast({
@@ -99,17 +97,15 @@ export default function AdminAccountPage() {
 
     try {
       setVerifying(true);
-      const response = await admin2FAApi.verify(verificationCode.trim());
-      if (response.success) {
-        toast({
-          title: "Success",
-          description: "2FA has been enabled successfully",
-        });
-        setShow2FASetup(false);
-        setTwoFactorData(null);
-        setVerificationCode("");
-        await refreshAdmin();
-      }
+      const result = await admin2FAApi.verify(verificationCode.trim());
+      toast({
+        title: "Success",
+        description: result?.message || "2FA has been enabled successfully",
+      });
+      setShow2FASetup(false);
+      setTwoFactorData(null);
+      setVerificationCode("");
+      await refreshAdmin();
     } catch (error) {
       logger.error("Error verifying 2FA", error);
       toast({
@@ -134,16 +130,14 @@ export default function AdminAccountPage() {
 
     try {
       setDisabling(true);
-      const response = await admin2FAApi.disable(disableCode.trim());
-      if (response.success) {
-        toast({
-          title: "Success",
-          description: "2FA has been disabled successfully",
-        });
-        setShow2FADisable(false);
-        setDisableCode("");
-        await refreshAdmin();
-      }
+      const result = await admin2FAApi.disable(disableCode.trim());
+      toast({
+        title: "Success",
+        description: result?.message || "2FA has been disabled successfully",
+      });
+      setShow2FADisable(false);
+      setDisableCode("");
+      await refreshAdmin();
     } catch (error) {
       logger.error("Error disabling 2FA", error);
       toast({
@@ -228,18 +222,16 @@ export default function AdminAccountPage() {
 
     try {
       setSaving(true);
-      const response = await adminManagementApi.update(admin.id, {
+      await adminManagementApi.update(admin.id, {
         full_name: fullName || undefined,
         username: username || undefined,
       });
 
-      if (response.success) {
-        toast({
-          title: "Success",
-          description: "Profile updated successfully",
-        });
-        await refreshAdmin();
-      }
+      toast({
+        title: "Success",
+        description: "Profile updated successfully",
+      });
+      await refreshAdmin();
     } catch (error) {
       logger.error("Error updating profile", error);
       toast({
@@ -611,13 +603,9 @@ export default function AdminAccountPage() {
         open={show2FADisable}
         onOpenChange={setShow2FADisable}
         title="Disable Two-Factor Authentication"
-        description="Enter your verification code to disable 2FA"
-        confirmText="Disable"
-        cancelText="Cancel"
-        variant="destructive"
-        onConfirm={handleDisable2FA}
-        customContent={
-          <div className="space-y-4 mt-4">
+        description={
+          <div className="space-y-4 mt-2">
+            <p>Enter your verification code to disable 2FA.</p>
             <div className="space-y-2">
               <Label htmlFor="disableCode">Verification Code</Label>
               <Input
@@ -630,6 +618,10 @@ export default function AdminAccountPage() {
             </div>
           </div>
         }
+        confirmText="Disable"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={handleDisable2FA}
       />
     </div>
   );

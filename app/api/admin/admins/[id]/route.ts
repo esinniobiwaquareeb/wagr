@@ -7,7 +7,7 @@ import { cookies } from 'next/headers';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireAdminAuth();
@@ -19,7 +19,9 @@ export async function GET(
       throw new Error('Authentication required');
     }
 
-    const response = await nestjsServerFetch<{ admin: any }>(`/admin/admins/${params.id}`, {
+    const { id } = await context.params;
+
+    const response = await nestjsServerFetch<{ admin: any }>(`/admin/admins/${id}`, {
       method: 'GET',
       token,
       requireAuth: true,
@@ -38,7 +40,7 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireAdminAuth();
@@ -52,11 +54,13 @@ export async function PATCH(
 
     const body = await request.json();
 
-    const response = await nestjsServerFetch<{ admin: any }>(`/admin/admins/${params.id}`, {
+    const { id } = await context.params;
+
+    const response = await nestjsServerFetch<{ admin: any }>(`/admin/admins/${id}`, {
       method: 'PATCH',
       token,
       requireAuth: true,
-      body,
+      body: JSON.stringify(body),
     });
 
     if (!response.success || !response.data) {
@@ -72,7 +76,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireAdminAuth();
@@ -84,7 +88,9 @@ export async function DELETE(
       throw new Error('Authentication required');
     }
 
-    const response = await nestjsServerFetch<{ success: boolean; message: string }>(`/admin/admins/${params.id}`, {
+    const { id } = await context.params;
+
+    const response = await nestjsServerFetch<{ success: boolean; message: string }>(`/admin/admins/${id}`, {
       method: 'DELETE',
       token,
       requireAuth: true,

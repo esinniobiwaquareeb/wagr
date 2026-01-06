@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       token,
       requireAuth: true,
-      body: { code },
+      body: JSON.stringify({ code }),
     });
 
     if (!response.success || !response.data) {

@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       token,
       requireAuth: true,
-      body,
+      body: JSON.stringify(body),
     });
 
     if (!response.success || !response.data) {

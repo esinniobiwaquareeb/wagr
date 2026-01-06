@@ -265,9 +265,9 @@ export function DataTable<T extends Record<string, any>>({
           <Table className="min-w-full">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                {columns.map((column) => (
+                {columns.map((column, index) => (
                   <TableHead
-                    key={column.id}
+                    key={column.id ?? column.accessorKey ?? index}
                     className={cn(
                       "font-semibold",
                       column.sortable !== false && sortable && column.accessorKey ? "cursor-pointer hover:bg-muted/50 transition-colors" : "",
@@ -308,11 +308,11 @@ export function DataTable<T extends Record<string, any>>({
                   </TableCell>
                 </TableRow>
               ) : (
-                paginatedData.map((row, index) => (
-                  <TableRow key={index} className="hover:bg-muted/50 transition-colors">
-                    {columns.map((column) => (
+                paginatedData.map((row, rowIndex) => (
+                  <TableRow key={rowIndex} className="hover:bg-muted/50 transition-colors">
+                    {columns.map((column, colIndex) => (
                       <TableCell 
-                        key={column.id} 
+                        key={column.id ?? column.accessorKey ?? colIndex}
                         className={cn(
                           "py-3",
                           "text-xs sm:text-sm", // Smaller text on mobile

@@ -19,7 +19,7 @@ import {
   EyeOff
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DataTable } from "@/components/data-table";
+import { DataTable, type Column } from "@/components/data-table";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useAdmin } from "@/contexts/admin-context";
 import { adminManagementApi } from "@/lib/api-client";
@@ -89,10 +89,8 @@ export default function AdminAdminsPage() {
 
     try {
       setLoading(true);
-      const response = await adminManagementApi.getAll();
-      if (response.success && response.data) {
-        setAdmins(response.data.admins || []);
-      }
+      const data = await adminManagementApi.getAll();
+      setAdmins(data.admins || []);
     } catch (error) {
       logger.error("Error fetching admins", error);
       toast({
@@ -129,16 +127,14 @@ export default function AdminAdminsPage() {
     }
 
     try {
-      const response = await adminManagementApi.create(formData);
-      if (response.success) {
-        toast({
-          title: "Success",
-          description: "Admin created successfully",
-        });
-        setShowCreateDialog(false);
-        resetForm();
-        fetchAdmins();
-      }
+      await adminManagementApi.create(formData);
+      toast({
+        title: "Success",
+        description: "Admin created successfully",
+      });
+      setShowCreateDialog(false);
+      resetForm();
+      fetchAdmins();
     } catch (error) {
       logger.error("Error creating admin", error);
       toast({
@@ -174,16 +170,14 @@ export default function AdminAdminsPage() {
         return;
       }
 
-      const response = await adminManagementApi.update(selectedAdmin.id, updateData);
-      if (response.success) {
-        toast({
-          title: "Success",
-          description: "Admin updated successfully",
-        });
-        setShowEditDialog(false);
-        resetForm();
-        fetchAdmins();
-      }
+      await adminManagementApi.update(selectedAdmin.id, updateData);
+      toast({
+        title: "Success",
+        description: "Admin updated successfully",
+      });
+      setShowEditDialog(false);
+      resetForm();
+      fetchAdmins();
     } catch (error) {
       logger.error("Error updating admin", error);
       toast({
@@ -198,16 +192,14 @@ export default function AdminAdminsPage() {
     if (!selectedAdmin) return;
 
     try {
-      const response = await adminManagementApi.delete(selectedAdmin.id);
-      if (response.success) {
-        toast({
-          title: "Success",
-          description: "Admin deactivated successfully",
-        });
-        setShowDeleteDialog(false);
-        setSelectedAdmin(null);
-        fetchAdmins();
-      }
+      await adminManagementApi.delete(selectedAdmin.id);
+      toast({
+        title: "Success",
+        description: "Admin deactivated successfully",
+      });
+      setShowDeleteDialog(false);
+      setSelectedAdmin(null);
+      fetchAdmins();
     } catch (error) {
       logger.error("Error deleting admin", error);
       toast({
@@ -267,8 +259,9 @@ export default function AdminAdminsPage() {
     }
   };
 
-  const columns = [
+  const columns: Column<Admin>[] = [
     {
+      id: "email",
       header: "Email",
       accessorKey: "email",
       cell: ({ row }: any) => (
@@ -279,6 +272,7 @@ export default function AdminAdminsPage() {
       ),
     },
     {
+      id: "name",
       header: "Name",
       accessorKey: "full_name",
       cell: ({ row }: any) => (
@@ -289,6 +283,7 @@ export default function AdminAdminsPage() {
       ),
     },
     {
+      id: "role",
       header: "Role",
       accessorKey: "role",
       cell: ({ row }: any) => (
@@ -298,6 +293,7 @@ export default function AdminAdminsPage() {
       ),
     },
     {
+      id: "status",
       header: "Status",
       accessorKey: "is_active",
       cell: ({ row }: any) => (
@@ -317,6 +313,7 @@ export default function AdminAdminsPage() {
       ),
     },
     {
+      id: "2fa",
       header: "2FA",
       accessorKey: "two_factor_enabled",
       cell: ({ row }: any) => (
@@ -333,6 +330,7 @@ export default function AdminAdminsPage() {
       ),
     },
     {
+      id: "permissions",
       header: "Permissions",
       accessorKey: "permissions",
       cell: ({ row }: any) => (
@@ -342,6 +340,7 @@ export default function AdminAdminsPage() {
       ),
     },
     {
+      id: "last_login",
       header: "Last Login",
       accessorKey: "last_login_at",
       cell: ({ row }: any) => (
@@ -356,8 +355,8 @@ export default function AdminAdminsPage() {
       ),
     },
     {
+      id: "actions",
       header: "Actions",
-      accessorKey: "actions",
       cell: ({ row }: any) => {
         const admin = row.original;
         const isCurrentAdmin = admin.id === currentAdmin?.id;
@@ -432,7 +431,6 @@ export default function AdminAdminsPage() {
           <DataTable
             data={admins}
             columns={columns}
-            loading={loading}
             searchable
             searchPlaceholder="Search by email, name..."
           />

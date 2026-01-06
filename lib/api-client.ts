@@ -475,27 +475,31 @@ export const adminEmailTemplatesApi = {
 
 /**
  * Admin Management API
+ *
+ * NOTE: Do NOT prefix with `/api` here – `apiFetch` already adds `/api`.
  */
 export const adminManagementApi = {
-  getAll: () => apiGet<{ admins: any[] }>('/api/admin/admins'),
+  getAll: () => apiGet<{ admins: any[] }>('/admin/admins'),
   
-  getById: (id: string) => apiGet<{ admin: any }>(`/api/admin/admins/${id}`),
+  getById: (id: string) => apiGet<{ admin: any }>(`/admin/admins/${id}`),
   
-  create: (data: any) => apiPost<{ admin: any }>('/api/admin/admins', data),
+  create: (data: any) => apiPost<{ admin: any }>('/admin/admins', data),
   
-  update: (id: string, data: any) => apiPatch<{ admin: any }>(`/api/admin/admins/${id}`, data),
+  update: (id: string, data: any) => apiPatch<{ admin: any }>(`/admin/admins/${id}`, data),
   
-  delete: (id: string) => apiDelete<{ success: boolean; message: string }>(`/api/admin/admins/${id}`),
+  delete: (id: string) => apiDelete<{ success: boolean; message: string }>(`/admin/admins/${id}`),
 };
 
 /**
  * Admin 2FA API
+ *
+ * NOTE: Do NOT prefix with `/api` here – `apiFetch` already adds `/api`.
  */
 export const admin2FAApi = {
-  setup: () => apiPost<{ secret: string; qrCode: string; backupCodes: string[] }>('/api/admin/2fa/setup', {}),
+  setup: () => apiPost<{ secret: string; qrCode: string; backupCodes: string[] }>('/admin/2fa/setup', {}),
   
-  verify: (code: string, isBackupCode?: boolean) => apiPost<{ success: boolean; message: string }>('/api/admin/2fa/verify', { code, isBackupCode }),
+  verify: (code: string, isBackupCode?: boolean) => apiPost<{ success: boolean; message: string }>('/admin/2fa/verify', { code, isBackupCode }),
   
-  disable: (code: string) => apiPost<{ success: boolean; message: string }>('/api/admin/2fa/disable', { code }),
+  disable: (code: string) => apiPost<{ success: boolean; message: string }>('/admin/2fa/disable', { code }),
 };
 
