@@ -22,12 +22,28 @@ export async function POST(request: NextRequest) {
       throw new Error('Authentication required');
     }
 
+    // Prepare transfer payload - only include description if provided and valid
+    const transferPayload: {
+      username: string;
+      amount: number;
+      description?: string;
+    } = {
+      username: body.username,
+      amount: body.amount,
+    };
+
+    // Only include description if it's provided, is a string, and is not empty
+    if (body.description && typeof body.description === 'string' && body.description.trim().length > 0) {
+      // Ensure description is max 200 characters
+      transferPayload.description = body.description.trim().substring(0, 200);
+    }
+
     // Call NestJS backend to transfer funds
     const response = await nestjsServerFetch('/wallet/transfer', {
       method: 'POST',
       token,
       requireAuth: true,
-      body: JSON.stringify(body),
+      body: JSON.stringify(transferPayload),
     });
 
     if (!response.success || !response.data) {

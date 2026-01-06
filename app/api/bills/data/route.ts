@@ -153,6 +153,7 @@ export async function POST(request: NextRequest) {
     const planLabel = body.dataPlanLabel || plan.label || body.dataPlanCode;
 
     // Call NestJS backend to purchase data
+    // Note: PurchaseDataDto doesn't include providerKey (unlike PurchaseAirtimeDto)
     const purchaseResponse = await nestjsServerFetch<any>('/bills/data', {
       method: 'POST',
       token,
@@ -162,7 +163,7 @@ export async function POST(request: NextRequest) {
         networkCode: network.code,
         dataPlanCode: body.dataPlanCode,
         dataPlanLabel: planLabel,
-        providerKey,
+        amount: amount, // Include amount for validation
       }),
     });
 
