@@ -662,8 +662,19 @@ function WalletContent() {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        const { extractErrorFromResponse } = await import('@/lib/error-extractor');
-        const errorMessage = await extractErrorFromResponse(response, 'Failed to process transfer');
+        // Extract error message directly from the data object
+        let errorMessage = 'Failed to process transfer';
+        
+        if (data.error) {
+          if (typeof data.error === 'string') {
+            errorMessage = data.error;
+          } else if (typeof data.error === 'object' && data.error !== null) {
+            // Use the specific error message from the backend
+            errorMessage = data.error.message || errorMessage;
+          }
+        } else if (data.message) {
+          errorMessage = data.message;
+        }
         
         toast({
           title: "Transfer failed",
