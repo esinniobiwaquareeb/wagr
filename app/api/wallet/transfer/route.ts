@@ -51,16 +51,19 @@ export async function POST(request: NextRequest) {
       const backendError = response.error;
       if (backendError) {
         let errorCode: ErrorCode = ErrorCode.INTERNAL_ERROR;
-        const backendCode = backendError.code || '';
+        const backendCode = String(backendError.code || '');
         const statusCode = backendError.statusCode || 500;
+        // Ensure errorMessage is always a string
+        const errorMessage = String(backendError.message || 'Failed to transfer funds');
 
         // Map backend exception names to frontend error codes
         if (backendCode.includes('ForbiddenException') || statusCode === 403) {
           errorCode = ErrorCode.FORBIDDEN;
         } else if (backendCode.includes('BadRequestException') || statusCode === 400) {
-          if (backendError.message?.toLowerCase().includes('insufficient balance')) {
+          const lowerMessage = errorMessage.toLowerCase();
+          if (lowerMessage.includes('insufficient balance')) {
             errorCode = ErrorCode.INSUFFICIENT_BALANCE;
-          } else if (backendError.message?.toLowerCase().includes('not found')) {
+          } else if (lowerMessage.includes('not found')) {
             errorCode = ErrorCode.NOT_FOUND;
           } else {
             errorCode = ErrorCode.VALIDATION_ERROR;
@@ -73,7 +76,7 @@ export async function POST(request: NextRequest) {
 
         throw new AppError(
           errorCode,
-          backendError.message || 'Failed to transfer funds',
+          errorMessage,
           backendError.details,
           statusCode
         );

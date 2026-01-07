@@ -43,16 +43,18 @@ export async function POST(request: NextRequest) {
       const backendError = response.error;
       if (backendError) {
         let errorCode: ErrorCode = ErrorCode.EXTERNAL_SERVICE_ERROR;
-        const backendCode = backendError.code || '';
+        const backendCode = String(backendError.code || '');
         const statusCode = backendError.statusCode || 500;
-        const errorMessage = backendError.message || 'Failed to verify account';
+        // Ensure errorMessage is always a string
+        const errorMessage = String(backendError.message || 'Failed to verify account');
 
         // Map backend exception names to frontend error codes
         if (backendCode.includes('BadRequestException') || statusCode === 400) {
           // Check for specific error messages
-          if (errorMessage.toLowerCase().includes('limit') || errorMessage.toLowerCase().includes('exceeded')) {
+          const lowerMessage = errorMessage.toLowerCase();
+          if (lowerMessage.includes('limit') || lowerMessage.includes('exceeded')) {
             errorCode = ErrorCode.RATE_LIMIT_EXCEEDED;
-          } else if (errorMessage.toLowerCase().includes('not found') || errorMessage.toLowerCase().includes('invalid')) {
+          } else if (lowerMessage.includes('not found') || lowerMessage.includes('invalid')) {
             errorCode = ErrorCode.VALIDATION_ERROR;
           } else {
             errorCode = ErrorCode.VALIDATION_ERROR;
