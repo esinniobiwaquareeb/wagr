@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { format } from "date-fns";
-import { CheckCircle, XCircle, Clock, Eye, AlertTriangle, Plus, Edit, Trash2, FileText, TrendingUp, Users, DollarSign } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Eye, AlertTriangle, Plus, Edit, Trash2, FileText, TrendingUp, Users, DollarSign, Filter, X, ChevronDown, ChevronUp, Calendar } from "lucide-react";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataTable } from "@/components/data-table";
@@ -13,6 +13,9 @@ import { apiPost, apiPatch, apiDelete } from "@/lib/api-client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { categoriesApi } from "@/lib/api-client";
 import { Wager } from "@/lib/types/api";
 import { logger } from "@/lib/logger";
@@ -28,6 +31,12 @@ export default function AdminWagersPage() {
   }>>([]);
   const [resolving, setResolving] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<"all" | "user" | "system">("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [dateRangeFilter, setDateRangeFilter] = useState<string>("all");
+  const [minParticipants, setMinParticipants] = useState<string>("");
+  const [maxParticipants, setMaxParticipants] = useState<string>("");
+  const [showFilters, setShowFilters] = useState(false);
   const [showResolveDialog, setShowResolveDialog] = useState(false);
   const [selectedWager, setSelectedWager] = useState<{ id: string; title: string; sideA: string; sideB: string; side: "a" | "b" | null } | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -65,12 +74,19 @@ export default function AdminWagersPage() {
           creator_id: w.creator_id,
           is_system_generated: w.is_system_generated,
           winning_side: w.winning_side,
-          category: w.category?.slug || w.category?.label || w.category_id || null,
+          category: w.category || null, // Keep full category object
+          category_id: w.category_id || null,
           side_a: w.side_a,
           side_b: w.side_b,
           currency: w.currency || 'NGN',
           is_public: w.is_public,
-          participantsCount: w.participantsCount || 0,
+          // Backend should return participantsCount, but handle both camelCase and snake_case
+          // Also ensure we get the value even if it's 0
+          participantsCount: typeof w.participantsCount === 'number' 
+            ? w.participantsCount 
+            : typeof w.participants_count === 'number'
+            ? w.participants_count
+            : 0,
         }));
         setWagers(transformedWagers);
       } else {
@@ -299,25 +315,109 @@ export default function AdminWagersPage() {
     }
   };
 
-  // Calculate stats
+  // Filter wagers based on all active filters
+  const filteredWagers = useMemo(() => {
+    let filtered = [...wagers];
+
+    // Filter by type (user/system/all)
+    if (filterType === "user") {
+      filtered = filtered.filter(w => !w.is_system_generated);
+    } else if (filterType === "system") {
+      filtered = filtered.filter(w => w.is_system_generated);
+    }
+
+    // Filter by status
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(w => w.status === statusFilter);
+    }
+
+    // Filter by category
+    if (categoryFilter !== "all") {
+      filtered = filtered.filter(w => {
+        const category = (w as any).category;
+        const wagerCategory = category && typeof category === 'object'
+          ? category.slug || category.id
+          : (w as any).category_id;
+        return wagerCategory === categoryFilter;
+      });
+    }
+
+    // Filter by date range
+    if (dateRangeFilter !== "all") {
+      const now = new Date();
+      let startDate: Date;
+      
+      switch (dateRangeFilter) {
+        case "today":
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case "week":
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case "month":
+          startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+          break;
+        case "3months":
+          startDate = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+          break;
+        default:
+          startDate = new Date(0);
+      }
+      
+      filtered = filtered.filter(w => {
+        const createdDate = new Date(w.created_at);
+        return createdDate >= startDate;
+      });
+    }
+
+    // Filter by participants count
+    if (minParticipants) {
+      const min = parseInt(minParticipants, 10);
+      if (!isNaN(min)) {
+        filtered = filtered.filter(w => ((w as any).participantsCount || 0) >= min);
+      }
+    }
+    if (maxParticipants) {
+      const max = parseInt(maxParticipants, 10);
+      if (!isNaN(max)) {
+        filtered = filtered.filter(w => ((w as any).participantsCount || 0) <= max);
+      }
+    }
+
+    return filtered;
+  }, [wagers, filterType, statusFilter, categoryFilter, dateRangeFilter, minParticipants, maxParticipants]);
+
+  // Calculate stats from filtered wagers
   const stats = useMemo(() => {
-    const filtered = filterType === "all" 
-      ? wagers 
-      : filterType === "user" 
-        ? wagers.filter(w => !w.is_system_generated)
-        : wagers.filter(w => w.is_system_generated);
-    
     return {
-      total: filtered.length,
-      open: filtered.filter(w => w.status === "OPEN").length,
-      resolved: filtered.filter(w => w.status === "RESOLVED").length,
-      settled: filtered.filter(w => w.status === "SETTLED").length,
-      refunded: filtered.filter(w => w.status === "REFUNDED").length,
-      totalVolume: filtered.reduce((sum, w) => sum + (w.amount || 0), 0),
-      userCreated: filtered.filter(w => !w.is_system_generated).length,
-      systemGenerated: filtered.filter(w => w.is_system_generated).length,
+      total: filteredWagers.length,
+      open: filteredWagers.filter(w => w.status === "OPEN").length,
+      resolved: filteredWagers.filter(w => w.status === "RESOLVED").length,
+      settled: filteredWagers.filter(w => w.status === "SETTLED").length,
+      refunded: filteredWagers.filter(w => w.status === "REFUNDED").length,
+      totalVolume: filteredWagers.reduce((sum, w) => sum + (w.amount || 0), 0),
+      userCreated: filteredWagers.filter(w => !w.is_system_generated).length,
+      systemGenerated: filteredWagers.filter(w => w.is_system_generated).length,
     };
-  }, [wagers, filterType]);
+  }, [filteredWagers]);
+
+  // Check if any filters are active
+  const hasActiveFilters = useMemo(() => {
+    return statusFilter !== "all" || 
+           categoryFilter !== "all" || 
+           dateRangeFilter !== "all" || 
+           minParticipants !== "" || 
+           maxParticipants !== "";
+  }, [statusFilter, categoryFilter, dateRangeFilter, minParticipants, maxParticipants]);
+
+  // Clear all filters
+  const clearFilters = () => {
+    setStatusFilter("all");
+    setCategoryFilter("all");
+    setDateRangeFilter("all");
+    setMinParticipants("");
+    setMaxParticipants("");
+  };
 
   return (
     <main className="min-h-screen bg-background p-4 md:p-6 lg:p-8">
@@ -464,81 +564,272 @@ export default function AdminWagersPage() {
       />
         
         {/* Actions Bar */}
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          {/* Filter Tabs */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => setFilterType("all")}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                filterType === "all"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setFilterType("user")}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                filterType === "user"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              User Created
-            </button>
-            <button
-              onClick={() => setFilterType("system")}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                filterType === "system"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              System Generated
-            </button>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            {/* Filter Tabs */}
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => setFilterType("all")}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                  filterType === "all"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setFilterType("user")}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                  filterType === "user"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                User Created
+              </button>
+              <button
+                onClick={() => setFilterType("system")}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                  filterType === "system"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                System Generated
+              </button>
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                  showFilters || hasActiveFilters
+                    ? "bg-primary/10 text-primary border border-primary/20"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                <Filter className="h-4 w-4" />
+                Filters
+                {hasActiveFilters && (
+                  <Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1.5 text-xs">
+                    {[statusFilter !== "all", categoryFilter !== "all", dateRangeFilter !== "all", minParticipants !== "", maxParticipants !== ""].filter(Boolean).length}
+                  </Badge>
+                )}
+                {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </button>
+            </div>
+
+            {/* Create Buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setEditingWager(null);
+                  setIsCreatingSystemWager(false);
+                  setShowCreateModal(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition text-sm font-medium"
+              >
+                <Plus className="h-4 w-4" />
+                Create Wager
+              </button>
+              <button
+                onClick={() => {
+                  setEditingWager(null);
+                  setIsCreatingSystemWager(true);
+                  setShowCreateModal(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/20 transition text-sm font-medium"
+              >
+                <Plus className="h-4 w-4" />
+                Create System Wager
+              </button>
+            </div>
           </div>
 
-          {/* Create Buttons */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                setEditingWager(null);
-                setIsCreatingSystemWager(false);
-                setShowCreateModal(true);
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition text-sm font-medium"
-            >
-              <Plus className="h-4 w-4" />
-              Create Wager
-            </button>
-            <button
-              onClick={() => {
-                setEditingWager(null);
-                setIsCreatingSystemWager(true);
-                setShowCreateModal(true);
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/20 transition text-sm font-medium"
-            >
-              <Plus className="h-4 w-4" />
-              Create System Wager
-            </button>
-          </div>
+          {/* Advanced Filters Panel */}
+          {showFilters && (
+            <Card className="border border-border/80 bg-muted/30">
+              <CardContent className="pt-6">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold flex items-center gap-2">
+                      <Filter className="h-4 w-4" />
+                      Advanced Filters
+                    </h3>
+                    {hasActiveFilters && (
+                      <button
+                        onClick={clearFilters}
+                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition"
+                      >
+                        <X className="h-3 w-3" />
+                        Clear All
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    {/* Status Filter */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-muted-foreground">Status</label>
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="All Statuses" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Statuses</SelectItem>
+                          <SelectItem value="OPEN">Open</SelectItem>
+                          <SelectItem value="RESOLVED">Resolved</SelectItem>
+                          <SelectItem value="SETTLED">Settled</SelectItem>
+                          <SelectItem value="REFUNDED">Refunded</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Category Filter */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-muted-foreground">Category</label>
+                      <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="All Categories" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Categories</SelectItem>
+                          {categories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.slug}>
+                              {cat.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Date Range Filter */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        Date Range
+                      </label>
+                      <Select value={dateRangeFilter} onValueChange={setDateRangeFilter}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="All Time" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Time</SelectItem>
+                          <SelectItem value="today">Today</SelectItem>
+                          <SelectItem value="week">Last 7 Days</SelectItem>
+                          <SelectItem value="month">Last 30 Days</SelectItem>
+                          <SelectItem value="3months">Last 3 Months</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Participants Filter */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-muted-foreground">Participants</label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="number"
+                          placeholder="Min"
+                          value={minParticipants}
+                          onChange={(e) => setMinParticipants(e.target.value)}
+                          className="h-9"
+                          min="0"
+                        />
+                        <Input
+                          type="number"
+                          placeholder="Max"
+                          value={maxParticipants}
+                          onChange={(e) => setMaxParticipants(e.target.value)}
+                          className="h-9"
+                          min="0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Active Filter Badges */}
+                  {hasActiveFilters && (
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-border/50">
+                      <span className="text-xs text-muted-foreground">Active filters:</span>
+                      {statusFilter !== "all" && (
+                        <Badge variant="secondary" className="text-xs">
+                          Status: {statusFilter}
+                          <button
+                            onClick={() => setStatusFilter("all")}
+                            className="ml-1.5 hover:text-destructive"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      )}
+                      {categoryFilter !== "all" && (
+                        <Badge variant="secondary" className="text-xs">
+                          Category: {categories.find(c => c.slug === categoryFilter)?.label || categoryFilter}
+                          <button
+                            onClick={() => setCategoryFilter("all")}
+                            className="ml-1.5 hover:text-destructive"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      )}
+                      {dateRangeFilter !== "all" && (
+                        <Badge variant="secondary" className="text-xs">
+                          Date: {dateRangeFilter === "today" ? "Today" : dateRangeFilter === "week" ? "Last 7 Days" : dateRangeFilter === "month" ? "Last 30 Days" : "Last 3 Months"}
+                          <button
+                            onClick={() => setDateRangeFilter("all")}
+                            className="ml-1.5 hover:text-destructive"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      )}
+                      {minParticipants && (
+                        <Badge variant="secondary" className="text-xs">
+                          Min Participants: {minParticipants}
+                          <button
+                            onClick={() => setMinParticipants("")}
+                            className="ml-1.5 hover:text-destructive"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      )}
+                      {maxParticipants && (
+                        <Badge variant="secondary" className="text-xs">
+                          Max Participants: {maxParticipants}
+                          <button
+                            onClick={() => setMaxParticipants("")}
+                            className="ml-1.5 hover:text-destructive"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Wagers Table */}
         <Card className="border border-border/80">
           <CardHeader>
-            <CardTitle>All Wagers</CardTitle>
-            <CardDescription>View and manage wagers across the platform</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>All Wagers</CardTitle>
+                <CardDescription>
+                  {filteredWagers.length === wagers.length
+                    ? `Showing all ${wagers.length} wagers`
+                    : `Showing ${filteredWagers.length} of ${wagers.length} wagers`}
+                  {hasActiveFilters && " (filtered)"}
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <DataTable
-              data={wagers.filter(w => {
-                if (filterType === "user") return !w.is_system_generated;
-                if (filterType === "system") return w.is_system_generated;
-                return true;
-              })}
+              data={filteredWagers}
               columns={[
             {
               id: "title",
@@ -590,22 +881,67 @@ export default function AdminWagersPage() {
               id: "category",
               header: "Category",
               accessorKey: "category",
-              cell: (row) => (
-                <span className="text-xs text-muted-foreground capitalize">
-                  {typeof row.category === 'object' && row.category !== null
-                    ? row.category.slug || row.category.label || "N/A"
-                    : row.category_id || "N/A"}
-                </span>
-              ),
+              cell: (row) => {
+                const category = row.category;
+                if (category && typeof category === 'object') {
+                  return (
+                    <span className="text-xs text-muted-foreground capitalize">
+                      {category.label || category.slug || "N/A"}
+                    </span>
+                  );
+                }
+                // Fallback to category_id if category object is not available
+                return (
+                  <span className="text-xs text-muted-foreground capitalize">
+                    {row.category_id || "N/A"}
+                  </span>
+                );
+              },
             },
             {
               id: "participants",
               header: "Participants",
-              cell: (row: any) => (
-                <span className="text-sm font-medium text-foreground">
-                  {row.participantsCount || 0}
-                </span>
-              ),
+              cell: (row: any) => {
+                const count = typeof row.participantsCount === 'number' 
+                  ? row.participantsCount 
+                  : typeof row.participants_count === 'number'
+                  ? row.participants_count
+                  : 0;
+                return (
+                  <span className="text-sm font-medium text-foreground">
+                    {count}
+                  </span>
+                );
+              },
+            },
+            {
+              id: "winning_side",
+              header: "Winning Side",
+              accessorKey: "winning_side",
+              cell: (row) => {
+                if (!row.winning_side) {
+                  return <span className="text-xs text-muted-foreground">—</span>;
+                }
+                const side = row.winning_side.toLowerCase();
+                const sideText = side === 'a' ? row.side_a : side === 'b' ? row.side_b : row.winning_side;
+                return (
+                  <div className="flex flex-col gap-0.5">
+                    <Badge 
+                      variant={side === 'a' ? 'default' : 'secondary'}
+                      className={`text-xs w-fit ${
+                        side === 'a' 
+                          ? 'bg-green-500/20 text-green-700 dark:text-green-400' 
+                          : 'bg-blue-500/20 text-blue-700 dark:text-blue-400'
+                      }`}
+                    >
+                      {row.winning_side.toUpperCase()}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground truncate max-w-[150px]">
+                      {sideText}
+                    </span>
+                  </div>
+                );
+              },
             },
             {
               id: "deadline",
