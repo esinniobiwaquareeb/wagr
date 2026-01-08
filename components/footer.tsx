@@ -1,8 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useNavAuth } from "@/hooks/use-nav-auth";
 
 export function Footer() {
+  const { user } = useNavAuth();
+  const isAuthenticated = !!user;
+
   const quickLinks = [
     { href: "/about", label: "About" },
     { href: "/faq", label: "FAQs" },
@@ -19,7 +23,7 @@ export function Footer() {
   ];
 
   return (
-    <footer className="border-t border-border/50 bg-background mt-auto lg:pb-0 pb-20">
+    <footer className={`border-t border-border/50 bg-background mt-auto lg:pb-0 pb-20 ${isAuthenticated ? 'hidden lg:block' : ''}`}>
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-8 md:py-10">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
           {/* Quick Links */}
