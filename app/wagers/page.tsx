@@ -347,9 +347,9 @@ function WagersPageContent() {
 
     try {
       setLoading(true);
-      // Increased limit to 500 to show more wagers
+      // Request 200 wagers: backend will return 100 open wagers (prioritized) + 100 other wagers
       // Force refresh cache when force=true to get latest user entry data
-      const response = await wagersApi.list({ limit: 500 }, force);
+      const response = await wagersApi.list({ limit: 200 }, force);
       const wagersData = response?.wagers || (Array.isArray(response) ? response : []);
 
       const wagersWithCounts: WagerWithEntries[] = wagersData.map((wager: any) => {
