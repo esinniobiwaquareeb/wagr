@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
-import { ArrowLeft, Clock, CheckCircle2, Users, AlertTriangle, ExternalLink, Trophy, DollarSign, TrendingUp, TrendingDown, Award } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle2, Users, AlertTriangle, ExternalLink, Trophy, DollarSign, TrendingUp, TrendingDown, Award, Brain, Newspaper, FileText, Zap, DollarSign as DollarIcon, Activity } from "lucide-react";
 import { useAdmin } from "@/contexts/admin-context";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
@@ -77,7 +77,8 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
       setLoading(true);
       try {
         const { apiGet } = await import('@/lib/api-client');
-        const response = await apiGet<{ wager: any }>(`/wagers/${wagerId}`);
+        // Use admin endpoint for comprehensive details
+        const response = await apiGet<{ wager: any }>(`/admin/wagers/${wagerId}`);
 
         if (!response.wager) {
           throw new Error("Wager not found");
@@ -579,6 +580,7 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
           )}
         </div>
 
+        {/* Comprehensive Settlement Details */}
         {isSettled && (
           <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
             <CardHeader>
@@ -608,6 +610,271 @@ export default function AdminWagerDetailPage({ params }: AdminWagerDetailPagePro
                   </p>
                 </div>
               </div>
+              {wager.sourceData?.settlementAction && (
+                <div className="mt-4 pt-4 border-t border-blue-200 dark:border-blue-800">
+                  <p className="text-xs text-muted-foreground mb-1">Settlement Action</p>
+                  <p className="text-sm font-medium">{wager.sourceData.settlementAction}</p>
+                </div>
+              )}
+              {wager.sourceData?.settlementReason && (
+                <div className="mt-2">
+                  <p className="text-xs text-muted-foreground mb-1">Settlement Reason</p>
+                  <p className="text-sm">{wager.sourceData.settlementReason}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* AI Analysis & Metrics */}
+        {(wager.sourceData?.aiSettlement || wager.aiMetrics?.latestSettlement) && (
+          <Card className="bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Brain className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                AI Analysis & Metrics
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {wager.sourceData?.aiReasoning && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                    <FileText className="h-3 w-3" />
+                    AI Reasoning
+                  </p>
+                  <p className="text-sm bg-background p-3 rounded-md border whitespace-pre-wrap">
+                    {wager.sourceData.aiReasoning}
+                  </p>
+                </div>
+              )}
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {wager.sourceData?.aiConfidence !== null && wager.sourceData?.aiConfidence !== undefined && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Confidence Level</p>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-muted rounded-full h-2">
+                        <div
+                          className="bg-purple-600 h-2 rounded-full"
+                          style={{ width: `${wager.sourceData.aiConfidence}%` }}
+                        />
+                      </div>
+                      <span className="text-sm font-semibold">{wager.sourceData.aiConfidence}%</span>
+                    </div>
+                  </div>
+                )}
+                {wager.aiMetrics?.latestSettlement && (
+                  <>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                        <Zap className="h-3 w-3" />
+                        Model
+                      </p>
+                      <p className="text-sm font-medium">{wager.aiMetrics.latestSettlement.model}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                        <Activity className="h-3 w-3" />
+                        Tokens Used
+                      </p>
+                      <p className="text-sm font-medium">
+                        {wager.aiMetrics.latestSettlement.total_tokens?.toLocaleString() || '—'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {wager.aiMetrics.latestSettlement.prompt_tokens} prompt + {wager.aiMetrics.latestSettlement.completion_tokens} completion
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                        <DollarIcon className="h-3 w-3" />
+                        Estimated Cost
+                      </p>
+                      <p className="text-sm font-medium">
+                        ${Number(wager.aiMetrics.latestSettlement.estimated_cost || 0).toFixed(6)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Processing Time</p>
+                      <p className="text-sm font-medium">
+                        {wager.aiMetrics.latestSettlement.processing_time_ms}ms
+                      </p>
+                    </div>
+                    {wager.aiMetrics.latestSettlement.has_relevant_news !== null && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Relevant News Found</p>
+                        <p className="text-sm font-medium">
+                          {wager.aiMetrics.latestSettlement.has_relevant_news ? 'Yes' : 'No'}
+                          {wager.aiMetrics.latestSettlement.news_articles_count !== null && (
+                            <span className="text-muted-foreground ml-1">
+                              ({wager.aiMetrics.latestSettlement.news_articles_count} articles)
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+              {wager.aiMetrics?.all && wager.aiMetrics.all.length > 1 && (
+                <div className="mt-4 pt-4 border-t border-purple-200 dark:border-purple-800">
+                  <p className="text-xs text-muted-foreground mb-2">All AI Requests for this Wager</p>
+                  <div className="space-y-2">
+                    {wager.aiMetrics.all.map((metric: any, idx: number) => (
+                      <div key={metric.id || idx} className="text-xs bg-background p-2 rounded border">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{metric.request_type}</span>
+                          <span className="text-muted-foreground">
+                            {format(new Date(metric.created_at), "MMM d, HH:mm")}
+                          </span>
+                        </div>
+                        <div className="flex gap-4 mt-1 text-muted-foreground">
+                          <span>{metric.model}</span>
+                          <span>{metric.total_tokens} tokens</span>
+                          <span>${Number(metric.estimated_cost || 0).toFixed(6)}</span>
+                          {metric.success === false && (
+                            <span className="text-red-600 dark:text-red-400">Failed</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* News Sources */}
+        {(wager.sourceData?.originalNews || (wager.sourceData?.relevantNews && Array.isArray(wager.sourceData.relevantNews) && wager.sourceData.relevantNews.length > 0)) && (
+          <Card className="bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Newspaper className="h-4 w-4 text-green-600 dark:text-green-400" />
+                News Sources
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {wager.sourceData?.originalNews && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2 font-semibold">Original News Source (Wager Generation)</p>
+                  <div className="bg-background p-3 rounded-md border">
+                    <p className="text-sm font-semibold mb-1">{wager.sourceData.originalNews.title}</p>
+                    {wager.sourceData.originalNews.description && (
+                      <p className="text-xs text-muted-foreground mb-2">{wager.sourceData.originalNews.description}</p>
+                    )}
+                    {wager.sourceData.originalNews.publishedAt && (
+                      <p className="text-xs text-muted-foreground">
+                        Published: {format(new Date(wager.sourceData.originalNews.publishedAt), "MMM d, yyyy 'at' HH:mm")}
+                      </p>
+                    )}
+                    {wager.sourceData.originalNews.url && (
+                      <a
+                        href={wager.sourceData.originalNews.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline flex items-center gap-1 mt-2"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        View Source
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+              {wager.sourceData?.relevantNews && Array.isArray(wager.sourceData.relevantNews) && wager.sourceData.relevantNews.length > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2 font-semibold">
+                    Relevant News Articles (Settlement Analysis) - {wager.sourceData.relevantNews.length} article{wager.sourceData.relevantNews.length !== 1 ? 's' : ''}
+                  </p>
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {wager.sourceData.relevantNews.map((article: any, idx: number) => (
+                      <div key={idx} className="bg-background p-3 rounded-md border">
+                        <p className="text-sm font-semibold mb-1">{article.title || `Article ${idx + 1}`}</p>
+                        {article.description && (
+                          <p className="text-xs text-muted-foreground mb-2 line-clamp-2">{article.description}</p>
+                        )}
+                        {article.publishedAt && (
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(article.publishedAt), "MMM d, yyyy 'at' HH:mm")}
+                          </p>
+                        )}
+                        {article.url && (
+                          <a
+                            href={article.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-primary hover:underline flex items-center gap-1 mt-1"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            View Source
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Source Data Details */}
+        {wager.sourceData && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Source Data & Metadata
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {wager.sourceData.type && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Wager Type</p>
+                  <p className="text-sm font-medium">{wager.sourceData.type}</p>
+                </div>
+              )}
+              {(wager.sourceData.targetPrice || wager.sourceData.currentPrice) && (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {wager.sourceData.targetPrice && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Target Price/Rate</p>
+                      <p className="text-sm font-medium">{wager.sourceData.targetPrice}</p>
+                    </div>
+                  )}
+                  {wager.sourceData.currentPrice && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Current Price/Rate (at generation)</p>
+                      <p className="text-sm font-medium">{wager.sourceData.currentPrice}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {(wager.sourceData.team1 || wager.sourceData.team2) && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Sports Teams</p>
+                  <p className="text-sm font-medium">
+                    {wager.sourceData.team1} {wager.sourceData.team2 ? `vs ${wager.sourceData.team2}` : ''}
+                  </p>
+                </div>
+              )}
+              {wager.sourceData.matchDate && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Match Date</p>
+                  <p className="text-sm font-medium">
+                    {format(new Date(wager.sourceData.matchDate), "MMM d, yyyy 'at' HH:mm")}
+                  </p>
+                </div>
+              )}
+              {wager.sourceData.raw && (
+                <details className="mt-4">
+                  <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                    View Raw Source Data (JSON)
+                  </summary>
+                  <pre className="mt-2 text-xs bg-muted p-3 rounded-md overflow-x-auto max-h-64 overflow-y-auto">
+                    {JSON.stringify(wager.sourceData.raw, null, 2)}
+                  </pre>
+                </details>
+              )}
             </CardContent>
           </Card>
         )}

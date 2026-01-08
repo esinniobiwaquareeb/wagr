@@ -6,6 +6,44 @@ import { successResponseNext, appErrorToResponse } from '@/lib/api-response';
 import { cookies } from 'next/headers';
 
 /**
+ * GET /api/admin/wagers/[id]
+ * Get comprehensive wager details (admin only)
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await requireAdmin();
+    const { id } = await params;
+    
+    // Get token from cookies
+    const cookieStore = await cookies();
+    const token = cookieStore.get('admin_auth_token')?.value || cookieStore.get('auth_token')?.value || null;
+
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
+    // Call NestJS backend to get comprehensive wager details
+    const response = await nestjsServerFetch<{ wager: any }>(`/admin/wagers/${id}`, {
+      method: 'GET',
+      token,
+      requireAuth: true,
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'Failed to fetch wager');
+    }
+
+    return successResponseNext({ wager: response.data.wager });
+  } catch (error) {
+    logError(error as Error);
+    return appErrorToResponse(error);
+  }
+}
+
+/**
  * PATCH /api/admin/wagers/[id]
  * Update a wager (admin only)
  */

@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { format, startOfDay, endOfDay, subDays, subMonths, startOfMonth, endOfMonth, parseISO } from "date-fns";
-import { Brain, TrendingUp, DollarSign, Zap, CheckCircle, XCircle, BarChart3, PieChart } from "lucide-react";
+import { Brain, TrendingUp, DollarSign, Zap, CheckCircle, XCircle, BarChart3, PieChart, ExternalLink } from "lucide-react";
 import { useAdmin } from "@/contexts/admin-context";
 import {
   LineChart,
@@ -62,6 +63,7 @@ interface AIMetrics {
     wagers_generated?: number;
     winning_side?: string | null;
     confidence?: number | null;
+    wager_id?: string | null;
     created_at: string;
   }>;
 }
@@ -124,18 +126,21 @@ export default function AdminAIMetricsPage() {
         url += `?startDate=${encodeURIComponent(dateFilter.start)}&endDate=${encodeURIComponent(dateFilter.end)}`;
       }
 
-      const response = await apiGet<{ success: boolean; data: AIMetrics }>(`/api${url}`);
+      // apiGet extracts response.data automatically, so we get AIMetrics directly
+      const metrics = await apiGet<AIMetrics>(url);
       
-      if (response.success && response.data) {
-        setMetrics(response.data);
+      // Validate metrics structure
+      if (metrics && typeof metrics === 'object' && 'summary' in metrics) {
+        setMetrics(metrics);
       } else {
-        throw new Error('Failed to fetch AI metrics');
+        throw new Error('Invalid metrics data structure');
       }
     } catch (error) {
       logger.error("Error fetching AI metrics", error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch AI metrics';
       toast({
         title: "Error",
-        description: "Failed to fetch AI metrics.",
+        description: errorMessage,
         variant: "destructive",
       });
       setMetrics(null);
@@ -150,8 +155,8 @@ export default function AdminAIMetricsPage() {
     }
   }, [isAdmin, fetchMetrics]);
 
-  // Prepare chart data
-  const modelUsageData = metrics?.summary.modelUsage
+  // Prepare chart data with safe access
+  const modelUsageData = metrics?.summary?.modelUsage
     ? Object.entries(metrics.summary.modelUsage).map(([model, data]) => ({
         model,
         tokens: data.tokens,
@@ -160,17 +165,17 @@ export default function AdminAIMetricsPage() {
       }))
     : [];
 
-  const categoryData = metrics?.summary.generation.categoryDistribution
+  const categoryData = metrics?.summary?.generation?.categoryDistribution
     ? Object.entries(metrics.summary.generation.categoryDistribution).map(([category, count]) => ({
         category,
         count,
       }))
     : [];
 
-  const requestTypeData = metrics
+  const requestTypeData = metrics?.summary
     ? [
-        { type: 'Generation', count: metrics.summary.generation.count, color: '#0088FE' },
-        { type: 'Settlement', count: metrics.summary.settlement.count, color: '#00C49F' },
+        { type: 'Generation', count: metrics.summary.generation?.count || 0, color: '#0088FE' },
+        { type: 'Settlement', count: metrics.summary.settlement?.count || 0, color: '#00C49F' },
       ]
     : [];
 
@@ -182,7 +187,6 @@ export default function AdminAIMetricsPage() {
           <div className="flex items-center justify-between mb-2">
             <div>
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight flex items-center gap-3">
-                <Brain className="h-8 w-8 text-primary" />
                 AI Metrics
               </h1>
               <p className="text-sm md:text-base text-muted-foreground mt-1">
@@ -414,22 +418,26 @@ export default function AdminAIMetricsPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {Object.entries(metrics.summary.modelUsage).map(([model, data]) => (
-                    <div key={model} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div>
-                        <div className="font-medium">{model}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {data.count} requests • {data.tokens.toLocaleString()} tokens
+                  {metrics.summary?.modelUsage && Object.keys(metrics.summary.modelUsage).length > 0 ? (
+                    Object.entries(metrics.summary.modelUsage).map(([model, data]) => (
+                      <div key={model} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div>
+                          <div className="font-medium">{model}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {data.count} requests • {data.tokens.toLocaleString()} tokens
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold text-lg">${parseFloat(data.cost.toFixed(4))}</div>
+                          <div className="text-sm text-muted-foreground">
+                            ${(data.cost / data.count).toFixed(4)} avg
+                          </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="font-bold text-lg">${parseFloat(data.cost.toFixed(4))}</div>
-                        <div className="text-sm text-muted-foreground">
-                          ${(data.cost / data.count).toFixed(4)} avg
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground text-center py-4">No model usage data available</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -452,11 +460,12 @@ export default function AdminAIMetricsPage() {
                         <th className="text-right p-2">Time (ms)</th>
                         <th className="text-center p-2">Status</th>
                         <th className="text-left p-2">Details</th>
+                        <th className="text-left p-2">Actions</th>
                         <th className="text-left p-2">Date</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {metrics.recent.map((record) => (
+                      {metrics.recent && metrics.recent.length > 0 ? metrics.recent.map((record) => (
                         <tr key={record.id} className="border-b hover:bg-muted/50">
                           <td className="p-2">
                             <Badge variant={record.request_type === 'generation' ? 'default' : 'secondary'}>
@@ -476,7 +485,7 @@ export default function AdminAIMetricsPage() {
                           </td>
                           <td className="p-2 text-xs">
                             {record.request_type === 'generation' && record.wagers_generated && (
-                              <span>{record.wagers_generated} wagers</span>
+                              <span>{record.wagers_generated} wagers generated</span>
                             )}
                             {record.request_type === 'settlement' && record.winning_side && (
                               <span>Side {record.winning_side.toUpperCase()} ({record.confidence}% confidence)</span>
@@ -485,11 +494,30 @@ export default function AdminAIMetricsPage() {
                               <span className="text-muted-foreground">Undetermined</span>
                             )}
                           </td>
+                          <td className="p-2">
+                            {record.wager_id ? (
+                              <Link
+                                href={`/admin/wagers/${record.wager_id}`}
+                                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                              >
+                                <span>View Wager</span>
+                                <ExternalLink className="h-3 w-3" />
+                              </Link>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </td>
                           <td className="p-2 text-xs text-muted-foreground">
                             {format(parseISO(record.created_at), 'MMM d, HH:mm')}
                           </td>
                         </tr>
-                      ))}
+                      )) : (
+                        <tr>
+                          <td colSpan={9} className="p-8 text-center text-muted-foreground">
+                            No recent activity
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
