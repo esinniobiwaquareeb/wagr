@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from 'next/navigation';
-import { BarChart3, Home, Users, CreditCard, Settings, Shield, ShieldCheck, LogOut, Wallet, FileText, BookOpen, ChevronRight, Mail, KeyRound } from "lucide-react";
+import { BarChart3, Home, Users, CreditCard, Settings, Shield, ShieldCheck, LogOut, Wallet, FileText, BookOpen, ChevronRight, Mail, KeyRound, Brain } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useState } from "react";
 import { adminLogout } from "@/lib/auth/client";
@@ -57,6 +57,7 @@ export function AdminSidebar() {
     { href: "/admin/kyc", icon: ShieldCheck, label: "KYC Reviews", permission: 'manage_kyc' },
     { href: "/admin/reports", icon: FileText, label: "Reports", permission: 'view_reports' },
     { href: "/admin/analytics", icon: BarChart3, label: "Analytics", permission: 'view_analytics' },
+    { href: "/admin/ai-metrics", icon: Brain, label: "AI Metrics", permission: 'view_analytics' },
     { href: "/admin/email-templates", icon: Mail, label: "Email Templates", permission: 'manage_email_templates' },
     { href: "/admin/roles", icon: KeyRound, label: "Roles & Permissions", permission: 'manage_admins' },
     { href: "/admin/admins", icon: Shield, label: "Admins", permission: 'manage_admins' },
