@@ -374,6 +374,8 @@ function WagersPageContent() {
           category: typeof wager.category === 'object' 
             ? (wager.category?.slug || wager.category?.label || wager.category_id)
             : (wager.category || wager.category_id),
+          // Include market liquidity data if available
+          marketLiquidity: wager.marketLiquidity,
         };
       });
       
@@ -1143,6 +1145,7 @@ function WagersPageContent() {
                 winningSide={wager.winning_side}
                 shortId={wager.short_id}
                 userEntrySide={userEntries.get(wager.id)?.side}
+                marketLiquidity={wager.marketLiquidity}
               />
             ))}
           </div>

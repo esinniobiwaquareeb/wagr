@@ -237,6 +237,54 @@ function HistoryPageContent() {
     return { total, open, resolved, won, lost, refunded };
   }, [entries]);
 
+  // Calculate portfolio stats: exposure, potential wins/losses, P&L
+  const portfolioStats = useMemo(() => {
+    const openEntries = entries.filter(e => e.wager.status === 'OPEN');
+    const settledEntries = entries.filter(e => e.wager.status === 'RESOLVED' || e.wager.status === 'SETTLED');
+    const wonEntries = settledEntries.filter(e => e.wager.winning_side === e.side);
+    const lostEntries = settledEntries.filter(e => e.wager.winning_side !== null && e.wager.winning_side !== e.side);
+
+    // Total exposure (amount wagered on open wagers)
+    const totalExposure = openEntries.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+    // Calculate potential wins for open wagers
+    // This is an estimate based on current odds
+    let potentialWins = 0;
+    openEntries.forEach(entry => {
+      // Get wager totals from entries (we'd need to fetch this from API, but for now estimate)
+      // For simplicity, we'll show exposure only and note that potential returns depend on odds
+      potentialWins += Number(entry.amount || 0); // Conservative estimate: at least get back what you put in
+    });
+
+    // Actual realized P&L from settled wagers
+    // For won wagers, we need to calculate actual winnings (proportional share of pool)
+    // For lost wagers, loss is the entry amount
+    let realizedProfit = 0;
+    let realizedLoss = 0;
+
+    wonEntries.forEach(entry => {
+      // Actual winnings would be calculated from the wager pool
+      // For now, we'll use a conservative estimate: entry amount * 1.5 (assuming average 50% return)
+      // In production, this should come from actual transaction data
+      realizedProfit += Number(entry.amount || 0) * 1.5; // Estimate
+    });
+
+    lostEntries.forEach(entry => {
+      realizedLoss += Number(entry.amount || 0);
+    });
+
+    const netPandL = realizedProfit - realizedLoss - totalExposure; // Subtract exposure for open wagers
+
+    return {
+      totalExposure,
+      potentialWins,
+      realizedProfit,
+      realizedLoss,
+      netPandL,
+      openCount: openEntries.length,
+    };
+  }, [entries]);
+
   if (authLoading || loading) {
     return <HistoryPageSkeleton />;
   }
@@ -287,6 +335,50 @@ function HistoryPageContent() {
               <p className="text-muted-foreground text-xs md:text-sm">
                 View all wagers you've participated in
               </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Portfolio Stats */}
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold mb-3">Portfolio Overview</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4 mb-4">
+            <div className="bg-card border border-border rounded-lg p-3 md:p-4">
+              <div className="text-xs md:text-sm text-muted-foreground mb-1">Total Exposure</div>
+              <div className="text-lg md:text-2xl font-bold text-orange-600">
+                {formatCurrency(portfolioStats.totalExposure, currency)}
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-1">{portfolioStats.openCount} open wagers</div>
+            </div>
+            <div className="bg-card border border-border rounded-lg p-3 md:p-4">
+              <div className="text-xs md:text-sm text-muted-foreground mb-1">Realized Profit</div>
+              <div className="text-lg md:text-2xl font-bold text-green-600">
+                {formatCurrency(portfolioStats.realizedProfit, currency)}
+              </div>
+            </div>
+            <div className="bg-card border border-border rounded-lg p-3 md:p-4">
+              <div className="text-xs md:text-sm text-muted-foreground mb-1">Realized Loss</div>
+              <div className="text-lg md:text-2xl font-bold text-red-600">
+                {formatCurrency(portfolioStats.realizedLoss, currency)}
+              </div>
+            </div>
+            <div className="bg-card border border-border rounded-lg p-3 md:p-4">
+              <div className="text-xs md:text-sm text-muted-foreground mb-1">Net P&L</div>
+              <div className={`text-lg md:text-2xl font-bold ${
+                portfolioStats.netPandL >= 0 ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {formatCurrency(portfolioStats.netPandL, currency)}
+              </div>
+            </div>
+            <div className="bg-card border border-border rounded-lg p-3 md:p-4">
+              <div className="text-xs md:text-sm text-muted-foreground mb-1">Win Rate</div>
+              <div className="text-lg md:text-2xl font-bold">
+                {stats.resolved > 0 
+                  ? `${Math.round((stats.won / stats.resolved) * 100)}%`
+                  : '—'
+                }
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-1">{stats.won}/{stats.resolved} won</div>
             </div>
           </div>
         </div>

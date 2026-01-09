@@ -27,6 +27,17 @@ interface WagerCardProps {
   winningSide?: string | null;
   shortId?: string | null;
   userEntrySide?: string;
+  marketLiquidity?: {
+    sideATotal: number;
+    sideBTotal: number;
+    totalPool: number;
+    sideAOdds: number;
+    sideBOdds: number;
+    sideAPercent: number;
+    sideBPercent: number;
+    sideAParticipants: number;
+    sideBParticipants: number;
+  };
 }
 
 // Memoized helper for volume formatting
@@ -69,6 +80,7 @@ const WagerCardComponent = ({
   winningSide,
   shortId,
   userEntrySide,
+  marketLiquidity,
 }: WagerCardProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -76,16 +88,28 @@ const WagerCardComponent = ({
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [selectedSide, setSelectedSide] = useState<"a" | "b" | null>(null);
 
-  // Memoized calculations
-  const { pool, pctA, pctB, vol } = useMemo(() => {
+  // Memoized calculations - use marketLiquidity if available, otherwise calculate from sideATotal/sideBTotal
+  const { pool, pctA, pctB, vol, oddsA, oddsB } = useMemo(() => {
+    if (marketLiquidity) {
+      return {
+        pool: marketLiquidity.totalPool,
+        pctA: marketLiquidity.sideAPercent,
+        pctB: marketLiquidity.sideBPercent,
+        vol: formatVol(marketLiquidity.totalPool),
+        oddsA: marketLiquidity.sideAOdds,
+        oddsB: marketLiquidity.sideBOdds,
+      };
+    }
     const total = sideATotal + sideBTotal;
     return {
       pool: total,
       pctA: total > 0 ? Math.round((sideATotal / total) * 100) : 50,
       pctB: total > 0 ? Math.round((sideBTotal / total) * 100) : 50,
       vol: formatVol(total),
+      oddsA: total > 0 && sideATotal > 0 ? parseFloat((total / sideATotal).toFixed(2)) : 1.0,
+      oddsB: total > 0 && sideBTotal > 0 ? parseFloat((total / sideBTotal).toFixed(2)) : 1.0,
     };
-  }, [sideATotal, sideBTotal]);
+  }, [sideATotal, sideBTotal, marketLiquidity]);
 
   const timeInfo = useMemo(() => deadline ? getTimeDisplay(deadline) : null, [deadline]);
   const isOpen = status === "OPEN";
@@ -183,7 +207,12 @@ const WagerCardComponent = ({
               <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400 truncate pr-2">
                 {joining === "a" ? <Loader2 className="h-4 w-4 animate-spin inline" /> : sideA}
               </span>
-              <span className="text-base font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{pctA}%</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-base font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{pctA}%</span>
+                {pool > 0 && (
+                  <span className="text-[10px] text-muted-foreground">({oddsA}x)</span>
+                )}
+              </div>
             </button>
           ) : (
             <div className={`flex items-center justify-between px-3 py-2 rounded-lg transition-all ${
@@ -218,7 +247,12 @@ const WagerCardComponent = ({
               <span className="text-sm font-medium text-rose-700 dark:text-rose-400 truncate pr-2">
                 {joining === "b" ? <Loader2 className="h-4 w-4 animate-spin inline" /> : sideB}
               </span>
-              <span className="text-base font-bold text-rose-600 dark:text-rose-400 tabular-nums">{pctB}%</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-base font-bold text-rose-600 dark:text-rose-400 tabular-nums">{pctB}%</span>
+                {pool > 0 && (
+                  <span className="text-[10px] text-muted-foreground">({oddsB}x)</span>
+                )}
+              </div>
             </button>
           ) : (
             <div className={`flex items-center justify-between px-3 py-2 rounded-lg transition-all ${

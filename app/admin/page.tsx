@@ -13,7 +13,8 @@ import {
   Clock,
   ArrowUpRight,
   ArrowDownRight,
-  Loader2
+  Loader2,
+  Sparkles
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -69,6 +70,7 @@ export default function AdminPage() {
   const [recentWagers, setRecentWagers] = useState<Wager[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [resolving, setResolving] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const fetchStats = useCallback(async () => {
@@ -144,6 +146,48 @@ export default function AdminPage() {
       });
     } finally {
       setResolving(null);
+    }
+  };
+
+  const handleGenerateWagers = async () => {
+    if (!admin?.id) return;
+
+    setGenerating(true);
+    try {
+      const response = await fetch('/api/agents/generate-wagers', {
+        method: 'GET',
+        headers: {
+          'x-admin-request': 'true', // Allow admin to trigger in development
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || data.error || 'Failed to generate wagers');
+      }
+
+      const results = data.results || data.data || {};
+      toast({
+        title: "Wager Generation Started",
+        description: `Generating wagers: ${results.crypto || 0} crypto, ${results.finance || 0} finance, ${results.news || 0} news. This may take a few minutes.`,
+      });
+
+      // Refresh data after a delay to allow generation to complete
+      setTimeout(() => {
+        fetchRecentWagers();
+        fetchStats();
+      }, 5000);
+    } catch (error) {
+      logger.error("Error generating wagers", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate wagers.";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -235,13 +279,33 @@ export default function AdminPage() {
                 Welcome back, {admin?.username || admin?.email || 'Admin'}
               </p>
             </div>
-            <Link
-              href="/"
-              className="hidden md:flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-lg hover:bg-muted/50"
-            >
-              <span>←</span>
-              <span>Back to App</span>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleGenerateWagers}
+                disabled={generating}
+                size="sm"
+                className="hidden md:flex items-center gap-2"
+              >
+                {generating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Generating...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    <span>Generate Wagers</span>
+                  </>
+                )}
+              </Button>
+              <Link
+                href="/"
+                className="hidden md:flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-lg hover:bg-muted/50"
+              >
+                <span>←</span>
+                <span>Back to App</span>
+              </Link>
+            </div>
           </div>
         </div>
 

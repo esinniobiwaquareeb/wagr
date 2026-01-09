@@ -81,7 +81,9 @@ export interface Wager {
   creator_id: string | null;
   title: string;
   description: string | null;
-  amount: number;
+  amount: number; // Legacy field, kept for backward compatibility
+  min_amount: number | null; // Minimum amount users can join with
+  max_amount: number | null; // Maximum amount users can join with (null = unlimited)
   side_a: string;
   side_b: string;
   deadline: string | null;
@@ -112,6 +114,17 @@ export interface Wager {
     sideA: number;
     sideB: number;
     total: number;
+  };
+  marketLiquidity?: {
+    sideATotal: number;
+    sideBTotal: number;
+    totalPool: number;
+    sideAOdds: number;
+    sideBOdds: number;
+    sideAPercent: number;
+    sideBPercent: number;
+    sideAParticipants: number;
+    sideBParticipants: number;
   };
 }
 

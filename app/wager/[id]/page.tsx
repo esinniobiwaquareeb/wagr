@@ -52,6 +52,17 @@ export default function WagerDetail() {
   const { user } = useAuth();
   const { getSetting } = useSettings();
   const defaultPlatformFee = getSetting('fees.wager_platform_fee_percentage', PLATFORM_FEE_PERCENTAGE) as number;
+  
+  // Check if variable amounts feature is enabled
+  useEffect(() => {
+    try {
+      const enabled = getSetting('wagers.variable_amounts_enabled', false) as boolean;
+      setVariableAmountsEnabled(enabled);
+    } catch (error) {
+      logger.error('Error checking variable amounts setting', error);
+      setVariableAmountsEnabled(false);
+    }
+  }, [getSetting]);
   const [wager, setWager] = useState<Wager | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [sideCount, setSideCount] = useState({ a: 0, b: 0 });
@@ -70,6 +81,8 @@ export default function WagerDetail() {
   const [resolving, setResolving] = useState(false);
   const [selectedSide, setSelectedSide] = useState<"a" | "b" | null>(null);
   const [newSide, setNewSide] = useState<"a" | "b" | null>(null);
+  const [entryAmount, setEntryAmount] = useState<string>(""); // Amount user wants to join with
+  const [variableAmountsEnabled, setVariableAmountsEnabled] = useState<boolean>(false);
   const [unjoining, setUnjoining] = useState(false);
   const [changingSide, setChangingSide] = useState(false);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
@@ -100,6 +113,7 @@ export default function WagerDetail() {
   const joiningRef = useRef(false);
   const changingSideRef = useRef(false);
   const unjoiningRef = useRef(false);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchWager = useCallback(async (force = false) => {
     // Prevent concurrent fetches
@@ -325,14 +339,28 @@ export default function WagerDetail() {
     window.addEventListener('wager-updated', handleWagerUpdate);
     window.addEventListener('balance-updated', handleWagerUpdate);
 
+    // Real-time polling for odds updates (only for OPEN wagers)
+    // Poll every 5 seconds to get updated odds as users join
+    if (wager?.status === 'OPEN' && !isDeadlineElapsed(wager.deadline)) {
+      pollingIntervalRef.current = setInterval(() => {
+        if (fetchWagerRef.current && !fetchingRef.current && !joiningRef.current) {
+          fetchWagerRef.current(true);
+        }
+      }, 5000); // Poll every 5 seconds
+    }
+
     return () => {
       window.removeEventListener('wager-updated', handleWagerUpdate);
       window.removeEventListener('balance-updated', handleWagerUpdate);
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
     };
-  }, [wagerId]); // Only depend on wagerId to prevent unnecessary re-runs
+  }, [wagerId, wager?.status, wager?.deadline]); // Include wager status and deadline to restart polling when they change
 
   // Re-validate access when user loads (in case wager was fetched before user was available)
   // Use a ref to track if we've already checked to prevent multiple redirects
@@ -492,14 +520,25 @@ export default function WagerDetail() {
         return;
       }
 
-      logger.info("confirmJoin: Making API request", { url: `/api/wagers/${wager.id}/join`, side: selectedSide });
+      // Prepare join payload
+      const joinPayload: { side: "a" | "b"; amount?: number } = { side: selectedSide };
+      
+      // Include amount if variable amounts are enabled and user specified an amount
+      if (variableAmountsEnabled && entryAmount) {
+        const amount = parseFloat(entryAmount);
+        if (!isNaN(amount) && amount > 0) {
+          joinPayload.amount = amount;
+        }
+      }
+      
+      logger.info("confirmJoin: Making API request", { url: `/api/wagers/${wager.id}/join`, payload: joinPayload });
       
       // Join wager via API route (proxies to NestJS backend)
       const response = await fetch(`/api/wagers/${wager.id}/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ side: selectedSide }),
+        body: JSON.stringify(joinPayload),
       });
 
       logger.info("confirmJoin: API response received", { ok: response.ok, status: response.status });
@@ -541,6 +580,7 @@ export default function WagerDetail() {
       
       setShowJoinDialog(false);
       setSelectedSide(null);
+      setEntryAmount(""); // Reset entry amount
     } catch (error) {
       logger.error("Error joining wager", error);
       const { extractErrorMessage } = await import('@/lib/error-extractor');
@@ -1125,12 +1165,29 @@ export default function WagerDetail() {
   const sideBPercent = totalPot > 0 ? 100 - sideAPercent : 50;
 
   // Calculate potential returns using actual amounts
+  const entryAmountForCalc = variableAmountsEnabled && entryAmount 
+    ? parseFloat(entryAmount) || (wager.min_amount ?? wager.amount)
+    : (wager.min_amount ?? wager.amount);
+  
   const returns = calculatePotentialReturns({
-    entryAmount: wager.amount,
+    entryAmount: entryAmountForCalc,
     sideATotal: sideATotal,
     sideBTotal: sideBTotal,
     feePercentage: wager.fee_percentage || defaultPlatformFee,
   });
+
+  // Calculate current odds (Polymarket style)
+  // Odds represent the implied probability and potential return
+  const sideAOdds = totalPot > 0 && sideATotal > 0 
+    ? (totalPot / sideATotal).toFixed(2)
+    : "1.00";
+  const sideBOdds = totalPot > 0 && sideBTotal > 0
+    ? (totalPot / sideBTotal).toFixed(2)
+    : "1.00";
+
+  // Calculate participant counts per side
+  const sideAParticipants = entries.filter((e: Entry) => e.side === "a").length;
+  const sideBParticipants = entries.filter((e: Entry) => e.side === "b").length;
 
   // Check if wager is settled or resolved (for display logic)
   const isSettled = wager.status === "SETTLED" || wager.status === "RESOLVED";
@@ -1161,12 +1218,116 @@ export default function WagerDetail() {
 
       <ConfirmDialog
         open={showJoinDialog}
-        onOpenChange={setShowJoinDialog}
-        title="Confirm Join Wager"
+        onOpenChange={(open) => {
+          setShowJoinDialog(open);
+          if (!open) {
+            setEntryAmount(""); // Reset amount when dialog closes
+          }
+        }}
+        title="Join Wager"
         description={
-          wager && selectedSide
-            ? `Are you sure you want to join "${wager.title}" on ${selectedSide === "a" ? wager.side_a : wager.side_b}? This will deduct ${formatCurrency(wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)} from your balance.`
-            : "Are you sure you want to join this wager?"
+          wager && selectedSide ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Join "{wager.title}" on <strong>{selectedSide === "a" ? wager.side_a : wager.side_b}</strong>
+              </p>
+              {variableAmountsEnabled ? (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Enter Amount</label>
+                  <div className="space-y-2">
+                    <input
+                      type="number"
+                      value={entryAmount}
+                      onChange={(e) => setEntryAmount(e.target.value)}
+                      placeholder={`Min: ${formatCurrency(wager.min_amount ?? wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}${wager.max_amount ? `, Max: ${formatCurrency(wager.max_amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}` : ''}`}
+                      min={wager.min_amount ?? wager.amount}
+                      max={wager.max_amount ?? undefined}
+                      step="0.01"
+                      className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Minimum: {formatCurrency(wager.min_amount ?? wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}
+                      {wager.max_amount && ` • Maximum: ${formatCurrency(wager.max_amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}`}
+                    </p>
+                    {/* Real-time potential returns display */}
+                    {entryAmount && parseFloat(entryAmount) > 0 && (
+                      (() => {
+                        const amount = parseFloat(entryAmount);
+                        const joinReturns = calculatePotentialReturns({
+                          entryAmount: amount,
+                          sideATotal: sideATotal,
+                          sideBTotal: sideBTotal,
+                          feePercentage: wager.fee_percentage || defaultPlatformFee,
+                        });
+                        const selectedSideReturns = selectedSide === "a" ? joinReturns.sideAPotential : joinReturns.sideBPotential;
+                        const selectedSideMultiplier = selectedSide === "a" ? joinReturns.sideAReturnMultiplier : joinReturns.sideBReturnMultiplier;
+                        const selectedSidePercentage = selectedSide === "a" ? joinReturns.sideAReturnPercentage : joinReturns.sideBReturnPercentage;
+                        return (
+                          <div className="mt-2 p-2 rounded-lg bg-primary/5 border border-primary/20">
+                            <p className="text-xs font-medium text-primary mb-1">Potential Returns</p>
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">If you win:</span>
+                                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                                  {formatCurrency(selectedSideReturns, (wager.currency || DEFAULT_CURRENCY) as Currency)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">Return:</span>
+                                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                                  {formatReturnMultiplier(selectedSideMultiplier)} ({formatReturnPercentage(selectedSidePercentage)})
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    This will deduct {formatCurrency(wager.min_amount ?? wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)} from your balance.
+                  </p>
+                  {/* Show potential returns for fixed amount */}
+                  {(() => {
+                    const fixedAmount = wager.min_amount ?? wager.amount;
+                    const fixedReturns = calculatePotentialReturns({
+                      entryAmount: fixedAmount,
+                      sideATotal: sideATotal,
+                      sideBTotal: sideBTotal,
+                      feePercentage: wager.fee_percentage || defaultPlatformFee,
+                    });
+                    const selectedSideReturns = selectedSide === "a" ? fixedReturns.sideAPotential : fixedReturns.sideBPotential;
+                    const selectedSideMultiplier = selectedSide === "a" ? fixedReturns.sideAReturnMultiplier : fixedReturns.sideBReturnMultiplier;
+                    const selectedSidePercentage = selectedSide === "a" ? fixedReturns.sideAReturnPercentage : fixedReturns.sideBReturnPercentage;
+                    return (
+                      <div className="mt-2 p-2 rounded-lg bg-primary/5 border border-primary/20">
+                        <p className="text-xs font-medium text-primary mb-1">Potential Returns</p>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">If you win:</span>
+                            <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                              {formatCurrency(selectedSideReturns, (wager.currency || DEFAULT_CURRENCY) as Currency)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Return:</span>
+                            <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                              {formatReturnMultiplier(selectedSideMultiplier)} ({formatReturnPercentage(selectedSidePercentage)})
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          ) : (
+            "Are you sure you want to join this wager?"
+          )
         }
         confirmText="Join"
         cancelText="Cancel"
@@ -1433,6 +1594,68 @@ export default function WagerDetail() {
             )}
           </header>
 
+          {/* Market Liquidity Section (Polymarket Style) */}
+          {wager.status === "OPEN" && totalPot > 0 && (
+            <div className="px-3 sm:px-5 md:px-6 lg:px-8 py-3 sm:py-4 border-b border-border/30 bg-gradient-to-b from-muted/20 to-transparent">
+              <div className="mb-3">
+                <h3 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Market Depth</h3>
+                <div className="space-y-2">
+                  {/* Side A Market Info */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium">{wager.side_a}</span>
+                      <span className="text-muted-foreground">{sideAPercent}%</span>
+                    </div>
+                    <div className="relative h-2 bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-emerald-500 transition-all duration-300"
+                        style={{ width: `${sideAPercent}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                      <span>{formatVolume(sideATotal)} • {sideAParticipants} {sideAParticipants === 1 ? 'participant' : 'participants'}</span>
+                      <span>Odds: {sideAOdds}x</span>
+                    </div>
+                  </div>
+
+                  {/* Side B Market Info */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium">{wager.side_b}</span>
+                      <span className="text-muted-foreground">{sideBPercent}%</span>
+                    </div>
+                    <div className="relative h-2 bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-blue-500 transition-all duration-300"
+                        style={{ width: `${sideBPercent}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                      <span>{formatVolume(sideBTotal)} • {sideBParticipants} {sideBParticipants === 1 ? 'participant' : 'participants'}</span>
+                      <span>Odds: {sideBOdds}x</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Total Pool Info */}
+              <div className="pt-2 border-t border-border/30">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Total Pool</span>
+                  <span className="font-semibold">{formatVolume(totalPot)}</span>
+                </div>
+                {variableAmountsEnabled && (
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-1">
+                    <span>Min: {formatCurrency(wager.min_amount ?? wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}</span>
+                    {wager.max_amount && (
+                      <span>Max: {formatCurrency(wager.max_amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Stats Strip */}
           <div className="px-3 sm:px-5 md:px-6 lg:px-8 py-2 bg-muted/30 flex items-center justify-between text-[11px] sm:text-xs">
             <div className="flex items-center gap-2 sm:gap-3">
@@ -1442,7 +1665,12 @@ export default function WagerDetail() {
               </span>
               <span className="text-muted-foreground">{totalParticipants} {totalParticipants === 1 ? 'participant' : 'participants'}</span>
             </div>
-            <span className="font-medium">{formatCurrency(wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}/wager</span>
+            <span className="font-medium">
+              {variableAmountsEnabled 
+                ? `Min: ${formatCurrency(wager.min_amount ?? wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}`
+                : formatCurrency(wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)
+              }/wager
+            </span>
           </div>
 
           {/* Outcomes Section - Compact on mobile */}

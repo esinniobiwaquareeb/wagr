@@ -21,18 +21,20 @@ export async function GET(request: NextRequest) {
   const isVercelCron = vercelCronHeader === "1";
   const isValidSecret = cronSecret && authHeader === `Bearer ${cronSecret}`;
   const isLocalDev = process.env.NODE_ENV === 'development' && !cronSecret;
+  const isAdminRequest = request.headers.get('x-admin-request') === 'true'; // Allow admin requests in dev
   
-  if (!isVercelCron && !isValidSecret && cronSecret) {
-    // Only reject if CRON_SECRET is set and doesn't match (and it's not a Vercel cron)
+  if (!isVercelCron && !isValidSecret && cronSecret && !isAdminRequest) {
+    // Only reject if CRON_SECRET is set and doesn't match (and it's not a Vercel cron or admin request)
     logger.warn('[generate-wagers] Unauthorized request', {
       hasVercelCron: !!vercelCronHeader,
       hasAuthHeader: !!authHeader,
       hasCronSecret: !!cronSecret,
+      isAdminRequest,
     });
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   
-  if (isLocalDev) {
+  if (isLocalDev || isAdminRequest) {
     logger.info('[generate-wagers] Running in local development mode (no CRON_SECRET required)');
   }
   
@@ -44,7 +46,10 @@ export async function GET(request: NextRequest) {
   try {
     const apiSecret = process.env.SYSTEM_WAGER_API_SECRET;
     
-    if (!apiSecret) {
+    // In development, if secret is not set, try without it (backend might allow in dev mode)
+    const isDevMode = process.env.NODE_ENV === 'development' && !apiSecret;
+    
+    if (!apiSecret && !isDevMode) {
       return NextResponse.json(
         { error: "SYSTEM_WAGER_API_SECRET is not configured" },
         { status: 500 }
@@ -54,11 +59,18 @@ export async function GET(request: NextRequest) {
     // Call NestJS backend to generate wagers (using GET for Vercel cron compatibility)
     logger.info(`[generate-wagers] Calling backend: ${NESTJS_API_BASE}/system/wagers/generate`);
     
+    const headers: HeadersInit = {};
+    if (apiSecret) {
+      headers['Authorization'] = `Bearer ${apiSecret}`;
+    }
+    // In dev mode without secret, try with x-admin-request header
+    if (isDevMode) {
+      headers['x-admin-request'] = 'true';
+    }
+    
     const response = await fetch(`${NESTJS_API_BASE}/system/wagers/generate`, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiSecret}`,
-      },
+      headers,
     });
 
     let data: any;

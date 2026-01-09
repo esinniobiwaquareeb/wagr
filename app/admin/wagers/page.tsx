@@ -1129,6 +1129,8 @@ function AdminWagerModal({
     title: "",
     description: "",
     amount: "",
+    minAmount: "",
+    maxAmount: "",
     sideA: "",
     sideB: "",
     deadline: "",
@@ -1144,6 +1146,8 @@ function AdminWagerModal({
         title: wager.title || "",
         description: wager.description || "",
         amount: wager.amount?.toString() || "",
+        minAmount: (wager as any).min_amount?.toString() || wager.amount?.toString() || "",
+        maxAmount: (wager as any).max_amount?.toString() || "",
         sideA: wager.side_a || "",
         sideB: wager.side_b || "",
         deadline: wager.deadline ? new Date(wager.deadline).toISOString().slice(0, 16) : "",
@@ -1159,6 +1163,8 @@ function AdminWagerModal({
         title: "",
         description: "",
         amount: "",
+        minAmount: "",
+        maxAmount: "",
         sideA: "",
         sideB: "",
         deadline: "",
@@ -1180,7 +1186,9 @@ function AdminWagerModal({
     e.preventDefault();
     onSubmit({
       ...formData,
-      amount: parseFloat(formData.amount),
+      amount: parseFloat(formData.amount || formData.minAmount || "0"),
+      minAmount: parseFloat(formData.minAmount || formData.amount || "0"),
+      maxAmount: formData.maxAmount ? parseFloat(formData.maxAmount) : null,
     });
   };
 
@@ -1215,17 +1223,35 @@ function AdminWagerModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Amount *</label>
+              <label className="block text-sm font-medium mb-2">Min Amount *</label>
               <input
                 type="number"
-                value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                value={formData.minAmount}
+                onChange={(e) => setFormData({ ...formData, minAmount: e.target.value, amount: e.target.value })}
                 required
                 min="1"
                 step="0.01"
+                placeholder="Minimum entry amount"
                 className="w-full px-4 py-2 border border-input rounded-lg bg-background"
               />
+              <p className="text-xs text-muted-foreground mt-1">Minimum amount users can join with</p>
             </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Max Amount (Optional)</label>
+              <input
+                type="number"
+                value={formData.maxAmount}
+                onChange={(e) => setFormData({ ...formData, maxAmount: e.target.value })}
+                min={formData.minAmount || "1"}
+                step="0.01"
+                placeholder="Leave empty for unlimited"
+                className="w-full px-4 py-2 border border-input rounded-lg bg-background"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Maximum amount (leave empty for unlimited)</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-2">Currency</label>
               <select
@@ -1236,6 +1262,16 @@ function AdminWagerModal({
                 <option value="NGN">NGN</option>
                 <option value="USD">USD</option>
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Legacy Amount (Auto-filled)</label>
+              <input
+                type="number"
+                value={formData.amount}
+                readOnly
+                className="w-full px-4 py-2 border border-input rounded-lg bg-muted cursor-not-allowed"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Auto-set to min amount for backward compatibility</p>
             </div>
           </div>
 
