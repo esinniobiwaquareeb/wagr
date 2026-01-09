@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { formatDistanceToNow } from "date-fns";
+import Link from "next/link";
 import {
   UserPlus,
   UserMinus,
@@ -11,7 +12,6 @@ import {
   Trophy,
   CheckCircle2,
   Loader2,
-  Link
 } from "lucide-react";
 import { logger } from "@/lib/logger";
 
@@ -98,9 +98,15 @@ export function WagerActivities({ wagerId, sideA, sideB }: WagerActivitiesProps)
   };
 
   const getActivityText = (activity: Activity) => {
-    const username = activity.profiles?.username || "Someone";
+    // Get username from profiles or fallback to user_id or "Someone"
+    const username = activity.profiles?.username 
+      || (activity.user_id ? `User ${activity.user_id.slice(0, 8)}` : "Someone");
     const sideName = (side: string) => (side === "a" ? sideA : sideB);
-    const userProfileLink = activity.user_id ? `/profile/${activity.profiles?.username || activity.user_id}` : null;
+    const userProfileLink = activity.user_id && activity.profiles?.username 
+      ? `/profile/${activity.profiles.username}` 
+      : activity.user_id 
+        ? `/profile/${activity.user_id}` 
+        : null;
     const UsernameLink = userProfileLink ? (
       <Link href={userProfileLink} className="font-semibold hover:text-primary hover:underline inline-block">
         {username}

@@ -354,6 +354,7 @@ function WagersPageContent() {
 
       const wagersWithCounts: WagerWithEntries[] = wagersData.map((wager: any) => {
         const entryCounts = wager.entryCounts || { sideA: 0, sideB: 0, total: 0 };
+        const marketLiquidity = wager.marketLiquidity;
         
         // Extract user entry from API response (userEntry field)
         if (user && wager.userEntry) {
@@ -363,11 +364,24 @@ function WagersPageContent() {
           });
         }
         
+        // Calculate participant count correctly:
+        // Use marketLiquidity participant counts if available (most accurate)
+        // Otherwise, we need to count distinct entries (not divide amounts)
+        let participantCount = 0;
+        if (marketLiquidity) {
+          participantCount = (marketLiquidity.sideAParticipants || 0) + (marketLiquidity.sideBParticipants || 0);
+        } else {
+          // Fallback: if we don't have marketLiquidity, we can't accurately count participants
+          // from entryCounts alone (which are amounts, not counts)
+          // Set to 0 to avoid showing incorrect data
+          participantCount = 0;
+        }
+        
         return {
           ...wager,
-          entries_count: entryCounts.total > 0 ? Math.ceil(entryCounts.total / wager.amount) : 0,
-          side_a_count: Math.ceil(entryCounts.sideA / wager.amount),
-          side_b_count: Math.ceil(entryCounts.sideB / wager.amount),
+          entries_count: participantCount,
+          side_a_count: marketLiquidity?.sideAParticipants || 0,
+          side_b_count: marketLiquidity?.sideBParticipants || 0,
           side_a_total: entryCounts.sideA,
           side_b_total: entryCounts.sideB,
           // Handle category as object or string
@@ -375,7 +389,7 @@ function WagersPageContent() {
             ? (wager.category?.slug || wager.category?.label || wager.category_id)
             : (wager.category || wager.category_id),
           // Include market liquidity data if available
-          marketLiquidity: wager.marketLiquidity,
+          marketLiquidity: marketLiquidity,
         };
       });
       
@@ -1133,7 +1147,7 @@ function WagersPageContent() {
                 title={wager.title}
                 sideA={wager.side_a}
                 sideB={wager.side_b}
-                amount={wager.amount}
+                amount={wager.min_amount ?? wager.amount}
                 status={wager.status}
                 entriesCount={wager.entries_count}
                 deadline={wager.deadline || ""}

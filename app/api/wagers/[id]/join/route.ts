@@ -16,7 +16,7 @@ export async function POST(
   try {
     await requireAuth(); // Ensure user is authenticated
     const body = await request.json();
-    const { side } = body; // 'a' or 'b'
+    const { side, amount } = body; // 'a' or 'b', and optional amount
     const { id } = await params;
 
     if (!side || (side !== 'a' && side !== 'b')) {
@@ -31,12 +31,21 @@ export async function POST(
       throw new Error('Authentication required');
     }
 
+    // Prepare payload - include amount if provided (for variable amounts feature)
+    const payload: { side: 'a' | 'b'; amount?: number } = { side };
+    if (amount !== undefined && amount !== null) {
+      const parsedAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+      if (!isNaN(parsedAmount) && parsedAmount > 0) {
+        payload.amount = parsedAmount;
+      }
+    }
+
     // Call NestJS backend to join wager
     const response = await nestjsServerFetch<{ wager: any; message: string }>(`/wagers/${id}/join`, {
       method: 'POST',
       token,
       requireAuth: true,
-      body: JSON.stringify({ side }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.success || !response.data) {
