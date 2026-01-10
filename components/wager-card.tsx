@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState, useEffect } from "react";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { Sparkles, Users, TrendingUp, Trophy, Loader2, Clock } from "lucide-react";
 import { wagersApi } from "@/lib/api-client";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { useSettings } from "@/hooks/use-settings";
 import { isDeadlineElapsed, getTimeRemaining } from "@/lib/deadline-utils";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
+import { PLATFORM_FEE_PERCENTAGE } from "@/lib/constants";
 
 interface WagerCardProps {
   id: string;
@@ -27,6 +30,8 @@ interface WagerCardProps {
   winningSide?: string | null;
   shortId?: string | null;
   userEntrySide?: string;
+  minAmount?: number | null;
+  maxAmount?: number | null;
   marketLiquidity?: {
     sideATotal: number;
     sideBTotal: number;
@@ -80,13 +85,29 @@ const WagerCardComponent = ({
   winningSide,
   shortId,
   userEntrySide,
+  minAmount,
+  maxAmount,
   marketLiquidity,
 }: WagerCardProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { getSetting } = useSettings();
+  const defaultPlatformFee = getSetting('fees.wager_platform_fee_percentage', PLATFORM_FEE_PERCENTAGE) as number;
   const [joining, setJoining] = useState<"a" | "b" | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [selectedSide, setSelectedSide] = useState<"a" | "b" | null>(null);
+  const [entryAmount, setEntryAmount] = useState<string>("");
+  const [variableAmountsEnabled, setVariableAmountsEnabled] = useState<boolean>(false);
+
+  // Check if variable amounts feature is enabled
+  useEffect(() => {
+    try {
+      const enabled = getSetting('wagers.variable_amounts_enabled', false) as boolean;
+      setVariableAmountsEnabled(enabled);
+    } catch (error) {
+      setVariableAmountsEnabled(false);
+    }
+  }, [getSetting]);
 
   // Memoized calculations - use marketLiquidity if available, otherwise calculate from sideATotal/sideBTotal
   const { pool, pctA, pctB, vol, oddsA, oddsB } = useMemo(() => {
@@ -143,17 +164,23 @@ const WagerCardComponent = ({
     setShowConfirmDialog(false);
     
     try {
-      await wagersApi.join(id, selectedSide);
+      // Prepare join payload with optional amount
+      const joinAmount = variableAmountsEnabled && entryAmount 
+        ? parseFloat(entryAmount) 
+        : undefined;
+      
+      await wagersApi.join(id, selectedSide, joinAmount);
       toast({ title: "Joined!", description: `You joined ${selectedSide === "a" ? sideA : sideB}` });
       window.dispatchEvent(new Event('wager-updated'));
       window.dispatchEvent(new CustomEvent('balance-updated'));
+      setEntryAmount(""); // Reset amount
     } catch (err: any) {
       toast({ title: "Failed", description: err?.message || "Could not join.", variant: "destructive" });
     } finally {
       setJoining(null);
       setSelectedSide(null);
     }
-  }, [selectedSide, joining, id, sideA, sideB, toast]);
+  }, [selectedSide, joining, id, sideA, sideB, toast, variableAmountsEnabled, entryAmount]);
 
   const linkId = shortId || id;
 
@@ -302,16 +329,121 @@ const WagerCardComponent = ({
       {/* Confirmation Dialog */}
       <ConfirmDialog
         open={showConfirmDialog}
-        onOpenChange={setShowConfirmDialog}
-        title="Confirm Your Wager"
+        onOpenChange={(open) => {
+          setShowConfirmDialog(open);
+          if (!open) {
+            setEntryAmount(""); // Reset amount when dialog closes
+          }
+        }}
+        title="Join Wager"
         description={
-          selectedSide
-            ? `You are about to join this wager with ${formatCurrency(amount, currency as Currency)} on "${selectedSide === "a" ? sideA : sideB}" for "${title}". This amount will be deducted from your wallet. Are you sure?`
-            : "Are you sure you want to join this wager?"
+          selectedSide ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Join "{title}" on <strong>{selectedSide === "a" ? sideA : sideB}</strong>
+              </p>
+              {variableAmountsEnabled ? (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Enter Amount</label>
+                  <div className="space-y-2">
+                    <input
+                      type="number"
+                      value={entryAmount}
+                      onChange={(e) => setEntryAmount(e.target.value)}
+                      placeholder={`Min: ${formatCurrency(minAmount ?? amount, currency as Currency)}${maxAmount ? `, Max: ${formatCurrency(maxAmount, currency as Currency)}` : ''}`}
+                      min={minAmount ?? amount}
+                      max={maxAmount ?? undefined}
+                      step="0.01"
+                      className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Minimum: {formatCurrency(minAmount ?? amount, currency as Currency)}
+                      {maxAmount && ` • Maximum: ${formatCurrency(maxAmount, currency as Currency)}`}
+                    </p>
+                    {/* Real-time potential returns display */}
+                    {entryAmount && parseFloat(entryAmount) > 0 && (
+                      (() => {
+                        const amount = parseFloat(entryAmount);
+                        const joinReturns = calculatePotentialReturns({
+                          entryAmount: amount,
+                          sideATotal: marketLiquidity?.sideATotal ?? sideATotal,
+                          sideBTotal: marketLiquidity?.sideBTotal ?? sideBTotal,
+                          feePercentage: defaultPlatformFee,
+                        });
+                        const selectedSideReturns = selectedSide === "a" ? joinReturns.sideAPotential : joinReturns.sideBPotential;
+                        const selectedSideMultiplier = selectedSide === "a" ? joinReturns.sideAReturnMultiplier : joinReturns.sideBReturnMultiplier;
+                        const selectedSidePercentage = selectedSide === "a" ? joinReturns.sideAReturnPercentage : joinReturns.sideBReturnPercentage;
+                        return (
+                          <div className="mt-2 p-2 rounded-lg bg-primary/5 border border-primary/20">
+                            <p className="text-xs font-medium text-primary mb-1">Potential Returns</p>
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">If you win:</span>
+                                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                                  {formatCurrency(selectedSideReturns, currency as Currency)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">Return:</span>
+                                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                                  {formatReturnMultiplier(selectedSideMultiplier)} ({formatReturnPercentage(selectedSidePercentage)})
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    This will deduct {formatCurrency(minAmount ?? amount, currency as Currency)} from your balance.
+                  </p>
+                  {/* Show potential returns for fixed amount */}
+                  {(() => {
+                    const fixedAmount = minAmount ?? amount;
+                    const fixedReturns = calculatePotentialReturns({
+                      entryAmount: fixedAmount,
+                      sideATotal: marketLiquidity?.sideATotal ?? sideATotal,
+                      sideBTotal: marketLiquidity?.sideBTotal ?? sideBTotal,
+                      feePercentage: defaultPlatformFee,
+                    });
+                    const selectedSideReturns = selectedSide === "a" ? fixedReturns.sideAPotential : fixedReturns.sideBPotential;
+                    const selectedSideMultiplier = selectedSide === "a" ? fixedReturns.sideAReturnMultiplier : fixedReturns.sideBReturnMultiplier;
+                    const selectedSidePercentage = selectedSide === "a" ? fixedReturns.sideAReturnPercentage : fixedReturns.sideBReturnPercentage;
+                    return (
+                      <div className="mt-2 p-2 rounded-lg bg-primary/5 border border-primary/20">
+                        <p className="text-xs font-medium text-primary mb-1">Potential Returns</p>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">If you win:</span>
+                            <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                              {formatCurrency(selectedSideReturns, currency as Currency)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Return:</span>
+                            <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                              {formatReturnMultiplier(selectedSideMultiplier)} ({formatReturnPercentage(selectedSidePercentage)})
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          ) : (
+            "Are you sure you want to join this wager?"
+          )
         }
-        confirmText="Join Wager"
+        confirmText="Join"
         cancelText="Cancel"
         onConfirm={confirmBet}
+        loading={!!joining}
       />
     </>
   );

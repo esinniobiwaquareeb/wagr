@@ -216,7 +216,13 @@ export const wagersApi = {
     creatorSide?: 'a' | 'b';
   }) => apiPost<{ wager: any }>('/wagers', data),
   
-  join: (id: string, side: 'a' | 'b') => apiPost<{ wager: any; message: string }>(`/wagers/${id}/join`, { side }),
+  join: (id: string, side: 'a' | 'b', amount?: number) => {
+    const body: { side: 'a' | 'b'; amount?: number } = { side };
+    if (amount !== undefined && amount !== null) {
+      body.amount = amount;
+    }
+    return apiPost<{ wager: any; message: string }>(`/wagers/${id}/join`, body);
+  },
   
   delete: (id: string) => apiDelete<{ message: string }>(`/wagers/${id}`),
   

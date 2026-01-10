@@ -1159,6 +1159,8 @@ function WagersPageContent() {
                 winningSide={wager.winning_side}
                 shortId={wager.short_id}
                 userEntrySide={userEntries.get(wager.id)?.side}
+                minAmount={wager.min_amount ?? null}
+                maxAmount={wager.max_amount ?? null}
                 marketLiquidity={wager.marketLiquidity}
               />
             ))}
