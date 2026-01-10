@@ -218,7 +218,7 @@ export function TrendingWagers() {
                 href={wagerLink}
                 className="flex-shrink-0 w-56 sm:w-64 group"
               >
-                <div className="bg-card border border-border rounded-lg px-2.5 py-2 h-full hover:border-primary/50 hover:shadow-md transition-all cursor-pointer active:scale-[0.98] touch-manipulation flex flex-col min-h-[140px]">
+                <div className="bg-card border border-border dark:border-border/80 rounded-lg px-2.5 py-2 h-full hover:border-primary/50 dark:hover:border-primary/60 hover:shadow-md dark:hover:shadow-primary/10 transition-all cursor-pointer active:scale-[0.98] touch-manipulation flex flex-col min-h-[140px]">
                   {/* Rank Badge & Title Row */}
                   <div className="flex items-start justify-between mb-1.5 gap-2">
                     <div className="flex items-center gap-1.5 min-w-0 flex-1">
@@ -226,10 +226,10 @@ export function TrendingWagers() {
                         <div
                           className={`h-5 w-5 rounded-full flex items-center justify-center font-bold text-[9px] flex-shrink-0 ${
                             index === 0
-                              ? "bg-gradient-to-br from-yellow-400 to-yellow-600 text-yellow-900"
+                              ? "bg-gradient-to-br from-yellow-400 to-yellow-600 text-yellow-900 dark:text-yellow-950"
                               : index === 1
-                              ? "bg-gradient-to-br from-gray-300 to-gray-500 text-gray-900"
-                              : "bg-gradient-to-br from-amber-500 to-amber-700 text-amber-900"
+                              ? "bg-gradient-to-br from-gray-300 to-gray-500 text-gray-900 dark:text-gray-950"
+                              : "bg-gradient-to-br from-amber-500 to-amber-700 text-amber-900 dark:text-amber-950"
                           }`}
                         >
                           {index === 0 ? <Trophy className="h-2.5 w-2.5" /> : index + 1}
@@ -285,7 +285,7 @@ export function TrendingWagers() {
                   </div>
 
                   {/* Compact Stats Footer */}
-                  <div className="flex items-center justify-between gap-1.5 text-[9px] text-muted-foreground pt-1 border-t border-border/50">
+                  <div className="flex items-center justify-between gap-1.5 text-[9px] text-muted-foreground pt-1 border-t border-border/50 dark:border-border/70">
                     <div className="flex items-center gap-0.5 min-w-0">
                       <Users className="h-3 w-3 flex-shrink-0" />
                       <span className="truncate">{totalParticipants}</span>

@@ -28,11 +28,11 @@ export function ActiveFilters({
       {(selectedCategory || searchQuery) && (
         <>
           {selectedCategory && (
-            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-foreground text-xs font-medium">
               <span className="capitalize">{selectedCategory}</span>
               <button
                 onClick={() => onCategoryChange(null)}
-                className="hover:bg-primary/20 rounded-full p-0.5 transition-colors"
+                className="hover:bg-primary/20 dark:hover:bg-primary/30 rounded-full p-0.5 transition-colors"
                 aria-label="Remove category filter"
               >
                 <X className="h-2.5 w-2.5" />
@@ -40,12 +40,12 @@ export function ActiveFilters({
             </span>
           )}
           {searchQuery && (
-            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-xs font-medium">
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted dark:bg-muted/80 text-muted-foreground text-xs font-medium">
               <Search className="h-2.5 w-2.5" />
               <span className="max-w-[140px] truncate">"{searchQuery}"</span>
               <button
                 onClick={() => onSearchChange('')}
-                className="hover:bg-muted/80 rounded-full p-0.5 transition-colors"
+                className="hover:bg-muted/80 dark:hover:bg-muted/60 rounded-full p-0.5 transition-colors"
                 aria-label="Clear search"
               >
                 <X className="h-2.5 w-2.5" />

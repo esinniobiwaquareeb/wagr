@@ -329,6 +329,19 @@ export const leaderboardApi = {
 };
 
 /**
+ * Currencies API
+ */
+export const currenciesApi = {
+  list: () => apiGet<{ currencies: Array<{
+    id: string;
+    code: string;
+    name: string;
+    symbol: string;
+    is_active: boolean;
+  }> }>('/currencies'),
+};
+
+/**
  * Preferences API
  */
 export const preferencesApi = {
@@ -339,6 +352,7 @@ export const preferencesApi = {
     notification_enabled?: boolean;
     notification_types?: string[];
     push_notifications_enabled?: boolean;
+    currency_id?: string;
   }) => apiPatch<{ preferences: any }>('/preferences', data),
 };
 

@@ -12,7 +12,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { preferencesApi, categoriesApi } from "@/lib/api-client";
+import { preferencesApi, categoriesApi, currenciesApi } from "@/lib/api-client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { logger } from "@/lib/logger";
 
 const NOTIFICATION_TYPES = [
@@ -40,15 +41,43 @@ export function PreferencesModal({ isOpen, onClose }: PreferencesModalProps) {
     icon: string | null;
   }>>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
+  const [currencies, setCurrencies] = useState<Array<{
+    id: string;
+    code: string;
+    name: string;
+    symbol: string;
+  }>>([]);
+  const [loadingCurrencies, setLoadingCurrencies] = useState(false);
   const [preferences, setPreferences] = useState<{
     preferred_categories: string[];
     notification_enabled: boolean;
     notification_types: string[];
+    currency_id?: string;
   }>({
     preferred_categories: [],
     notification_enabled: true,
     notification_types: [],
   });
+
+  const fetchCurrencies = useCallback(async () => {
+    setLoadingCurrencies(true);
+    try {
+      const response = await currenciesApi.list();
+      if (response && response.currencies) {
+        setCurrencies(response.currencies.map(c => ({
+          id: c.id,
+          code: c.code,
+          name: c.name,
+          symbol: c.symbol,
+        })));
+      }
+    } catch (error) {
+      logger.error("Error fetching currencies", error);
+      setCurrencies([]);
+    } finally {
+      setLoadingCurrencies(false);
+    }
+  }, []);
 
   const fetchCategories = useCallback(async () => {
     setLoadingCategories(true);
@@ -87,6 +116,7 @@ export function PreferencesModal({ isOpen, onClose }: PreferencesModalProps) {
           preferred_categories: prefs.preferred_categories || [],
           notification_enabled: prefs.notification_enabled ?? true,
           notification_types: prefs.notification_types || [],
+          currency_id: prefs.currency?.id || undefined,
         });
       }
     } catch (error) {
@@ -104,11 +134,12 @@ export function PreferencesModal({ isOpen, onClose }: PreferencesModalProps) {
   useEffect(() => {
     if (isOpen) {
       fetchCategories();
+      fetchCurrencies();
       if (user) {
         fetchPreferences();
       }
     }
-  }, [isOpen, user, fetchPreferences, fetchCategories]);
+  }, [isOpen, user, fetchPreferences, fetchCategories, fetchCurrencies]);
 
   const handleCategoryToggle = (categoryId: string) => {
     setPreferences((prev) => {
@@ -141,12 +172,19 @@ export function PreferencesModal({ isOpen, onClose }: PreferencesModalProps) {
         preferred_categories: preferences.preferred_categories,
         notification_enabled: preferences.notification_enabled,
         notification_types: preferences.notification_types,
+        currency_id: preferences.currency_id,
       });
 
       toast({
         title: "Preferences saved!",
         description: "Your preferences have been updated.",
       });
+      
+      // Dispatch event to refresh currency across the app
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('currency-updated'));
+      }
+      
       onClose();
     } catch (error) {
       logger.error("Error saving preferences", error);
@@ -223,6 +261,33 @@ export function PreferencesModal({ isOpen, onClose }: PreferencesModalProps) {
                 <p className="text-xs text-muted-foreground mt-2">
                   No categories selected - you'll see all wagers
                 </p>
+              )}
+            </div>
+
+            {/* Currency Preference */}
+            <div>
+              <h3 className="text-base font-semibold mb-2">Currency</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Select your preferred currency for displaying amounts and transactions
+              </p>
+              {loadingCurrencies ? (
+                <Skeleton className="h-10 w-full" />
+              ) : (
+                <Select
+                  value={preferences.currency_id || ''}
+                  onValueChange={(value) => setPreferences((prev) => ({ ...prev, currency_id: value }))}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select currency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currencies.map((currency) => (
+                      <SelectItem key={currency.id} value={currency.id}>
+                        {currency.symbol} {currency.name} ({currency.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
             </div>
 

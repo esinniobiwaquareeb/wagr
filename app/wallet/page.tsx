@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
+import { useUserCurrency } from "@/hooks/use-user-currency";
 import { Send, ArrowDownCircle, ArrowUpCircle, Smartphone, Wallet as WalletIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,7 +63,8 @@ function WalletContent() {
   const [kycSummary, setKycSummary] = useState<KycSummary | null>(null);
   const [kycLoading, setKycLoading] = useState(true);
   const { toast } = useToast();
-  const currency = DEFAULT_CURRENCY as Currency;
+  const { currency: userCurrency } = useUserCurrency();
+  const currency = (userCurrency.code || DEFAULT_CURRENCY) as Currency;
   const { getSetting } = useSettings();
   const minDeposit = getSetting('payments.min_deposit', 100) as number;
   const maxDeposit = getSetting('payments.max_deposit', undefined) as number | undefined;
@@ -311,7 +313,7 @@ function WalletContent() {
       setProcessingPayment(false);
       toast({
         title: "Money added!",
-        description: `${formatCurrency(parseFloat(amount), currency)} has been added to your wallet.`,
+        description: `${formatCurrency(parseFloat(amount), currency, userCurrency.symbol)} has been added to your wallet.`,
       });
       fetchWalletData(true);
       setTimeout(() => router.replace('/wallet'), 500);
@@ -516,7 +518,7 @@ function WalletContent() {
       if (data.success && data.data) {
         toast({
           title: "Withdrawal on the way!",
-          description: `We've received your request for ${formatCurrency(amount, currency)}. It should be in your bank account soon.`,
+          description: `We've received your request for ${formatCurrency(amount, currency, userCurrency.symbol)}. It should be in your bank account soon.`,
         });
 
         // Reset form
@@ -688,7 +690,7 @@ function WalletContent() {
       if (data.success && data.data) {
         toast({
           title: "Transfer successful!",
-          description: `${formatCurrency(roundedAmount, currency)} has been sent to @${selectedRecipient.username}`,
+          description: `${formatCurrency(roundedAmount, currency, userCurrency.symbol)} has been sent to @${selectedRecipient.username}`,
         });
 
         // Reset form
@@ -892,7 +894,7 @@ function WalletContent() {
                     <div className="flex-1 min-w-0">
                       <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Available Balance</p>
                       <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground break-words">
-                        {formatCurrency(profile.balance, currency)}
+                        {formatCurrency(profile.balance, currency, userCurrency.symbol)}
                       </p>
                     </div>
                     <div className="ml-4 p-3 sm:p-4 rounded-full bg-primary/10 dark:bg-primary/20 flex-shrink-0">
@@ -950,6 +952,7 @@ function WalletContent() {
                   onDeposit={handleDeposit}
                   minDeposit={minDeposit}
                   maxDeposit={maxDeposit}
+                  currencySymbol={userCurrency.symbol}
                 />
               </TabsContent>
 
@@ -973,6 +976,7 @@ function WalletContent() {
                   onLoadBanks={fetchBanks}
                   minWithdrawal={minWithdrawal}
                   maxWithdrawal={maxWithdrawal}
+                  currencySymbol={userCurrency.symbol}
                 />
               </TabsContent>
 
@@ -990,6 +994,7 @@ function WalletContent() {
                   processingTransfer={processingTransfer}
                   balance={profile?.balance || 0}
                   currency={currency}
+                  currencySymbol={userCurrency.symbol}
                   onTransfer={handleTransfer}
                   kycSummary={kycSummary}
                   kycLoading={kycLoading}
@@ -1001,6 +1006,7 @@ function WalletContent() {
                 <BillsTab
                   balance={profile?.balance || 0}
                   currency={currency}
+                  currencySymbol={userCurrency.symbol}
                   onPurchase={async (payload) => {
                     const endpoint =
                       payload.category === 'data' ? '/api/bills/data' : '/api/bills/airtime';
@@ -1027,7 +1033,7 @@ function WalletContent() {
                               payload.networkName || 'network'
                             } initiated`
                           : data.data?.message ||
-                            `₦${payload.amount.toLocaleString()} purchase for ${
+                            `${userCurrency.symbol}${payload.amount.toLocaleString()} purchase for ${
                               payload.networkName || 'network'
                             } initiated`;
 
@@ -1062,7 +1068,7 @@ function WalletContent() {
         </Card>
 
         {/* Transaction History */}
-        <TransactionHistory transactions={transactions} currency={currency} />
+        <TransactionHistory transactions={transactions} currency={currency} currencySymbol={userCurrency.symbol} />
       </div>
     </main>
   );

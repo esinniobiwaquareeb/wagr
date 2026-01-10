@@ -17,10 +17,11 @@ interface Transaction {
 
 interface TransactionHistoryProps {
   transactions: Transaction[];
-  currency: Currency;
+  currency: Currency | string;
+  currencySymbol?: string;
 }
 
-export function TransactionHistory({ transactions, currency }: TransactionHistoryProps) {
+export function TransactionHistory({ transactions, currency, currencySymbol }: TransactionHistoryProps) {
   return (
     <Card>
       <CardHeader className="pb-4">
@@ -100,7 +101,7 @@ export function TransactionHistory({ transactions, currency }: TransactionHistor
                     const positiveTypes = ["deposit", "wager_win", "wager_refund", "quiz_win", "quiz_refund", "transfer_in", "challenge_reward", "streak_reward"];
                     return positiveTypes.includes(trans.type) || trans.amount > 0;
                   })() ? "+" : ""}
-                  {formatCurrency(Math.abs(trans.amount), currency)}
+                  {formatCurrency(Math.abs(trans.amount), currency, currencySymbol)}
                 </p>
               </Link>
             ))}

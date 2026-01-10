@@ -24,7 +24,7 @@ export function MobileFiltersPanel({
   if (!isOpen) return null;
 
   return (
-    <div className="space-y-2.5 p-2.5 bg-card border border-border rounded-lg shadow-sm">
+    <div className="space-y-2.5 p-2.5 bg-card border border-border dark:border-border/80 rounded-lg shadow-sm">
       {/* Search Input */}
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -33,7 +33,7 @@ export function MobileFiltersPanel({
           placeholder="Search markets..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full pl-9 pr-8 py-2 bg-background border border-border rounded-lg text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="w-full pl-9 pr-8 py-2 bg-background dark:bg-muted/40 border border-border dark:border-border/70 rounded-lg text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 dark:focus:ring-primary/60 focus:border-primary/50 dark:focus:border-primary/60"
         />
         {searchQuery && (
           <button
@@ -80,7 +80,7 @@ export function MobileFiltersPanel({
 
       {/* Active Filters & Clear */}
       {(selectedCategory || searchQuery) && (
-        <div className="flex items-center justify-between pt-1.5 border-t border-border">
+          <div className="flex items-center justify-between pt-1.5 border-t border-border dark:border-border/70">
           <div className="flex items-center gap-1.5 flex-wrap">
             {selectedCategory && (
               <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-medium">

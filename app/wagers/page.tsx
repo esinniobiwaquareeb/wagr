@@ -455,7 +455,7 @@ function WagersPageContent() {
         </div>
 
         {/* Desktop Tab Navigation */}
-        <div className="hidden lg:block">
+        <div className="hidden lg:block mb-3">
           <TabNavigation
             variant="desktop"
             activeTab={activeTab}

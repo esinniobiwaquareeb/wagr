@@ -202,7 +202,7 @@ const WagerCardComponent = ({
   return (
     <>
       <Link href={`/wager/${linkId}`} className="block group" prefetch={false}>
-        <article className="bg-card border border-border/60 rounded-2xl overflow-hidden hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 transition-all duration-200 h-full flex flex-col">
+        <article className="bg-card border border-border/60 dark:border-border/80 rounded-2xl overflow-hidden hover:border-primary/40 dark:hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 dark:hover:shadow-primary/10 transition-all duration-200 h-full flex flex-col">
         {/* Compact Header */}
         <header className="px-3.5 pt-3.5 pb-2">
           <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -244,7 +244,7 @@ const WagerCardComponent = ({
             <button
               onClick={(e) => handleJoinClick(e, "a")}
               disabled={!!joining}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gradient-to-r from-emerald-500/8 to-emerald-500/4 border border-emerald-500/25 hover:border-emerald-500/50 hover:from-emerald-500/12 hover:to-emerald-500/8 transition-all disabled:opacity-50"
+              className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gradient-to-r from-emerald-500/8 to-emerald-500/4 dark:from-emerald-500/12 dark:to-emerald-500/8 border border-emerald-500/25 dark:border-emerald-500/35 hover:border-emerald-500/50 dark:hover:border-emerald-500/60 hover:from-emerald-500/12 hover:to-emerald-500/8 dark:hover:from-emerald-500/16 dark:hover:to-emerald-500/12 transition-all disabled:opacity-50"
             >
               <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400 truncate pr-2">
                 {joining === "a" ? <Loader2 className="h-4 w-4 animate-spin inline" /> : sideA}
@@ -259,10 +259,10 @@ const WagerCardComponent = ({
           ) : (
             <div className={`flex items-center justify-between px-3 py-2 rounded-lg transition-all ${
               isSettled && winningSide === "a"
-                ? "bg-emerald-500/15 border-2 border-emerald-500/60"
+                ? "bg-emerald-500/15 dark:bg-emerald-500/20 border-2 border-emerald-500/60 dark:border-emerald-500/70"
                 : userEntrySide === "a"
-                ? "bg-primary/10 border-2 border-primary/50"
-                : "bg-muted/40 border border-border/50"
+                ? "bg-primary/10 dark:bg-primary/15 border-2 border-primary/50 dark:border-primary/60"
+                : "bg-muted/40 dark:bg-muted/60 border border-border/50 dark:border-border/70"
             }`}>
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className={`text-sm font-medium truncate ${
@@ -284,7 +284,7 @@ const WagerCardComponent = ({
             <button
               onClick={(e) => handleJoinClick(e, "b")}
               disabled={!!joining}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gradient-to-r from-rose-500/8 to-rose-500/4 border border-rose-500/25 hover:border-rose-500/50 hover:from-rose-500/12 hover:to-rose-500/8 transition-all disabled:opacity-50"
+              className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gradient-to-r from-rose-500/8 to-rose-500/4 dark:from-rose-500/12 dark:to-rose-500/8 border border-rose-500/25 dark:border-rose-500/35 hover:border-rose-500/50 dark:hover:border-rose-500/60 hover:from-rose-500/12 hover:to-rose-500/8 dark:hover:from-rose-500/16 dark:hover:to-rose-500/12 transition-all disabled:opacity-50"
             >
               <span className="text-sm font-medium text-rose-700 dark:text-rose-400 truncate pr-2">
                 {joining === "b" ? <Loader2 className="h-4 w-4 animate-spin inline" /> : sideB}
@@ -299,10 +299,10 @@ const WagerCardComponent = ({
           ) : (
             <div className={`flex items-center justify-between px-3 py-2 rounded-lg transition-all ${
               isSettled && winningSide === "b"
-                ? "bg-emerald-500/15 border-2 border-emerald-500/60"
+                ? "bg-emerald-500/15 dark:bg-emerald-500/20 border-2 border-emerald-500/60 dark:border-emerald-500/70"
                 : userEntrySide === "b"
-                ? "bg-primary/10 border-2 border-primary/50"
-                : "bg-muted/40 border border-border/50"
+                ? "bg-primary/10 dark:bg-primary/15 border-2 border-primary/50 dark:border-primary/60"
+                : "bg-muted/40 dark:bg-muted/60 border border-border/50 dark:border-border/70"
             }`}>
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className={`text-sm font-medium truncate ${
@@ -321,7 +321,7 @@ const WagerCardComponent = ({
         </div>
 
         {/* Footer Stats */}
-        <footer className="px-3.5 py-2 bg-muted/20 border-t border-border/30 flex items-center justify-between text-[11px] text-muted-foreground">
+        <footer className="px-3.5 py-2 bg-muted/20 dark:bg-muted/30 border-t border-border/30 dark:border-border/50 flex items-center justify-between text-[11px] text-muted-foreground">
           <div className="flex items-center gap-2.5">
             <span className="flex items-center gap-1 font-medium">
               <TrendingUp className="h-3 w-3" />
@@ -411,7 +411,7 @@ const WagerCardComponent = ({
                         const selectedSideMultiplier = selectedSide === "a" ? joinReturns.sideAReturnMultiplier : joinReturns.sideBReturnMultiplier;
                         const selectedSidePercentage = selectedSide === "a" ? joinReturns.sideAReturnPercentage : joinReturns.sideBReturnPercentage;
                         return (
-                          <div className="mt-2 p-2 rounded-lg bg-primary/5 border border-primary/20">
+                          <div className="mt-2 p-2 rounded-lg bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/30">
                             <p className="text-xs font-medium text-primary mb-1">Potential Returns</p>
                             <div className="space-y-1">
                               <div className="flex justify-between text-xs">
@@ -451,7 +451,7 @@ const WagerCardComponent = ({
                     const selectedSideMultiplier = selectedSide === "a" ? fixedReturns.sideAReturnMultiplier : fixedReturns.sideBReturnMultiplier;
                     const selectedSidePercentage = selectedSide === "a" ? fixedReturns.sideAReturnPercentage : fixedReturns.sideBReturnPercentage;
                     return (
-                      <div className="mt-2 p-2 rounded-lg bg-primary/5 border border-primary/20">
+                      <div className="mt-2 p-2 rounded-lg bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/30">
                         <p className="text-xs font-medium text-primary mb-1">Potential Returns</p>
                         <div className="space-y-1">
                           <div className="flex justify-between text-xs">

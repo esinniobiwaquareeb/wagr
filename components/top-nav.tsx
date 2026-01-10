@@ -16,6 +16,7 @@ import { clear2FAVerification } from "@/lib/session-2fa";
 import { getCurrentUser, type AuthUser } from "@/lib/auth/client";
 import { wagersApi, categoriesApi } from "@/lib/api-client";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
+import { useUserCurrency } from "@/hooks/use-user-currency";
 import { DepositModal } from "@/components/deposit-modal";
 import { CreateWagerModal } from "@/components/create-wager-modal";
 import { HowItWorksModal } from "@/components/how-it-works-modal";
@@ -55,7 +56,8 @@ function TopNavContent() {
   }>>([]);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const { toast } = useToast();
-  const currency = DEFAULT_CURRENCY as Currency;
+  const { currency: userCurrency } = useUserCurrency();
+  const currency = (userCurrency.code || DEFAULT_CURRENCY) as Currency;
 
   // Sync search query with URL params only on wagers page
   // Clear search query when navigating away from wagers page
@@ -615,10 +617,10 @@ function TopNavContent() {
                   >
                     <Wallet className="h-4 w-4 flex-shrink-0" />
                     <span className="hidden xl:inline whitespace-nowrap text-sm">
-                      {walletBalance !== null ? formatCurrency(walletBalance, currency) : '...'}
+                      {walletBalance !== null ? formatCurrency(walletBalance, currency, userCurrency.symbol) : '...'}
                     </span>
                     <span className="xl:hidden text-xs whitespace-nowrap">
-                      {walletBalance !== null ? formatCurrency(walletBalance, currency) : '...'}
+                      {walletBalance !== null ? formatCurrency(walletBalance, currency, userCurrency.symbol) : '...'}
                     </span>
                     <CirclePlus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
                   </Button>
@@ -801,7 +803,7 @@ function TopNavContent() {
               >
                 <Wallet className="h-4 w-4" />
                 <span className="text-xs whitespace-nowrap">
-                  {walletBalance !== null ? formatCurrency(walletBalance, currency) : '...'}
+                  {walletBalance !== null ? formatCurrency(walletBalance, currency, userCurrency.symbol) : '...'}
                 </span>
                 <CirclePlus className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-colors" />
               </Button>

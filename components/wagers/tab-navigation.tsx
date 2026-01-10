@@ -61,7 +61,7 @@ export function TabNavigation({
               <Sparkles className="h-3.5 w-3.5" />
               <span className="text-[11px] font-medium">System</span>
               <span className={`text-[10px] font-semibold px-1 py-0.5 rounded ${
-                activeTab === 'system' ? 'bg-primary-foreground/20' : 'bg-background'
+                activeTab === 'system' ? 'bg-primary-foreground/20 dark:bg-primary-foreground/30' : 'bg-background dark:bg-muted'
               }`}>{filteredCounts.system}</span>
             </button>
             <button
@@ -75,7 +75,7 @@ export function TabNavigation({
               <User className="h-3.5 w-3.5" />
               <span className="text-[11px] font-medium">Community</span>
               <span className={`text-[10px] font-semibold px-1 py-0.5 rounded ${
-                activeTab === 'user' ? 'bg-primary-foreground/20' : 'bg-background'
+                activeTab === 'user' ? 'bg-primary-foreground/20 dark:bg-primary-foreground/30' : 'bg-background dark:bg-muted'
               }`}>{filteredCounts.user}</span>
             </button>
             <button
@@ -89,7 +89,7 @@ export function TabNavigation({
               <Clock className="h-3.5 w-3.5" />
               <span className="text-[11px] font-medium">Ended</span>
               <span className={`text-[10px] font-semibold px-1 py-0.5 rounded ${
-                activeTab === 'expired' ? 'bg-primary-foreground/20' : 'bg-background'
+                activeTab === 'expired' ? 'bg-primary-foreground/20 dark:bg-primary-foreground/30' : 'bg-background dark:bg-muted'
               }`}>{filteredCounts.expired}</span>
             </button>
             <button
@@ -103,13 +103,13 @@ export function TabNavigation({
               <CheckCircle className="h-3.5 w-3.5" />
               <span className="text-[11px] font-medium">Settled</span>
               <span className={`text-[10px] font-semibold px-1 py-0.5 rounded ${
-                activeTab === 'settled' ? 'bg-primary-foreground/20' : 'bg-background'
+                activeTab === 'settled' ? 'bg-primary-foreground/20 dark:bg-primary-foreground/30' : 'bg-background dark:bg-muted'
               }`}>{filteredCounts.settled}</span>
             </button>
           </div>
 
           {/* Divider */}
-          <div className="h-5 w-px bg-border/50 flex-shrink-0" />
+          <div className="h-5 w-px bg-border/50 dark:bg-border/70 flex-shrink-0" />
 
           {/* Quick Filters */}
           <div className="flex items-center gap-1 flex-shrink-0">
@@ -164,15 +164,15 @@ export function TabNavigation({
 
   // Desktop version
   return (
-    <div className="flex items-center gap-1 bg-muted/30 backdrop-blur-sm rounded-lg p-1 border border-border/50 shadow-sm w-full">
+    <div className="flex items-center gap-1 bg-muted/30 dark:bg-muted/40 backdrop-blur-sm rounded-lg p-1 border border-border/50 dark:border-border/70 shadow-sm w-full">
       {/* Main Tabs */}
       <div className="flex items-center gap-0.5 flex-1">
         <button
           onClick={() => onTabChange('all')}
           className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all group flex-1 justify-center ${
             activeTab === 'all' && quickFilter === 'none'
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              ? 'bg-background dark:bg-muted/60 text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50 dark:hover:bg-muted/70'
           }`}
         >
           <HomeIcon className="h-3.5 w-3.5" />
@@ -185,8 +185,8 @@ export function TabNavigation({
           onClick={() => onTabChange('system')}
           className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all group flex-1 justify-center ${
             activeTab === 'system'
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              ? 'bg-background dark:bg-muted/60 text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50 dark:hover:bg-muted/70'
           }`}
         >
           <Sparkles className="h-3.5 w-3.5" />
@@ -206,8 +206,8 @@ export function TabNavigation({
           onClick={() => onTabChange('user')}
           className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all group flex-1 justify-center ${
             activeTab === 'user'
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              ? 'bg-background dark:bg-muted/60 text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50 dark:hover:bg-muted/70'
           }`}
         >
           <User className="h-3.5 w-3.5" />
@@ -227,8 +227,8 @@ export function TabNavigation({
           onClick={() => onTabChange('expired')}
           className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all group flex-1 justify-center ${
             activeTab === 'expired'
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              ? 'bg-background dark:bg-muted/60 text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50 dark:hover:bg-muted/70'
           }`}
         >
           <Clock className="h-3.5 w-3.5" />
@@ -248,8 +248,8 @@ export function TabNavigation({
           onClick={() => onTabChange('settled')}
           className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all group flex-1 justify-center ${
             activeTab === 'settled'
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              ? 'bg-background dark:bg-muted/60 text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50 dark:hover:bg-muted/70'
           }`}
         >
           <CheckCircle className="h-3.5 w-3.5" />

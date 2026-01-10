@@ -23,7 +23,8 @@ interface TransferTabProps {
   setSelectedRecipient: (recipient: { id: string; username: string; email?: string | null } | null) => void;
   processingTransfer: boolean;
   balance: number;
-  currency: Currency;
+  currency: Currency | string;
+  currencySymbol?: string;
   onTransfer: () => void;
   kycSummary?: KycSummary | null;
   kycLoading?: boolean;
@@ -41,6 +42,7 @@ export function TransferTab({
   processingTransfer,
   balance,
   currency,
+  currencySymbol,
   onTransfer,
   kycSummary,
   kycLoading = false,
@@ -48,7 +50,8 @@ export function TransferTab({
   const limits = kycSummary?.limits;
   const dailyCap = limits?.dailyTransferCap ?? 500000;
   const minTransferAmount = 1;
-  const infoCopy = `Wallet transfers are instant and free. Daily cap: ₦${dailyCap.toLocaleString()}.`;
+  const symbol = currencySymbol || '₦';
+  const infoCopy = `Wallet transfers are instant and free. Daily cap: ${symbol}${dailyCap.toLocaleString()}.`;
 
   return (
     <div className="space-y-3">
@@ -87,9 +90,10 @@ export function TransferTab({
           const amount = parseFloat(transferAmount) || 0;
           const amountError = (() => {
             if (!transferAmount.trim()) return null;
-            if (isNaN(amount) || amount < minTransferAmount) return `Minimum transfer is ₦${minTransferAmount.toLocaleString()}`;
+            const symbol = currencySymbol || '₦';
+            if (isNaN(amount) || amount < minTransferAmount) return `Minimum transfer is ${symbol}${minTransferAmount.toLocaleString()}`;
             if (amount > balance) return 'Insufficient balance';
-            if (amount > dailyCap) return `Amount exceeds daily cap of ₦${dailyCap.toLocaleString()}`;
+            if (amount > dailyCap) return `Amount exceeds daily cap of ${symbol}${dailyCap.toLocaleString()}`;
             return null;
           })();
 
@@ -119,8 +123,8 @@ export function TransferTab({
               )}
               {!amountError && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Available: <span className="font-medium">{formatCurrency(balance, currency)}</span>
-                  {dailyCap && <> • Daily cap: ₦{dailyCap.toLocaleString()}</>}
+                  Available: <span className="font-medium">{formatCurrency(balance, currency, currencySymbol)}</span>
+                  {dailyCap && <> • Daily cap: {currencySymbol || '₦'}{dailyCap.toLocaleString()}</>}
                 </p>
               )}
             </>
@@ -163,7 +167,7 @@ export function TransferTab({
         )}
       </button>
       <p className="text-xs text-muted-foreground text-center">
-        Minimum: ₦{minTransferAmount.toLocaleString()} • Instant • Cannot be reversed
+        Minimum: {currencySymbol || '₦'}{minTransferAmount.toLocaleString()} • Instant • Cannot be reversed
       </p>
       {selectedRecipient && selectedRecipient.email && (
         <p className="text-[11px] text-center text-muted-foreground">

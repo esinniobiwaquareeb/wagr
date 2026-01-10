@@ -50,11 +50,12 @@ interface BillsPurchasePayload {
 
 interface BillsTabProps {
   balance: number;
-  currency: Currency;
+  currency: Currency | string;
+  currencySymbol?: string;
   onPurchase: (payload: BillsPurchasePayload) => Promise<void>;
 }
 
-export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
+export function BillsTab({ balance, currency, currencySymbol, onPurchase }: BillsTabProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
@@ -193,7 +194,7 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
     if (balance < amount) {
       toast({
         title: "Insufficient balance",
-        description: `You need ${formatCurrency(amount, currency)} but only have ${formatCurrency(balance, currency)}`,
+        description: `You need ${formatCurrency(amount, currency, currencySymbol)} but only have ${formatCurrency(balance, currency, currencySymbol)}`,
         variant: "destructive",
       });
       return;
@@ -227,9 +228,10 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
       selectedCategory === 'data' ? maxDataAmount : maxAirtimeAmount;
 
     if (selectedAmount < minAllowed || selectedAmount > maxAllowed) {
+      const symbol = currencySymbol || '₦';
       toast({
         title: "Amount not allowed",
-        description: `This purchase must be between ₦${minAllowed.toLocaleString()} and ₦${maxAllowed.toLocaleString()}.`,
+        description: `This purchase must be between ${symbol}${minAllowed.toLocaleString()} and ${symbol}${maxAllowed.toLocaleString()}.`,
         variant: "destructive",
       });
       return;
@@ -303,7 +305,7 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
     if (balance < plan.price) {
       toast({
         title: "Insufficient balance",
-        description: `You need ${formatCurrency(plan.price, currency)} but only have ${formatCurrency(balance, currency)}`,
+        description: `You need ${formatCurrency(plan.price, currency, currencySymbol)} but only have ${formatCurrency(balance, currency, currencySymbol)}`,
         variant: "destructive",
       });
       return;
@@ -531,7 +533,7 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
                             </p>
                           </div>
                           <p className="text-sm font-bold whitespace-nowrap">
-                            {formatCurrency(plan.price, currency)}
+                            {formatCurrency(plan.price, currency, currencySymbol)}
                           </p>
                         </div>
                       </button>
@@ -556,7 +558,7 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
           <div className="flex items-center justify-between">
             <label className="block text-xs font-medium">Select Amount</label>
             <span className="text-[11px] text-muted-foreground">
-              ₦{minAirtimeAmount.toLocaleString()} – ₦{maxAirtimeAmount.toLocaleString()}
+              {currencySymbol || '₦'}{minAirtimeAmount.toLocaleString()} – {currencySymbol || '₦'}{maxAirtimeAmount.toLocaleString()}
             </span>
           </div>
           <div className="grid grid-cols-3 gap-2">
@@ -577,7 +579,7 @@ export function BillsTab({ balance, currency, onPurchase }: BillsTabProps) {
                   }`}
                 >
                   <div className={`text-xs ${isSelected ? 'text-primary' : ''}`}>
-                    {formatCurrency(amount, currency)}
+                    {formatCurrency(amount, currency, currencySymbol)}
                   </div>
                 </button>
               );

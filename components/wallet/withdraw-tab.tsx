@@ -28,6 +28,7 @@ interface WithdrawTabProps {
   onLoadBanks: () => void;
   minWithdrawal: number;
   maxWithdrawal?: number;
+  currencySymbol?: string;
 }
 
 export function WithdrawTab({
@@ -48,6 +49,7 @@ export function WithdrawTab({
   onLoadBanks,
   minWithdrawal,
   maxWithdrawal,
+  currencySymbol = '₦',
 }: WithdrawTabProps) {
   const verifyingAccountRef = useRef(false);
   const lastVerifiedRef = useRef<{ accountNumber: string; bankCode: string } | null>(null);
@@ -86,8 +88,8 @@ export function WithdrawTab({
   const amountError = (() => {
     if (!withdrawAmount.trim()) return null;
     if (isNaN(amount) || amount <= 0) return 'Please enter a valid amount';
-    if (amount < minWithdrawal) return `Minimum withdrawal is ₦${minWithdrawal.toLocaleString()}`;
-    if (maxWithdrawal && amount > maxWithdrawal) return `Maximum withdrawal is ₦${maxWithdrawal.toLocaleString()}`;
+    if (amount < minWithdrawal) return `Minimum withdrawal is ${currencySymbol}${minWithdrawal.toLocaleString()}`;
+    if (maxWithdrawal && amount > maxWithdrawal) return `Maximum withdrawal is ${currencySymbol}${maxWithdrawal.toLocaleString()}`;
     if (amount > balance) return 'Insufficient balance';
     return null;
   })();
@@ -109,7 +111,7 @@ export function WithdrawTab({
         </label>
         <div className="relative">
           <span className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-sm sm:text-base">
-            ₦
+            {currencySymbol}
           </span>
           <input
             type="number"
@@ -141,7 +143,7 @@ export function WithdrawTab({
         )}
         {withdrawAmount.trim() && !amountError && (
           <p className="text-xs sm:text-sm text-muted-foreground mt-2">
-            Available balance: <span className="font-semibold text-foreground">₦{balance.toLocaleString()}</span>
+            Available balance: <span className="font-semibold text-foreground">{currencySymbol}{balance.toLocaleString()}</span>
           </p>
         )}
       </div>
@@ -212,9 +214,9 @@ export function WithdrawTab({
       <div className="pt-2 border-t border-border/50">
         <p className="text-xs sm:text-sm text-muted-foreground text-center leading-relaxed">
           {maxWithdrawal ? (
-            <>Withdrawal range: ₦{minWithdrawal.toLocaleString()} - ₦{maxWithdrawal.toLocaleString()}<br className="sm:hidden" /> <span className="hidden sm:inline">•</span> Funds will be transferred to your bank account</>
+            <>Withdrawal range: {currencySymbol}{minWithdrawal.toLocaleString()} - {currencySymbol}{maxWithdrawal.toLocaleString()}<br className="sm:hidden" /> <span className="hidden sm:inline">•</span> Funds will be transferred to your bank account</>
           ) : (
-            <>Minimum withdrawal: ₦{minWithdrawal.toLocaleString()}<br className="sm:hidden" /> <span className="hidden sm:inline">•</span> Funds will be transferred to your bank account</>
+            <>Minimum withdrawal: {currencySymbol}{minWithdrawal.toLocaleString()}<br className="sm:hidden" /> <span className="hidden sm:inline">•</span> Funds will be transferred to your bank account</>
           )}
         </p>
       </div>

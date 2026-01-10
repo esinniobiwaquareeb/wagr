@@ -11,6 +11,7 @@ interface DepositTabProps {
   onDeposit: () => void;
   minDeposit: number;
   maxDeposit?: number;
+  currencySymbol?: string;
 }
 
 export function DepositTab({
@@ -20,14 +21,15 @@ export function DepositTab({
   onDeposit,
   minDeposit,
   maxDeposit,
+  currencySymbol = '₦',
 }: DepositTabProps) {
   // Frontend validation
   const amount = parseFloat(depositAmount) || 0;
   const amountError = (() => {
     if (!depositAmount.trim()) return null;
     if (isNaN(amount) || amount <= 0) return 'Please enter a valid amount';
-    if (amount < minDeposit) return `Minimum deposit is ₦${minDeposit.toLocaleString()}`;
-    if (maxDeposit && amount > maxDeposit) return `Maximum deposit is ₦${maxDeposit.toLocaleString()}`;
+    if (amount < minDeposit) return `Minimum deposit is ${currencySymbol}${minDeposit.toLocaleString()}`;
+    if (maxDeposit && amount > maxDeposit) return `Maximum deposit is ${currencySymbol}${maxDeposit.toLocaleString()}`;
     return null;
   })();
 
@@ -41,7 +43,7 @@ export function DepositTab({
         </label>
         <div className="relative">
           <span className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-sm sm:text-base">
-            ₦
+            {currencySymbol}
           </span>
           <input
             type="number"
@@ -97,9 +99,9 @@ export function DepositTab({
       <div className="pt-2 border-t border-border/50">
         <p className="text-xs sm:text-sm text-muted-foreground text-center leading-relaxed">
           {maxDeposit ? (
-            <>Deposit range: ₦{minDeposit.toLocaleString()} - ₦{maxDeposit.toLocaleString()}<br className="sm:hidden" /> <span className="hidden sm:inline">•</span> Secure payment via Paystack</>
+            <>Deposit range: {currencySymbol}{minDeposit.toLocaleString()} - {currencySymbol}{maxDeposit.toLocaleString()}<br className="sm:hidden" /> <span className="hidden sm:inline">•</span> Secure payment via Paystack</>
           ) : (
-            <>Minimum deposit: ₦{minDeposit.toLocaleString()}<br className="sm:hidden" /> <span className="hidden sm:inline">•</span> Secure payment via Paystack</>
+            <>Minimum deposit: {currencySymbol}{minDeposit.toLocaleString()}<br className="sm:hidden" /> <span className="hidden sm:inline">•</span> Secure payment via Paystack</>
           )}
         </p>
       </div>

@@ -39,7 +39,7 @@ export function DesktopHeader({
               placeholder="Search markets..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-56 pl-9 pr-8 py-2 bg-muted/50 border border-border rounded-lg text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:bg-background focus:border-primary/50 transition-all"
+              className="w-56 pl-9 pr-8 py-2 bg-muted/50 dark:bg-muted/60 border border-border dark:border-border/70 rounded-lg text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:bg-background dark:focus:bg-muted/80 focus:border-primary/50 dark:focus:border-primary/60 transition-all"
             />
             {searchQuery && (
               <button
@@ -57,7 +57,7 @@ export function DesktopHeader({
               <select
                 value={selectedCategory || ''}
                 onChange={(e) => onCategoryChange(e.target.value || null)}
-                className="appearance-none pl-3 pr-7 py-2 bg-muted/50 border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:bg-background focus:border-primary/50 transition-all cursor-pointer min-w-[120px]"
+                className="appearance-none pl-3 pr-7 py-2 bg-muted/50 dark:bg-muted/60 border border-border dark:border-border/70 rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:bg-background dark:focus:bg-muted/80 focus:border-primary/50 dark:focus:border-primary/60 transition-all cursor-pointer min-w-[120px]"
               >
                 <option value="">All Categories</option>
                 {allCategories.map((cat) => (

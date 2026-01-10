@@ -665,8 +665,15 @@ export default function WagerDetail() {
         description: "You have been removed from this wager and your entry has been refunded.",
       });
 
-      // Dispatch event to update balance
-      window.dispatchEvent(new CustomEvent('balance-updated'));
+      // Dispatch events to update UI
+      // Dispatch balance-updated event immediately and again after a short delay
+      // to ensure the database transaction is committed before refreshing balance
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('balance-updated'));
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('balance-updated'));
+        }, 300);
+      }
       window.dispatchEvent(new CustomEvent('wager-updated'));
 
       // Refresh wager data

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
+import { useUserCurrency } from "@/hooks/use-user-currency";
 import { User, Mail, Calendar, Settings, Edit2, Save, X, ChevronRight, Shield, ShieldCheck, Trophy, Eye, EyeOff, Key, History, LogOut, Upload, Camera, Wallet as WalletIcon, Plus, TrendingUp, Users, ShieldAlert, Gift } from "lucide-react";
 import { ReferralCodeCard } from "@/components/referral-code-card";
 import { MyWagersCard } from "@/components/my-wagers-card";
@@ -64,7 +65,8 @@ export default function Profile() {
   const [submittingLevel, setSubmittingLevel] = useState<2 | 3 | null>(null);
   const [achievements, setAchievements] = useState<any[]>([]);
   const { toast } = useToast();
-  const currency = DEFAULT_CURRENCY as Currency;
+  const { currency: userCurrency } = useUserCurrency();
+  const currency = (userCurrency.code || DEFAULT_CURRENCY) as Currency;
 
   const fetchingRef = useRef(false);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -751,7 +753,9 @@ export default function Profile() {
                 <WalletIcon className="h-5 w-5 flex-shrink-0" />
                 <span className="text-sm font-medium opacity-90">Wallet</span>
               </div>
-              <h2 className="text-2xl md:text-3xl font-bold mb-2">{formatCurrency(profile.balance, currency)}</h2>
+              <h2 className="text-2xl md:text-3xl font-bold mb-2 tabular-nums">
+                {formatCurrency(Number(profile.balance || 0), currency, userCurrency.symbol)}
+              </h2>
               <span className="text-sm opacity-80 flex items-center gap-1">
                 Manage funds
                 <ChevronRight className="h-4 w-4 flex-shrink-0" />
