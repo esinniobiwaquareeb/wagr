@@ -24,31 +24,31 @@ export function ActiveFilters({
   if (!hasFilters) return null;
 
   return (
-    <div className="flex items-center gap-2 mb-3 flex-wrap">
+    <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
       {(selectedCategory || searchQuery) && (
         <>
           {selectedCategory && (
-            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
               <span className="capitalize">{selectedCategory}</span>
               <button
                 onClick={() => onCategoryChange(null)}
                 className="hover:bg-primary/20 rounded-full p-0.5 transition-colors"
                 aria-label="Remove category filter"
               >
-                <X className="h-3 w-3" />
+                <X className="h-2.5 w-2.5" />
               </button>
             </span>
           )}
           {searchQuery && (
-            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium">
-              <Search className="h-3 w-3" />
-              <span className="max-w-[150px] truncate">"{searchQuery}"</span>
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-xs font-medium">
+              <Search className="h-2.5 w-2.5" />
+              <span className="max-w-[140px] truncate">"{searchQuery}"</span>
               <button
                 onClick={() => onSearchChange('')}
                 className="hover:bg-muted/80 rounded-full p-0.5 transition-colors"
                 aria-label="Clear search"
               >
-                <X className="h-3 w-3" />
+                <X className="h-2.5 w-2.5" />
               </button>
             </span>
           )}
@@ -57,7 +57,7 @@ export function ActiveFilters({
       {(selectedCategory || searchQuery) && (
         <button
           onClick={onClearFilters}
-          className="text-xs text-primary hover:underline font-medium"
+          className="text-[11px] text-primary hover:underline font-medium"
         >
           Clear filters
         </button>

@@ -379,7 +379,7 @@ function WagersPageContent() {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 lg:py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 lg:py-4">
         {/* Mobile Header */}
         <MobileHeader
           wagerCount={filteredWagers.length}
@@ -408,7 +408,7 @@ function WagersPageContent() {
 
         {/* Trending Wagers Section - Show when no filters are active */}
         {quickFilter === 'none' && !selectedCategory && !searchQuery && activeTab === 'all' && (
-          <div className="mb-6 lg:mb-8">
+          <div className="mb-4 lg:mb-5">
             <TrendingWagers />
           </div>
         )}

@@ -175,8 +175,19 @@ const WagerCardComponent = ({
       
       await wagersApi.join(id, selectedSide, joinAmount);
       toast({ title: "Joined!", description: `You joined ${selectedSide === "a" ? sideA : sideB}` });
+      
+      // Dispatch events to update UI
+      // Dispatch balance-updated event to refresh balance in top nav
+      // Add a small delay to ensure database transaction is committed
+      if (typeof window !== 'undefined') {
+        // Dispatch immediately
+        window.dispatchEvent(new CustomEvent('balance-updated'));
+        // Also dispatch after a short delay to ensure transaction is committed
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('balance-updated'));
+        }, 300);
+      }
       window.dispatchEvent(new Event('wager-updated'));
-      window.dispatchEvent(new CustomEvent('balance-updated'));
       setEntryAmount(""); // Reset amount
     } catch (err: any) {
       toast({ title: "Failed", description: err?.message || "Could not join.", variant: "destructive" });

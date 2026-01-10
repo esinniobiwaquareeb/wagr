@@ -24,24 +24,24 @@ export function MobileFiltersPanel({
   if (!isOpen) return null;
 
   return (
-    <div className="space-y-3 p-3 bg-card border border-border rounded-xl shadow-sm">
+    <div className="space-y-2.5 p-2.5 bg-card border border-border rounded-lg shadow-sm">
       {/* Search Input */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
         <input
           type="text"
           placeholder="Search markets..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full pl-10 pr-10 py-2.5 bg-background border border-border rounded-lg text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="w-full pl-9 pr-8 py-2 bg-background border border-border rounded-lg text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
         />
         {searchQuery && (
           <button
             onClick={() => onSearchChange('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-full transition-colors"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 hover:bg-muted rounded-full transition-colors"
             aria-label="Clear search"
           >
-            <X className="h-4 w-4 text-muted-foreground" />
+            <X className="h-3.5 w-3.5 text-muted-foreground" />
           </button>
         )}
       </div>
@@ -49,11 +49,11 @@ export function MobileFiltersPanel({
       {/* Category Pills */}
       {allCategories.length > 0 && (
         <div>
-          <p className="text-xs font-medium text-muted-foreground mb-2">Categories</p>
-          <div className="flex flex-wrap gap-2">
+          <p className="text-[11px] font-medium text-muted-foreground mb-1.5">Categories</p>
+          <div className="flex flex-wrap gap-1.5">
             <button
               onClick={() => onCategoryChange(null)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+              className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
                 !selectedCategory
                   ? 'bg-primary text-primary-foreground shadow-sm'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80'
@@ -65,7 +65,7 @@ export function MobileFiltersPanel({
               <button
                 key={cat}
                 onClick={() => onCategoryChange(cat)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all capitalize ${
+                className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all capitalize ${
                   selectedCategory === cat
                     ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'bg-muted text-muted-foreground hover:bg-muted/80'
@@ -80,37 +80,37 @@ export function MobileFiltersPanel({
 
       {/* Active Filters & Clear */}
       {(selectedCategory || searchQuery) && (
-        <div className="flex items-center justify-between pt-2 border-t border-border">
-          <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center justify-between pt-1.5 border-t border-border">
+          <div className="flex items-center gap-1.5 flex-wrap">
             {selectedCategory && (
-              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-medium">
                 <span className="capitalize">{selectedCategory}</span>
                 <button
                   onClick={() => onCategoryChange(null)}
                   className="hover:bg-primary/20 rounded-full p-0.5 -mr-1"
                   aria-label="Remove category filter"
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-2.5 w-2.5" />
                 </button>
               </span>
             )}
             {searchQuery && (
-              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium">
-                <Search className="h-3 w-3" />
-                <span className="max-w-[120px] truncate">"{searchQuery}"</span>
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-[11px] font-medium">
+                <Search className="h-2.5 w-2.5" />
+                <span className="max-w-[110px] truncate">"{searchQuery}"</span>
                 <button
                   onClick={() => onSearchChange('')}
                   className="hover:bg-muted/80 rounded-full p-0.5 -mr-1"
                   aria-label="Clear search"
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-2.5 w-2.5" />
                 </button>
               </span>
             )}
           </div>
           <button
             onClick={onClearFilters}
-            className="text-xs text-primary hover:underline font-medium"
+            className="text-[11px] text-primary hover:underline font-medium"
           >
             Clear all
           </button>

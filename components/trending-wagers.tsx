@@ -125,18 +125,18 @@ export function TrendingWagers() {
 
   if (loading || authLoading) {
     return (
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-            Trending Wagers
+      <Card className="border-border/50">
+        <CardHeader className="pb-1 pt-2 px-3 sm:px-4">
+          <CardTitle className="flex items-center gap-1.5 text-sm font-semibold">
+            <TrendingUp className="h-3.5 w-3.5 text-primary" />
+            <span>Trending</span>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex gap-3 md:gap-4 overflow-x-auto pb-2 scrollbar-hide -mx-1 px-1">
+        <CardContent className="pt-0 px-3 sm:px-4 pb-2">
+          <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="flex-shrink-0 w-64 sm:w-72">
-                <Skeleton className="h-48 sm:h-52 w-full rounded-xl" />
+              <div key={i} className="flex-shrink-0 w-56 sm:w-64">
+                <Skeleton className="h-40 w-full rounded-lg" />
               </div>
             ))}
           </div>
@@ -147,16 +147,16 @@ export function TrendingWagers() {
 
   if (wagers.length === 0) {
     return (
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-            Trending Wagers
+      <Card className="border-border/50">
+        <CardHeader className="pb-1 pt-2 px-3 sm:px-4">
+          <CardTitle className="flex items-center gap-1.5 text-sm font-semibold">
+            <TrendingUp className="h-3.5 w-3.5 text-primary" />
+            <span>Trending</span>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground text-center py-6 sm:py-8 text-sm sm:text-base">
-            No trending wagers at the moment. Check back soon!
+        <CardContent className="pt-0 px-3 sm:px-4 pb-2">
+          <p className="text-muted-foreground text-center py-3 text-xs">
+            No trending wagers at the moment
           </p>
         </CardContent>
       </Card>
@@ -164,43 +164,43 @@ export function TrendingWagers() {
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between gap-3">
-          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-            Trending Wagers
+    <Card className="border-border/50">
+      <CardHeader className="px-3 sm:px-4">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-1.5 text-md font-semibold">
+            <TrendingUp className="h-3.5 w-3.5 text-primary" />
+            <span>Trending</span>
           </CardTitle>
           {wagers.length > 0 && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={scrollLeft}
                 disabled={!canScrollLeft}
-                className="h-7 w-7 sm:h-8 sm:w-8 disabled:opacity-30"
+                className="h-6 w-6 disabled:opacity-30"
                 aria-label="Scroll left"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-3.5 w-3.5" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={scrollRight}
                 disabled={!canScrollRight}
-                className="h-7 w-7 sm:h-8 sm:w-8 disabled:opacity-30"
+                className="h-6 w-6 disabled:opacity-30"
                 aria-label="Scroll right"
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-3.5 w-3.5" />
               </Button>
             </div>
           )}
         </div>
       </CardHeader>
-      <CardContent className="pt-0">
+      <CardContent className="pt-0 px-3 sm:px-4">
         <div
           ref={scrollContainerRef}
-          className="flex gap-3 md:gap-4 overflow-x-auto pb-2 scrollbar-hide -mx-1 px-1 scroll-smooth"
+          className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1 scroll-smooth"
           style={{ scrollBehavior: 'smooth' }}
         >
           {wagers.map((wager, index) => {
@@ -216,57 +216,55 @@ export function TrendingWagers() {
               <Link
                 key={wager.id}
                 href={wagerLink}
-                className="flex-shrink-0 w-64 sm:w-72 group"
+                className="flex-shrink-0 w-56 sm:w-64 group"
               >
-                <div className="bg-card border border-border rounded-xl p-3 sm:p-4 h-full hover:border-primary hover:shadow-lg transition-all cursor-pointer active:scale-[0.98] touch-manipulation flex flex-col min-h-[200px] sm:min-h-[220px]">
-                  {/* Rank Badge */}
-                  <div className="flex items-start justify-between mb-2 sm:mb-3">
-                    <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className="bg-card border border-border rounded-lg px-2.5 py-2 h-full hover:border-primary/50 hover:shadow-md transition-all cursor-pointer active:scale-[0.98] touch-manipulation flex flex-col min-h-[140px]">
+                  {/* Rank Badge & Title Row */}
+                  <div className="flex items-start justify-between mb-1.5 gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
                       {index < 3 ? (
                         <div
-                          className={`h-6 w-6 sm:h-7 sm:w-7 rounded-full flex items-center justify-center font-bold text-[10px] sm:text-xs ${
+                          className={`h-5 w-5 rounded-full flex items-center justify-center font-bold text-[9px] flex-shrink-0 ${
                             index === 0
-                              ? "bg-gradient-to-br from-yellow-400 to-yellow-600 text-yellow-900 shadow-md"
+                              ? "bg-gradient-to-br from-yellow-400 to-yellow-600 text-yellow-900"
                               : index === 1
-                              ? "bg-gradient-to-br from-gray-300 to-gray-500 text-gray-900 shadow-md"
-                              : "bg-gradient-to-br from-amber-500 to-amber-700 text-amber-900 shadow-md"
+                              ? "bg-gradient-to-br from-gray-300 to-gray-500 text-gray-900"
+                              : "bg-gradient-to-br from-amber-500 to-amber-700 text-amber-900"
                           }`}
                         >
-                          {index === 0 ? <Trophy className="h-3 w-3 sm:h-4 sm:w-4" /> : index + 1}
+                          {index === 0 ? <Trophy className="h-2.5 w-2.5" /> : index + 1}
                         </div>
                       ) : (
-                        <div className="h-6 w-6 sm:h-7 sm:w-7 rounded-full flex items-center justify-center font-bold text-[10px] sm:text-xs bg-muted text-muted-foreground">
+                        <div className="h-5 w-5 rounded-full flex items-center justify-center font-bold text-[9px] bg-muted text-muted-foreground flex-shrink-0">
                           {index + 1}
                         </div>
                       )}
                       {wager.category?.icon && (
-                        <span className="text-base sm:text-lg">{wager.category.icon}</span>
+                        <span className="text-sm flex-shrink-0">{wager.category.icon}</span>
                       )}
+                      <h3 className="font-semibold text-xs line-clamp-1 group-hover:text-primary transition-colors flex-1 min-w-0">
+                        {wager.title}
+                      </h3>
                     </div>
                     {isJoined && (
-                      <Badge variant="secondary" className="text-[10px] sm:text-xs px-1.5 py-0.5">
+                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0 flex-shrink-0">
                         Joined
                       </Badge>
                     )}
                   </div>
 
-                  {/* Title */}
-                  <h3 className="font-semibold text-xs sm:text-sm mb-2 sm:mb-3 line-clamp-2 group-hover:text-primary transition-colors min-h-[2.25rem] sm:min-h-[2.5rem] leading-tight">
-                    {wager.title}
-                  </h3>
-
-                  {/* Sides */}
-                  <div className="space-y-1.5 sm:space-y-2 mb-2 sm:mb-3 flex-1">
-                    <div className="flex items-center justify-between text-[10px] sm:text-xs gap-1">
-                      <span className="font-medium text-foreground truncate flex-1 min-w-0">{wager.side_a}</span>
-                      <span className="text-muted-foreground mx-1 flex-shrink-0">vs</span>
+                  {/* Sides & Progress */}
+                  <div className="space-y-1 mb-1.5 flex-1">
+                    <div className="flex items-center justify-between text-[10px] gap-1">
+                      <span className="font-medium text-foreground truncate flex-1 min-w-0 text-left">{wager.side_a}</span>
+                      <span className="text-muted-foreground mx-0.5 flex-shrink-0 text-[9px]">vs</span>
                       <span className="font-medium text-foreground truncate flex-1 min-w-0 text-right">{wager.side_b}</span>
                     </div>
 
-                    {/* Progress Bars */}
+                    {/* Progress Bar */}
                     {totalParticipants > 0 ? (
-                      <div className="space-y-1">
-                        <div className="flex h-1.5 sm:h-2 bg-muted rounded-full overflow-hidden">
+                      <div className="space-y-0.5">
+                        <div className="flex h-1.5 bg-muted rounded-full overflow-hidden">
                           <div
                             className="bg-primary transition-all"
                             style={{ width: `${sideAPercent}%` }}
@@ -276,43 +274,38 @@ export function TrendingWagers() {
                             style={{ width: `${sideBPercent}%` }}
                           />
                         </div>
-                        <div className="flex items-center justify-between text-[9px] sm:text-[10px] text-muted-foreground">
-                          <span className="font-medium">{sideAPercent}%</span>
-                          <span className="font-medium">{sideBPercent}%</span>
+                        <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                          <span>{sideAPercent}%</span>
+                          <span>{sideBPercent}%</span>
                         </div>
                       </div>
                     ) : (
-                      <div className="h-1.5 sm:h-2 bg-muted rounded-full" />
+                      <div className="h-1.5 bg-muted rounded-full" />
                     )}
                   </div>
 
-                  {/* Stats Footer */}
-                  <div className="flex items-center justify-between gap-1 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground pt-2 sm:pt-3 border-t border-border">
-                    <div className="flex items-center gap-0.5 sm:gap-1 min-w-0">
-                      <Users className="h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0" />
-                      <span className="font-medium truncate">{totalParticipants}</span>
+                  {/* Compact Stats Footer */}
+                  <div className="flex items-center justify-between gap-1.5 text-[9px] text-muted-foreground pt-1 border-t border-border/50">
+                    <div className="flex items-center gap-0.5 min-w-0">
+                      <Users className="h-3 w-3 flex-shrink-0" />
+                      <span className="truncate">{totalParticipants}</span>
                     </div>
-                    <div className="flex items-center gap-0.5 sm:gap-1 min-w-0">
-                      <Coins className="h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0" />
-                      <span className="font-medium truncate text-[9px] sm:text-[10px]">
+                    <div className="flex items-center gap-0.5 min-w-0">
+                      <Coins className="h-3 w-3 flex-shrink-0" />
+                      <span className="truncate">
                         {formatCurrency(wager.amount, (wager.currency as any) || currency)}
                       </span>
                     </div>
                     {wager.deadline && (
-                      <div className="flex items-center gap-0.5 sm:gap-1 min-w-0">
-                        <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0" />
-                        <span className="font-medium truncate text-[9px] sm:text-[10px]">
+                      <div className="flex items-center gap-0.5 min-w-0">
+                        <Clock className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate">
                           {formatDistanceToNow(new Date(wager.deadline), {
                             addSuffix: true,
                           }).replace('about ', '').replace('in ', '')}
                         </span>
                       </div>
                     )}
-                  </div>
-
-                  {/* View Arrow */}
-                  <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-border flex items-center justify-end">
-                    <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
                   </div>
                 </div>
               </Link>
