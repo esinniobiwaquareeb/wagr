@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { AuthModal } from "@/components/auth-modal";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
+import { useUserCurrency } from "@/hooks/use-user-currency";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
 import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Coins, Trash2, Edit2, Share2, UserPlus, MessageSquare, Activity, Loader2, Flame, Check, X, ArrowLeft, AlertCircle } from "lucide-react";
 import { SocialShareButtons } from "@/components/social-share-buttons";
@@ -35,14 +36,14 @@ interface Entry {
 }
 
 // Format volume/pool display like Polymarket
-function formatVolume(amount: number): string {
+function formatVolume(amount: number, symbol: string = '₦'): string {
   if (amount >= 1000000) {
-    return `₦${(amount / 1000000).toFixed(1).replace(/\.0$/, '')}m`;
+    return `${symbol}${(amount / 1000000).toFixed(1).replace(/\.0$/, '')}m`;
   }
   if (amount >= 1000) {
-    return `₦${(amount / 1000).toFixed(0)}k`;
+    return `${symbol}${(amount / 1000).toFixed(0)}k`;
   }
-  return `₦${amount.toFixed(0)}`;
+  return `${symbol}${amount.toFixed(0)}`;
 }
 
 export default function WagerDetail() {
@@ -51,6 +52,7 @@ export default function WagerDetail() {
   const router = useRouter();
   const { user } = useAuth();
   const { getSetting } = useSettings();
+  const { currency: userCurrency } = useUserCurrency();
   const defaultPlatformFee = getSetting('fees.wager_platform_fee_percentage', PLATFORM_FEE_PERCENTAGE) as number;
   
   // Check if variable amounts feature is enabled
@@ -1246,15 +1248,15 @@ export default function WagerDetail() {
                       type="number"
                       value={entryAmount}
                       onChange={(e) => setEntryAmount(e.target.value)}
-                      placeholder={`Min: ${formatCurrency(wager.min_amount ?? wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}${wager.max_amount ? `, Max: ${formatCurrency(wager.max_amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}` : ''}`}
+                      placeholder={`Min: ${formatCurrency(wager.min_amount ?? wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency, userCurrency.symbol)}${wager.max_amount ? `, Max: ${formatCurrency(wager.max_amount, (wager.currency || DEFAULT_CURRENCY) as Currency, userCurrency.symbol)}` : ''}`}
                       min={wager.min_amount ?? wager.amount}
                       max={wager.max_amount ?? undefined}
                       step="0.01"
                       className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Minimum: {formatCurrency(wager.min_amount ?? wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}
-                      {wager.max_amount && ` • Maximum: ${formatCurrency(wager.max_amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}`}
+                      Minimum: {formatCurrency(wager.min_amount ?? wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency, userCurrency.symbol)}
+                      {wager.max_amount && ` • Maximum: ${formatCurrency(wager.max_amount, (wager.currency || DEFAULT_CURRENCY) as Currency, userCurrency.symbol)}`}
                     </p>
                     {/* Real-time potential returns display */}
                     {entryAmount && parseFloat(entryAmount) > 0 && (
@@ -1295,7 +1297,7 @@ export default function WagerDetail() {
               ) : (
                 <div className="space-y-2">
                   <p className="text-sm text-muted-foreground">
-                    This will deduct {formatCurrency(wager.min_amount ?? wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)} from your balance.
+                    This will deduct {formatCurrency(wager.min_amount ?? wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency, userCurrency.symbol)} from your balance.
                   </p>
                   {/* Show potential returns for fixed amount */}
                   {(() => {
@@ -1348,7 +1350,7 @@ export default function WagerDetail() {
         title="Unjoin Wager"
         description={
           wager && userEntry
-            ? `Are you sure you want to unjoin "${wager.title}"? You will receive a refund of ${formatCurrency(userEntry.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}.`
+            ? `Are you sure you want to unjoin "${wager.title}"? You will receive a refund of ${formatCurrency(userEntry.amount, (wager.currency || DEFAULT_CURRENCY) as Currency, userCurrency.symbol)}.`
             : "Are you sure you want to unjoin this wager?"
         }
         confirmText="Unjoin"
@@ -1494,8 +1496,8 @@ export default function WagerDetail() {
                 {wager && parseFloat(editFormData.amount) !== wager.amount && (
                   <p className="text-xs text-muted-foreground mt-1">
                     {parseFloat(editFormData.amount) > wager.amount
-                      ? `You'll need to add ${formatCurrency(parseFloat(editFormData.amount) - wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)} to your wallet.`
-                      : `You'll receive a refund of ${formatCurrency(wager.amount - parseFloat(editFormData.amount), (wager.currency || DEFAULT_CURRENCY) as Currency)}.`}
+                      ? `You'll need to add ${formatCurrency(parseFloat(editFormData.amount) - wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency, userCurrency.symbol)} to your wallet.`
+                      : `You'll receive a refund of ${formatCurrency(wager.amount - parseFloat(editFormData.amount), (wager.currency || DEFAULT_CURRENCY) as Currency, userCurrency.symbol)}.`}
                   </p>
                 )}
               </div>
@@ -1678,7 +1680,7 @@ export default function WagerDetail() {
                       />
                     </div>
                     <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                      <span>{formatVolume(sideBTotal)} • {sideBParticipants} {sideBParticipants === 1 ? 'participant' : 'participants'}</span>
+                      <span>{formatVolume(sideBTotal, userCurrency.symbol)} • {sideBParticipants} {sideBParticipants === 1 ? 'participant' : 'participants'}</span>
                       <span>Odds: {sideBOdds}x</span>
                     </div>
                   </div>
@@ -1689,13 +1691,13 @@ export default function WagerDetail() {
               <div className="pt-2 border-t border-border/30">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Total Pool</span>
-                  <span className="font-semibold">{formatVolume(totalPot)}</span>
+                  <span className="font-semibold">{formatVolume(totalPot, userCurrency.symbol)}</span>
                 </div>
                 {variableAmountsEnabled && (
                   <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-1">
-                    <span>Min: {formatCurrency(wager.min_amount ?? wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}</span>
+                    <span>Min: {formatCurrency(wager.min_amount ?? wager.amount, (wager.currency || DEFAULT_CURRENCY) as Currency, userCurrency.symbol)}</span>
                     {wager.max_amount && (
-                      <span>Max: {formatCurrency(wager.max_amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}</span>
+                      <span>Max: {formatCurrency(wager.max_amount, (wager.currency || DEFAULT_CURRENCY) as Currency, userCurrency.symbol)}</span>
                     )}
                   </div>
                 )}
@@ -1708,7 +1710,7 @@ export default function WagerDetail() {
             <div className="flex items-center gap-2 sm:gap-3">
               <span className="flex items-center gap-1 font-semibold text-foreground">
                 <Coins className="h-3 w-3 text-amber-500" />
-                {formatVolume(totalPot)} pool
+                {formatVolume(totalPot, userCurrency.symbol)} pool
               </span>
               <span className="text-muted-foreground">{totalParticipants} {totalParticipants === 1 ? 'participant' : 'participants'}</span>
             </div>
@@ -1752,7 +1754,7 @@ export default function WagerDetail() {
                 )}
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-[10px] text-muted-foreground">{formatVolume(sideAPot)}</span>
+                <span className="text-[10px] text-muted-foreground">{formatVolume(sideAPot, userCurrency.symbol)}</span>
                 <span className={`text-lg sm:text-xl font-bold tabular-nums ${
                   isSettled && wager.winning_side === "a" ? "text-emerald-600 dark:text-emerald-400" :
                   "text-emerald-600 dark:text-emerald-400"
@@ -1790,7 +1792,7 @@ export default function WagerDetail() {
                 )}
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-[10px] text-muted-foreground">{formatVolume(sideBPot)}</span>
+                <span className="text-[10px] text-muted-foreground">{formatVolume(sideBPot, userCurrency.symbol)}</span>
                 <span className={`text-lg sm:text-xl font-bold tabular-nums ${
                   isSettled && wager.winning_side === "b" ? "text-emerald-600 dark:text-emerald-400" :
                   "text-rose-600 dark:text-rose-400"
@@ -1839,7 +1841,7 @@ export default function WagerDetail() {
                   <p className="text-sm font-semibold truncate">
                     {userEntry.side === "a" ? wager.side_a : wager.side_b}
                     <span className="text-muted-foreground font-normal ml-1.5">
-                      • {formatCurrency(userEntry.amount, (wager.currency || DEFAULT_CURRENCY) as Currency)}
+                      • {formatCurrency(userEntry.amount, (wager.currency || DEFAULT_CURRENCY) as Currency, userCurrency.symbol)}
                     </span>
                   </p>
                   {totalPot > 0 && (

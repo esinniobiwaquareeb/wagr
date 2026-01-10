@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { DepositTab } from "@/components/wallet/deposit-tab";
 import { useSettings } from "@/hooks/use-settings";
+import { useUserCurrency } from "@/hooks/use-user-currency";
 import {
   Dialog,
   DialogContent,
@@ -26,7 +27,8 @@ export function DepositModal({ open, onOpenChange, onSuccess }: DepositModalProp
   const [processingPayment, setProcessingPayment] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
-  const currency = DEFAULT_CURRENCY as Currency;
+  const { currency: userCurrency } = useUserCurrency();
+  const currency = (userCurrency.code || DEFAULT_CURRENCY) as Currency;
   const { getSetting } = useSettings();
   const minDeposit = getSetting('payments.min_deposit', 100) as number;
 
@@ -45,7 +47,7 @@ export function DepositModal({ open, onOpenChange, onSuccess }: DepositModalProp
     if (isNaN(amount) || amount <= 0) {
       toast({
         title: "Invalid amount",
-        description: "You can only deposit amounts greater than ₦0.",
+        description: `You can only deposit amounts greater than ${userCurrency.symbol}0.`,
         variant: "destructive",
       });
       return;
@@ -53,8 +55,8 @@ export function DepositModal({ open, onOpenChange, onSuccess }: DepositModalProp
 
     if (amount < minDeposit) {
       toast({
-        title: `Minimum deposit is ₦${minDeposit}`,
-        description: `You need to deposit at least ₦${minDeposit}.`,
+        title: `Minimum deposit is ${userCurrency.symbol}${minDeposit}`,
+        description: `You need to deposit at least ${userCurrency.symbol}${minDeposit}.`,
         variant: "destructive",
       });
       return;
@@ -82,7 +84,8 @@ export function DepositModal({ open, onOpenChange, onSuccess }: DepositModalProp
         },
         credentials: 'include',
         body: JSON.stringify({
-          amount: amount, // Amount in main currency (NGN), backend will convert to kobo
+          amount: amount,
+          currency: userCurrency.code, // User's preferred currency
         }),
       });
 
@@ -141,6 +144,7 @@ export function DepositModal({ open, onOpenChange, onSuccess }: DepositModalProp
           processingPayment={processingPayment}
           onDeposit={handleDeposit}
           minDeposit={minDeposit}
+          currencySymbol={userCurrency.symbol}
         />
       </DialogContent>
     </Dialog>

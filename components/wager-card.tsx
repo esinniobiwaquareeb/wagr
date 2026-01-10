@@ -8,6 +8,7 @@ import { wagersApi } from "@/lib/api-client";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
+import { useUserCurrency } from "@/hooks/use-user-currency";
 import { isDeadlineElapsed, getTimeRemaining } from "@/lib/deadline-utils";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
@@ -77,7 +78,7 @@ const WagerCardComponent = ({
   status,
   entriesCount,
   deadline,
-  currency = DEFAULT_CURRENCY,
+  currency: wagerCurrency = DEFAULT_CURRENCY,
   isSystemGenerated = false,
   category,
   sideATotal = 0,
@@ -92,6 +93,7 @@ const WagerCardComponent = ({
   const { user } = useAuth();
   const { toast } = useToast();
   const { getSetting } = useSettings();
+  const { currency: userCurrency } = useUserCurrency();
   const defaultPlatformFee = getSetting('fees.wager_platform_fee_percentage', PLATFORM_FEE_PERCENTAGE) as number;
   const [joining, setJoining] = useState<"a" | "b" | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -328,7 +330,7 @@ const WagerCardComponent = ({
               ₦{vol}
             </span>
             <span className="opacity-60">
-              {formatCurrency(amount, currency as Currency)}/wager
+              {formatCurrency(amount, (wagerCurrency || DEFAULT_CURRENCY) as Currency, userCurrency.symbol)}/wager
             </span>
             {/* Balance Indicator */}
             {pool > 0 && (
@@ -387,15 +389,15 @@ const WagerCardComponent = ({
                       type="number"
                       value={entryAmount}
                       onChange={(e) => setEntryAmount(e.target.value)}
-                      placeholder={`Min: ${formatCurrency(minAmount ?? amount, currency as Currency)}${maxAmount ? `, Max: ${formatCurrency(maxAmount, currency as Currency)}` : ''}`}
+                      placeholder={`Min: ${formatCurrency(minAmount ?? amount, (wagerCurrency || DEFAULT_CURRENCY) as Currency, userCurrency.symbol)}${maxAmount ? `, Max: ${formatCurrency(maxAmount, (wagerCurrency || DEFAULT_CURRENCY) as Currency, userCurrency.symbol)}` : ''}`}
                       min={minAmount ?? amount}
                       max={maxAmount ?? undefined}
                       step="0.01"
                       className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Minimum: {formatCurrency(minAmount ?? amount, currency as Currency)}
-                      {maxAmount && ` • Maximum: ${formatCurrency(maxAmount, currency as Currency)}`}
+                      Minimum: {formatCurrency(minAmount ?? amount, (wagerCurrency || DEFAULT_CURRENCY) as Currency, userCurrency.symbol)}
+                      {maxAmount && ` • Maximum: ${formatCurrency(maxAmount, (wagerCurrency || DEFAULT_CURRENCY) as Currency, userCurrency.symbol)}`}
                     </p>
                     {/* Real-time potential returns display */}
                     {entryAmount && parseFloat(entryAmount) > 0 && (
@@ -417,7 +419,7 @@ const WagerCardComponent = ({
                               <div className="flex justify-between text-xs">
                                 <span className="text-muted-foreground">If you win:</span>
                                 <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                                  {formatCurrency(selectedSideReturns, currency as Currency)}
+                                  {formatCurrency(selectedSideReturns, (wagerCurrency || DEFAULT_CURRENCY) as Currency, userCurrency.symbol)}
                                 </span>
                               </div>
                               <div className="flex justify-between text-xs">
@@ -436,7 +438,7 @@ const WagerCardComponent = ({
               ) : (
                 <div className="space-y-2">
                   <p className="text-sm text-muted-foreground">
-                    This will deduct {formatCurrency(minAmount ?? amount, currency as Currency)} from your balance.
+                    This will deduct {formatCurrency(minAmount ?? amount, (wagerCurrency || DEFAULT_CURRENCY) as Currency, userCurrency.symbol)} from your balance.
                   </p>
                   {/* Show potential returns for fixed amount */}
                   {(() => {
@@ -457,7 +459,7 @@ const WagerCardComponent = ({
                           <div className="flex justify-between text-xs">
                             <span className="text-muted-foreground">If you win:</span>
                             <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                              {formatCurrency(selectedSideReturns, currency as Currency)}
+                              {formatCurrency(selectedSideReturns, (wagerCurrency || DEFAULT_CURRENCY) as Currency, userCurrency.symbol)}
                             </span>
                           </div>
                           <div className="flex justify-between text-xs">
