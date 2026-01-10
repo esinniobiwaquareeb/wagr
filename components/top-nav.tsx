@@ -10,6 +10,7 @@ import { AuthModal } from "@/components/auth-modal";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationsDropdown } from "@/components/notifications-dropdown";
+import { CategoryNavigation } from "@/components/category-navigation";
 import { useToast } from "@/hooks/use-toast";
 import { clear2FAVerification } from "@/lib/session-2fa";
 import { getCurrentUser, type AuthUser } from "@/lib/auth/client";
@@ -772,61 +773,11 @@ function TopNavContent() {
           </div>
 
           {/* Secondary Navigation - Category Links */}
-          <div className="flex items-center gap-1 h-12 border-t border-border/50 overflow-x-auto scrollbar-hide px-1">
-            <Link
-              href="/wagers"
-              onClick={(e) => {
-                e.preventDefault();
-                const params = new URLSearchParams(searchParams?.toString() || '');
-                params.delete('category');
-                params.delete('search'); // Clear search when clicking "All"
-                setSearchQuery(''); // Clear search input
-                router.push(`/wagers?${params.toString()}`);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-md whitespace-nowrap text-sm font-medium transition-all ${
-                pathname === "/wagers" && !searchParams?.get("category")
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-              }`}
-            >
-              <Home className="h-3.5 w-3.5 flex-shrink-0" />
-              <span>All</span>
-            </Link>
-            {categories.map((category) => {
-              const count = categoryCounts[category.slug] || 0;
-              return (
-                <Link
-                  key={category.id}
-                  href={`/wagers?category=${category.slug}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    const params = new URLSearchParams();
-                    params.set('category', category.slug);
-                    params.delete('search'); // Clear search when selecting a category
-                    setSearchQuery(''); // Clear search input
-                    router.push(`/wagers?${params.toString()}`);
-                  }}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-md whitespace-nowrap text-sm font-medium transition-all ${
-                    pathname === "/wagers" && searchParams?.get("category") === category.slug
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                  }`}
-                >
-                  {category.icon && <span className="text-base flex-shrink-0">{category.icon}</span>}
-                  <span>{category.label}</span>
-                  {count > 0 && (
-                    <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-xs font-semibold ${
-                      pathname === "/wagers" && searchParams?.get("category") === category.slug
-                        ? "bg-primary/20 text-primary"
-                        : "bg-muted text-muted-foreground"
-                    }`}>
-                      {count}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
+          {/* <CategoryNavigation
+            categories={categories}
+            categoryCounts={categoryCounts}
+            onCategoryChange={() => setSearchQuery('')}
+          /> */}
         </div>
       </nav>
 
