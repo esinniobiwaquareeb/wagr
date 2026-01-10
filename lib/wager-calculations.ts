@@ -56,30 +56,44 @@ export function calculatePotentialReturns(params: WagerCalculationParams): Poten
   // Calculate winnings pool (after fee)
   const winningsPool = totalPool - platformFee;
 
+  // Calculate NEW totals after user joins (for accurate potential returns)
+  const newTotalPool = totalPool + safeEntryAmount;
+  const newPlatformFee = newTotalPool * feePercentage;
+  const newWinningsPool = newTotalPool - newPlatformFee;
+
   // Calculate potential winnings for each side
-  // If user joins side A and wins: (entryAmount / (sideATotal + entryAmount)) * winningsPool
-  // If user joins side B and wins: (entryAmount / (sideBTotal + entryAmount)) * winningsPool
-  // Note: We add entryAmount to the side total because the user's wager will be included
-  const sideAPotential = sideATotal + safeEntryAmount > 0
-    ? (safeEntryAmount / (sideATotal + safeEntryAmount)) * (winningsPool + safeEntryAmount)
+  // Formula matches actual settlement: (entryAmount / newSideTotal) * newWinningsPool
+  // This ensures the calculation matches what users will actually receive
+  
+  const newSideATotal = sideATotal + safeEntryAmount; // If joining side A
+  const newSideBTotal = sideBTotal + safeEntryAmount; // If joining side B
+
+  // Calculate potential if user joins side A
+  const sideAPotential = newSideATotal > 0
+    ? (safeEntryAmount / newSideATotal) * newWinningsPool
     : safeEntryAmount; // If no one on side A yet, user gets their wager back
 
-  const sideBPotential = sideBTotal + safeEntryAmount > 0
-    ? (safeEntryAmount / (sideBTotal + safeEntryAmount)) * (winningsPool + safeEntryAmount)
+  // Calculate potential if user joins side B
+  const sideBPotential = newSideBTotal > 0
+    ? (safeEntryAmount / newSideBTotal) * newWinningsPool
     : safeEntryAmount; // If no one on side B yet, user gets their wager back
 
   // Calculate return multipliers (how much you get back per unit invested)
-  const sideAReturnMultiplier = sideAPotential / safeEntryAmount;
-  const sideBReturnMultiplier = sideBPotential / safeEntryAmount;
+  const sideAReturnMultiplier = safeEntryAmount > 0 ? sideAPotential / safeEntryAmount : 1;
+  const sideBReturnMultiplier = safeEntryAmount > 0 ? sideBPotential / safeEntryAmount : 1;
 
   // Calculate return percentage (profit percentage)
-  const sideAReturnPercentage = ((sideAPotential - safeEntryAmount) / safeEntryAmount) * 100;
-  const sideBReturnPercentage = ((sideBPotential - safeEntryAmount) / safeEntryAmount) * 100;
+  const sideAReturnPercentage = safeEntryAmount > 0 
+    ? ((sideAPotential - safeEntryAmount) / safeEntryAmount) * 100 
+    : 0;
+  const sideBReturnPercentage = safeEntryAmount > 0
+    ? ((sideBPotential - safeEntryAmount) / safeEntryAmount) * 100
+    : 0;
 
   return {
-    totalPool: totalPool + safeEntryAmount, // Include user's wager in total
-    platformFee: (totalPool + safeEntryAmount) * feePercentage, // Recalculate with user's wager
-    winningsPool: (totalPool + safeEntryAmount) * (1 - feePercentage), // Recalculate with user's wager
+    totalPool: newTotalPool, // Total pool after user joins
+    platformFee: newPlatformFee, // Platform fee on new total
+    winningsPool: newWinningsPool, // Winnings pool after fee
     sideAPotential,
     sideBPotential,
     sideAReturnMultiplier,

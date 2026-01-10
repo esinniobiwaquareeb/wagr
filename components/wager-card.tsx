@@ -110,8 +110,9 @@ const WagerCardComponent = ({
   }, [getSetting]);
 
   // Memoized calculations - use marketLiquidity if available, otherwise calculate from sideATotal/sideBTotal
-  const { pool, pctA, pctB, vol, oddsA, oddsB } = useMemo(() => {
+  const { pool, pctA, pctB, vol, oddsA, oddsB, balanceStatus } = useMemo(() => {
     if (marketLiquidity) {
+      const imbalanceRatio = Math.max(marketLiquidity.sideAPercent, marketLiquidity.sideBPercent) / 100;
       return {
         pool: marketLiquidity.totalPool,
         pctA: marketLiquidity.sideAPercent,
@@ -119,9 +120,11 @@ const WagerCardComponent = ({
         vol: formatVol(marketLiquidity.totalPool),
         oddsA: marketLiquidity.sideAOdds,
         oddsB: marketLiquidity.sideBOdds,
+        balanceStatus: imbalanceRatio > 0.9 ? 'severe' : imbalanceRatio > 0.7 ? 'moderate' : 'balanced',
       };
     }
     const total = sideATotal + sideBTotal;
+    const imbalanceRatio = total > 0 ? Math.max(sideATotal, sideBTotal) / total : 0.5;
     return {
       pool: total,
       pctA: total > 0 ? Math.round((sideATotal / total) * 100) : 50,
@@ -129,6 +132,7 @@ const WagerCardComponent = ({
       vol: formatVol(total),
       oddsA: total > 0 && sideATotal > 0 ? parseFloat((total / sideATotal).toFixed(2)) : 1.0,
       oddsB: total > 0 && sideBTotal > 0 ? parseFloat((total / sideBTotal).toFixed(2)) : 1.0,
+      balanceStatus: imbalanceRatio > 0.9 ? 'severe' : imbalanceRatio > 0.7 ? 'moderate' : 'balanced',
     };
   }, [sideATotal, sideBTotal, marketLiquidity]);
 
@@ -315,6 +319,28 @@ const WagerCardComponent = ({
             <span className="opacity-60">
               {formatCurrency(amount, currency as Currency)}/wager
             </span>
+            {/* Balance Indicator */}
+            {pool > 0 && (
+              <span 
+                className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium ${
+                  balanceStatus === 'severe' 
+                    ? 'bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30'
+                    : balanceStatus === 'moderate'
+                    ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                    : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                }`}
+                title={
+                  balanceStatus === 'severe' 
+                    ? 'Severely imbalanced market'
+                    : balanceStatus === 'moderate'
+                    ? 'Moderately imbalanced market'
+                    : 'Balanced market'
+                }
+              >
+                {balanceStatus === 'severe' ? '⚠️' : balanceStatus === 'moderate' ? '⚖️' : '✓'}
+                {balanceStatus === 'balanced' ? 'Balanced' : Math.max(pctA, pctB) + '%'}
+              </span>
+            )}
           </div>
           {entriesCount > 0 && (
             <span className="flex items-center gap-1">

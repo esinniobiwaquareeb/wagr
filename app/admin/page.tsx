@@ -14,7 +14,9 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Loader2,
-  Sparkles
+  Sparkles,
+  Scale,
+  AlertTriangle
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -72,6 +74,21 @@ export default function AdminPage() {
   const [resolving, setResolving] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [balanceStats, setBalanceStats] = useState<{
+    totalWagers: number;
+    balancedWagers: number;
+    moderateImbalance: number;
+    severeImbalance: number;
+    imbalancedWagers: Array<{
+      wagerId: string;
+      title: string;
+      sideATotal: number;
+      sideBTotal: number;
+      imbalanceRatio: number;
+      dominantSide: 'a' | 'b';
+    }>;
+    averageImbalance: number;
+  } | null>(null);
 
   const fetchStats = useCallback(async () => {
     if (!admin?.id) return;
@@ -117,6 +134,18 @@ export default function AdminPage() {
       });
     }
   }, [admin?.id, toast]);
+
+  const fetchBalanceStats = useCallback(async () => {
+    if (!admin?.id) return;
+
+    try {
+      const response = await apiGet<any>('/admin/wager-balance-stats');
+      setBalanceStats(response);
+    } catch (error) {
+      logger.error("Error fetching balance stats", error);
+      // Don't show toast for balance stats - it's not critical
+    }
+  }, [admin?.id]);
 
   const handleResolveWager = async (wagerId: string, winningSide: "a" | "b") => {
     if (!admin?.id) return;
@@ -199,6 +228,7 @@ export default function AdminPage() {
         fetchStats(),
         fetchRecentWagers(),
         fetchRecentTransactions(),
+        fetchBalanceStats(),
       ]).catch((error) => {
         logger.error("Error fetching admin data", error);
       }).finally(() => {
@@ -357,6 +387,124 @@ export default function AdminPage() {
         ) : null}
 
         <div className="space-y-6">
+          {/* Wager Balance Monitoring */}
+          {balanceStats && balanceStats.totalWagers > 0 && (
+            <Card className="border border-border/80">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                      <Scale className="h-5 w-5 text-primary" />
+                      Wager Balance Monitoring
+                    </CardTitle>
+                    <CardDescription className="text-xs mt-1">
+                      Track market balance across all open wagers
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                  <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                    <div className="text-xs text-muted-foreground mb-1">Balanced</div>
+                    <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                      {balanceStats.balancedWagers}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground mt-1">
+                      {balanceStats.totalWagers > 0 
+                        ? Math.round((balanceStats.balancedWagers / balanceStats.totalWagers) * 100) 
+                        : 0}% of wagers
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                    <div className="text-xs text-muted-foreground mb-1">Moderate Imbalance</div>
+                    <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                      {balanceStats.moderateImbalance}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground mt-1">
+                      {balanceStats.totalWagers > 0 
+                        ? Math.round((balanceStats.moderateImbalance / balanceStats.totalWagers) * 100) 
+                        : 0}% of wagers
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30">
+                    <div className="text-xs text-muted-foreground mb-1">Severe Imbalance</div>
+                    <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                      {balanceStats.severeImbalance}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground mt-1">
+                      {balanceStats.totalWagers > 0 
+                        ? Math.round((balanceStats.severeImbalance / balanceStats.totalWagers) * 100) 
+                        : 0}% of wagers
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                    <div className="text-xs text-muted-foreground mb-1">Avg. Imbalance</div>
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                      {Math.round(balanceStats.averageImbalance * 100)}%
+                    </div>
+                    <div className="text-[10px] text-muted-foreground mt-1">
+                      Across all wagers
+                    </div>
+                  </div>
+                </div>
+
+                {/* Most Imbalanced Wagers */}
+                {balanceStats.imbalancedWagers.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-amber-500" />
+                      Most Imbalanced Wagers
+                    </h4>
+                    <div className="space-y-2">
+                      {balanceStats.imbalancedWagers.slice(0, 5).map((wager) => {
+                        const imbalancePercent = Math.round(wager.imbalanceRatio * 100);
+                        const total = wager.sideATotal + wager.sideBTotal;
+                        return (
+                          <div
+                            key={wager.wagerId}
+                            className="p-2 rounded-lg bg-muted/30 border border-border/50 hover:bg-muted/50 transition"
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <Link
+                                href={`/admin/wagers/${wager.wagerId}`}
+                                className="text-sm font-medium hover:text-primary transition-colors line-clamp-1 flex-1"
+                              >
+                                {wager.title}
+                              </Link>
+                              <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                                wager.imbalanceRatio > 0.9
+                                  ? 'bg-red-500/20 text-red-600 dark:text-red-400'
+                                  : 'bg-amber-500/20 text-amber-600 dark:text-amber-400'
+                              }`}>
+                                {imbalancePercent}% imbalanced
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              <span>Side A: {formatCurrency(wager.sideATotal, DEFAULT_CURRENCY as Currency)}</span>
+                              <span>Side B: {formatCurrency(wager.sideBTotal, DEFAULT_CURRENCY as Currency)}</span>
+                              <span className="ml-auto">
+                                Total: {formatCurrency(total, DEFAULT_CURRENCY as Currency)}
+                              </span>
+                            </div>
+                            <div className="mt-1.5 relative h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div
+                                className={`h-full ${
+                                  wager.dominantSide === 'a' ? 'bg-emerald-500' : 'bg-blue-500'
+                                }`}
+                                style={{ width: `${((wager.dominantSide === 'a' ? wager.sideATotal : wager.sideBTotal) / total) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Recent Wagers */}
           <Card className="border border-border/80">
             <CardHeader className="pb-3">

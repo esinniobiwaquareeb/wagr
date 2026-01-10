@@ -7,7 +7,7 @@ import { AuthModal } from "@/components/auth-modal";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { getVariant, AB_TESTS, trackABTestEvent } from "@/lib/ab-test";
-import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Coins, Trash2, Edit2, Share2, UserPlus, MessageSquare, Activity, Loader2, Flame, Check, X, ArrowLeft } from "lucide-react";
+import { Sparkles, User, Users, Clock, Trophy, TrendingUp, Coins, Trash2, Edit2, Share2, UserPlus, MessageSquare, Activity, Loader2, Flame, Check, X, ArrowLeft, AlertCircle } from "lucide-react";
 import { SocialShareButtons } from "@/components/social-share-buttons";
 import { WagerInviteDialog } from "@/components/wager-invite-dialog";
 import { calculatePotentialReturns, formatReturnMultiplier, formatReturnPercentage } from "@/lib/wager-calculations";
@@ -1599,6 +1599,46 @@ export default function WagerDetail() {
             <div className="px-3 sm:px-5 md:px-6 lg:px-8 py-3 sm:py-4 border-b border-border/30 bg-gradient-to-b from-muted/20 to-transparent">
               <div className="mb-3">
                 <h3 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Market Depth</h3>
+                
+                {/* Imbalance Warning */}
+                {(() => {
+                  const imbalanceRatio = Math.max(sideAPercent, sideBPercent) / 100;
+                  const isImbalanced = imbalanceRatio > 0.7;
+                  const isSeverelyImbalanced = imbalanceRatio > 0.9;
+                  const dominantSide = sideAPercent > sideBPercent ? "A" : "B";
+                  
+                  if (isSeverelyImbalanced) {
+                    return (
+                      <div className="mb-3 p-2 rounded-lg bg-red-500/10 border border-red-500/30">
+                        <div className="flex items-center gap-2 text-xs">
+                          <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0" />
+                          <div>
+                            <p className="font-semibold text-red-600 dark:text-red-400">Severe Market Imbalance</p>
+                            <p className="text-muted-foreground mt-0.5">
+                              Side {dominantSide} has {Math.round(imbalanceRatio * 100)}% of the pool. Consider joining the opposite side for better odds.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  } else if (isImbalanced) {
+                    return (
+                      <div className="mb-3 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                        <div className="flex items-center gap-2 text-xs">
+                          <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                          <div>
+                            <p className="font-semibold text-amber-600 dark:text-amber-400">Market Imbalance</p>
+                            <p className="text-muted-foreground mt-0.5">
+                              Side {dominantSide} has {Math.round(imbalanceRatio * 100)}% of the pool. Market favors the opposite side.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+                
                 <div className="space-y-2">
                   {/* Side A Market Info */}
                   <div className="space-y-1">
