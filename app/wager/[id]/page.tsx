@@ -649,18 +649,8 @@ export default function WagerDetail() {
         return;
       }
 
-      // TODO: Backend endpoint needed - POST /wagers/:id/unjoin
-      // For now, call API route that will need backend implementation
-      const response = await fetch(`/api/wagers/${wager.id}/unjoin`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error?.message || data.message || 'Failed to unjoin wager');
-      }
+      // Call the backend API to unjoin from the wager
+      await wagersApi.unjoin(wager.id);
 
       toast({
         title: "Unjoined successfully",
@@ -758,19 +748,8 @@ export default function WagerDetail() {
         return;
       }
 
-      // TODO: Backend endpoint needed - PATCH /wagers/:id/entry or POST /wagers/:id/change-side
-      // For now, call API route that will need backend implementation
-      const response = await fetch(`/api/wagers/${wager.id}/change-side`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ side: normalizedSide }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error?.message || data.message || 'Failed to change side');
-      }
+      // Call the backend API to change side
+      await wagersApi.changeSide(wager.id, normalizedSide);
 
       toast({
         title: "Side changed",

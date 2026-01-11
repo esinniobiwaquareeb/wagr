@@ -226,6 +226,19 @@ export const wagersApi = {
   
   delete: (id: string) => apiDelete<{ message: string }>(`/wagers/${id}`),
   
+  unjoin: (id: string) => apiPost<{ wager: any; message: string }>(`/wagers/${id}/unjoin`, {}),
+  
+  changeSide: (id: string, newSide: 'a' | 'b') => 
+    apiPost<{ wager: any; message: string }>(`/wagers/${id}/change-side`, { side: newSide }),
+  
+  update: (id: string, data: {
+    title?: string;
+    description?: string;
+    deadline?: string;
+    minAmount?: number;
+    maxAmount?: number | null;
+  }) => apiPatch<{ wager: any }>(`/wagers/${id}`, data),
+  
   share: (id: string) => apiPost<{ message: string }>(`/wagers/${id}/share`, {}),
   
   getTrending: (limit?: number, forceRefresh = false) => {
