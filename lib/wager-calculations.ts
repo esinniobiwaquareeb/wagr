@@ -4,6 +4,7 @@ export interface WagerCalculationParams {
   entryAmount: number; // The amount the user is wagering
   sideATotal: number; // Total amount wagered on side A (sum of all entries)
   sideBTotal: number; // Total amount wagered on side B (sum of all entries)
+  sideCTotal?: number; // Optional total amount wagered on side C
   feePercentage: number;
 }
 
@@ -13,10 +14,13 @@ export interface PotentialReturn {
   winningsPool: number;
   sideAPotential: number;
   sideBPotential: number;
+  sideCPotential?: number;
   sideAReturnMultiplier: number;
   sideBReturnMultiplier: number;
+  sideCReturnMultiplier?: number;
   sideAReturnPercentage: number;
   sideBReturnPercentage: number;
+  sideCReturnPercentage?: number;
 }
 
 /**
@@ -24,13 +28,13 @@ export interface PotentialReturn {
  * Uses actual wager amounts, not just counts, so multiple people wagering different amounts are handled correctly
  */
 export function calculatePotentialReturns(params: WagerCalculationParams): PotentialReturn {
-  const { entryAmount, sideATotal, sideBTotal, feePercentage } = params;
+  const { entryAmount, sideATotal, sideBTotal, sideCTotal = 0, feePercentage } = params;
 
   const safeEntryAmount = Number(entryAmount);
 
   // Guard against invalid or zero entry amounts to avoid NaN/Infinity
   if (!Number.isFinite(safeEntryAmount) || safeEntryAmount <= 0) {
-    const basePool = sideATotal + sideBTotal;
+    const basePool = sideATotal + sideBTotal + sideCTotal;
     const basePlatformFee = basePool * feePercentage;
     const baseWinningsPool = basePool - basePlatformFee;
 
@@ -47,8 +51,8 @@ export function calculatePotentialReturns(params: WagerCalculationParams): Poten
     };
   }
 
-  // Calculate total pool (sum of all wagers on both sides)
-  const totalPool = sideATotal + sideBTotal;
+  // Calculate total pool (sum of all wagers on available sides)
+  const totalPool = sideATotal + sideBTotal + sideCTotal;
 
   // Calculate platform fee
   const platformFee = totalPool * feePercentage;
@@ -67,6 +71,7 @@ export function calculatePotentialReturns(params: WagerCalculationParams): Poten
   
   const newSideATotal = sideATotal + safeEntryAmount; // If joining side A
   const newSideBTotal = sideBTotal + safeEntryAmount; // If joining side B
+  const newSideCTotal = sideCTotal + safeEntryAmount; // If joining side C
 
   // Calculate potential if user joins side A
   const sideAPotential = newSideATotal > 0
@@ -78,9 +83,15 @@ export function calculatePotentialReturns(params: WagerCalculationParams): Poten
     ? (safeEntryAmount / newSideBTotal) * newWinningsPool
     : safeEntryAmount; // If no one on side B yet, user gets their wager back
 
+  // Calculate potential if user joins side C
+  const sideCPotential = newSideCTotal > 0
+    ? (safeEntryAmount / newSideCTotal) * newWinningsPool
+    : safeEntryAmount;
+
   // Calculate return multipliers (how much you get back per unit invested)
   const sideAReturnMultiplier = safeEntryAmount > 0 ? sideAPotential / safeEntryAmount : 1;
   const sideBReturnMultiplier = safeEntryAmount > 0 ? sideBPotential / safeEntryAmount : 1;
+  const sideCReturnMultiplier = safeEntryAmount > 0 ? sideCPotential / safeEntryAmount : 1;
 
   // Calculate return percentage (profit percentage)
   const sideAReturnPercentage = safeEntryAmount > 0 
@@ -89,6 +100,9 @@ export function calculatePotentialReturns(params: WagerCalculationParams): Poten
   const sideBReturnPercentage = safeEntryAmount > 0
     ? ((sideBPotential - safeEntryAmount) / safeEntryAmount) * 100
     : 0;
+  const sideCReturnPercentage = safeEntryAmount > 0
+    ? ((sideCPotential - safeEntryAmount) / safeEntryAmount) * 100
+    : 0;
 
   return {
     totalPool: newTotalPool, // Total pool after user joins
@@ -96,10 +110,13 @@ export function calculatePotentialReturns(params: WagerCalculationParams): Poten
     winningsPool: newWinningsPool, // Winnings pool after fee
     sideAPotential,
     sideBPotential,
+    sideCPotential,
     sideAReturnMultiplier,
     sideBReturnMultiplier,
+    sideCReturnMultiplier,
     sideAReturnPercentage,
     sideBReturnPercentage,
+    sideCReturnPercentage,
   };
 }
 

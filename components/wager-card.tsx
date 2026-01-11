@@ -19,6 +19,7 @@ interface WagerCardProps {
   title: string;
   sideA: string;
   sideB: string;
+  sideC?: string | null;
   amount: number;
   status: string;
   entriesCount: number;
@@ -28,6 +29,7 @@ interface WagerCardProps {
   category?: string;
   sideATotal?: number;
   sideBTotal?: number;
+  sideCTotal?: number;
   winningSide?: string | null;
   shortId?: string | null;
   userEntrySide?: string;
@@ -36,13 +38,17 @@ interface WagerCardProps {
   marketLiquidity?: {
     sideATotal: number;
     sideBTotal: number;
+    sideCTotal?: number;
     totalPool: number;
     sideAOdds: number;
     sideBOdds: number;
+    sideCOdds?: number;
     sideAPercent: number;
     sideBPercent: number;
+    sideCPercent?: number;
     sideAParticipants: number;
     sideBParticipants: number;
+    sideCParticipants?: number;
   };
 }
 
@@ -74,6 +80,7 @@ const WagerCardComponent = ({
   title,
   sideA,
   sideB,
+  sideC,
   amount,
   status,
   entriesCount,
@@ -83,6 +90,7 @@ const WagerCardComponent = ({
   category,
   sideATotal = 0,
   sideBTotal = 0,
+  sideCTotal = 0,
   winningSide,
   shortId,
   userEntrySide,
@@ -95,9 +103,9 @@ const WagerCardComponent = ({
   const { getSetting } = useSettings();
   const { currency: userCurrency } = useUserCurrency();
   const defaultPlatformFee = getSetting('fees.wager_platform_fee_percentage', PLATFORM_FEE_PERCENTAGE) as number;
-  const [joining, setJoining] = useState<"a" | "b" | null>(null);
+  const [joining, setJoining] = useState<"a" | "b" | "c" | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [selectedSide, setSelectedSide] = useState<"a" | "b" | null>(null);
+  const [selectedSide, setSelectedSide] = useState<"a" | "b" | "c" | null>(null);
   const [entryAmount, setEntryAmount] = useState<string>("");
   const [variableAmountsEnabled, setVariableAmountsEnabled] = useState<boolean>(false);
 
@@ -112,40 +120,44 @@ const WagerCardComponent = ({
   }, [getSetting]);
 
   // Memoized calculations - use marketLiquidity if available, otherwise calculate from sideATotal/sideBTotal
-  const { pool, pctA, pctB, vol, oddsA, oddsB, balanceStatus } = useMemo(() => {
+  const { pool, pctA, pctB, pctC, vol, oddsA, oddsB, oddsC, balanceStatus } = useMemo(() => {
     if (marketLiquidity) {
-      const imbalanceRatio = Math.max(marketLiquidity.sideAPercent, marketLiquidity.sideBPercent) / 100;
+      const imbalanceRatio = Math.max(marketLiquidity.sideAPercent, marketLiquidity.sideBPercent, marketLiquidity.sideCPercent || 0) / 100;
       return {
         pool: marketLiquidity.totalPool,
         pctA: marketLiquidity.sideAPercent,
         pctB: marketLiquidity.sideBPercent,
+        pctC: marketLiquidity.sideCPercent ?? 0,
         vol: formatVol(marketLiquidity.totalPool),
         oddsA: marketLiquidity.sideAOdds,
         oddsB: marketLiquidity.sideBOdds,
+        oddsC: marketLiquidity.sideCOdds ?? 1.0,
         balanceStatus: imbalanceRatio > 0.9 ? 'severe' : imbalanceRatio > 0.7 ? 'moderate' : 'balanced',
       };
     }
-    const total = sideATotal + sideBTotal;
-    const imbalanceRatio = total > 0 ? Math.max(sideATotal, sideBTotal) / total : 0.5;
+    const total = sideATotal + sideBTotal + (sideCTotal || 0);
+    const imbalanceRatio = total > 0 ? Math.max(sideATotal, sideBTotal, sideCTotal || 0) / total : 0.5;
     return {
       pool: total,
-      pctA: total > 0 ? Math.round((sideATotal / total) * 100) : 50,
-      pctB: total > 0 ? Math.round((sideBTotal / total) * 100) : 50,
+      pctA: total > 0 ? Math.round((sideATotal / total) * 100) : 33,
+      pctB: total > 0 ? Math.round((sideBTotal / total) * 100) : 33,
+      pctC: total > 0 ? Math.round(((sideCTotal || 0) / total) * 100) : 34,
       vol: formatVol(total),
       oddsA: total > 0 && sideATotal > 0 ? parseFloat((total / sideATotal).toFixed(2)) : 1.0,
       oddsB: total > 0 && sideBTotal > 0 ? parseFloat((total / sideBTotal).toFixed(2)) : 1.0,
+      oddsC: total > 0 && (sideCTotal || 0) > 0 ? parseFloat((total / (sideCTotal || 0)).toFixed(2)) : 1.0,
       balanceStatus: imbalanceRatio > 0.9 ? 'severe' : imbalanceRatio > 0.7 ? 'moderate' : 'balanced',
     };
-  }, [sideATotal, sideBTotal, marketLiquidity]);
+  }, [sideATotal, sideBTotal, sideCTotal, marketLiquidity]);
 
   const timeInfo = useMemo(() => deadline ? getTimeDisplay(deadline) : null, [deadline]);
   const isOpen = status === "OPEN";
   const isSettled = status === "SETTLED" || status === "RESOLVED";
-  const userPicked = userEntrySide === "a" || userEntrySide === "b";
+  const userPicked = userEntrySide === "a" || userEntrySide === "b" || userEntrySide === "c";
   const canJoin = isOpen && user && !userPicked && !isDeadlineElapsed(deadline);
 
   // Handle click to show confirmation dialog
-  const handleJoinClick = useCallback((e: React.MouseEvent, side: "a" | "b") => {
+  const handleJoinClick = useCallback((e: React.MouseEvent, side: "a" | "b" | "c") => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -176,7 +188,7 @@ const WagerCardComponent = ({
         : undefined;
       
       await wagersApi.join(id, selectedSide, joinAmount);
-      toast({ title: "Joined!", description: `You joined ${selectedSide === "a" ? sideA : sideB}` });
+      toast({ title: "Joined!", description: `You joined ${selectedSide === "a" ? sideA : selectedSide === "b" ? sideB : sideC}` });
       
       // Dispatch events to update UI
       // Dispatch balance-updated event to refresh balance in top nav
@@ -320,6 +332,48 @@ const WagerCardComponent = ({
               }`}>{pctB}%</span>
             </div>
           )}
+
+          {/* Option C (optional) */}
+          {sideC ? (
+            canJoin ? (
+              <button
+                onClick={(e) => handleJoinClick(e, "c")}
+                disabled={!!joining}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gradient-to-r from-violet-500/8 to-violet-500/4 dark:from-violet-500/12 dark:to-violet-500/8 border border-violet-500/25 dark:border-violet-500/35 hover:border-violet-500/50 dark:hover:border-violet-500/60 hover:from-violet-500/12 hover:to-violet-500/8 dark:hover:from-violet-500/16 dark:hover:to-violet-500/12 transition-all disabled:opacity-50"
+              >
+                <span className="text-sm font-medium text-violet-700 dark:text-violet-400 truncate pr-2">
+                  {joining === "c" ? <Loader2 className="h-4 w-4 animate-spin inline" /> : sideC}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-base font-bold text-violet-600 dark:text-violet-400 tabular-nums">{pctC}%</span>
+                  {pool > 0 && (
+                    <span className="text-[10px] text-muted-foreground">({oddsC}x)</span>
+                  )}
+                </div>
+              </button>
+            ) : (
+              <div className={`flex items-center justify-between px-3 py-2 rounded-lg transition-all ${
+                isSettled && winningSide === "c"
+                  ? "bg-emerald-500/15 dark:bg-emerald-500/20 border-2 border-emerald-500/60 dark:border-emerald-500/70"
+                  : userEntrySide === "c"
+                  ? "bg-primary/10 dark:bg-primary/15 border-2 border-primary/50 dark:border-primary/60"
+                  : "bg-muted/40 dark:bg-muted/60 border border-border/50 dark:border-border/70"
+              }`}>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className={`text-sm font-medium truncate ${
+                    isSettled && winningSide === "c" ? "text-emerald-700 dark:text-emerald-400" :
+                    userEntrySide === "c" ? "text-primary" : "text-muted-foreground"
+                  }`}>{sideC}</span>
+                  {isSettled && winningSide === "c" && <Trophy className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />}
+                  {userEntrySide === "c" && isOpen && <span className="text-[9px] bg-primary text-white px-1 rounded">YOU</span>}
+                </div>
+                <span className={`text-base font-bold tabular-nums ${
+                  isSettled && winningSide === "c" ? "text-emerald-600 dark:text-emerald-400" :
+                  userEntrySide === "c" ? "text-primary" : "text-muted-foreground"
+                }`}>{pctC}%</span>
+              </div>
+            )
+          ) : null}
         </div>
 
         {/* Footer Stats */}
@@ -378,8 +432,8 @@ const WagerCardComponent = ({
         description={
           selectedSide ? (
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Join "{title}" on <strong>{selectedSide === "a" ? sideA : sideB}</strong>
+                <p className="text-sm text-muted-foreground">
+                Join "{title}" on <strong>{selectedSide === "a" ? sideA : selectedSide === "b" ? sideB : sideC}</strong>
               </p>
               {variableAmountsEnabled ? (
                 <div className="space-y-2">
@@ -407,11 +461,12 @@ const WagerCardComponent = ({
                           entryAmount: amount,
                           sideATotal: marketLiquidity?.sideATotal ?? sideATotal,
                           sideBTotal: marketLiquidity?.sideBTotal ?? sideBTotal,
+                          sideCTotal: marketLiquidity?.sideCTotal ?? sideCTotal ?? 0,
                           feePercentage: defaultPlatformFee,
                         });
-                        const selectedSideReturns = selectedSide === "a" ? joinReturns.sideAPotential : joinReturns.sideBPotential;
-                        const selectedSideMultiplier = selectedSide === "a" ? joinReturns.sideAReturnMultiplier : joinReturns.sideBReturnMultiplier;
-                        const selectedSidePercentage = selectedSide === "a" ? joinReturns.sideAReturnPercentage : joinReturns.sideBReturnPercentage;
+                        const selectedSideReturns = selectedSide === "a" ? joinReturns.sideAPotential : selectedSide === "b" ? joinReturns.sideBPotential : joinReturns.sideCPotential;
+                        const selectedSideMultiplier = selectedSide === "a" ? joinReturns.sideAReturnMultiplier : selectedSide === "b" ? joinReturns.sideBReturnMultiplier : joinReturns.sideCReturnMultiplier;
+                        const selectedSidePercentage = selectedSide === "a" ? joinReturns.sideAReturnPercentage : selectedSide === "b" ? joinReturns.sideBReturnPercentage : joinReturns.sideCReturnPercentage;
                         return (
                           <div className="mt-2 p-2 rounded-lg bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/30">
                             <p className="text-xs font-medium text-primary mb-1">Potential Returns</p>
@@ -447,11 +502,12 @@ const WagerCardComponent = ({
                       entryAmount: fixedAmount,
                       sideATotal: marketLiquidity?.sideATotal ?? sideATotal,
                       sideBTotal: marketLiquidity?.sideBTotal ?? sideBTotal,
+                      sideCTotal: marketLiquidity?.sideCTotal ?? sideCTotal ?? 0,
                       feePercentage: defaultPlatformFee,
                     });
-                    const selectedSideReturns = selectedSide === "a" ? fixedReturns.sideAPotential : fixedReturns.sideBPotential;
-                    const selectedSideMultiplier = selectedSide === "a" ? fixedReturns.sideAReturnMultiplier : fixedReturns.sideBReturnMultiplier;
-                    const selectedSidePercentage = selectedSide === "a" ? fixedReturns.sideAReturnPercentage : fixedReturns.sideBReturnPercentage;
+                    const selectedSideReturns = selectedSide === "a" ? fixedReturns.sideAPotential : selectedSide === "b" ? fixedReturns.sideBPotential : fixedReturns.sideCPotential;
+                    const selectedSideMultiplier = selectedSide === "a" ? fixedReturns.sideAReturnMultiplier : selectedSide === "b" ? fixedReturns.sideBReturnMultiplier : fixedReturns.sideCReturnMultiplier;
+                    const selectedSidePercentage = selectedSide === "a" ? fixedReturns.sideAReturnPercentage : selectedSide === "b" ? fixedReturns.sideBReturnPercentage : fixedReturns.sideCReturnPercentage;
                     return (
                       <div className="mt-2 p-2 rounded-lg bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/30">
                         <p className="text-xs font-medium text-primary mb-1">Potential Returns</p>
@@ -496,6 +552,7 @@ export const WagerCard = memo(WagerCardComponent, (prev, next) => {
     prev.entriesCount === next.entriesCount &&
     prev.sideATotal === next.sideATotal &&
     prev.sideBTotal === next.sideBTotal &&
+    prev.sideCTotal === next.sideCTotal &&
     prev.winningSide === next.winningSide &&
     prev.userEntrySide === next.userEntrySide
   );

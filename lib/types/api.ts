@@ -86,6 +86,7 @@ export interface Wager {
   max_amount: number | null; // Maximum amount users can join with (null = unlimited)
   side_a: string;
   side_b: string;
+  side_c?: string | null;
   deadline: string | null;
   status: 'OPEN' | 'RESOLVED' | 'SETTLED' | 'REFUNDED';
   winning_side: string | null;
@@ -109,22 +110,28 @@ export interface Wager {
   participants_count?: number;
   side_a_count?: number;
   side_b_count?: number;
+  side_c_count?: number;
   total_pool?: number;
   entryCounts?: {
     sideA: number;
     sideB: number;
+    sideC?: number;
     total: number;
   };
   marketLiquidity?: {
     sideATotal: number;
     sideBTotal: number;
+    sideCTotal?: number;
     totalPool: number;
     sideAOdds: number;
     sideBOdds: number;
+    sideCOdds?: number;
     sideAPercent: number;
     sideBPercent: number;
+    sideCPercent?: number;
     sideAParticipants: number;
     sideBParticipants: number;
+    sideCParticipants?: number;
   };
 }
 
@@ -135,7 +142,7 @@ export interface WagerEntry {
   id: string;
   wager_id: string;
   user_id: string;
-  side: 'A' | 'B';
+  side: 'a' | 'b' | 'c';
   amount: number;
   created_at: string;
   user?: {
